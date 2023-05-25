@@ -64,6 +64,8 @@ type RTK struct {
 	tty *os.File
 
 	caps struct {
+		// RGB support was detected in some way
+		RGB bool
 		// Synchronized Update Mode
 		SUM bool
 	}
@@ -145,9 +147,7 @@ func New() (*RTK, error) {
 	rtk.sendQueries()
 	switch os.Getenv("COLORTERM") {
 	case "truecolor", "24bit":
-		rtk.info.Strings["setfrgb"] = "\x1b[38;2;%p1%d;%p2%d;%p3%dm"
-		rtk.info.Strings["setbrgb"] = "\x1b[48;2;%p1%d;%p2%d;%p3%dm"
-		rtk.info.Strings["setfbrgb"] = "\x1b[38;2;%p1%d;%p2%d;%p3%d;48;2;%p4%d;%p5%d;%p6%dm"
+		rtk.caps.RGB = true
 	}
 	return rtk, nil
 }
