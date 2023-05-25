@@ -213,6 +213,9 @@ func (rtk *RTK) render() string {
 				reposition = true
 				continue
 			}
+			if rtk.outBuf.Len() == 0 && rtk.caps.SUM {
+				rtk.outBuf.WriteString(sumSet)
+			}
 			rtk.model.buf[row][col] = next
 			if reposition {
 				rtk.outBuf.WriteString(tparm(cup, row, col))
@@ -339,6 +342,9 @@ func (rtk *RTK) render() string {
 	}
 	if rtk.outBuf.Len() != 0 {
 		rtk.outBuf.WriteString(rtk.info.Strings["sgr0"])
+		if rtk.caps.SUM {
+			rtk.outBuf.WriteString(sumReset)
+		}
 	}
 	return rtk.outBuf.String()
 }
@@ -403,17 +409,9 @@ func (rtk *RTK) handleSequence(seq ansi.Sequence) {
 }
 
 func (rtk *RTK) sendQueries() {
-	// XTVERSION
-	xtversion := "\x1b[>0q"
 	rtk.tty.WriteString(xtversion)
-
-	// Kitty keyboard protocol
-	kittyKBD := "\x1b[?u"
-	rtk.tty.WriteString(kittyKBD)
-
-	// Synchronized Update Mode
-	sumquery := "\x1b[?2026$p"
-	rtk.tty.WriteString(sumquery)
+	rtk.tty.WriteString(kkbpQuery)
+	rtk.tty.WriteString(sumQuery)
 }
 
 // Terminal controls
@@ -453,7 +451,6 @@ func (rtk *RTK) ShowCursor(col int, row int) {
 // -1,-1 if the query times out or fails
 func (rtk *RTK) CursorPosition() (col int, row int) {
 	// DSRCPR - reports cursor position
-	dsrcpr := "\x1b[6n"
 	rtk.dsrcpr = true
 	rtk.chDSRCPR = make(chan int)
 	rtk.tty.WriteString(dsrcpr)
