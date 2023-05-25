@@ -438,9 +438,16 @@ func (rtk *RTK) CursorPosition() (col int, row int) {
 	// DSRCPR - reports cursor position
 	rtk.dsrcpr = true
 	rtk.chDSRCPR = make(chan int)
+	defer close(rtk.chDSRCPR)
 	rtk.tty.WriteString(dsrcpr)
-	row = <-rtk.chDSRCPR
-	col = <-rtk.chDSRCPR
-	close(rtk.chDSRCPR)
-	return col - 1, row - 1
+	timeout := time.NewTimer(10 * time.Millisecond)
+	select {
+	case <-timeout.C:
+		log.Warnf("CursorPosition timed out")
+		return -1, -1
+	case row = <-rtk.chDSRCPR:
+		// if we get one, we'll get another
+		col = <-rtk.chDSRCPR
+		return col - 1, row - 1
+	}
 }
