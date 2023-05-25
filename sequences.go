@@ -25,11 +25,11 @@ const (
 
 	// These have no terminfo entry but they work everywhere so we hardcode
 	// them
-	setfDefault    = "\x1b[39m"
-	setbDefault    = "\x1b[49m"
-	boldDimReset   = "\x1b[22m"
-	blinkReset     = "\x1b[25m"
-	invisibleReset = "\x1b[28m"
+	fgop         = "\x1b[39m"
+	bgop         = "\x1b[49m"
+	boldDimReset = "\x1b[22m"
+	endBlink     = "\x1b[25m"
+	endInvis     = "\x1b[28m"
 )
 
 // Below we pull from terminfo
@@ -37,26 +37,26 @@ var (
 	clear  string
 	civis  string
 	cvvis  string
-	cup    string
-	dsrcpr string
+	cup    string // move cursor to abs position
+	dsrcpr string // cursor report position
 	setaf  string
 	setab  string
-	smcup  string
-	rmcup  string
+	smcup  string // enter alt screen
+	rmcup  string // exit alt screen
 
-	boldSet            string
-	dimSet             string
-	italicSet          string
-	underlineSet       string
-	blinkSet           string
-	reverseSet         string
-	invisibleSet       string
-	strikethroughSet   string
-	italicReset        string
-	underlineReset     string
-	reverseReset       string
-	strikethroughReset string
-	resetAll           string
+	bold  string // start bold
+	dim   string // start dim
+	sitm  string // start italic
+	smul  string // start underline
+	blink string // start blink
+	rev   string // start reverse
+	invis string // start invis
+	smxx  string // start strikethrough
+	rmxx  string // end strikethrough
+	ritm  string // end italics
+	rmul  string // end underline
+	rmso  string // end reverse
+	sgr0  string // reset all attrs
 )
 
 func setupTermInfo() error {

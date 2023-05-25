@@ -230,7 +230,7 @@ func (rtk *RTK) render() string {
 				ps := fg.Params()
 				switch len(ps) {
 				case 0:
-					rtk.outBuf.WriteString(setfDefault)
+					rtk.outBuf.WriteString(fgop)
 				case 1:
 					rtk.outBuf.WriteString(tparm(setaf, int(ps[0])))
 				case 3:
@@ -244,7 +244,7 @@ func (rtk *RTK) render() string {
 				ps := bg.Params()
 				switch len(ps) {
 				case 0:
-					rtk.outBuf.WriteString(setbDefault)
+					rtk.outBuf.WriteString(bgop)
 				case 1:
 					rtk.outBuf.WriteString(tparm(setab, int(ps[0])))
 				case 3:
@@ -261,28 +261,28 @@ func (rtk *RTK) render() string {
 				on := dAttr & next.Attribute
 
 				if on&AttrBold != 0 {
-					rtk.outBuf.WriteString(boldSet)
+					rtk.outBuf.WriteString(bold)
 				}
 				if on&AttrDim != 0 {
-					rtk.outBuf.WriteString(dimSet)
+					rtk.outBuf.WriteString(dim)
 				}
 				if on&AttrItalic != 0 {
-					rtk.outBuf.WriteString(italicSet)
+					rtk.outBuf.WriteString(sitm)
 				}
 				if on&AttrUnderline != 0 {
-					rtk.outBuf.WriteString(underlineSet)
+					rtk.outBuf.WriteString(smul)
 				}
 				if on&AttrBlink != 0 {
-					rtk.outBuf.WriteString(blinkSet)
+					rtk.outBuf.WriteString(blink)
 				}
 				if on&AttrReverse != 0 {
-					rtk.outBuf.WriteString(reverseSet)
+					rtk.outBuf.WriteString(rev)
 				}
 				if on&AttrInvisible != 0 {
-					rtk.outBuf.WriteString(invisibleSet)
+					rtk.outBuf.WriteString(invis)
 				}
 				if on&AttrStrikethrough != 0 {
-					rtk.outBuf.WriteString(strikethroughSet)
+					rtk.outBuf.WriteString(smxx)
 				}
 
 				// If the bit is changed and is in previous, it
@@ -294,7 +294,7 @@ func (rtk *RTK) render() string {
 					// Normal intensity turns off dim. If it
 					// should be on, let's turn it back on
 					if next.Attribute&AttrDim != 0 {
-						rtk.outBuf.WriteString(dimSet)
+						rtk.outBuf.WriteString(dim)
 					}
 				}
 				if off&AttrDim != 0 {
@@ -303,28 +303,28 @@ func (rtk *RTK) render() string {
 					// Normal intensity turns off bold. If it
 					// should be on, let's turn it back on
 					if next.Attribute&AttrBold != 0 {
-						rtk.outBuf.WriteString(boldSet)
+						rtk.outBuf.WriteString(bold)
 					}
 				}
 				if off&AttrItalic != 0 {
-					rtk.outBuf.WriteString(italicReset)
+					rtk.outBuf.WriteString(ritm)
 				}
 				if off&AttrUnderline != 0 {
-					rtk.outBuf.WriteString(underlineReset)
+					rtk.outBuf.WriteString(rmul)
 				}
 				if off&AttrBlink != 0 {
 					// turn off blink isn't in terminfo
-					rtk.outBuf.WriteString(blinkReset)
+					rtk.outBuf.WriteString(endBlink)
 				}
 				if off&AttrReverse != 0 {
-					rtk.outBuf.WriteString(reverseReset)
+					rtk.outBuf.WriteString(rmso)
 				}
 				if off&AttrInvisible != 0 {
 					// turn off invisible isn't in terminfo
-					rtk.outBuf.WriteString(invisibleReset)
+					rtk.outBuf.WriteString(endInvis)
 				}
 				if off&AttrStrikethrough != 0 {
-					rtk.outBuf.WriteString(strikethroughReset)
+					rtk.outBuf.WriteString(rmxx)
 				}
 				attr = next.Attribute
 			}
@@ -332,7 +332,7 @@ func (rtk *RTK) render() string {
 		}
 	}
 	if rtk.outBuf.Len() != 0 {
-		rtk.outBuf.WriteString(resetAll)
+		rtk.outBuf.WriteString(sgr0)
 		if rtk.caps.SUM {
 			rtk.outBuf.WriteString(sumReset)
 		}
