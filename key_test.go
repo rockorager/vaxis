@@ -13,15 +13,39 @@ func TestKey(t *testing.T) {
 	}{
 		{
 			name:     "j",
-			key:      Key{codepoint: 'j'},
+			key:      Key{Codepoint: 'j'},
 		},
 		{
 			name:     "<c-@>",
-			key:      Key{codepoint: 0x00},
+			key:      Key{Codepoint: 0x00},
 		},
 		{
 			name:     "<c-a>",
-			key:      Key{codepoint: 0x01},
+			key:      Key{Codepoint: 0x01},
+		},
+		{
+			name:     "<a-a>",
+			key:      Key{Codepoint: 'a', Modifiers: ModAlt},
+		},
+		{
+			name:     "<f1>",
+			key:      Key{Codepoint: KeyF01},
+		},
+		{
+			name:     "<s-f1>",
+			key:      Key{Codepoint: KeyF01, Modifiers: ModShift},
+		},
+		{
+			name:     "<s-tab>",
+			key:      Key{Codepoint: KeyTab, Modifiers: ModShift},
+		},
+		{
+			name:     "<esc>",
+			key:      Key{Codepoint: KeyEsc},
+		},
+		{
+			name:     "<space>",
+			key:      Key{Codepoint: KeySpace},
 		},
 	}
 

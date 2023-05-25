@@ -91,6 +91,7 @@ func setupTermInfo() error {
 
 	// Now we map all of the extended keys.....
 	capNameToExtended := map[string]Key{
+		"kcbt":  {Codepoint: KeyTab, Modifiers: ModShift},
 		"kcuu1": {Codepoint: KeyUp},
 		"kcuf1": {Codepoint: KeyRight},
 		"kcud1": {Codepoint: KeyDown},

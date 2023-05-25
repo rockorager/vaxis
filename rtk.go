@@ -2,8 +2,10 @@ package rtk
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -157,7 +159,9 @@ func (rtk *RTK) Close() {
 	close(rtk.quit)
 	term.Restore(int(rtk.tty.Fd()), rtk.saved)
 	log.Infof("Renders = %v", rtk.renders)
-	log.Infof("Time/render = %s", rtk.elapsed/time.Duration(rtk.renders))
+	if rtk.renders != 0 {
+		log.Infof("Time/render = %s", rtk.elapsed/time.Duration(rtk.renders))
+	}
 }
 
 func (rtk *RTK) StdSurface() Surface {
@@ -341,19 +345,25 @@ func (rtk *RTK) render() string {
 }
 
 func (rtk *RTK) handleSequence(seq ansi.Sequence) {
-	log.Tracef("%s", seq)
 	switch seq := seq.(type) {
 	case ansi.Print:
-		var key Key
 		switch {
 		case rtk.ss3:
 			rtk.ss3 = false
-			// TODO
-			// key.codepoint = ??
+			lookup := fmt.Sprintf("\x1bO%c", seq)
+			key, ok := keyMap[lookup]
+			if !ok {
+				return
+			}
+			rtk.PostMsg(key)
 		default:
-			key.Codepoint = rune(seq)
+			key, ok := keyMap[string(seq)]
+			if ok {
+				rtk.PostMsg(key)
+				return
+			}
+			rtk.PostMsg(Key{Codepoint: rune(seq)})
 		}
-		rtk.PostMsg(key)
 	case ansi.C0:
 		key := Key{Codepoint: rune(seq)}
 		rtk.PostMsg(key)
@@ -395,6 +405,18 @@ func (rtk *RTK) handleSequence(seq ansi.Sequence) {
 				}
 			}
 		}
+
+		// Must be a key, look it up
+		params := []string{}
+		for _, ps := range seq.Parameters {
+			params = append(params, fmt.Sprintf("%d", ps))
+		}
+		lookup := fmt.Sprintf("\x1b[%s%c", strings.Join(params, ";"), seq.Final)
+		key, ok := keyMap[lookup]
+		if !ok {
+			return
+		}
+		rtk.PostMsg(key)
 	default:
 	}
 }
