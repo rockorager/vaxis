@@ -401,11 +401,13 @@ func (rtk *RTK) ExitAltScreen() {
 	rtk.tty.WriteString(smcup)
 }
 
-// Clear the screen
-// func (rtk *RTK) Clear() {
-// 	clear := rtk.info.Strings["clear"]
-// 	rtk.tty.WriteString(clear)
-// }
+// Clear the screen. Issues an actual 'clear' to the controlling terminal, and
+// clears the model
+func (rtk *RTK) Clear() {
+	Clear(rtk.model)
+	clear := rtk.info.Strings["clear"]
+	rtk.tty.WriteString(clear)
+}
 
 func (rtk *RTK) HideCursor() {
 	civis := rtk.info.Strings["civis"]
