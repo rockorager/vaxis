@@ -50,7 +50,7 @@ func (m *model) Update(msg rtk.Msg) {
 	}
 }
 
-func (m *model) View(srf rtk.Surface) {
+func (m *model) Draw(srf rtk.Surface) {
 	cols, rows := srf.Size()
 	if m.colOff+m.cols >= cols {
 		m.colDir = -1

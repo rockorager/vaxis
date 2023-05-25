@@ -12,9 +12,9 @@ type Model interface {
 	// Models may also PostCmds using PostCmd.
 	Update(Msg)
 
-	// View is called after Update. View renders the application state to
+	// Draw is called after Update. Draw draws the application state to
 	// the Models' viewport.
-	View(Surface)
+	Draw(Surface)
 }
 
 type App struct {
@@ -49,7 +49,7 @@ func (app *App) Run(model Model) error {
 		default:
 			model.Update(msg)
 		}
-		model.View(app.rtk.StdSurface())
+		model.Draw(app.rtk.StdSurface())
 		app.rtk.Render()
 	}
 	return nil

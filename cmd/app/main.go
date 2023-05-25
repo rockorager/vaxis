@@ -29,7 +29,7 @@ func (m *model) Update(msg rtk.Msg) {
 	}
 }
 
-func (m *model) View(srf rtk.Surface) {
+func (m *model) Draw(srf rtk.Surface) {
 	str := fmt.Sprintf("%d", m.val)
 	for i, egc := range rtk.EGCs(str) {
 		srf.SetCell(i, 0, rtk.Cell{
