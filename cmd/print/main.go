@@ -1,16 +1,27 @@
 package main
 
 import (
+	"bytes"
+	"fmt"
 	"time"
 
 	"git.sr.ht/~rockorager/rtk"
+	"git.sr.ht/~rockorager/rtk/log"
 )
 
 func main() {
+	logBuf := bytes.NewBuffer(nil)
+	log.SetLevel(log.LevelTrace)
+	log.SetOutput(logBuf)
+	defer func() {
+		fmt.Print(logBuf.String())
+	}()
 	some, err := rtk.New()
 	if err != nil {
 		panic(err)
 	}
+	col, row := some.CursorPosition()
+	log.Infof("row=%d, col=%d", row, col)
 	some.EnterAltScreen()
 	some.Clear()
 	some.HideCursor()
