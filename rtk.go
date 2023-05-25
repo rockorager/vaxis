@@ -65,6 +65,11 @@ type RTK struct {
 	signals chan os.Signal
 	// the underlying tty
 	tty *os.File
+
+	caps struct {
+		// Synchronized Update Mode
+		SUM bool
+	}
 }
 
 func New() (*RTK, error) {
@@ -374,6 +379,24 @@ func (rtk *RTK) handleSequence(seq ansi.Sequence) {
 				rtk.chDSRCPR <- seq.Parameters[1]
 				return
 			}
+		case 'y':
+			// DECRPM - DEC Report Mode
+			if len(seq.Parameters) < 1 {
+				log.Errorf("not enough DECRPM params")
+				return
+			}
+			switch seq.Parameters[0] {
+			case 2026:
+				if len(seq.Parameters) < 2 {
+					log.Errorf("not enough DECRPM params")
+					return
+				}
+				switch seq.Parameters[1] {
+				case 1, 2:
+					log.Debugf("Synchronized Update Mode supported")
+					rtk.caps.SUM = true
+				}
+			}
 		}
 	default:
 	}
@@ -383,9 +406,14 @@ func (rtk *RTK) sendQueries() {
 	// XTVERSION
 	xtversion := "\x1b[>0q"
 	rtk.tty.WriteString(xtversion)
+
 	// Kitty keyboard protocol
 	kittyKBD := "\x1b[?u"
 	rtk.tty.WriteString(kittyKBD)
+
+	// Synchronized Update Mode
+	sumquery := "\x1b[?2026$p"
+	rtk.tty.WriteString(sumquery)
 }
 
 // Terminal controls
