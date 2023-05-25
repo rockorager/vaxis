@@ -51,6 +51,12 @@ type RTK struct {
 	// input parser
 	parser *ansi.Parser
 	quit   chan struct{}
+	// ss3 is true if we have received an \EO sequence. We have to buffer
+	// this specific one for keyboard input of some keys
+	ss3 bool
+	// dsrcpr is true if we have requested a cursor position report
+	dsrcpr   bool
+	chDSRCPR chan int
 	// refresh is true if we are redrawing the entire screen, ignoring
 	// incremental renders
 	refresh bool
@@ -135,6 +141,7 @@ func New() (*RTK, error) {
 		}
 	}()
 
+	rtk.sendQueries()
 	switch os.Getenv("COLORTERM") {
 	case "truecolor", "24bit":
 		rtk.info.Strings["setfrgb"] = "\x1b[38;2;%p1%d;%p2%d;%p3%dm"
@@ -332,20 +339,53 @@ func (rtk *RTK) render() string {
 }
 
 func (rtk *RTK) handleSequence(seq ansi.Sequence) {
+	log.Tracef("%s", seq)
 	switch seq := seq.(type) {
 	case ansi.Print:
-		key := Key{
-			codepoint: rune(seq),
+		var key Key
+		switch {
+		case rtk.ss3:
+			rtk.ss3 = false
+			// TODO
+			// key.codepoint = ??
+		default:
+			key.Codepoint = rune(seq)
 		}
 		rtk.PostMsg(key)
 	case ansi.C0:
-		key := Key{
-			codepoint: rune(seq),
-		}
+		key := Key{Codepoint: rune(seq)}
 		rtk.PostMsg(key)
-
+	case ansi.ESC:
+		if seq.Final == 'O' {
+			rtk.ss3 = true
+		}
+	case ansi.CSI:
+		switch seq.Final {
+		case 'R':
+			// This could be an F1 key, we need to buffer if we have
+			// requested a DSRCPR
+			if rtk.dsrcpr {
+				rtk.dsrcpr = false
+				if len(seq.Parameters) != 2 {
+					log.Errorf("not enough DSRCPR params")
+					return
+				}
+				rtk.chDSRCPR <- seq.Parameters[0]
+				rtk.chDSRCPR <- seq.Parameters[1]
+				return
+			}
+		}
 	default:
 	}
+}
+
+func (rtk *RTK) sendQueries() {
+	// XTVERSION
+	xtversion := "\x1b[>0q"
+	rtk.tty.WriteString(xtversion)
+	// Kitty keyboard protocol
+	kittyKBD := "\x1b[?u"
+	rtk.tty.WriteString(kittyKBD)
 }
 
 // Terminal controls
@@ -377,4 +417,19 @@ func (rtk *RTK) ShowCursor(col int, row int) {
 	rtk.tty.WriteString(tparm(cup, row, col))
 	cvvis := rtk.info.Strings["cvvis"]
 	rtk.tty.WriteString(cvvis)
+}
+
+// Reports the current cursor position. 0,0 is the upper left corner. Reports
+// -1,-1 if the query times out or fails
+func (rtk *RTK) CursorPosition() (col int, row int) {
+	// DSRCPR - reports cursor position
+	dsrcpr := "\x1b[6n"
+	rtk.dsrcpr = true
+	rtk.chDSRCPR = make(chan int)
+	rtk.tty.WriteString(dsrcpr)
+	row = <-rtk.chDSRCPR
+	col = <-rtk.chDSRCPR
+	close(rtk.chDSRCPR)
+	log.Debugf("row=%d col=%d", row, col)
+	return col - 1, row - 1
 }
