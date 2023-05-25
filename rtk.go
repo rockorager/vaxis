@@ -33,9 +33,6 @@ type RTK struct {
 	std *stdSurface
 	// model is the last rendered state of the stdSurface
 	model *stdSurface
-	// The terminfo entry
-	info *terminfo
-
 	// Statistics
 	// elapsed time spent rendering
 	elapsed time.Duration
@@ -83,12 +80,11 @@ func New() (*RTK, error) {
 	}
 	rtk.std = newStdSurface(rtk)
 	rtk.model = newStdSurface(rtk)
-	info, err := infocmp(os.Getenv("TERM"))
+
+	err := setupTermInfo()
 	if err != nil {
 		return nil, err
 	}
-	rtk.info = info
-	log.Tracef("terminfo entry found for TERM=%s", rtk.info.Names)
 
 	rtk.saved, err = term.MakeRaw(int(rtk.tty.Fd()))
 
@@ -198,7 +194,6 @@ func (rtk *RTK) Refresh() {
 
 func (rtk *RTK) render() string {
 	var (
-		cup        = rtk.info.Strings["cup"]
 		reposition = true
 		fg         Color
 		bg         Color
@@ -235,13 +230,11 @@ func (rtk *RTK) render() string {
 				ps := fg.Params()
 				switch len(ps) {
 				case 0:
-					rtk.outBuf.WriteString("\x1b[39m")
+					rtk.outBuf.WriteString(setfDefault)
 				case 1:
-					setaf := rtk.info.Strings["setaf"]
 					rtk.outBuf.WriteString(tparm(setaf, int(ps[0])))
 				case 3:
-					setfrgb := rtk.info.Strings["setfrgb"]
-					out := tparm(setfrgb, int(ps[0]), int(ps[1]), int(ps[2]))
+					out := tparm(setrgbf, int(ps[0]), int(ps[1]), int(ps[2]))
 					rtk.outBuf.WriteString(out)
 				}
 			}
@@ -251,13 +244,11 @@ func (rtk *RTK) render() string {
 				ps := bg.Params()
 				switch len(ps) {
 				case 0:
-					rtk.outBuf.WriteString("\x1b[49m")
+					rtk.outBuf.WriteString(setbDefault)
 				case 1:
-					setab := rtk.info.Strings["setab"]
 					rtk.outBuf.WriteString(tparm(setab, int(ps[0])))
 				case 3:
-					setbrgb := rtk.info.Strings["setbrgb"]
-					out := tparm(setbrgb, int(ps[0]), int(ps[1]), int(ps[2]))
+					out := tparm(setrgbb, int(ps[0]), int(ps[1]), int(ps[2]))
 					rtk.outBuf.WriteString(out)
 				}
 			}
@@ -270,28 +261,28 @@ func (rtk *RTK) render() string {
 				on := dAttr & next.Attribute
 
 				if on&AttrBold != 0 {
-					rtk.outBuf.WriteString(rtk.info.Strings["bold"])
+					rtk.outBuf.WriteString(boldSet)
 				}
 				if on&AttrDim != 0 {
-					rtk.outBuf.WriteString(rtk.info.Strings["dim"])
+					rtk.outBuf.WriteString(dimSet)
 				}
 				if on&AttrItalic != 0 {
-					rtk.outBuf.WriteString(rtk.info.Strings["sitm"])
+					rtk.outBuf.WriteString(italicSet)
 				}
 				if on&AttrUnderline != 0 {
-					rtk.outBuf.WriteString(rtk.info.Strings["smul"])
+					rtk.outBuf.WriteString(underlineSet)
 				}
 				if on&AttrBlink != 0 {
-					rtk.outBuf.WriteString(rtk.info.Strings["blink"])
+					rtk.outBuf.WriteString(blinkSet)
 				}
 				if on&AttrReverse != 0 {
-					rtk.outBuf.WriteString(rtk.info.Strings["rev"])
+					rtk.outBuf.WriteString(reverseSet)
 				}
 				if on&AttrInvisible != 0 {
-					rtk.outBuf.WriteString(rtk.info.Strings["invis"])
+					rtk.outBuf.WriteString(invisibleSet)
 				}
 				if on&AttrStrikethrough != 0 {
-					rtk.outBuf.WriteString(rtk.info.Strings["smxx"])
+					rtk.outBuf.WriteString(strikethroughSet)
 				}
 
 				// If the bit is changed and is in previous, it
@@ -299,41 +290,41 @@ func (rtk *RTK) render() string {
 				off := dAttr & attr
 				if off&AttrBold != 0 {
 					// Normal intensity isn't in terminfo
-					rtk.outBuf.WriteString("\x1B[22m")
+					rtk.outBuf.WriteString(boldDimReset)
 					// Normal intensity turns off dim. If it
 					// should be on, let's turn it back on
 					if next.Attribute&AttrDim != 0 {
-						rtk.outBuf.WriteString(rtk.info.Strings["dim"])
+						rtk.outBuf.WriteString(dimSet)
 					}
 				}
 				if off&AttrDim != 0 {
 					// Normal intensity isn't in terminfo
-					rtk.outBuf.WriteString("\x1B[22m")
+					rtk.outBuf.WriteString(boldDimReset)
 					// Normal intensity turns off bold. If it
 					// should be on, let's turn it back on
 					if next.Attribute&AttrBold != 0 {
-						rtk.outBuf.WriteString(rtk.info.Strings["bold"])
+						rtk.outBuf.WriteString(boldSet)
 					}
 				}
 				if off&AttrItalic != 0 {
-					rtk.outBuf.WriteString(rtk.info.Strings["ritm"])
+					rtk.outBuf.WriteString(italicReset)
 				}
 				if off&AttrUnderline != 0 {
-					rtk.outBuf.WriteString(rtk.info.Strings["rmul"])
+					rtk.outBuf.WriteString(underlineReset)
 				}
 				if off&AttrBlink != 0 {
 					// turn off blink isn't in terminfo
-					rtk.outBuf.WriteString("\x1B[25m")
+					rtk.outBuf.WriteString(blinkReset)
 				}
 				if off&AttrReverse != 0 {
-					rtk.outBuf.WriteString(rtk.info.Strings["rmso"])
+					rtk.outBuf.WriteString(reverseReset)
 				}
 				if off&AttrInvisible != 0 {
 					// turn off invisible isn't in terminfo
-					rtk.outBuf.WriteString("\x1B[28m")
+					rtk.outBuf.WriteString(invisibleReset)
 				}
 				if off&AttrStrikethrough != 0 {
-					rtk.outBuf.WriteString(rtk.info.Strings["rmxx"])
+					rtk.outBuf.WriteString(strikethroughReset)
 				}
 				attr = next.Attribute
 			}
@@ -341,7 +332,7 @@ func (rtk *RTK) render() string {
 		}
 	}
 	if rtk.outBuf.Len() != 0 {
-		rtk.outBuf.WriteString(rtk.info.Strings["sgr0"])
+		rtk.outBuf.WriteString(resetAll)
 		if rtk.caps.SUM {
 			rtk.outBuf.WriteString(sumReset)
 		}
@@ -418,32 +409,26 @@ func (rtk *RTK) sendQueries() {
 
 // Enter the alternate screen (for fullscreen applications)
 func (rtk *RTK) EnterAltScreen() {
-	smcup := rtk.info.Strings["smcup"]
 	rtk.tty.WriteString(smcup)
 }
 
 func (rtk *RTK) ExitAltScreen() {
-	smcup := rtk.info.Strings["rmcup"]
-	rtk.tty.WriteString(smcup)
+	rtk.tty.WriteString(rmcup)
 }
 
 // Clear the screen. Issues an actual 'clear' to the controlling terminal, and
 // clears the model
 func (rtk *RTK) Clear() {
 	Clear(rtk.model)
-	clear := rtk.info.Strings["clear"]
 	rtk.tty.WriteString(clear)
 }
 
 func (rtk *RTK) HideCursor() {
-	civis := rtk.info.Strings["civis"]
 	rtk.tty.WriteString(civis)
 }
 
 func (rtk *RTK) ShowCursor(col int, row int) {
-	cup := rtk.info.Strings["cup"]
 	rtk.tty.WriteString(tparm(cup, row, col))
-	cvvis := rtk.info.Strings["cvvis"]
 	rtk.tty.WriteString(cvvis)
 }
 
@@ -457,6 +442,5 @@ func (rtk *RTK) CursorPosition() (col int, row int) {
 	row = <-rtk.chDSRCPR
 	col = <-rtk.chDSRCPR
 	close(rtk.chDSRCPR)
-	log.Debugf("row=%d col=%d", row, col)
 	return col - 1, row - 1
 }
