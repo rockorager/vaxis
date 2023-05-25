@@ -118,45 +118,9 @@ const (
 	KeyF60
 	KeyF61
 	KeyF62
-	KeyF63
-	KeyF64
-	KeyF65
-	KeyF66
-	KeyF67
-	KeyF68
-	KeyF69
-	KeyF70
-	KeyF71
-	KeyF72
-	KeyF73
-	KeyF74
-	KeyF75
-	KeyF76
-	KeyF77
-	KeyF78
-	KeyF79
-	KeyF80
-	KeyF81
-	KeyF82
-	KeyF83
-	KeyF84
-	KeyF85
-	KeyF86
-	KeyF87
-	KeyF88
-	KeyF89
-	KeyF90
-	KeyF91
-	KeyF92
-	KeyF93
-	KeyF94
-	KeyF95
-	KeyF96
-	KeyF97
-	KeyF98
-	KeyF99   // Ok that's enough
-	KeyEnter // kent
-	KeyClear // kclr
+	KeyF63 // F63 is max defined in terminfo
+	KeyEnter
+	KeyClear
 	KeyDownLeft
 	KeyDownRight
 	KeyUpLeft
@@ -170,7 +134,6 @@ const (
 	KeyExit
 	KeyPrint
 	KeyRefresh
-	KeySeparator
 	// notcurses says these are only avaialbe in kitty kbp
 	KeyCapsLock
 	KeyScrollLock
@@ -214,3 +177,5 @@ const (
 	KeyEsc    = 0x1B
 	KeySpace  = 0x20
 )
+
+var keyMap = map[string]Key{}
