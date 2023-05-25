@@ -30,6 +30,8 @@ type Parser struct {
 	final        rune
 
 	oscData []rune
+
+	dcs DCS
 }
 
 func NewParser(r io.Reader) *Parser {
@@ -291,13 +293,14 @@ func (p *Parser) oscEnd() {
 // the state moves from dcsPassthrough to any other state
 func (p *Parser) hook(r rune) {
 	p.exit = p.unhook
-	dcs := DCS{
+	p.dcs = DCS{
 		Final:        r,
 		Intermediate: p.intermediate,
 		Parameters:   []int{},
+		Data:         []rune{},
 	}
 	if len(p.params) == 0 {
-		p.emit(dcs)
+		// p.emit(dcs)
 		return
 	}
 	paramStr := strings.Split(string(p.params), ";")
@@ -314,22 +317,24 @@ func (p *Parser) hook(r rune) {
 		}
 		params = append(params, val)
 	}
-	dcs.Parameters = params
-	p.emit(dcs)
+	p.dcs.Parameters = params
+	// p.emit(dcs)
 }
 
 // This action passes characters from the data string part of a device
 // control string to a handler that has previously been selected by the
 // hook action. C0 controls are also passed to the handler.
 func (p *Parser) put(r rune) {
-	p.emit(DCSData(r))
+	p.dcs.Data = append(p.dcs.Data, r)
+	// p.emit(DCSData(r))
 }
 
 // When a device control string is terminated by ST, CAN, SUB or ESC, this
 // action calls the previously selected handler function with an “end of
 // data” parameter. This allows the handler to finish neatly.
 func (p *Parser) unhook() {
-	p.emit(DCSEndOfData{})
+	p.emit(p.dcs)
+	p.dcs = DCS{}
 }
 
 // in returns true if the rune lies within the range, inclusive of the endpoints
@@ -908,6 +913,7 @@ type DCS struct {
 	Final        rune
 	Intermediate []rune
 	Parameters   []int
+	Data         []rune
 }
 
 func (seq DCS) String() string {
@@ -916,22 +922,8 @@ func (seq DCS) String() string {
 		ps = append(ps, fmt.Sprintf("%d", p))
 	}
 	params := strings.Join(ps, ";")
-	s := fmt.Sprintf("DCS %s %s %s", string(seq.Intermediate), params, string(seq.Final))
+	s := fmt.Sprintf("DCS %s %s %s %s", string(seq.Intermediate), params, string(seq.Final), string(seq.Data))
 	return s
-}
-
-// A rune which is passed through during a DCS passthrough sequence
-type DCSData rune
-
-func (seq DCSData) String() string {
-	return fmt.Sprintf("DCSData: codepoint=0x%X rune='%c'", rune(seq), rune(seq))
-}
-
-// Sent at the end of a DCS passthrough sequence
-type DCSEndOfData struct{}
-
-func (seq DCSEndOfData) String() string {
-	return "DCS End of data"
 }
 
 // Sent when the underlying PTY is closed
