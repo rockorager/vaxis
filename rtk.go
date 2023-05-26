@@ -70,6 +70,8 @@ type RTK struct {
 		RGB bool
 		// Synchronized Update Mode
 		SUM bool
+		// Kitty keyboard protocl
+		KKBD bool
 	}
 }
 
@@ -345,6 +347,7 @@ func (rtk *RTK) render() string {
 }
 
 func (rtk *RTK) handleSequence(seq ansi.Sequence) {
+	log.Debugf("%s", seq)
 	switch seq := seq.(type) {
 	case ansi.Print:
 		switch {
@@ -365,7 +368,22 @@ func (rtk *RTK) handleSequence(seq ansi.Sequence) {
 			rtk.PostMsg(Key{Codepoint: rune(seq)})
 		}
 	case ansi.C0:
-		key := Key{Codepoint: rune(seq)}
+		key := Key{}
+		switch rune(seq) {
+		case 0x08:
+			key.Codepoint = KeyBackspace
+		case 0x09:
+			key.Codepoint = KeyTab
+		case 0x0D:
+			key.Codepoint = KeyEnter
+		case 0x1B:
+			key.Codepoint = KeyEsc
+		default:
+			cp := rune(seq) + 0x40
+			strings.ToLower(string(cp))
+			key.Codepoint = rune(seq) + 0x40
+			key.Modifiers = ModCtrl
+		}
 		rtk.PostMsg(key)
 	case ansi.ESC:
 		if seq.Final == 'O' {
@@ -374,16 +392,20 @@ func (rtk *RTK) handleSequence(seq ansi.Sequence) {
 	case ansi.CSI:
 		switch seq.Final {
 		case 'R':
+			// KeyF1 or DSRCPR
 			// This could be an F1 key, we need to buffer if we have
-			// requested a DSRCPR
+			// requested a DSRCPR (cursor position report)
+			//
+			// Kitty keyboard protocol disambiguates this scenario,
+			// hopefully people are using that
 			if rtk.dsrcpr {
 				rtk.dsrcpr = false
 				if len(seq.Parameters) != 2 {
 					log.Errorf("not enough DSRCPR params")
 					return
 				}
-				rtk.chDSRCPR <- seq.Parameters[0]
-				rtk.chDSRCPR <- seq.Parameters[1]
+				rtk.chDSRCPR <- seq.Parameters[0][0]
+				rtk.chDSRCPR <- seq.Parameters[1][0]
 				return
 			}
 		case 'y':
@@ -392,32 +414,46 @@ func (rtk *RTK) handleSequence(seq ansi.Sequence) {
 				log.Errorf("not enough DECRPM params")
 				return
 			}
-			switch seq.Parameters[0] {
+			switch seq.Parameters[0][0] {
 			case 2026:
 				if len(seq.Parameters) < 2 {
 					log.Errorf("not enough DECRPM params")
 					return
 				}
-				switch seq.Parameters[1] {
+				switch seq.Parameters[1][0] {
 				case 1, 2:
 					log.Debugf("Synchronized Update Mode supported")
 					rtk.caps.SUM = true
 				}
 			}
+			return
+		case 'u':
+			if len(seq.Intermediate) == 1 && seq.Intermediate[0] == '?' {
+				rtk.caps.KKBD = true
+				log.Debugf("Kitty Keyboard Protocol supported")
+				rtk.tty.WriteString(kkbpEnable)
+				return
+			}
 		}
 
-		// Must be a key, look it up
-		params := []string{}
-		for _, ps := range seq.Parameters {
-			params = append(params, fmt.Sprintf("%d", ps))
+		switch rtk.caps.KKBD {
+		case true:
+			key := parseKittyKbp(seq)
+			rtk.PostMsg(key)
+		default:
+			// Lookup the key from terminfo
+			params := []string{}
+			for _, ps := range seq.Parameters {
+				params = append(params, fmt.Sprintf("%d", ps))
+			}
+			lookup := fmt.Sprintf("\x1b[%s%c", strings.Join(params, ";"), seq.Final)
+			key, ok := keyMap[lookup]
+			if !ok {
+				return
+			}
+			rtk.PostMsg(key)
+
 		}
-		lookup := fmt.Sprintf("\x1b[%s%c", strings.Join(params, ";"), seq.Final)
-		key, ok := keyMap[lookup]
-		if !ok {
-			return
-		}
-		rtk.PostMsg(key)
-	default:
 	}
 }
 

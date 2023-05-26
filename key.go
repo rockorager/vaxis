@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"strings"
 	"unicode"
+
+	"git.sr.ht/~rockorager/rtk/ansi"
 )
 
 type Key struct {
 	Codepoint rune
 	Modifiers ModifierMask
+	EventType EventType
 }
 
 type ModifierMask int
@@ -26,13 +29,37 @@ const (
 	ModNumLock
 )
 
+// EventType is an input event type (press, repeat, release, etc)
+type EventType int
+
+const (
+	// The event type could not be determined
+	EventUnknown EventType = iota
+	// The key / button was pressed
+	EventPress
+	// The key / button was repeated
+	EventRepeat
+	// The key / button was released
+	EventRelease
+)
+
 // Modified keys will always have prefixes in this order:
 //
 //	<num-caps-meta-hyper-super-c-a-s-{key}>
 func (k Key) String() string {
 	buf := &bytes.Buffer{}
-	if k.Modifiers != 0 {
+	switch {
+	case k.Modifiers != 0:
 		buf.WriteRune('<')
+	case k.Codepoint == KeyTab:
+		buf.WriteRune('<')
+	case k.Codepoint == KeySpace:
+		buf.WriteRune('<')
+	case k.Codepoint == KeyEsc:
+		buf.WriteRune('<')
+	}
+
+	if k.Modifiers != 0 && k.EventType != EventRelease {
 		if k.Modifiers&ModNumLock != 0 {
 			buf.WriteString("num-")
 		}
@@ -58,6 +85,7 @@ func (k Key) String() string {
 			buf.WriteString("s-")
 		}
 	}
+
 	switch {
 	case k.Codepoint == KeyTab:
 		// Handle further down
@@ -67,23 +95,22 @@ func (k Key) String() string {
 		// Handle further down
 	case k.Codepoint == KeyBackspace:
 		// handle further down
+	case k.Codepoint == KeyEnter:
+		// Handle further down
 	case k.Codepoint < 0x00:
 		return "<invalid>"
 	case k.Codepoint < 0x20:
 		ch := fmt.Sprintf("%c", k.Codepoint+0x40)
 		return fmt.Sprintf("<c-%s>", strings.ToLower(ch))
 	case k.Codepoint <= unicode.MaxRune:
-		buf.WriteRune(k.Codepoint)
-		if k.Modifiers != 0 {
-			buf.WriteRune('>')
-		}
-		return buf.String()
+		ch := fmt.Sprintf("%c", k.Codepoint)
+		buf.WriteString(fmt.Sprintf("%s", strings.ToLower(ch)))
 	}
 
-	if k.Modifiers == 0 {
+	if k.Modifiers == 0 && k.Codepoint > unicode.MaxRune {
 		buf.WriteRune('<')
 	}
-	// By this point we only have extended keys
+
 	switch k.Codepoint {
 	case KeyUp:
 		buf.WriteString("up")
@@ -283,7 +310,7 @@ func (k Key) String() string {
 		buf.WriteString("media-play")
 	case KeyMediaPause:
 		buf.WriteString("media-pause")
-	case KeyMediaPPause:
+	case KeyMediaPlayPause:
 		buf.WriteString("mediea-ppause")
 	case KeyMediaRev:
 		buf.WriteString("media-rev")
@@ -342,7 +369,10 @@ func (k Key) String() string {
 	case KeySpace:
 		buf.WriteString("space")
 	}
-	buf.WriteRune('>')
+
+	if strings.HasPrefix(buf.String(), "<") {
+		buf.WriteRune('>')
+	}
 	return buf.String()
 }
 
@@ -451,7 +481,7 @@ const (
 	// Media keys, also generally only kitty kbp
 	KeyMediaPlay
 	KeyMediaPause
-	KeyMediaPPause // wtf is this?
+	KeyMediaPlayPause
 	KeyMediaRev
 	KeyMediaStop
 	KeyMediaFF
@@ -485,4 +515,130 @@ const (
 	KeySpace  = 0x20
 )
 
+// keyMap is built from terminfo entries
 var keyMap = map[string]Key{}
+
+var kittyKeyMap = map[string]rune{
+	"27u":    KeyEsc,
+	"13u":    KeyEnter,
+	"9u":     KeyTab,
+	"127u":   KeyBackspace,
+	"2~":     KeyInsert,
+	"3~":     KeyDelete,
+	"1D":     KeyLeft,
+	"1C":     KeyRight,
+	"1B":     KeyDown,
+	"1A":     KeyUp,
+	"5~":     KeyPgUp,
+	"6~":     KeyPgDown,
+	"1F":     KeyEnd,
+	"8~":     KeyEnd,
+	"1H":     KeyHome,
+	"7~":     KeyHome,
+	"57358u": KeyCapsLock,
+	"57359u": KeyScrollLock,
+	"57360u": KeyNumlock,
+	"57361u": KeyPrintScreen,
+	"57362u": KeyPause,
+	"57363u": KeyMenu,
+	"1P":     KeyF01,
+	"11~":    KeyF01,
+	"1Q":     KeyF02,
+	"12~":    KeyF02,
+	"13~":    KeyF03,
+	"1S":     KeyF04,
+	"14~":    KeyF04,
+	"15~":    KeyF05,
+	"17~":    KeyF06,
+	"18~":    KeyF07,
+	"19~":    KeyF08,
+	"20~":    KeyF09,
+	"21~":    KeyF10,
+	"23~":    KeyF11,
+	"24~":    KeyF12,
+	"57376u": KeyF13,
+	"57377u": KeyF14,
+	"57378u": KeyF15,
+	"57379u": KeyF16,
+	"57380u": KeyF17,
+	"57381u": KeyF18,
+	"57382u": KeyF19,
+	"57383u": KeyF20,
+	"57384u": KeyF21,
+	"57385u": KeyF22,
+	"57386u": KeyF23,
+	"57387u": KeyF24,
+	"57388u": KeyF25,
+	"57389u": KeyF26,
+	"57390u": KeyF27,
+	"57391u": KeyF28,
+	"57392u": KeyF29,
+	"57393u": KeyF30,
+	"57394u": KeyF31,
+	"57395u": KeyF32,
+	"57396u": KeyF33,
+	"57397u": KeyF34,
+	"57398u": KeyF35,
+	// Skip the keypad keys
+	"57428u": KeyMediaPlay,
+	"57429u": KeyMediaPause,
+	"57430u": KeyMediaPlayPause,
+	"57431u": KeyMediaRev,
+	"57432u": KeyMediaStop,
+	"57433u": KeyMediaFF,
+	"57434u": KeyMediaRewind,
+	"57435u": KeyMediaNext,
+	"57436u": KeyMediaPrev,
+	"57437u": KeyMediaRecord,
+	"57438u": KeyMediaVolDown,
+	"57439u": KeyMediaVolUp,
+	"57440u": KeyMediaMute,
+	"57441u": KeyLeftShift,
+	"57442u": KeyLeftControl,
+	"57443u": KeyLeftAlt,
+	"57444u": KeyLeftSuper,
+	"57445u": KeyLeftHyper,
+	"57446u": KeyLeftMeta,
+	"57447u": KeyRightShift,
+	"57448u": KeyRightControl,
+	"57449u": KeyRightAlt,
+	"57450u": KeyRightSuper,
+	"57451u": KeyRightHyper,
+	"57452u": KeyRightMeta,
+	"57453u": KeyL3Shift,
+	"57454u": KeyL5Shift,
+}
+
+func parseKittyKbp(seq ansi.CSI) Key {
+	key := Key{}
+	for i, pm := range seq.Parameters {
+		switch i {
+		case 0:
+			// unicode-key-code
+			// This will always be length of 1. We haven't requested
+			// alternate-keys, which would make the length
+			// longer...we don't care about those. We translate this
+			// codepoint to an internal key below
+			base := fmt.Sprintf("%d%c", pm[0], seq.Final)
+			var ok bool
+			key.Codepoint, ok = kittyKeyMap[base]
+			if !ok {
+				key.Codepoint = rune(pm[0])
+			}
+		case 1:
+			// Kitty keyboard protocol reports these as their
+			// bitmask + 1, so that an unmodified key has a value of
+			// 1. We subtract one to normalize to our internal
+			// representation
+			key.Modifiers = ModifierMask(pm[0] - 1)
+			if len(pm) > 1 {
+				key.EventType = EventType(pm[1])
+			}
+		case 2:
+			// text-as-codepoint
+			key.Codepoint = rune(pm[0])
+
+		}
+	}
+	return key
+}

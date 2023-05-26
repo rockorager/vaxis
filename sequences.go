@@ -16,12 +16,15 @@ const (
 	sumQuery = "\x1b[?2026$p"
 
 	// kitty keyboard protocol
-	kkbpQuery = "\x1b[?u"
+	kkbpQuery  = "\x1b[?u"
+	kkbpEnable = "\x1b[=27u"
+	kkbpPush   = "\x1b[>1u"
+	kkbpPop    = "\x1b[<u"
 
 	// rgb. These usually aren't in terminfo in any way
-	setrgbf    = "\x1b[38;2;%p1%d;%p2%d;%p3%dm"
-	setrgbb    = "\x1b[48;2;%p1%d;%p2%d;%p3%dm"
-	setrgbfgbg = "\x1b[38;2;%p1%d;%p2%d;%p3%d;48;2;%p4%d;%p5%d;%p6%dm"
+	setrgbf    = "\x1b[38:2:%p1%d:%p2%d:%p3%dm"
+	setrgbb    = "\x1b[48:2:%p1%d:%p2%d:%p3%dm"
+	setrgbfgbg = "\x1b[38:2:%p1%d:%p2%d:%p3%d;48:2:%p4%d:%p5%d:%p6%dm"
 
 	// These have no terminfo entry but they work everywhere so we hardcode
 	// them
