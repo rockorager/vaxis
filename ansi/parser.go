@@ -48,18 +48,14 @@ func NewParser(r io.Reader) *Parser {
 
 // Next returns the next Sequence. Sequences will be of the following types:
 //
-//	error          Sent on any parsing error
-//	Print          Print the character to the screen
-//	C0             Execute the C0 code
-//	ESC            Execute the ESC sequence
-//	CSI            Execute the CSI sequence
-//	OSCStart       Signals the start of an OSC sequence
-//	OSCData        Characters from the OSC sequence
-//	OSCEnd         Signals end of the OSC sequence
-//	DCS            Signals start of a DCS sequence, and DCS params/intermediates
-//	DCSData        Raw DCS passthrough data
-//	DCSEndOfData   Signals end of DCS sequence
-//	EOF            Sent at end of input
+//	error Sent on any parsing error
+//	Print Print the character to the screen
+//	C0    Execute the C0 code
+//	ESC   Execute the ESC sequence
+//	CSI   Execute the CSI sequence
+//	OSC   Execute the OSC sequence
+//	DCS   Execute the DCS sequence
+//	EOF   Sent at end of input
 func (p *Parser) Next() chan Sequence {
 	return p.sequences
 }
@@ -188,59 +184,37 @@ func (p *Parser) param(r rune) {
 // A final character has arrived, so determine the control function to be
 // executed from private marker, intermediate character(s) and final
 // character, and execute it, passing in the parameter list.
-//
-// csiDispatch will normalize SGR RGB sequences to a maximum of 5 parameters. IE
-// '38:2::0:0:0' will return []int{38,2,0,0,0}
 func (p *Parser) csiDispatch(r rune) {
 	csi := CSI{
 		Final:        r,
 		Intermediate: p.intermediate,
-		Parameters:   []int{},
+		Parameters:   [][]int{},
 	}
 	if len(p.params) == 0 {
 		p.emit(csi)
 		return
 	}
-	paramStrRaw := strings.Split(string(p.params), ";")
-	paramStr := make([]string, 0, len(paramStrRaw))
-	for _, param := range paramStrRaw {
-		if !strings.Contains(param, ":") {
-			paramStr = append(paramStr, param)
-			continue
-		}
-		// Contains an RGB param string. Preprocess this to normalize to
-		// a length of 5
-		paramsRGB := strings.Split(param, ":")
-		switch len(paramsRGB) {
-		case 2:
-			// Could be an underline sequence CSI 4:Ps m. We only
-			// support underline, so drop the second param
-			paramStr = append(paramStr, paramsRGB[0])
-		case 5:
-			paramStr = append(paramStr, paramsRGB...)
-		case 6:
-			for i, p := range paramsRGB {
-				if i == 2 {
-					continue
-				}
-				paramStr = append(paramStr, p)
-			}
-		}
-	}
-	params := make([]int, 0, len(paramStr))
-	for _, param := range paramStr {
+	params := strings.Split(string(p.params), ";")
+	for _, param := range params {
 		if param == "" {
-			params = append(params, 0)
+			csi.Parameters = append(csi.Parameters, []int{0})
 			continue
 		}
-		val, err := strconv.Atoi(param)
-		if err != nil {
-			p.emit(fmt.Errorf("csiDispatch: %w", err))
-			return
+		subParamstr := strings.Split(param, ":")
+		subParams := []int{}
+		for _, ps := range subParamstr {
+			if ps == "" {
+				ps = "0"
+			}
+			val, err := strconv.Atoi(ps)
+			if err != nil {
+				p.emit(fmt.Errorf("csiDispatch: %w", err))
+				return
+			}
+			subParams = append(subParams, val)
 		}
-		params = append(params, val)
+		csi.Parameters = append(csi.Parameters, subParams)
 	}
-	csi.Parameters = params
 	p.emit(csi)
 }
 
@@ -885,13 +859,13 @@ func (seq ESC) String() string {
 type CSI struct {
 	Final        rune
 	Intermediate []rune
-	Parameters   []int
+	Parameters   [][]int
 }
 
 func (seq CSI) String() string {
 	ps := []string{}
 	for _, p := range seq.Parameters {
-		ps = append(ps, fmt.Sprintf("%d", p))
+		ps = append(ps, fmt.Sprintf("%v", p))
 	}
 	params := strings.Join(ps, ";")
 	s := fmt.Sprintf("CSI %s %s %s", string(seq.Intermediate), params, string(seq.Final))

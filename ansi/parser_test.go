@@ -207,7 +207,7 @@ func TestCSI(t *testing.T) {
 				CSI{
 					Final:        'c',
 					Intermediate: []rune{},
-					Parameters:   []int{},
+					Parameters:   [][]int{},
 				},
 			},
 		},
@@ -218,7 +218,7 @@ func TestCSI(t *testing.T) {
 				Print('a'),
 				CSI{
 					Final:        'c',
-					Parameters:   []int{},
+					Parameters:   [][]int{},
 					Intermediate: []rune{'<'},
 				},
 			},
@@ -229,8 +229,10 @@ func TestCSI(t *testing.T) {
 			expected: []Sequence{
 				Print('a'),
 				CSI{
-					Final:        'm',
-					Parameters:   []int{38, 2, 0, 0, 0},
+					Final: 'm',
+					Parameters: [][]int{
+						{38, 2, 0, 0, 0, 0},
+					},
 					Intermediate: []rune{},
 				},
 			},
@@ -241,8 +243,11 @@ func TestCSI(t *testing.T) {
 			expected: []Sequence{
 				Print('a'),
 				CSI{
-					Final:        'm',
-					Parameters:   []int{38, 2, 0, 0, 0, 48, 2, 0, 0, 0},
+					Final: 'm',
+					Parameters: [][]int{
+						{38, 2, 0, 0, 0, 0},
+						{48, 2, 0, 0, 0, 0},
+					},
 					Intermediate: []rune{},
 				},
 			},
@@ -254,7 +259,7 @@ func TestCSI(t *testing.T) {
 				Print('a'),
 				CSI{
 					Final:        'm',
-					Parameters:   []int{38, 2, 0, 0, 0, 48, 2, 0, 0, 0},
+					Parameters:   [][]int{{38}, {2}, {0}, {0}, {0}, {48}, {2}, {0}, {0}, {0}},
 					Intermediate: []rune{},
 				},
 			},
@@ -266,7 +271,7 @@ func TestCSI(t *testing.T) {
 				Print('a'),
 				CSI{
 					Final:        'c',
-					Parameters:   []int{0},
+					Parameters:   [][]int{{0}},
 					Intermediate: []rune{},
 				},
 			},
@@ -301,7 +306,7 @@ func TestCSI(t *testing.T) {
 				Print('a'),
 				CSI{
 					Final:        'c',
-					Parameters:   []int{9999},
+					Parameters:   [][]int{{9999}},
 					Intermediate: []rune{},
 				},
 			},
@@ -313,7 +318,7 @@ func TestCSI(t *testing.T) {
 				Print('a'),
 				CSI{
 					Final:        'c',
-					Parameters:   []int{0, 0},
+					Parameters:   [][]int{{0}, {0}},
 					Intermediate: []rune{},
 				},
 			},
@@ -325,7 +330,7 @@ func TestCSI(t *testing.T) {
 				Print('a'),
 				CSI{
 					Final:        'c',
-					Parameters:   []int{0, 0},
+					Parameters:   [][]int{{0}, {0}},
 					Intermediate: []rune{},
 				},
 			},
@@ -337,7 +342,7 @@ func TestCSI(t *testing.T) {
 				Print('a'),
 				CSI{
 					Final:        'c',
-					Parameters:   []int{0, 1},
+					Parameters:   [][]int{{0}, {1}},
 					Intermediate: []rune{},
 				},
 			},
@@ -363,7 +368,7 @@ func TestCSI(t *testing.T) {
 				Print('a'),
 				CSI{
 					Final:        'c',
-					Parameters:   []int{},
+					Parameters:   [][]int{},
 					Intermediate: []rune{' ', ' '},
 				},
 			},
@@ -383,7 +388,7 @@ func TestCSI(t *testing.T) {
 				C0(0x00),
 				CSI{
 					Final:        'c',
-					Parameters:   []int{},
+					Parameters:   [][]int{},
 					Intermediate: []rune{' ', ' '},
 				},
 			},
@@ -395,7 +400,7 @@ func TestCSI(t *testing.T) {
 				Print('a'),
 				CSI{
 					Final:        'c',
-					Parameters:   []int{},
+					Parameters:   [][]int{},
 					Intermediate: []rune{' ', ' '},
 				},
 			},
@@ -414,7 +419,7 @@ func TestCSI(t *testing.T) {
 				Print('a'),
 				CSI{
 					Final:        'c',
-					Parameters:   []int{0},
+					Parameters:   [][]int{{0}},
 					Intermediate: []rune{' ', ' '},
 				},
 			},
