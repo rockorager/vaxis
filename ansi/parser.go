@@ -6,6 +6,8 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 	"unicode"
 )
 
@@ -28,6 +30,11 @@ type Parser struct {
 	intermediate []rune
 	params       []rune
 	final        rune
+
+	// escTimeout is a timeout for interpretting an Esc keypress vs an
+	// escape sequence
+	escTimeout *time.Timer
+	mu         sync.Mutex
 
 	oscData []rune
 
@@ -63,10 +70,13 @@ func (p *Parser) Next() chan Sequence {
 func (p *Parser) run() {
 	for {
 		r := p.readRune()
+		p.mu.Lock()
 		p.state = anywhere(r, p)
 		if p.state == nil {
+			p.mu.Unlock()
 			break
 		}
+		p.mu.Unlock()
 	}
 	p.emit(EOF{})
 	close(p.sequences)
@@ -74,6 +84,9 @@ func (p *Parser) run() {
 
 func (p *Parser) readRune() rune {
 	r, _, err := p.r.ReadRune()
+	if p.escTimeout != nil {
+		p.escTimeout.Stop()
+	}
 	if r == unicode.ReplacementChar {
 		// If invalid UTF-8, let's read the byte and deliver
 		// it as is
@@ -356,6 +369,12 @@ func anywhere(r rune, p *Parser) stateFn {
 			p.exit = nil
 		}
 		p.clear()
+		p.escTimeout = time.AfterFunc(1*time.Millisecond, func() {
+			p.emit(C0(0x1B))
+			p.mu.Lock()
+			p.state = ground
+			p.mu.Unlock()
+		})
 		return escape
 	default:
 		return p.state(r, p)
