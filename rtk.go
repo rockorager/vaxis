@@ -121,7 +121,6 @@ func New() (*RTK, error) {
 			case seq := <-rtk.parser.Next():
 				switch seq := seq.(type) {
 				case ansi.EOF:
-					log.Tracef(seq.String())
 					return
 				default:
 					rtk.handleSequence(seq)
@@ -347,7 +346,6 @@ func (rtk *RTK) render() string {
 }
 
 func (rtk *RTK) handleSequence(seq ansi.Sequence) {
-	log.Debugf("%s", seq)
 	switch seq := seq.(type) {
 	case ansi.Print:
 		switch {

@@ -3,7 +3,6 @@ package rtk
 import (
 	"bytes"
 	"fmt"
-	"strings"
 	"unicode"
 
 	"git.sr.ht/~rockorager/rtk/ansi"
@@ -48,18 +47,8 @@ const (
 //	<num-caps-meta-hyper-super-c-a-s-{key}>
 func (k Key) String() string {
 	buf := &bytes.Buffer{}
-	switch {
-	case k.Modifiers != 0:
-		buf.WriteRune('<')
-	case k.Codepoint == KeyTab:
-		buf.WriteRune('<')
-	case k.Codepoint == KeySpace:
-		buf.WriteRune('<')
-	case k.Codepoint == KeyEsc:
-		buf.WriteRune('<')
-	}
 
-	if k.Modifiers != 0 && k.EventType != EventRelease {
+	if k.EventType != EventRelease {
 		if k.Modifiers&ModNumLock != 0 {
 			buf.WriteString("num-")
 		}
@@ -99,16 +88,14 @@ func (k Key) String() string {
 		// Handle further down
 	case k.Codepoint < 0x00:
 		return "<invalid>"
+	case k.Codepoint == 0x00:
+		return "<c-@>"
+	case k.Codepoint < 0x1A:
+		return fmt.Sprintf("<c-%c>", k.Codepoint+0x61)
 	case k.Codepoint < 0x20:
-		ch := fmt.Sprintf("%c", k.Codepoint+0x40)
-		return fmt.Sprintf("<c-%s>", strings.ToLower(ch))
+		return fmt.Sprintf("<c-%c>", k.Codepoint+0x40)
 	case k.Codepoint <= unicode.MaxRune:
-		ch := fmt.Sprintf("%c", k.Codepoint)
-		buf.WriteString(fmt.Sprintf("%s", strings.ToLower(ch)))
-	}
-
-	if k.Modifiers == 0 && k.Codepoint > unicode.MaxRune {
-		buf.WriteRune('<')
+		buf.WriteRune(k.Codepoint)
 	}
 
 	switch k.Codepoint {
@@ -370,9 +357,6 @@ func (k Key) String() string {
 		buf.WriteString("space")
 	}
 
-	if strings.HasPrefix(buf.String(), "<") {
-		buf.WriteRune('>')
-	}
 	return buf.String()
 }
 
@@ -637,7 +621,7 @@ func parseKittyKbp(seq ansi.CSI) Key {
 		case 2:
 			// text-as-codepoint
 			key.Codepoint = rune(pm[0])
-
+			key.Modifiers = 0
 		}
 	}
 	return key
