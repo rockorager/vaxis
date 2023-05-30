@@ -190,6 +190,7 @@ func (rtk *RTK) Close() {
 	rtk.PostMsg(Quit{})
 	close(rtk.quit)
 
+	term.Restore(int(rtk.tty.Fd()), rtk.saved)
 	// Disable any modes we enabled
 	if bd != "" && be != "" {
 		rtk.tty.WriteString(bd) // bracketed paste
@@ -202,7 +203,6 @@ func (rtk *RTK) Close() {
 	}
 	rtk.tty.WriteString(resetMouse)
 
-	term.Restore(int(rtk.tty.Fd()), rtk.saved)
 	log.Info("Renders", "val", rtk.renders)
 	if rtk.renders != 0 {
 		log.Info("Time/render", "val", rtk.elapsed/time.Duration(rtk.renders))

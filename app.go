@@ -58,8 +58,8 @@ func (app *App) Run(model Model) error {
 }
 
 func (app *App) Close() {
-	app.rtk.ExitAltScreen()
 	app.rtk.Close()
+	app.rtk.ExitAltScreen()
 }
 
 func (app *App) PostMsg(msg Msg) {
