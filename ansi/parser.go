@@ -2,6 +2,7 @@ package ansi
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"strconv"
@@ -871,7 +872,15 @@ type ESC struct {
 }
 
 func (seq ESC) String() string {
-	return fmt.Sprintf("ESC %s %s", string(seq.Intermediate), string(seq.Final))
+	buf := bytes.NewBuffer(nil)
+	buf.WriteString("ESC")
+	for _, p := range seq.Intermediate {
+		buf.WriteRune(' ')
+		buf.WriteRune(p)
+	}
+	buf.WriteRune(' ')
+	buf.WriteRune(seq.Final)
+	return buf.String()
 }
 
 // A CSI Sequence
@@ -882,13 +891,26 @@ type CSI struct {
 }
 
 func (seq CSI) String() string {
-	ps := []string{}
-	for _, p := range seq.Parameters {
-		ps = append(ps, fmt.Sprintf("%v", p))
+	segments := make([]string, 0, 9)
+	segments = append(segments, "CSI")
+	if len(seq.Intermediate) > 0 {
+		segments = append(segments, string(seq.Intermediate[0]))
 	}
-	params := strings.Join(ps, ";")
-	s := fmt.Sprintf("CSI %s %s %s", string(seq.Intermediate), params, string(seq.Final))
-	return s
+	for i, p := range seq.Parameters {
+		if i > 0 {
+			segments = append(segments, ";")
+		}
+		param := []string{}
+		for _, sub := range p {
+			param = append(param, fmt.Sprintf("%d", sub))
+		}
+		segments = append(segments, strings.Join(param, ":"))
+	}
+	if len(seq.Intermediate) > 1 {
+		segments = append(segments, string(seq.Intermediate[1:]))
+	}
+	segments = append(segments, string(seq.Final))
+	return strings.Join(segments, " ")
 }
 
 // An OSC sequence. The Payload is the raw runes received, and must be parsed
@@ -910,13 +932,26 @@ type DCS struct {
 }
 
 func (seq DCS) String() string {
-	ps := []string{}
-	for _, p := range seq.Parameters {
-		ps = append(ps, fmt.Sprintf("%d", p))
+	segments := make([]string, 0, 9)
+	segments = append(segments, "DCS")
+	if len(seq.Intermediate) > 0 {
+		segments = append(segments, string(seq.Intermediate[0]))
 	}
-	params := strings.Join(ps, ";")
-	s := fmt.Sprintf("DCS %s %s %s %s", string(seq.Intermediate), params, string(seq.Final), string(seq.Data))
-	return s
+	for i, p := range seq.Parameters {
+		if i > 0 {
+			segments = append(segments, ";")
+		}
+		segments = append(segments, fmt.Sprintf("%d", p))
+	}
+	if len(seq.Intermediate) > 1 {
+		segments = append(segments, string(seq.Intermediate[1:]))
+	}
+	segments = append(segments, string(seq.Final))
+
+	if len(seq.Data) > 0 {
+		segments = append(segments, string(seq.Data))
+	}
+	return strings.Join(segments, " ")
 }
 
 // Sent when the underlying PTY is closed
