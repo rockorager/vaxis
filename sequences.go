@@ -33,6 +33,13 @@ const (
 	boldDimReset = "\x1b[22m"
 	endBlink     = "\x1b[25m"
 	endInvis     = "\x1b[28m"
+
+	// bracketed paste signals. All terminals are using the same sequences.
+	// We only check terminfo for support. If supported, we turn it on and
+	// we'll see these on pastes
+	ps = "\x1b[200~" // paste started
+	pe = "\x1b[201~" // paste ended
+
 )
 
 // Below we pull from terminfo
@@ -60,6 +67,14 @@ var (
 	rmul  string // end underline
 	rmso  string // end reverse
 	sgr0  string // reset all attrs
+
+	bd string // disable bracketed paste mode
+	be string // enable bracketed paste mode
+
+	smkx string // enable application cursor keys (SS3 [A-D])
+	rmkx string // disable application cursor keys
+
+	xm string // mouse support
 )
 
 func setupTermInfo() error {
@@ -91,6 +106,17 @@ func setupTermInfo() error {
 	clear = info.Strings["clear"]
 	civis = info.Strings["civis"]
 	cvvis = info.Strings["cvvis"]
+
+	// bracketed paste
+	bd = info.Strings["BD"]
+	be = info.Strings["BE"]
+
+	// cursor keys
+	smkx = info.Strings["smkx"]
+	rmkx = info.Strings["rmkx"]
+
+	// mouse
+	xm = info.Strings["XM"]
 
 	// Now we map all of the extended keys.....
 	capNameToExtended := map[string]Key{

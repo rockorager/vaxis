@@ -87,13 +87,9 @@ func (k Key) String() string {
 	case k.Codepoint == KeyEnter:
 		// Handle further down
 	case k.Codepoint < 0x00:
-		return "<invalid>"
-	case k.Codepoint == 0x00:
-		return "<c-@>"
-	case k.Codepoint < 0x1A:
-		return fmt.Sprintf("<c-%c>", k.Codepoint+0x61)
+		return "invalid"
 	case k.Codepoint < 0x20:
-		return fmt.Sprintf("<c-%c>", k.Codepoint+0x40)
+		return fmt.Sprintf("c-%c", k.Codepoint)
 	case k.Codepoint <= unicode.MaxRune:
 		buf.WriteRune(k.Codepoint)
 	}

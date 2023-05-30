@@ -3,6 +3,7 @@ package rtk
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"strings"
@@ -11,11 +12,13 @@ import (
 	"time"
 
 	"git.sr.ht/~rockorager/rtk/ansi"
-	"git.sr.ht/~rockorager/rtk/log"
 	"github.com/rivo/uniseg"
+	"golang.org/x/exp/slog"
 	"golang.org/x/sys/unix"
 	"golang.org/x/term"
 )
+
+var log *slog.Logger
 
 // Converts a string into a slice of EGCs suitable to assign to terminal cells
 func EGCs(s string) []string {
@@ -53,9 +56,15 @@ type RTK struct {
 	// ss3 is true if we have received an \EO sequence. We have to buffer
 	// this specific one for keyboard input of some keys
 	ss3 bool
+
 	// dsrcpr is true if we have requested a cursor position report
 	dsrcpr   bool
 	chDSRCPR chan int
+
+	// bracketed paste buffer
+	bp      *bytes.Buffer
+	pasting bool
+
 	// refresh is true if we are redrawing the entire screen, ignoring
 	// incremental renders
 	refresh bool
@@ -75,7 +84,24 @@ type RTK struct {
 	}
 }
 
-func New() (*RTK, error) {
+type Options struct {
+	LogHandler slog.Handler
+}
+
+func New(opts *Options) (*RTK, error) {
+	switch {
+	case opts != nil:
+		if opts.LogHandler == nil {
+			opts.LogHandler = slog.NewTextHandler(io.Discard, &slog.HandlerOptions{})
+		}
+	default:
+		opts = &Options{
+			LogHandler: slog.NewTextHandler(io.Discard, &slog.HandlerOptions{}),
+		}
+	}
+
+	log = slog.New(opts.LogHandler)
+
 	rtk := &RTK{
 		msgs:    newQueue[Msg](),
 		outBuf:  &bytes.Buffer{},
@@ -83,6 +109,7 @@ func New() (*RTK, error) {
 		tty:     os.Stdout,
 		quit:    make(chan struct{}),
 		signals: make(chan os.Signal),
+		bp:      bytes.NewBuffer(nil),
 	}
 	rtk.std = newStdSurface(rtk)
 	rtk.model = newStdSurface(rtk)
@@ -132,12 +159,16 @@ func New() (*RTK, error) {
 					size, err := unix.IoctlGetWinsize(int(rtk.tty.Fd()), unix.TIOCGWINSZ)
 					rtk.mu.Unlock()
 					if err != nil {
-						log.Error(err)
+						log.Error(err.Error())
 					}
 					rtk.std.resize(int(size.Col), int(size.Row))
 					rtk.model.resize(int(size.Col), int(size.Row))
+					rtk.PostMsg(Resize{
+						Cols: int(size.Col),
+						Rows: int(size.Row),
+					})
 				default:
-					log.Debugf("Signal caught: %s. Closing", sig)
+					log.Debug("Signal caught", "signal", sig)
 					rtk.Close()
 					return
 				}
@@ -158,10 +189,22 @@ func New() (*RTK, error) {
 func (rtk *RTK) Close() {
 	rtk.PostMsg(Quit{})
 	close(rtk.quit)
+
+	// Disable any modes we enabled
+	if bd != "" && be != "" {
+		rtk.tty.WriteString(bd) // bracketed paste
+	}
+	if rtk.caps.KKBD {
+		rtk.tty.WriteString(kkbpPop) // kitty keyboard
+	}
+	if smkx != "" && rmkx != "" {
+		rtk.tty.WriteString(rmkx) // application cursor keys
+	}
+
 	term.Restore(int(rtk.tty.Fd()), rtk.saved)
-	log.Infof("Renders = %v", rtk.renders)
+	log.Info("Renders", "val", rtk.renders)
 	if rtk.renders != 0 {
-		log.Infof("Time/render = %s", rtk.elapsed/time.Duration(rtk.renders))
+		log.Info("Time/render", "val", rtk.elapsed/time.Duration(rtk.renders))
 	}
 }
 
@@ -346,8 +389,13 @@ func (rtk *RTK) render() string {
 }
 
 func (rtk *RTK) handleSequence(seq ansi.Sequence) {
+	log.Debug("[stdin]", "sequence", seq)
 	switch seq := seq.(type) {
 	case ansi.Print:
+		if rtk.pasting {
+			rtk.bp.WriteRune(rune(seq))
+			return
+		}
 		switch {
 		case rtk.ss3:
 			rtk.ss3 = false
@@ -377,11 +425,17 @@ func (rtk *RTK) handleSequence(seq ansi.Sequence) {
 		case 0x1B:
 			key.Codepoint = KeyEsc
 		default:
-			cp := rune(seq) + 0x40
-			strings.ToLower(string(cp))
-			key.Codepoint = rune(seq) + 0x40
-			key.Modifiers = ModCtrl
+			switch {
+			case rune(seq) == 0x00:
+				key.Codepoint = '@'
+			case rune(seq) < 0x1A:
+				// normalize these to lowercase runes
+				key.Codepoint = rune(seq) + 0x60
+			case rune(seq) < 0x20:
+				key.Codepoint = rune(seq) + 0x40
+			}
 		}
+		key.Modifiers = ModCtrl
 		rtk.PostMsg(key)
 	case ansi.ESC:
 		if seq.Final == 'O' {
@@ -399,7 +453,7 @@ func (rtk *RTK) handleSequence(seq ansi.Sequence) {
 			if rtk.dsrcpr {
 				rtk.dsrcpr = false
 				if len(seq.Parameters) != 2 {
-					log.Errorf("not enough DSRCPR params")
+					log.Error("not enough DSRCPR params")
 					return
 				}
 				rtk.chDSRCPR <- seq.Parameters[0][0]
@@ -409,18 +463,18 @@ func (rtk *RTK) handleSequence(seq ansi.Sequence) {
 		case 'y':
 			// DECRPM - DEC Report Mode
 			if len(seq.Parameters) < 1 {
-				log.Errorf("not enough DECRPM params")
+				log.Error("not enough DECRPM params")
 				return
 			}
 			switch seq.Parameters[0][0] {
 			case 2026:
 				if len(seq.Parameters) < 2 {
-					log.Errorf("not enough DECRPM params")
+					log.Error("not enough DECRPM params")
 					return
 				}
 				switch seq.Parameters[1][0] {
 				case 1, 2:
-					log.Debugf("Synchronized Update Mode supported")
+					log.Info("Synchronized Update Mode supported")
 					rtk.caps.SUM = true
 				}
 			}
@@ -428,9 +482,24 @@ func (rtk *RTK) handleSequence(seq ansi.Sequence) {
 		case 'u':
 			if len(seq.Intermediate) == 1 && seq.Intermediate[0] == '?' {
 				rtk.caps.KKBD = true
-				log.Debugf("Kitty Keyboard Protocol supported")
+				log.Info("Kitty Keyboard Protocol supported")
 				rtk.tty.WriteString(kkbpEnable)
 				return
+			}
+		case '~':
+			if len(seq.Intermediate) == 0 {
+				if len(seq.Parameters) == 0 {
+					log.Error("[CSI] unknown sequence with final '~'")
+					return
+				}
+				switch seq.Parameters[0][0] {
+				case 200:
+					rtk.pasting = true
+				case 201:
+					rtk.pasting = false
+					rtk.PostMsg(Paste(rtk.bp.String()))
+					rtk.bp.Reset()
+				}
 			}
 		}
 
@@ -442,9 +511,13 @@ func (rtk *RTK) handleSequence(seq ansi.Sequence) {
 			// Lookup the key from terminfo
 			params := []string{}
 			for _, ps := range seq.Parameters {
-				params = append(params, fmt.Sprintf("%d", ps))
+				if len(ps) > 1 {
+					log.Debug("Unknown sequence", "sequence", seq)
+				}
+				params = append(params, fmt.Sprintf("%d", ps[0]))
 			}
 			lookup := fmt.Sprintf("\x1b[%s%c", strings.Join(params, ";"), seq.Final)
+			log.Info("LOOKING UP %s%c", strings.TrimPrefix(lookup, "\x1b"))
 			key, ok := keyMap[lookup]
 			if !ok {
 				return
@@ -459,16 +532,22 @@ func (rtk *RTK) sendQueries() {
 	rtk.tty.WriteString(xtversion)
 	rtk.tty.WriteString(kkbpQuery)
 	rtk.tty.WriteString(sumQuery)
+
+	// Enable some modes
+	rtk.tty.WriteString(be)   // bracketed paste
+	rtk.tty.WriteString(smkx) // application cursor keys
 }
 
 // Terminal controls
 
 // Enter the alternate screen (for fullscreen applications)
 func (rtk *RTK) EnterAltScreen() {
+	log.Debug("Entering alt screen")
 	rtk.tty.WriteString(smcup)
 }
 
 func (rtk *RTK) ExitAltScreen() {
+	log.Debug("Exiting alt screen")
 	rtk.tty.WriteString(rmcup)
 }
 
@@ -499,7 +578,7 @@ func (rtk *RTK) CursorPosition() (col int, row int) {
 	timeout := time.NewTimer(10 * time.Millisecond)
 	select {
 	case <-timeout.C:
-		log.Warnf("CursorPosition timed out")
+		log.Warn("CursorPosition timed out")
 		return -1, -1
 	case row = <-rtk.chDSRCPR:
 		// if we get one, we'll get another

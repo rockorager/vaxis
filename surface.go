@@ -41,37 +41,81 @@ func Clear(srf Surface) {
 
 // Print prints text to a surface. The text will be wrapped to the width, line
 // breaks will begin a new line at the first column of the surface. If the text
-// overflows the height of the surface then only the top portion will be shown
-func Print(srf Surface, text string) {
+// overflows the height of the surface then only the top portion will be shown.
+// Print returns the max width of the text area, and the position of the cursor
+// at the end of the text.
+func Print(srf Surface, text string) (maxWidth int, col int, row int) {
 	cols, rows := srf.Size()
-	var (
-		row = 0
-		col = 0
-	)
 	for _, egc := range EGCs(text) {
 		if row > rows {
 			break
 		}
 		if egc == "\n" {
+			if col > maxWidth {
+				maxWidth = col
+			}
 			col = 0
 			row += 1
 			continue
 		}
 		w := uniseg.StringWidth(egc)
 		if col+w > cols {
+			if col > maxWidth {
+				maxWidth = col
+			}
 			col = 0
 			row += 1
 		}
 		srf.SetCell(col, row, Cell{EGC: egc})
 		col += w
 	}
+	return maxWidth, col, row
 }
 
-// Printf prints ansi-styled strings to the surface. Text will be wrapped, line
-// breaks will begin a new line at the first column of the surface. If the text
-// overflows the height of the surface then only the top portion will be shown
-func Printf(srf Surface, text string) {
-	// TODO
+type Block struct {
+	Text       string
+	Foreground Color
+	Background Color
+	Attributes AttributeMask
+}
+
+// PrintBlocks prints Blocks of text, with each block having a given style. Text
+// will be wrapped, line breaks will begin a new line at the first column of the
+// surface. If the text overflows the height of the surface then only the top
+// portion will be shown
+func PrintBlocks(srf Surface, blocks ...Block) (maxWidth int, col int, row int) {
+	cols, rows := srf.Size()
+	for _, block := range blocks {
+		for _, egc := range EGCs(block.Text) {
+			if row > rows {
+				break
+			}
+			if egc == "\n" {
+				if col > maxWidth {
+					maxWidth = col
+				}
+				col = 0
+				row += 1
+				continue
+			}
+			w := uniseg.StringWidth(egc)
+			if col+w > cols {
+				if col > maxWidth {
+					maxWidth = col
+				}
+				col = 0
+				row += 1
+			}
+			srf.SetCell(col, row, Cell{
+				EGC:        egc,
+				Foreground: block.Foreground,
+				Background: block.Background,
+				Attribute:  block.Attributes,
+			})
+			col += w
+		}
+	}
+	return maxWidth, col, row
 }
 
 // SubSurface is a Surface with an offset from some parent and a specified size.
@@ -140,11 +184,11 @@ func (srf *SubSurface) Resize(cols int, rows int) {
 		return
 	}
 	pCols, pRows := srf.parent.Size()
-	if cols < 0 || cols > pCols-cols {
-		cols = pCols - cols
+	if cols < 0 || cols > pCols {
+		cols = pCols
 	}
-	if rows < 0 || rows > pRows-rows {
-		rows = pRows - rows
+	if rows < 0 || rows > pRows {
+		rows = pRows
 	}
 
 	srf.cols = cols

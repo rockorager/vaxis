@@ -23,9 +23,9 @@ type App struct {
 
 // Creates a new full-screen application. Upon creation, an App will clear the
 // screen and enter the alternate screen buffer.
-func NewApp() (*App, error) {
+func NewApp(opts *Options) (*App, error) {
 	app := &App{}
-	rtk, err := New()
+	rtk, err := New(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -46,6 +46,8 @@ func (app *App) Run(model Model) error {
 		case Quit:
 			model.Update(msg)
 			return nil
+		case sendMsg:
+			msg.model.Update(msg)
 		default:
 			model.Update(msg)
 		}
@@ -62,6 +64,13 @@ func (app *App) Close() {
 
 func (app *App) PostMsg(msg Msg) {
 	app.rtk.PostMsg(msg)
+}
+
+func (app *App) SendMsg(msg Msg, model Model) {
+	app.rtk.PostMsg(sendMsg{
+		msg:   msg,
+		model: model,
+	})
 }
 
 // Refresh instructs the application to force a full render on the next pass.
