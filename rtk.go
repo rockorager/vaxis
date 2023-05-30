@@ -200,6 +200,7 @@ func (rtk *RTK) Close() {
 	if smkx != "" && rmkx != "" {
 		rtk.tty.WriteString(rmkx) // application cursor keys
 	}
+	rtk.tty.WriteString(resetMouse)
 
 	term.Restore(int(rtk.tty.Fd()), rtk.saved)
 	log.Info("Renders", "val", rtk.renders)
@@ -501,12 +502,19 @@ func (rtk *RTK) handleSequence(seq ansi.Sequence) {
 					rtk.bp.Reset()
 				}
 			}
+		case 'M', 'm':
+			mouse, ok := parseMouseEvent(seq)
+			if ok {
+				rtk.PostMsg(mouse)
+			}
 		}
 
 		switch rtk.caps.KKBD {
 		case true:
 			key := parseKittyKbp(seq)
-			rtk.PostMsg(key)
+			if key.Codepoint != 0 {
+				rtk.PostMsg(key)
+			}
 		default:
 			// Lookup the key from terminfo
 			params := []string{}
@@ -534,8 +542,9 @@ func (rtk *RTK) sendQueries() {
 	rtk.tty.WriteString(sumQuery)
 
 	// Enable some modes
-	rtk.tty.WriteString(be)   // bracketed paste
-	rtk.tty.WriteString(smkx) // application cursor keys
+	rtk.tty.WriteString(be)       // bracketed paste
+	rtk.tty.WriteString(smkx)     // application cursor keys
+	rtk.tty.WriteString(setMouse) // mouse
 }
 
 // Terminal controls

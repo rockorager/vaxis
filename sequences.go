@@ -40,6 +40,9 @@ const (
 	ps = "\x1b[200~" // paste started
 	pe = "\x1b[201~" // paste ended
 
+	// mouse
+	setMouse   = "\x1b[?1006;1003h" // sgr + all event tracking
+	resetMouse = "\x1b[?1006;1003l"
 )
 
 // Below we pull from terminfo

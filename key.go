@@ -40,6 +40,8 @@ const (
 	EventRepeat
 	// The key / button was released
 	EventRelease
+	// A mouse motion event (with no button pressed)
+	EventMotion
 )
 
 // Modified keys will always have prefixes in this order:
@@ -591,6 +593,11 @@ var kittyKeyMap = map[string]rune{
 
 func parseKittyKbp(seq ansi.CSI) Key {
 	key := Key{}
+	switch seq.Final {
+	case 'u', '~', 'A', 'B', 'C', 'D', 'E', 'F', 'H', 'P', 'Q', 'S':
+	default:
+		return key
+	}
 	for i, pm := range seq.Parameters {
 		switch i {
 		case 0:
