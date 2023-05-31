@@ -84,10 +84,6 @@ type RTK struct {
 	}
 }
 
-type Options struct {
-	LogHandler slog.Handler
-}
-
 func New(opts *Options) (*RTK, error) {
 	switch {
 	case opts != nil:
