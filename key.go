@@ -73,7 +73,7 @@ func (k Key) String() string {
 			buf.WriteString("Alt+")
 		}
 		if k.Modifiers&ModShift != 0 {
-			buf.WriteString("Super+")
+			buf.WriteString("Shift+")
 		}
 	}
 
