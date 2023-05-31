@@ -9,6 +9,7 @@ type Mouse struct {
 	Row       int
 	Col       int
 	EventType EventType
+	Modifiers ModifierMask
 }
 
 type MouseButton int
@@ -29,8 +30,11 @@ const (
 )
 
 const (
-	motion     = 0b00100000
-	buttonBits = 0b11000011
+	motion        = 0b00100000
+	buttonBits    = 0b11000011
+	mouseModShift = 0b00000100
+	mouseModAlt   = 0b00001000
+	mouseModCtrl  = 0b00010000
 )
 
 func parseMouseEvent(seq ansi.CSI) (Mouse, bool) {
@@ -58,6 +62,16 @@ func parseMouseEvent(seq ansi.CSI) (Mouse, bool) {
 
 	if seq.Parameters[0][0]&motion != 0 {
 		mouse.EventType = EventMotion
+	}
+
+	if seq.Parameters[0][0]&mouseModShift != 0 {
+		mouse.Modifiers |= ModShift
+	}
+	if seq.Parameters[0][0]&mouseModAlt != 0 {
+		mouse.Modifiers |= ModAlt
+	}
+	if seq.Parameters[0][0]&mouseModCtrl != 0 {
+		mouse.Modifiers |= ModCtrl
 	}
 
 	mouse.Col = seq.Parameters[1][0] - 1

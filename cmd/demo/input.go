@@ -40,27 +40,35 @@ func (m *input) Update(msg rtk.Msg) {
 			prefix = "[mouse::motion]"
 		}
 		button := ""
+		switch msg.Modifiers {
+		case rtk.ModShift:
+			button += "s-"
+		case rtk.ModAlt:
+			button += "a-"
+		case rtk.ModCtrl:
+			button += "c-"
+		}
 		switch msg.Button {
 		case rtk.MouseLeftButton:
-			button = "left"
+			button += "left"
 		case rtk.MouseMiddleButton:
-			button = "middle"
+			button += "middle"
 		case rtk.MouseRightButton:
-			button = "right"
+			button += "right"
 		case rtk.MouseNoButton:
-			button = "none"
+			button += "none"
 		case rtk.MouseWheelUp:
-			button = "wheel-up"
+			button += "wheel-up"
 		case rtk.MouseWheelDown:
-			button = "wheel-down"
+			button += "wheel-down"
 		case rtk.MouseButton8:
-			button = "button 8"
+			button += "button 8"
 		case rtk.MouseButton9:
-			button = "button 9"
+			button += "button 9"
 		case rtk.MouseButton10:
-			button = "button 10"
+			button += "button 10"
 		case rtk.MouseButton11:
-			button = "button 11"
+			button += "button 11"
 		}
 		val := fmt.Sprintf("%-16s %s row=%d col=%d", prefix, button, msg.Row, msg.Col)
 		m.events = append(m.events, val)
@@ -72,7 +80,7 @@ func (m *input) Update(msg rtk.Msg) {
 
 func (m *input) Draw(srf rtk.Surface) {
 	_, rows := srf.Size()
-	srf = align.TopMiddle(srf, 36, rows-5)
+	srf = align.TopMiddle(srf, 50, rows-5)
 	_, rows = srf.Size()
 	top := len(m.events) - rows
 	if top < 0 {
