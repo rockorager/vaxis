@@ -11,10 +11,7 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-var (
-	app *rtk.App
-	log *slog.Logger
-)
+var log *slog.Logger
 
 type model struct {
 	slides  []rtk.Model
@@ -33,9 +30,9 @@ func (m *model) Update(msg rtk.Msg) {
 		}
 		switch msg.String() {
 		case "Ctrl+c":
-			app.Close()
+			rtk.Quit()
 		case "Ctrl+l":
-			app.Refresh()
+			rtk.Refresh()
 		case "Right":
 			if m.current >= len(m.slides) {
 				break
@@ -93,17 +90,14 @@ func main() {
 	handler := slog.NewTextHandler(logBuf, &slog.HandlerOptions{
 		Level: slog.LevelDebug,
 	})
-	opts := &rtk.Options{
-		LogHandler: handler,
-	}
 	log = slog.New(handler)
-	app, err = rtk.NewApp(opts)
 	if err != nil {
 		slog.Error(err.Error())
 		os.Exit(1)
 	}
+	rtk.Logger = log
 	m := &model{}
-	if err := app.Run(m); err != nil {
+	if err := rtk.Run(m); err != nil {
 		slog.Error(err.Error())
 		os.Exit(1)
 	}

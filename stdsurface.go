@@ -9,13 +9,10 @@ type stdSurface struct {
 	mu   sync.Mutex
 	rows int
 	cols int
-	rtk  *RTK
 }
 
-func newStdSurface(rtk *RTK) *stdSurface {
-	std := &stdSurface{
-		rtk: rtk,
-	}
+func newStdSurface() *stdSurface {
+	std := &stdSurface{}
 	return std
 }
 
@@ -62,5 +59,5 @@ func (std *stdSurface) SetCell(col int, row int, cell Cell) {
 }
 
 func (std *stdSurface) ShowCursor(col int, row int) {
-	std.rtk.ShowCursor(col, row)
+	showCursor(col, row)
 }

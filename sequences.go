@@ -50,6 +50,7 @@ var (
 	clear  string
 	civis  string
 	cvvis  string
+	cnorm  string // set cursor back to normal
 	cup    string // move cursor to abs position
 	dsrcpr string // cursor report position
 	setaf  string
@@ -109,6 +110,7 @@ func setupTermInfo() error {
 	clear = info.Strings["clear"]
 	civis = info.Strings["civis"]
 	cvvis = info.Strings["cvvis"]
+	cnorm = info.Strings["cnorm"]
 
 	// bracketed paste
 	bd = info.Strings["BD"]

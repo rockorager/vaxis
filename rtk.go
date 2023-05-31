@@ -3,11 +3,9 @@ package rtk
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"os"
 	"os/signal"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -18,7 +16,56 @@ import (
 	"golang.org/x/term"
 )
 
-var log *slog.Logger
+var (
+	// Logger is a slog.Logger that rtk will dump logs to. rtk uses stdlib
+	// levels for logging, and a trace level at -8
+	// TODO make the trace level
+	Logger *slog.Logger
+
+	// async is an asynchronous queue, provided as a helper for applications
+	async *queue[Msg]
+	// msgs is the main event loop Msg queue
+	msgs *queue[Msg]
+	// chQuit is a channel to signal to running goroutines that we are
+	// quitting
+	chQuit chan struct{}
+	// inPaste signals that we are within a bracketed paste
+	inPaste bool
+	// pasteBuf buffers bracketed paste text
+	pasteBuf *bytes.Buffer
+	// ss3Prefix signals that we have encountered an SS3 prefix on our input
+	// parsing
+	ss3Prefix bool
+	// Have we requested a cursor position?
+	cursorPositionRequested bool
+	chCursorPositionReport  chan int
+
+	// Rendering variables
+
+	// renderBuf buffers the output that we'll send to the tty
+	renderBuf *bytes.Buffer
+	// refresh signals if we should do a delta render or full render
+	refresh bool
+	// std is the std Surface
+	std *stdSurface
+	// lastRender stores the state of our last render. This is used to
+	// optimize what we update on the next render
+	lastRender *stdSurface
+
+	// tty is the terminal we are talking with
+	tty        *os.File
+	savedState *term.State
+
+	capabilities struct {
+		synchronizedUpdate bool
+		rgb                bool
+		kittyKeyboard      bool
+	}
+
+	// Statistics
+	renders int
+	elapsed time.Duration
+)
 
 // Converts a string into a slice of EGCs suitable to assign to terminal cells
 func EGCs(s string) []string {
@@ -30,94 +77,33 @@ func EGCs(s string) []string {
 	return egcs
 }
 
-// RTK is the surface associated with the terminal screen. It will always
-// have an offset of 0,0 and a size equal to the size of the terminal screen
-type RTK struct {
-	// std is the buffered state of the stdSurface. Applications write cells
-	// to this Surface, which is then rendered
-	std *stdSurface
-	// model is the last rendered state of the stdSurface
-	model *stdSurface
-	// Statistics
-	// elapsed time spent rendering
-	elapsed time.Duration
-	// number of renders we have done
-	renders uint64
-
-	// queues
-	msgs *queue[Msg]
-
-	mu sync.Mutex
-	// buffer to collect our output from flush
-	outBuf *bytes.Buffer
-	// input parser
-	parser *ansi.Parser
-	quit   chan struct{}
-	// ss3 is true if we have received an \EO sequence. We have to buffer
-	// this specific one for keyboard input of some keys
-	ss3 bool
-
-	// dsrcpr is true if we have requested a cursor position report
-	dsrcpr   bool
-	chDSRCPR chan int
-
-	// bracketed paste buffer
-	bp      *bytes.Buffer
-	pasting bool
-
-	// refresh is true if we are redrawing the entire screen, ignoring
-	// incremental renders
-	refresh bool
-	// saved state, restored on Close
-	saved   *term.State
-	signals chan os.Signal
-	// the underlying tty
-	tty *os.File
-
-	caps struct {
-		// RGB support was detected in some way
-		RGB bool
-		// Synchronized Update Mode
-		SUM bool
-		// Kitty keyboard protocl
-		KKBD bool
-	}
-}
-
-func New(opts *Options) (*RTK, error) {
-	switch {
-	case opts != nil:
-		if opts.LogHandler == nil {
-			opts.LogHandler = slog.NewTextHandler(io.Discard, &slog.HandlerOptions{})
-		}
-	default:
-		opts = &Options{
-			LogHandler: slog.NewTextHandler(io.Discard, &slog.HandlerOptions{}),
-		}
-	}
-
-	log = slog.New(opts.LogHandler)
-
-	rtk := &RTK{
-		msgs:    newQueue[Msg](),
-		outBuf:  &bytes.Buffer{},
-		parser:  ansi.NewParser(os.Stdout),
-		tty:     os.Stdout,
-		quit:    make(chan struct{}),
-		signals: make(chan os.Signal),
-		bp:      bytes.NewBuffer(nil),
-	}
-	rtk.std = newStdSurface(rtk)
-	rtk.model = newStdSurface(rtk)
-
+func Run(model Model) error {
+	// Setup terminal
 	err := setupTermInfo()
 	if err != nil {
-		return nil, err
+		return err
+	}
+	tty = os.Stdout
+	parser := ansi.NewParser(tty)
+	savedState, err = term.MakeRaw(int(tty.Fd()))
+	if err != nil {
+		return err
 	}
 
-	rtk.saved, err = term.MakeRaw(int(rtk.tty.Fd()))
+	// Rendering
+	renderBuf = &bytes.Buffer{}
+	lastRender = newStdSurface()
+	std = newStdSurface()
 
-	signal.Notify(rtk.signals,
+	// pasteBuf buffers bracketed paste
+	pasteBuf = &bytes.Buffer{}
+
+	// Setup internals and signal handling
+	msgs = newQueue[Msg]()
+	chQuit = make(chan struct{})
+	chOSSignals := make(chan os.Signal)
+	chCursorPositionReport = make(chan int)
+	signal.Notify(chOSSignals,
 		syscall.SIGWINCH, // triggers Resize
 		syscall.SIGCONT,  // triggers Resize
 		syscall.SIGABRT,
@@ -129,134 +115,135 @@ func New(opts *Options) (*RTK, error) {
 		syscall.SIGSEGV,
 		syscall.SIGTERM,
 	)
-
-	size, err := unix.IoctlGetWinsize(int(rtk.tty.Fd()), unix.TIOCGWINSZ)
-	if err != nil {
-		return nil, err
-	}
-	rtk.std.resize(int(size.Col), int(size.Row))
-	rtk.model.resize(int(size.Col), int(size.Row))
-	rtk.PostMsg(Init{})
+	PostMsg(Init{})
+	resize(int(tty.Fd()))
+	sendQueries()
 
 	go func() {
 		for {
 			select {
-			case seq := <-rtk.parser.Next():
+			case seq := <-parser.Next():
 				switch seq := seq.(type) {
 				case ansi.EOF:
 					return
 				default:
-					rtk.handleSequence(seq)
+					handleSequence(seq)
 				}
-			case sig := <-rtk.signals:
+			case sig := <-chOSSignals:
 				switch sig {
 				case syscall.SIGWINCH, syscall.SIGCONT:
-					rtk.mu.Lock()
-					size, err := unix.IoctlGetWinsize(int(rtk.tty.Fd()), unix.TIOCGWINSZ)
-					rtk.mu.Unlock()
-					if err != nil {
-						log.Error(err.Error())
-						continue
-					}
-					rtk.std.resize(int(size.Col), int(size.Row))
-					rtk.model.resize(int(size.Col), int(size.Row))
-					rtk.PostMsg(Resize{
-						Cols: int(size.Col),
-						Rows: int(size.Row),
-					})
+					resize(int(tty.Fd()))
 				default:
-					log.Debug("Signal caught", "signal", sig)
-					rtk.Close()
+					Logger.Debug("Signal caught", "signal", sig)
+					quit()
 					return
 				}
-			case <-rtk.quit:
+			case <-chQuit:
 				return
 			}
 		}
 	}()
 
-	rtk.sendQueries()
-	switch os.Getenv("COLORTERM") {
-	case "truecolor", "24bit":
-		rtk.caps.RGB = true
+	for msg := range msgs.ch {
+		if msg == nil {
+			continue
+		}
+		switch msg := msg.(type) {
+		case QuitMsg:
+			close(chQuit)
+			model.Update(msg)
+			quit()
+			return nil
+		case Resize:
+			std.resize(msg.Cols, msg.Rows)
+			lastRender.resize(msg.Cols, msg.Rows)
+			model.Update(msg)
+		case sendMsg:
+			msg.model.Update(msg)
+		default:
+			model.Update(msg)
+		}
+		model.Draw(std)
+		Render()
 	}
-	return rtk, nil
+	return nil
 }
 
-func (rtk *RTK) Close() {
-	rtk.PostMsg(Quit{})
-	close(rtk.quit)
+// resize posts a Resize Msg
+func resize(fd int) error {
+	size, err := unix.IoctlGetWinsize(fd, unix.TIOCGWINSZ)
+	if err != nil {
+		return err
+	}
+	PostMsg(Resize{
+		Cols: int(size.Col),
+		Rows: int(size.Row),
+	})
+	return nil
+}
 
-	term.Restore(int(rtk.tty.Fd()), rtk.saved)
+func Quit() {
+	PostMsg(QuitMsg{})
+}
+
+func quit() {
+	tty.WriteString(cvvis) // show the cursor
+	tty.WriteString(sgr0)  // reset fg, bg, attrs
+	tty.WriteString(clear)
 
 	// Disable any modes we enabled
-	rtk.tty.WriteString(bd)      // bracketed paste
-	rtk.tty.WriteString(kkbpPop) // kitty keyboard
-	rtk.tty.WriteString(rmkx)    // application cursor keys
-	rtk.tty.WriteString(resetMouse)
+	tty.WriteString(bd)      // bracketed paste
+	tty.WriteString(kkbpPop) // kitty keyboard
+	tty.WriteString(rmkx)    // application cursor keys
+	tty.WriteString(resetMouse)
 
-	log.Info("Renders", "val", rtk.renders)
-	if rtk.renders != 0 {
-		log.Info("Time/render", "val", rtk.elapsed/time.Duration(rtk.renders))
+	exitAltScreen()
+
+	term.Restore(int(tty.Fd()), savedState)
+
+	Logger.Info("Renders", "val", renders)
+	if renders != 0 {
+		Logger.Info("Time/render", "val", elapsed/time.Duration(renders))
 	}
-}
-
-func (rtk *RTK) StdSurface() Surface {
-	return rtk.std
-}
-
-// Msgs returns the channel of Msgs
-func (rtk *RTK) Msgs() chan Msg {
-	return rtk.msgs.ch
-}
-
-func (rtk *RTK) PostMsg(msg Msg) {
-	rtk.msgs.push(msg)
 }
 
 // Render the surface's content to the terminal
-func (rtk *RTK) Render() {
+func Render() {
 	start := time.Now()
-	rtk.mu.Lock()
-	defer rtk.mu.Unlock()
-	defer rtk.outBuf.Reset()
-	out := rtk.render()
-	rtk.tty.WriteString(out)
-	rtk.elapsed += time.Since(start)
-	rtk.renders += 1
-	rtk.refresh = false
+	defer renderBuf.Reset()
+	out := render()
+	tty.WriteString(out)
+	elapsed += time.Since(start)
+	renders += 1
+	refresh = false
 }
 
 // Refresh forces a full render of the entire screen
-func (rtk *RTK) Refresh() {
-	rtk.mu.Lock()
-	rtk.refresh = true
-	rtk.mu.Unlock()
-	rtk.Render()
+func Refresh() {
+	refresh = true
+	Render()
 }
 
-func (rtk *RTK) render() string {
+func render() string {
 	var (
 		reposition = true
 		fg         Color
 		bg         Color
 		attr       AttributeMask
 	)
-	rtk.std.mu.Lock()
-	defer rtk.std.mu.Unlock()
-	for row := range rtk.std.buf {
-		for col := range rtk.std.buf[row] {
-			next := rtk.std.buf[row][col]
-			if next == rtk.model.buf[row][col] && !rtk.refresh {
+	for row := range std.buf {
+		for col := range std.buf[row] {
+			next := std.buf[row][col]
+			if next == lastRender.buf[row][col] && !refresh {
 				reposition = true
 				continue
 			}
-			if rtk.outBuf.Len() == 0 && rtk.caps.SUM {
-				rtk.outBuf.WriteString(sumSet)
+			if renderBuf.Len() == 0 && capabilities.synchronizedUpdate {
+				renderBuf.WriteString(sumSet)
 			}
-			rtk.model.buf[row][col] = next
+			lastRender.buf[row][col] = next
 			if reposition {
-				rtk.outBuf.WriteString(tparm(cup, row, col))
+				renderBuf.WriteString(tparm(cup, row, col))
 				reposition = false
 			}
 			// TODO Optimizations
@@ -273,12 +260,12 @@ func (rtk *RTK) render() string {
 				ps := fg.Params()
 				switch len(ps) {
 				case 0:
-					rtk.outBuf.WriteString(fgop)
+					renderBuf.WriteString(fgop)
 				case 1:
-					rtk.outBuf.WriteString(tparm(setaf, int(ps[0])))
+					renderBuf.WriteString(tparm(setaf, int(ps[0])))
 				case 3:
 					out := tparm(setrgbf, int(ps[0]), int(ps[1]), int(ps[2]))
-					rtk.outBuf.WriteString(out)
+					renderBuf.WriteString(out)
 				}
 			}
 
@@ -287,12 +274,12 @@ func (rtk *RTK) render() string {
 				ps := bg.Params()
 				switch len(ps) {
 				case 0:
-					rtk.outBuf.WriteString(bgop)
+					renderBuf.WriteString(bgop)
 				case 1:
-					rtk.outBuf.WriteString(tparm(setab, int(ps[0])))
+					renderBuf.WriteString(tparm(setab, int(ps[0])))
 				case 3:
 					out := tparm(setrgbb, int(ps[0]), int(ps[1]), int(ps[2]))
-					rtk.outBuf.WriteString(out)
+					renderBuf.WriteString(out)
 				}
 			}
 
@@ -304,28 +291,28 @@ func (rtk *RTK) render() string {
 				on := dAttr & next.Attribute
 
 				if on&AttrBold != 0 {
-					rtk.outBuf.WriteString(bold)
+					renderBuf.WriteString(bold)
 				}
 				if on&AttrDim != 0 {
-					rtk.outBuf.WriteString(dim)
+					renderBuf.WriteString(dim)
 				}
 				if on&AttrItalic != 0 {
-					rtk.outBuf.WriteString(sitm)
+					renderBuf.WriteString(sitm)
 				}
 				if on&AttrUnderline != 0 {
-					rtk.outBuf.WriteString(smul)
+					renderBuf.WriteString(smul)
 				}
 				if on&AttrBlink != 0 {
-					rtk.outBuf.WriteString(blink)
+					renderBuf.WriteString(blink)
 				}
 				if on&AttrReverse != 0 {
-					rtk.outBuf.WriteString(rev)
+					renderBuf.WriteString(rev)
 				}
 				if on&AttrInvisible != 0 {
-					rtk.outBuf.WriteString(invis)
+					renderBuf.WriteString(invis)
 				}
 				if on&AttrStrikethrough != 0 {
-					rtk.outBuf.WriteString(smxx)
+					renderBuf.WriteString(smxx)
 				}
 
 				// If the bit is changed and is in previous, it
@@ -333,80 +320,80 @@ func (rtk *RTK) render() string {
 				off := dAttr & attr
 				if off&AttrBold != 0 {
 					// Normal intensity isn't in terminfo
-					rtk.outBuf.WriteString(boldDimReset)
+					renderBuf.WriteString(boldDimReset)
 					// Normal intensity turns off dim. If it
 					// should be on, let's turn it back on
 					if next.Attribute&AttrDim != 0 {
-						rtk.outBuf.WriteString(dim)
+						renderBuf.WriteString(dim)
 					}
 				}
 				if off&AttrDim != 0 {
 					// Normal intensity isn't in terminfo
-					rtk.outBuf.WriteString(boldDimReset)
+					renderBuf.WriteString(boldDimReset)
 					// Normal intensity turns off bold. If it
 					// should be on, let's turn it back on
 					if next.Attribute&AttrBold != 0 {
-						rtk.outBuf.WriteString(bold)
+						renderBuf.WriteString(bold)
 					}
 				}
 				if off&AttrItalic != 0 {
-					rtk.outBuf.WriteString(ritm)
+					renderBuf.WriteString(ritm)
 				}
 				if off&AttrUnderline != 0 {
-					rtk.outBuf.WriteString(rmul)
+					renderBuf.WriteString(rmul)
 				}
 				if off&AttrBlink != 0 {
 					// turn off blink isn't in terminfo
-					rtk.outBuf.WriteString(endBlink)
+					renderBuf.WriteString(endBlink)
 				}
 				if off&AttrReverse != 0 {
-					rtk.outBuf.WriteString(rmso)
+					renderBuf.WriteString(rmso)
 				}
 				if off&AttrInvisible != 0 {
 					// turn off invisible isn't in terminfo
-					rtk.outBuf.WriteString(endInvis)
+					renderBuf.WriteString(endInvis)
 				}
 				if off&AttrStrikethrough != 0 {
-					rtk.outBuf.WriteString(rmxx)
+					renderBuf.WriteString(rmxx)
 				}
 				attr = next.Attribute
 			}
-			rtk.outBuf.WriteString(next.EGC)
+			renderBuf.WriteString(next.EGC)
 		}
 	}
-	if rtk.outBuf.Len() != 0 {
-		rtk.outBuf.WriteString(sgr0)
-		if rtk.caps.SUM {
-			rtk.outBuf.WriteString(sumReset)
+	if renderBuf.Len() != 0 {
+		renderBuf.WriteString(sgr0)
+		if capabilities.synchronizedUpdate {
+			renderBuf.WriteString(sumReset)
 		}
 	}
-	return rtk.outBuf.String()
+	return renderBuf.String()
 }
 
-func (rtk *RTK) handleSequence(seq ansi.Sequence) {
-	log.Debug("[stdin]", "sequence", seq)
+func handleSequence(seq ansi.Sequence) {
+	Logger.Debug("[stdin]", "sequence", seq)
 	switch seq := seq.(type) {
 	case ansi.Print:
-		if rtk.pasting {
-			rtk.bp.WriteRune(rune(seq))
+		if inPaste {
+			pasteBuf.WriteRune(rune(seq))
 			return
 		}
 		switch {
-		case rtk.ss3:
-			rtk.ss3 = false
+		case ss3Prefix:
+			ss3Prefix = false
 			lookup := fmt.Sprintf("\x1bO%c", seq)
 			key, ok := keyMap[lookup]
 			if !ok {
 				return
 			}
-			rtk.PostMsg(key)
+			PostMsg(key)
 		default:
 			key, ok := keyMap[string(seq)]
 			if ok {
-				rtk.PostMsg(key)
+				PostMsg(key)
 				return
 			}
-			rtk.PostMsg(Key{Codepoint: rune(seq)})
+			PostMsg(Key{Codepoint: rune(seq)})
 		}
 	case ansi.C0:
 		key := Key{}
@@ -431,10 +418,10 @@ func (rtk *RTK) handleSequence(seq ansi.Sequence) {
 			}
 		}
 		key.Modifiers = ModCtrl
-		rtk.PostMsg(key)
+		PostMsg(key)
 	case ansi.ESC:
 		if seq.Final == 'O' {
-			rtk.ss3 = true
+			ss3Prefix = true
 		}
 	case ansi.CSI:
 		switch seq.Final {
@@ -445,147 +432,147 @@ func (rtk *RTK) handleSequence(seq ansi.Sequence) {
 			//
 			// Kitty keyboard protocol disambiguates this scenario,
 			// hopefully people are using that
-			if rtk.dsrcpr {
-				rtk.dsrcpr = false
+			if cursorPositionRequested {
+				cursorPositionRequested = false
 				if len(seq.Parameters) != 2 {
-					log.Error("not enough DSRCPR params")
+					Logger.Error("not enough DSRCPR params")
 					return
 				}
-				rtk.chDSRCPR <- seq.Parameters[0][0]
-				rtk.chDSRCPR <- seq.Parameters[1][0]
+				chCursorPositionReport <- seq.Parameters[0][0]
+				chCursorPositionReport <- seq.Parameters[1][0]
 				return
 			}
 		case 'y':
 			// DECRPM - DEC Report Mode
 			if len(seq.Parameters) < 1 {
-				log.Error("not enough DECRPM params")
+				Logger.Error("not enough DECRPM params")
 				return
 			}
 			switch seq.Parameters[0][0] {
 			case 2026:
 				if len(seq.Parameters) < 2 {
-					log.Error("not enough DECRPM params")
+					Logger.Error("not enough DECRPM params")
 					return
 				}
 				switch seq.Parameters[1][0] {
 				case 1, 2:
-					log.Info("Synchronized Update Mode supported")
-					rtk.caps.SUM = true
+					Logger.Info("Synchronized Update Mode supported")
+					capabilities.synchronizedUpdate = true
 				}
 			}
 			return
 		case 'u':
 			if len(seq.Intermediate) == 1 && seq.Intermediate[0] == '?' {
-				rtk.caps.KKBD = true
-				log.Info("Kitty Keyboard Protocol supported")
-				rtk.tty.WriteString(kkbpEnable)
+				capabilities.kittyKeyboard = true
+				Logger.Info("Kitty Keyboard Protocol supported")
+				tty.WriteString(kkbpEnable)
 				return
 			}
 		case '~':
 			if len(seq.Intermediate) == 0 {
 				if len(seq.Parameters) == 0 {
-					log.Error("[CSI] unknown sequence with final '~'")
+					Logger.Error("[CSI] unknown sequence with final '~'")
 					return
 				}
 				switch seq.Parameters[0][0] {
 				case 200:
-					rtk.pasting = true
+					inPaste = true
 				case 201:
-					rtk.pasting = false
-					rtk.PostMsg(Paste(rtk.bp.String()))
-					rtk.bp.Reset()
+					inPaste = false
+					PostMsg(Paste(pasteBuf.String()))
+					pasteBuf.Reset()
 				}
 			}
 		case 'M', 'm':
 			mouse, ok := parseMouseEvent(seq)
 			if ok {
-				rtk.PostMsg(mouse)
+				PostMsg(mouse)
 			}
 		}
 
-		switch rtk.caps.KKBD {
+		switch capabilities.kittyKeyboard {
 		case true:
 			key := parseKittyKbp(seq)
 			if key.Codepoint != 0 {
-				rtk.PostMsg(key)
+				PostMsg(key)
 			}
 		default:
 			// Lookup the key from terminfo
 			params := []string{}
 			for _, ps := range seq.Parameters {
 				if len(ps) > 1 {
-					log.Debug("Unknown sequence", "sequence", seq)
+					Logger.Debug("Unknown sequence", "sequence", seq)
 				}
 				params = append(params, fmt.Sprintf("%d", ps[0]))
 			}
 			lookup := fmt.Sprintf("\x1b[%s%c", strings.Join(params, ";"), seq.Final)
-			log.Info("LOOKING UP %s%c", strings.TrimPrefix(lookup, "\x1b"))
+			Logger.Info("LOOKING UP %s%c", strings.TrimPrefix(lookup, "\x1b"))
 			key, ok := keyMap[lookup]
 			if !ok {
 				return
 			}
-			rtk.PostMsg(key)
+			PostMsg(key)
 
 		}
 	}
 }
 
-func (rtk *RTK) sendQueries() {
-	rtk.tty.WriteString(xtversion)
-	rtk.tty.WriteString(kkbpQuery)
-	rtk.tty.WriteString(sumQuery)
+func sendQueries() {
+	switch os.Getenv("COLORTERM") {
+	case "truecolor", "24bit":
+		Logger.Info("RGB color supported")
+		capabilities.rgb = true
+	}
+	enterAltScreen()
+	hideCursor()
+	tty.WriteString(xtversion)
+	tty.WriteString(kkbpQuery)
+	tty.WriteString(sumQuery)
 
 	// Enable some modes
-	rtk.tty.WriteString(be)       // bracketed paste
-	rtk.tty.WriteString(smkx)     // application cursor keys
-	rtk.tty.WriteString(setMouse) // mouse
+	tty.WriteString(be)       // bracketed paste
+	tty.WriteString(smkx)     // application cursor keys
+	tty.WriteString(setMouse) // mouse
+
+	tty.WriteString(clear)
 }
 
 // Terminal controls
 
 // Enter the alternate screen (for fullscreen applications)
-func (rtk *RTK) EnterAltScreen() {
-	log.Debug("Entering alt screen")
-	rtk.tty.WriteString(smcup)
+func enterAltScreen() {
+	Logger.Debug("Entering alt screen")
+	tty.WriteString(smcup)
 }
 
-func (rtk *RTK) ExitAltScreen() {
-	log.Debug("Exiting alt screen")
-	rtk.tty.WriteString(rmcup)
+func exitAltScreen() {
+	Logger.Debug("Exiting alt screen")
+	tty.WriteString(rmcup)
 }
 
-// Clear the screen. Issues an actual 'clear' to the controlling terminal, and
-// clears the model
-func (rtk *RTK) Clear() {
-	Clear(rtk.model)
-	rtk.tty.WriteString(clear)
+func hideCursor() {
+	tty.WriteString(civis)
 }
 
-func (rtk *RTK) HideCursor() {
-	rtk.tty.WriteString(civis)
-}
-
-func (rtk *RTK) ShowCursor(col int, row int) {
-	rtk.tty.WriteString(tparm(cup, row, col))
-	rtk.tty.WriteString(cvvis)
+func showCursor(col int, row int) {
+	tty.WriteString(tparm(cup, row, col))
+	tty.WriteString(cvvis)
 }
 
 // Reports the current cursor position. 0,0 is the upper left corner. Reports
 // -1,-1 if the query times out or fails
-func (rtk *RTK) CursorPosition() (col int, row int) {
+func CursorPosition() (col int, row int) {
 	// DSRCPR - reports cursor position
-	rtk.dsrcpr = true
-	rtk.chDSRCPR = make(chan int)
-	defer close(rtk.chDSRCPR)
-	rtk.tty.WriteString(dsrcpr)
+	cursorPositionRequested = true
+	tty.WriteString(dsrcpr)
 	timeout := time.NewTimer(10 * time.Millisecond)
 	select {
 	case <-timeout.C:
-		log.Warn("CursorPosition timed out")
+		Logger.Warn("CursorPosition timed out")
 		return -1, -1
-	case row = <-rtk.chDSRCPR:
+	case row = <-chCursorPositionReport:
 		// if we get one, we'll get another
-		col = <-rtk.chDSRCPR
+		col = <-chCursorPositionReport
 		return col - 1, row - 1
 	}
 }
