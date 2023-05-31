@@ -160,6 +160,7 @@ func New(opts *Options) (*RTK, error) {
 					rtk.mu.Unlock()
 					if err != nil {
 						log.Error(err.Error())
+						continue
 					}
 					rtk.std.resize(int(size.Col), int(size.Row))
 					rtk.model.resize(int(size.Col), int(size.Row))
@@ -191,16 +192,11 @@ func (rtk *RTK) Close() {
 	close(rtk.quit)
 
 	term.Restore(int(rtk.tty.Fd()), rtk.saved)
+
 	// Disable any modes we enabled
-	if bd != "" && be != "" {
-		rtk.tty.WriteString(bd) // bracketed paste
-	}
-	if rtk.caps.KKBD {
-		rtk.tty.WriteString(kkbpPop) // kitty keyboard
-	}
-	if smkx != "" && rmkx != "" {
-		rtk.tty.WriteString(rmkx) // application cursor keys
-	}
+	rtk.tty.WriteString(bd)      // bracketed paste
+	rtk.tty.WriteString(kkbpPop) // kitty keyboard
+	rtk.tty.WriteString(rmkx)    // application cursor keys
 	rtk.tty.WriteString(resetMouse)
 
 	log.Info("Renders", "val", rtk.renders)
@@ -237,7 +233,9 @@ func (rtk *RTK) Render() {
 
 // Refresh forces a full render of the entire screen
 func (rtk *RTK) Refresh() {
+	rtk.mu.Lock()
 	rtk.refresh = true
+	rtk.mu.Unlock()
 	rtk.Render()
 }
 
@@ -253,7 +251,7 @@ func (rtk *RTK) render() string {
 	for row := range rtk.std.buf {
 		for col := range rtk.std.buf[row] {
 			next := rtk.std.buf[row][col]
-			if next == rtk.model.buf[row][col] {
+			if next == rtk.model.buf[row][col] && !rtk.refresh {
 				reposition = true
 				continue
 			}
