@@ -72,21 +72,21 @@ func Print(srf Surface, text string) (maxWidth int, col int, row int) {
 	return maxWidth, col, row
 }
 
-type Block struct {
+type Segment struct {
 	Text       string
 	Foreground Color
 	Background Color
 	Attributes AttributeMask
 }
 
-// PrintBlocks prints Blocks of text, with each block having a given style. Text
-// will be wrapped, line breaks will begin a new line at the first column of the
-// surface. If the text overflows the height of the surface then only the top
-// portion will be shown
-func PrintBlocks(srf Surface, blocks ...Block) (maxWidth int, col int, row int) {
+// PrintSegments prints Segments of text, with each block having a given style.
+// Text will be wrapped, line breaks will begin a new line at the first column
+// of the surface. If the text overflows the height of the surface then only the
+// top portion will be shown
+func PrintSegments(srf Surface, segs ...Segment) (maxWidth int, col int, row int) {
 	cols, rows := srf.Size()
-	for _, block := range blocks {
-		for _, egc := range EGCs(block.Text) {
+	for _, seg := range segs {
+		for _, egc := range EGCs(seg.Text) {
 			if row > rows {
 				break
 			}
@@ -108,9 +108,9 @@ func PrintBlocks(srf Surface, blocks ...Block) (maxWidth int, col int, row int) 
 			}
 			srf.SetCell(col, row, Cell{
 				EGC:        egc,
-				Foreground: block.Foreground,
-				Background: block.Background,
-				Attribute:  block.Attributes,
+				Foreground: seg.Foreground,
+				Background: seg.Background,
+				Attribute:  seg.Attributes,
 			})
 			col += w
 		}
