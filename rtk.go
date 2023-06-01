@@ -580,3 +580,24 @@ func CursorPosition() (col int, row int) {
 		return col - 1, row - 1
 	}
 }
+
+type CursorStyle int
+
+const (
+	CursorDefault = iota
+	CursorBlockBlinking
+	CursorBlock
+	CursorUnderlineBlinking
+	CursorUnderline
+	CursorBeamBlinking
+	CursorBeam
+)
+
+func SetCursorStyle(s CursorStyle) {
+	switch s {
+	case CursorDefault:
+		tty.WriteString(se)
+	default:
+		tty.WriteString(tparm(ss, s))
+	}
+}

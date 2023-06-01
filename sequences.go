@@ -79,6 +79,9 @@ var (
 	rmkx string // disable application cursor keys
 
 	xm string // mouse support
+
+	se string // DECSUSR, cursor style
+	ss string
 )
 
 func setupTermInfo() error {
@@ -122,6 +125,9 @@ func setupTermInfo() error {
 
 	// mouse
 	xm = info.Strings["XM"]
+
+	se = info.Strings["Se"]
+	ss = info.Strings["Ss"]
 
 	// Now we map all of the extended keys.....
 	capNameToExtended := map[string]Key{
