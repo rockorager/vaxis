@@ -1,4 +1,4 @@
-package progressbar
+package progress
 
 import (
 	"io"
@@ -16,15 +16,12 @@ type Model struct {
 	Reader     io.Reader
 	Writer     io.Writer
 
-	app      *rtk.App
 	progress float64
 	total    float64
 }
 
-func New(app *rtk.App) *Model {
-	return &Model{
-		app: app,
-	}
+func New() *Model {
+	return &Model{}
 }
 
 func (m *Model) Update(msg rtk.Msg) {
@@ -101,7 +98,7 @@ func (m *Model) Draw(srf rtk.Surface) {
 // progress message
 func (m *Model) Read(p []byte) (int, error) {
 	n, err := m.Reader.Read(p)
-	m.app.SendMsg(DataMsg{
+	rtk.SendMsg(DataMsg{
 		Progress: m.progress + float64(n),
 		Total:    m.total,
 	}, m)
@@ -112,7 +109,7 @@ func (m *Model) Read(p []byte) (int, error) {
 // progress message
 func (m *Model) Write(p []byte) (int, error) {
 	n, err := m.Writer.Write(p)
-	m.app.SendMsg(DataMsg{
+	rtk.SendMsg(DataMsg{
 		Progress: m.progress + float64(n),
 		Total:    m.total,
 	}, m)
