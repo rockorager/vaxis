@@ -158,12 +158,16 @@ func Run(model Model) error {
 			std.resize(msg.Cols, msg.Rows)
 			lastRender.resize(msg.Cols, msg.Rows)
 			model.Update(msg)
+			model.Draw(std)
 		case sendMsg:
-			msg.model.Update(msg)
+			msg.model.Update(msg.msg)
+			model.Draw(std)
+		case partialDrawMsg:
+			msg.model.Draw(msg.srf)
 		default:
 			model.Update(msg)
+			model.Draw(std)
 		}
-		model.Draw(std)
 		Render()
 	}
 	return nil

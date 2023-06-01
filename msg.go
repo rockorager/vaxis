@@ -37,3 +37,17 @@ type sendMsg struct {
 	msg   Msg
 	model Model
 }
+
+// PartialDraw draws the provided model to the provided surface. It doesn't call
+// draw on the primary model.
+func PartialDraw(model Model, srf Surface) {
+	PostMsg(partialDrawMsg{
+		model: model,
+		srf:   srf,
+	})
+}
+
+type partialDrawMsg struct {
+	model Model
+	srf   Surface
+}
