@@ -33,9 +33,9 @@ var (
 	inPaste bool
 	// pasteBuf buffers bracketed paste text
 	pasteBuf *bytes.Buffer
-	// ss3Prefix signals that we have encountered an SS3 prefix on our input
+	// ss3Timeout signals that we have encountered an SS3 prefix on our input
 	// parsing
-	ss3Prefix bool
+	ss3Timeout *time.Timer
 	// Have we requested a cursor position?
 	cursorPositionRequested bool
 	chCursorPositionReport  chan int
@@ -103,6 +103,7 @@ func Run(model Model) error {
 	chQuit = make(chan struct{})
 	chOSSignals := make(chan os.Signal)
 	chCursorPositionReport = make(chan int)
+	ss3Timeout = time.NewTimer(0 * time.Millisecond)
 	signal.Notify(chOSSignals,
 		syscall.SIGWINCH, // triggers Resize
 		syscall.SIGCONT,  // triggers Resize
@@ -382,23 +383,17 @@ func handleSequence(seq ansi.Sequence) {
 			pasteBuf.WriteRune(rune(seq))
 			return
 		}
-		switch {
-		case ss3Prefix:
-			ss3Prefix = false
+
+		if ss3Timeout.Stop() {
 			lookup := fmt.Sprintf("\x1bO%c", seq)
 			key, ok := keyMap[lookup]
-			if !ok {
-				return
-			}
-			PostMsg(key)
-		default:
-			key, ok := keyMap[string(seq)]
 			if ok {
 				PostMsg(key)
 				return
 			}
-			PostMsg(Key{Codepoint: rune(seq)})
 		}
+
+		PostMsg(Key{Codepoint: rune(seq)})
 	case ansi.C0:
 		key := Key{}
 		switch rune(seq) {
@@ -425,8 +420,18 @@ func handleSequence(seq ansi.Sequence) {
 		PostMsg(key)
 	case ansi.ESC:
 		if seq.Final == 'O' {
-			ss3Prefix = true
+			ss3Timeout = time.AfterFunc(1*time.Millisecond, func() {
+				PostMsg(Key{
+					Codepoint: 'O',
+					Modifiers: ModAlt,
+				})
+			})
+			return
 		}
+		PostMsg(Key{
+			Codepoint: seq.Final,
+			Modifiers: ModAlt,
+		})
 	case ansi.CSI:
 		switch seq.Final {
 		case 'R':
