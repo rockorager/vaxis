@@ -598,6 +598,17 @@ func parseKittyKbp(seq ansi.CSI) Key {
 	default:
 		return key
 	}
+
+	switch len(seq.Parameters) {
+	case 0:
+		seq.Parameters = [][]int{
+			{1},
+			{1, 1},
+		}
+	case 1:
+		seq.Parameters = append(seq.Parameters, []int{1, 1})
+	}
+
 	for i, pm := range seq.Parameters {
 		switch i {
 		case 0:
