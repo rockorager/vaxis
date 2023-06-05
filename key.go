@@ -379,7 +379,6 @@ const (
 	KeyLeft
 	KeyInsert
 	KeyDelete
-	KeyBackspace
 	KeyPgDown
 	KeyPgUp
 	KeyHome
@@ -500,11 +499,12 @@ const (
 	KeyL5Shift
 
 	// Aliases
-	KeyEnter  = 0x0D
-	KeyReturn = KeyEnter
-	KeyTab    = 0x09
-	KeyEsc    = 0x1B
-	KeySpace  = 0x20
+	KeyEnter     = 0x0D
+	KeyReturn    = KeyEnter
+	KeyBackspace = 0x08
+	KeyTab       = 0x09
+	KeyEsc       = 0x1B
+	KeySpace     = 0x20
 )
 
 // keyMap is built from terminfo entries
