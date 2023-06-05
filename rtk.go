@@ -599,10 +599,11 @@ const (
 )
 
 func SetCursorStyle(s CursorStyle) {
+	cursor.style = s
 	switch s {
 	case CursorDefault:
 		tty.WriteString(se)
 	default:
-		tty.WriteString(tparm(ss, s))
+		tty.WriteString(tparm(ss, int(s)))
 	}
 }

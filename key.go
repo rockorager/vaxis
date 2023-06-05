@@ -91,7 +91,17 @@ func (k Key) String() string {
 	case k.Codepoint < 0x00:
 		return "invalid"
 	case k.Codepoint < 0x20:
-		return fmt.Sprintf("Ctrl+%c", k.Codepoint)
+		var val rune
+		switch {
+		case k.Codepoint == 0x00:
+			val = '@'
+		case k.Codepoint < 0x1A:
+			// normalize these to lowercase runes
+			val = k.Codepoint + 0x60
+		case k.Codepoint < 0x20:
+			val = k.Codepoint + 0x40
+		}
+		return fmt.Sprintf("Ctrl+%c", val)
 	case k.Codepoint <= unicode.MaxRune:
 		buf.WriteRune(k.Codepoint)
 	}
@@ -438,7 +448,6 @@ const (
 	KeyF61
 	KeyF62
 	KeyF63 // F63 is max defined in terminfo
-	KeyEnter
 	KeyClear
 	KeyDownLeft
 	KeyDownRight
@@ -491,6 +500,7 @@ const (
 	KeyL5Shift
 
 	// Aliases
+	KeyEnter  = 0x0D
 	KeyReturn = KeyEnter
 	KeyTab    = 0x09
 	KeyEsc    = 0x1B
