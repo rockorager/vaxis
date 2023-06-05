@@ -218,7 +218,9 @@ func Render() {
 	start := time.Now()
 	defer renderBuf.Reset()
 	out := render()
-	tty.WriteString(out)
+	if out != "" {
+		tty.WriteString(out)
+	}
 	elapsed += time.Since(start)
 	renders += 1
 	refresh = false
