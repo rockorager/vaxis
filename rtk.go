@@ -3,6 +3,7 @@ package rtk
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"strings"
@@ -20,7 +21,7 @@ var (
 	// Logger is a slog.Logger that rtk will dump logs to. rtk uses stdlib
 	// levels for logging, and a trace level at -8
 	// TODO make the trace level
-	Logger *slog.Logger
+	Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	// async is an asynchronous queue, provided as a helper for applications
 	async *queue[Msg]
