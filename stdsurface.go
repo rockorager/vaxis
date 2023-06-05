@@ -58,6 +58,6 @@ func (std *stdSurface) SetCell(col int, row int, cell Cell) {
 	std.buf[row][col] = cell
 }
 
-func (std *stdSurface) ShowCursor(col int, row int) {
-	showCursor(col, row)
+func (std *stdSurface) Offset() (col int, row int) {
+	return 0, 0
 }

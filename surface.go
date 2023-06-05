@@ -18,10 +18,8 @@ type Surface interface {
 	// Move the Surface to a new offset. Both row and col are 0-indexed
 	Move(col, row int)
 
-	// ShowCursor is used to display the cursor at a given location.
-	// If the coordinates -1, -1 are given or are otherwise outside the
-	// dimensions of the screen, the cursor will be hidden.
-	ShowCursor(col int, row int)
+	// Offset reports the offset from the StdSurface
+	Offset() (col, row int)
 }
 
 // Fill completely fills the surface with the provided cell
@@ -169,11 +167,8 @@ func (srf *SubSurface) SetCell(col int, row int, cell Cell) {
 	srf.parent.SetCell(col+srf.col, row+srf.row, cell)
 }
 
-// ShowCursor is used to display the cursor at a given location. If the
-// coordinates -1, -1 are given or are otherwise outside the dimensions of the
-// screen, the cursor will be hidden.
-func (srf *SubSurface) ShowCursor(col int, row int) {
-	srf.parent.ShowCursor(col+srf.col, row+srf.row)
+func (srf *SubSurface) Offset() (col int, row int) {
+	return srf.parent.Offset()
 }
 
 // Resize resizes the surface. A negative value for either width or height will
