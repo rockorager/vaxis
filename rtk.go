@@ -63,6 +63,12 @@ var (
 		kittyKeyboard      bool
 	}
 
+	cursor struct {
+		row     int
+		col     int
+		style   CursorStyle
+		visible bool
+	}
 	// Statistics
 	renders int
 	elapsed time.Duration
@@ -246,8 +252,14 @@ func render() string {
 				reposition = true
 				continue
 			}
-			if renderBuf.Len() == 0 && capabilities.synchronizedUpdate {
-				renderBuf.WriteString(sumSet)
+			if renderBuf.Len() == 0 {
+				if cursor.visible {
+					// Hide cursor if it's visible
+					renderBuf.WriteString(civis)
+				}
+				if capabilities.synchronizedUpdate {
+					renderBuf.WriteString(sumSet)
+				}
 			}
 			lastRender.buf[row][col] = next
 			if reposition {
@@ -374,6 +386,12 @@ func render() string {
 		if capabilities.synchronizedUpdate {
 			renderBuf.WriteString(sumReset)
 		}
+	}
+	if cursor.visible {
+		renderBuf.WriteString(showCursor())
+	}
+	if !cursor.visible {
+		renderBuf.WriteString(civis)
 	}
 	return renderBuf.String()
 }
@@ -536,7 +554,7 @@ func sendQueries() {
 		capabilities.rgb = true
 	}
 	enterAltScreen()
-	hideCursor()
+	tty.WriteString(civis)
 	tty.WriteString(xtversion)
 	tty.WriteString(kkbpQuery)
 	tty.WriteString(sumQuery)
@@ -562,13 +580,23 @@ func exitAltScreen() {
 	tty.WriteString(rmcup)
 }
 
-func hideCursor() {
-	tty.WriteString(civis)
+func HideCursor() {
+	cursor.visible = false
 }
 
-func showCursor(col int, row int) {
-	tty.WriteString(tparm(cup, row, col))
-	tty.WriteString(cvvis)
+func ShowCursor(col int, row int, style CursorStyle) {
+	cursor.style = style
+	cursor.col = col
+	cursor.row = row
+	cursor.visible = true
+}
+
+func showCursor() string {
+	buf := bytes.NewBuffer(nil)
+	buf.WriteString(cursorStyle())
+	buf.WriteString(tparm(cup, cursor.row, cursor.col))
+	buf.WriteString(cvvis)
+	return buf.String()
 }
 
 // Reports the current cursor position. 0,0 is the upper left corner. Reports
@@ -601,12 +629,9 @@ const (
 	CursorBeam
 )
 
-func SetCursorStyle(s CursorStyle) {
-	cursor.style = s
-	switch s {
-	case CursorDefault:
-		tty.WriteString(se)
-	default:
-		tty.WriteString(tparm(ss, int(s)))
+func cursorStyle() string {
+	if cursor.style == CursorDefault {
+		return se
 	}
+	return tparm(ss, int(cursor.style))
 }
