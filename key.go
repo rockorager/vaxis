@@ -641,6 +641,8 @@ func parseKittyKbp(seq ansi.CSI) Key {
 			key.Modifiers = ModifierMask(pm[0] - 1)
 			if len(pm) > 1 {
 				key.EventType = EventType(pm[1])
+			} else {
+				key.EventType = EventPress
 			}
 		case 2:
 			// text-as-codepoint
