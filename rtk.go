@@ -170,6 +170,9 @@ func Run(model Model) error {
 		case sendMsg:
 			msg.model.Update(msg.msg)
 			model.Draw(std)
+		case funcMsg:
+			msg.fn()
+			model.Draw(std)
 		case partialDrawMsg:
 			msg.model.Draw(msg.srf)
 		default:

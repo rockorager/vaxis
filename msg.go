@@ -8,6 +8,17 @@ func PostMsg(msg Msg) {
 	msgs.push(msg)
 }
 
+// Posts a function to be run from the main thread
+func PostFunc(fn func()) {
+	PostMsg(funcMsg{
+		fn: fn,
+	})
+}
+
+type funcMsg struct {
+	fn func()
+}
+
 // Init will always be the first Msg delivered
 type Init struct{}
 
