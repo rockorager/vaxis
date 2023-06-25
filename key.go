@@ -362,7 +362,7 @@ func (k Key) String() string {
 	case KeyEsc:
 		buf.WriteString("Escape")
 	case KeySpace:
-		buf.WriteString("Space")
+		buf.WriteString("space")
 	}
 
 	return buf.String()
