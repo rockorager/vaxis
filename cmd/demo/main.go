@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"time"
 
 	"git.sr.ht/~rockorager/rtk"
 	"git.sr.ht/~rockorager/rtk/widgets/align"
@@ -14,8 +15,10 @@ import (
 var log *slog.Logger
 
 type model struct {
-	slides  []rtk.Model
-	current int
+	slides   []rtk.Model
+	current  int
+	keys     string
+	keyClear *time.Timer
 }
 
 type visible bool
@@ -26,11 +29,23 @@ func (m *model) Update(msg rtk.Msg) {
 		m.slides = []rtk.Model{
 			&input{},
 			newSimpleWidgets(),
+			newTerm(),
 		}
 	case rtk.Key:
 		if msg.EventType == rtk.EventRelease {
 			break
 		}
+
+		m.keys += msg.String()
+		if len(msg.String()) > 1 {
+			m.keys += "+"
+		}
+		m.keyClear.Stop()
+		m.keyClear = time.AfterFunc(1*time.Second, func() {
+			rtk.PostFunc(func() {
+				m.keys = ""
+			})
+		})
 		switch msg.String() {
 		case "Ctrl+c":
 			rtk.Quit()
@@ -58,15 +73,23 @@ func (m *model) Update(msg rtk.Msg) {
 			if m.current > 0 {
 				m.slides[m.current-1].Update(visible(true))
 			}
+		default:
+			if m.current > 0 {
+				m.slides[m.current-1].Update(msg)
+			}
 		}
-	}
-	if m.current > 0 {
-		m.slides[m.current-1].Update(msg)
 	}
 }
 
 func (m *model) Draw(srf rtk.Surface) {
 	rtk.Clear(srf)
+	rtk.HideCursor()
+	_, rows := srf.Size()
+	mid := fmt.Sprintf("%d of %d", m.current+1, 1+len(m.slides))
+	w := uniseg.StringWidth(mid)
+	rtk.Print(align.BottomRight(srf, w, 1), mid)
+	w = uniseg.StringWidth(m.keys)
+	rtk.Print(align.BottomMiddle(srf, w, 1), m.keys)
 	switch m.current {
 	case 0:
 		blocks := []rtk.Segment{
@@ -88,11 +111,8 @@ func (m *model) Draw(srf rtk.Surface) {
 		}
 		rtk.PrintSegments(align.Center(srf, 36, len(blocks)+1), blocks...)
 	default:
-		m.slides[m.current-1].Draw(srf)
+		m.slides[m.current-1].Draw(rtk.NewSubSurface(srf, 0, 0, -1, rows-1))
 	}
-	mid := fmt.Sprintf("%d of %d", m.current+1, 1+len(m.slides))
-	w := uniseg.StringWidth(mid)
-	rtk.Print(align.BottomMiddle(srf, w, 1), mid)
 }
 
 func main() {
@@ -111,7 +131,9 @@ func main() {
 		os.Exit(1)
 	}
 	rtk.Logger = log
-	m := &model{}
+	m := &model{
+		keyClear: time.NewTimer(0),
+	}
 	if err := rtk.Run(m); err != nil {
 		slog.Error(err.Error())
 		os.Exit(1)
