@@ -377,7 +377,7 @@ func render() string {
 				}
 				attr = next.Attribute
 			}
-			renderBuf.WriteString(next.EGC)
+			renderBuf.WriteString(next.Character)
 		}
 	}
 	if renderBuf.Len() != 0 {

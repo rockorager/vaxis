@@ -450,7 +450,7 @@ func (vt *Model) Draw(win rtk.Window) {
 
 			egc := fmt.Sprintf("%c%s", cell.content, string(cell.combining))
 			win.SetCell(col, row, rtk.Cell{
-				EGC:        egc,
+				Character:        egc,
 				Foreground: cell.fg,
 				Background: cell.bg,
 				Attribute:  cell.attrs,

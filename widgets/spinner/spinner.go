@@ -45,7 +45,7 @@ func (m *Model) Draw(w rtk.Window) {
 	m.srf = w
 	if m.spinning {
 		w.SetCell(0, 0, rtk.Cell{
-			EGC:        string(m.Frames[m.frame]),
+			Character:        string(m.Frames[m.frame]),
 			Foreground: m.Foreground,
 			Background: m.Background,
 			Attribute:  m.Attribute,

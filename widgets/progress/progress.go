@@ -43,7 +43,7 @@ func (m *Model) Draw(win rtk.Window) {
 
 	for i := 0; i <= int(fullBlocks); i += 1 {
 		win.SetCell(i, 0, rtk.Cell{
-			EGC:        "█",
+			Character:        "█",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
@@ -51,43 +51,43 @@ func (m *Model) Draw(win rtk.Window) {
 	switch {
 	case remainder >= 0.875:
 		win.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
-			EGC:        "▉",
+			Character:        "▉",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
 	case remainder >= 0.75:
 		win.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
-			EGC:        "▊",
+			Character:        "▊",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
 	case remainder >= 0.625:
 		win.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
-			EGC:        "▋",
+			Character:        "▋",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
 	case remainder >= 0.5:
 		win.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
-			EGC:        "▌",
+			Character:        "▌",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
 	case remainder >= 0.375:
 		win.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
-			EGC:        "▍",
+			Character:        "▍",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
 	case remainder >= 0.25:
 		win.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
-			EGC:        "▎",
+			Character:        "▎",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
 	case remainder >= 0.125:
 		win.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
-			EGC:        "▏",
+			Character:        "▏",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})

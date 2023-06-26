@@ -16,7 +16,7 @@ func Fill(win Window, cell Cell) {
 
 // Clear fills the Window with spaces with the default colors
 func Clear(win Window) {
-	Fill(win, Cell{EGC: " "})
+	Fill(win, Cell{Character: " "})
 }
 
 // Print prints text to a Window. The text will be wrapped to the width, line
@@ -46,7 +46,7 @@ func Print(win Window, text string) (maxWidth int, col int, row int) {
 			col = 0
 			row += 1
 		}
-		win.SetCell(col, row, Cell{EGC: egc})
+		win.SetCell(col, row, Cell{Character: egc})
 		col += w
 	}
 	return maxWidth, col, row
@@ -66,11 +66,18 @@ type Segment struct {
 func PrintSegments(win Window, segs ...Segment) (maxWidth int, col int, row int) {
 	cols, rows := win.Size()
 	for _, seg := range segs {
-		for _, egc := range EGCs(seg.Text) {
+		var (
+			b              = []byte(seg.Text)
+			state      int = -1
+			boundaries int
+			cluster    []byte
+		)
+		for len(b) > 0 {
+			cluster, b, boundaries, state = uniseg.Step(b, state)
 			if row > rows {
 				break
 			}
-			if egc == "\n" {
+			if boundaries&uniseg.MaskLine == uniseg.LineMustBreak {
 				if col > maxWidth {
 					maxWidth = col
 				}
@@ -78,24 +85,44 @@ func PrintSegments(win Window, segs ...Segment) (maxWidth int, col int, row int)
 				row += 1
 				continue
 			}
-			w := uniseg.StringWidth(egc)
-			if col+w > cols {
+			win.SetCell(col, row, Cell{
+				Character:  string(cluster),
+				Foreground: seg.Foreground,
+				Background: seg.Background,
+				Attribute:  seg.Attributes,
+			})
+
+			col += boundaries >> uniseg.ShiftWidth
+			if col+nextBreak(b) > cols {
 				if col > maxWidth {
 					maxWidth = col
 				}
 				col = 0
 				row += 1
 			}
-			win.SetCell(col, row, Cell{
-				EGC:        egc,
-				Foreground: seg.Foreground,
-				Background: seg.Background,
-				Attribute:  seg.Attributes,
-			})
-			col += w
 		}
 	}
 	return maxWidth, col, row
+}
+
+// returns the stringwidth until the next can or must break
+func nextBreak(b []byte) int {
+	var (
+		bound int
+		w     int
+	)
+	state := -1
+	for len(b) > 0 {
+		_, b, bound, state = uniseg.Step(b, state)
+		w += bound >> uniseg.ShiftWidth
+		if bound&uniseg.MaskLine == uniseg.LineMustBreak {
+			break
+		}
+		if bound&uniseg.MaskLine == uniseg.LineCanBreak {
+			break
+		}
+	}
+	return w
 }
 
 // Window is a Window with an offset from an optional parent and a specified size.
