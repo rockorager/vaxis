@@ -19,7 +19,7 @@ type Model struct {
 	frame    int
 	spinning bool
 	cancel   context.CancelFunc
-	srf      rtk.Surface
+	srf      rtk.Window
 }
 
 // New creates a new spinner
@@ -41,10 +41,10 @@ func (m *Model) Update(msg rtk.Msg) {
 	}
 }
 
-func (m *Model) Draw(srf rtk.Surface) {
-	m.srf = srf
+func (m *Model) Draw(w rtk.Window) {
+	m.srf = w
 	if m.spinning {
-		srf.SetCell(0, 0, rtk.Cell{
+		w.SetCell(0, 0, rtk.Cell{
 			EGC:        string(m.Frames[m.frame]),
 			Foreground: m.Foreground,
 			Background: m.Background,

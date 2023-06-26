@@ -32,17 +32,17 @@ func (m *Model) Update(msg rtk.Msg) {
 	}
 }
 
-func (m *Model) Draw(srf rtk.Surface) {
+func (m *Model) Draw(win rtk.Window) {
 	if m.total == 0 {
 		return
 	}
-	_, w := srf.Size()
+	_, w := win.Size()
 	fracBlocks := (m.progress / m.total) * float64(w)
 	fullBlocks := math.Floor(fracBlocks)
 	remainder := fracBlocks - fullBlocks
 
 	for i := 0; i <= int(fullBlocks); i += 1 {
-		srf.SetCell(i, 0, rtk.Cell{
+		win.SetCell(i, 0, rtk.Cell{
 			EGC:        "█",
 			Foreground: m.Foreground,
 			Background: m.Background,
@@ -50,43 +50,43 @@ func (m *Model) Draw(srf rtk.Surface) {
 	}
 	switch {
 	case remainder >= 0.875:
-		srf.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
+		win.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
 			EGC:        "▉",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
 	case remainder >= 0.75:
-		srf.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
+		win.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
 			EGC:        "▊",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
 	case remainder >= 0.625:
-		srf.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
+		win.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
 			EGC:        "▋",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
 	case remainder >= 0.5:
-		srf.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
+		win.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
 			EGC:        "▌",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
 	case remainder >= 0.375:
-		srf.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
+		win.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
 			EGC:        "▍",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
 	case remainder >= 0.25:
-		srf.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
+		win.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
 			EGC:        "▎",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
 	case remainder >= 0.125:
-		srf.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
+		win.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
 			EGC:        "▏",
 			Foreground: m.Foreground,
 			Background: m.Background,

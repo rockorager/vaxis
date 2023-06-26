@@ -44,11 +44,11 @@ var (
 	renderBuf *bytes.Buffer
 	// refresh signals if we should do a delta render or full render
 	refresh bool
-	// std is the std Surface
-	std *stdSurface
+	// stdScreen is the stdScreen Surface
+	stdScreen *screen
 	// lastRender stores the state of our last render. This is used to
 	// optimize what we update on the next render
-	lastRender *stdSurface
+	lastRender *screen
 
 	// tty is the terminal we are talking with
 	tty        *os.File
@@ -96,8 +96,8 @@ func Run(model Model) error {
 
 	// Rendering
 	renderBuf = &bytes.Buffer{}
-	lastRender = newStdSurface()
-	std = newStdSurface()
+	lastRender = newScreen()
+	stdScreen = newScreen()
 
 	// pasteBuf buffers bracketed paste
 	pasteBuf = &bytes.Buffer{}
@@ -159,21 +159,21 @@ func Run(model Model) error {
 			quit()
 			return nil
 		case Resize:
-			std.resize(msg.Cols, msg.Rows)
+			stdScreen.resize(msg.Cols, msg.Rows)
 			lastRender.resize(msg.Cols, msg.Rows)
 			model.Update(msg)
-			model.Draw(std)
+			model.Draw(Window{})
 		case sendMsg:
 			msg.model.Update(msg.msg)
-			model.Draw(std)
+			model.Draw(Window{})
 		case funcMsg:
 			msg.fn()
-			model.Draw(std)
+			model.Draw(Window{})
 		case partialDrawMsg:
-			msg.model.Draw(msg.srf)
+			msg.model.Draw(msg.window)
 		default:
 			model.Update(msg)
-			model.Draw(std)
+			model.Draw(Window{})
 		}
 		Render()
 	}
@@ -244,9 +244,9 @@ func render() string {
 		bg         Color
 		attr       AttributeMask
 	)
-	for row := range std.buf {
-		for col := range std.buf[row] {
-			next := std.buf[row][col]
+	for row := range stdScreen.buf {
+		for col := range stdScreen.buf[row] {
+			next := stdScreen.buf[row][col]
 			if next == lastRender.buf[row][col] && !refresh {
 				reposition = true
 				continue

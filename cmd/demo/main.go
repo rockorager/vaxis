@@ -30,6 +30,7 @@ func (m *model) Update(msg rtk.Msg) {
 			&input{},
 			newSimpleWidgets(),
 			newTerm(),
+			newTextInput(),
 		}
 	case rtk.Key:
 		if msg.EventType == rtk.EventRelease {
@@ -78,18 +79,19 @@ func (m *model) Update(msg rtk.Msg) {
 				m.slides[m.current-1].Update(msg)
 			}
 		}
+	case rtk.Paste:
 	}
 }
 
-func (m *model) Draw(srf rtk.Surface) {
-	rtk.Clear(srf)
+func (m *model) Draw(win rtk.Window) {
+	rtk.Clear(win)
 	rtk.HideCursor()
-	_, rows := srf.Size()
+	_, rows := win.Size()
 	mid := fmt.Sprintf("%d of %d", m.current+1, 1+len(m.slides))
 	w := uniseg.StringWidth(mid)
-	rtk.Print(align.BottomRight(srf, w, 1), mid)
+	rtk.Print(align.BottomRight(win, w, 1), mid)
 	w = uniseg.StringWidth(m.keys)
-	rtk.Print(align.BottomMiddle(srf, w, 1), m.keys)
+	rtk.Print(align.BottomMiddle(win, w, 1), m.keys)
 	switch m.current {
 	case 0:
 		blocks := []rtk.Segment{
@@ -109,9 +111,9 @@ func (m *model) Draw(srf rtk.Surface) {
 				Attributes: rtk.AttrDim,
 			},
 		}
-		rtk.PrintSegments(align.Center(srf, 36, len(blocks)+1), blocks...)
+		rtk.PrintSegments(align.Center(win, 36, len(blocks)+1), blocks...)
 	default:
-		m.slides[m.current-1].Draw(rtk.NewSubSurface(srf, 0, 0, -1, rows-1))
+		m.slides[m.current-1].Draw(rtk.NewWindow(&win, 0, 0, -1, rows-1))
 	}
 }
 

@@ -78,10 +78,10 @@ func (m *input) Update(msg rtk.Msg) {
 	}
 }
 
-func (m *input) Draw(srf rtk.Surface) {
-	_, rows := srf.Size()
-	srf = align.TopMiddle(srf, 50, rows-5)
-	_, rows = srf.Size()
+func (m *input) Draw(win rtk.Window) {
+	_, rows := win.Size()
+	win = align.TopMiddle(win, 50, rows-5)
+	_, rows = win.Size()
 	top := len(m.events) - rows
 	if top < 0 {
 		top = 0
@@ -90,5 +90,5 @@ func (m *input) Draw(srf rtk.Surface) {
 	for i := top; i < len(m.events); i += 1 {
 		out.WriteString(m.events[i] + "\n")
 	}
-	rtk.Print(srf, out.String())
+	rtk.Print(win, out.String())
 }

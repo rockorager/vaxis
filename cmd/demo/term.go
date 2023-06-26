@@ -30,6 +30,6 @@ func (vt *vt) Update(msg rtk.Msg) {
 	}
 }
 
-func (vt *vt) Draw(srf rtk.Surface) {
-	vt.term.Draw(srf)
+func (vt *vt) Draw(win rtk.Window) {
+	vt.term.Draw(win)
 }

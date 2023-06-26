@@ -56,11 +56,11 @@ func (s *simpleWidgets) Update(msg rtk.Msg) {
 	}
 }
 
-func (s *simpleWidgets) Draw(srf rtk.Surface) {
-	s.spinner1.Draw(rtk.NewSubSurface(srf, 0, 0, 1, 1))
-	s.spinner2.Draw(rtk.NewSubSurface(srf, 1, 0, 1, 1))
-	s.spinner3.Draw(rtk.NewSubSurface(srf, 2, 0, 1, 1))
-	s.progress1.Draw(rtk.NewSubSurface(srf, 0, 3, -1, 1))
+func (s *simpleWidgets) Draw(win rtk.Window) {
+	s.spinner1.Draw(rtk.NewWindow(&win, 0, 0, 1, 1))
+	s.spinner2.Draw(rtk.NewWindow(&win, 1, 0, 1, 1))
+	s.spinner3.Draw(rtk.NewWindow(&win, 2, 0, 1, 1))
+	s.progress1.Draw(rtk.NewWindow(&win, 0, 3, -1, 1))
 }
 
 func newSimpleWidgets() *simpleWidgets {

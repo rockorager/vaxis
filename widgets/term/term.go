@@ -52,7 +52,7 @@ type Model struct {
 	primaryState cursorState
 	altState     cursorState
 
-	srf     rtk.Surface
+	window  *rtk.Window
 	visible atomic.Bool
 
 	cmd    *exec.Cmd
@@ -163,8 +163,8 @@ func (vt *Model) Start(cmd *exec.Cmd) error {
 		for {
 			select {
 			case <-tmr.C:
-				if vt.dirty && vt.visible.Load() && vt.srf != nil {
-					rtk.PartialDraw(vt, vt.srf)
+				if vt.dirty && vt.visible.Load() && vt.window != nil {
+					rtk.PartialDraw(vt, *vt.window)
 				}
 			case seq := <-vt.parser.Next():
 				switch seq := seq.(type) {
@@ -188,6 +188,10 @@ func (vt *Model) Update(msg rtk.Msg) {
 		// TODO Add DECKPAM/DECKPNM
 		str := applicationKeyCode(msg)
 		vt.pty.WriteString(str)
+	case rtk.Paste:
+		vt.pty.WriteString("\x1B[200~")
+		vt.pty.WriteString(string(msg))
+		vt.pty.WriteString("\x1B[201~")
 	}
 }
 
@@ -424,14 +428,16 @@ func (vt *Model) Close() {
 	vt.pty.Close()
 }
 
-func (vt *Model) Draw(srf rtk.Surface) {
+func (vt *Model) Draw(win rtk.Window) {
 	vt.mu.Lock()
 	defer vt.mu.Unlock()
-	cols, rows := srf.Size()
-	if cols != vt.width() || rows != vt.height() {
-		vt.Resize(cols, rows)
+	width, height := win.Size()
+	if int(width) != vt.width() || int(height) != vt.height() {
+		win.Width = width
+		win.Height = height
+		vt.Resize(width, height)
 	}
-	vt.srf = srf
+	vt.window = &win
 	vt.dirty = false
 	for row := 0; row < vt.height(); row += 1 {
 		for col := 0; col < vt.width(); {
@@ -443,7 +449,7 @@ func (vt *Model) Draw(srf rtk.Surface) {
 			}
 
 			egc := fmt.Sprintf("%c%s", cell.content, string(cell.combining))
-			srf.SetCell(col, row, rtk.Cell{
+			win.SetCell(col, row, rtk.Cell{
 				EGC:        egc,
 				Foreground: cell.fg,
 				Background: cell.bg,
@@ -456,8 +462,7 @@ func (vt *Model) Draw(srf rtk.Surface) {
 		}
 	}
 	if vt.mode&dectcem != 0 {
-		offCol, offRow := srf.Offset()
-		rtk.ShowCursor(offCol+int(vt.cursor.col), offRow+int(vt.cursor.row), vt.cursor.style)
+		win.ShowCursor(int(vt.cursor.col), int(vt.cursor.row), vt.cursor.style)
 	}
 	// for _, s := range buf.getVisibleSixels() {
 	// 	fmt.Printf("\033[%d;%dH", s.Sixel.Y, s.Sixel.X)

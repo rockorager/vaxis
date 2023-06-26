@@ -14,5 +14,5 @@ type Model interface {
 
 	// Draw is called after Update. Draw draws the application state to
 	// the Models' viewport.
-	Draw(Surface)
+	Draw(Window)
 }
