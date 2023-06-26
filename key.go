@@ -44,9 +44,6 @@ const (
 	EventMotion
 )
 
-// Modified keys will always have prefixes in this order:
-//
-//	<num-caps-meta-hyper-super-c-a-s-{key}>
 func (k Key) String() string {
 	buf := &bytes.Buffer{}
 
