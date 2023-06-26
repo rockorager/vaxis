@@ -44,7 +44,7 @@ func TestKey(t *testing.T) {
 			key:      Key{Codepoint: KeyEsc},
 		},
 		{
-			name:     "Space",
+			name:     "space",
 			key:      Key{Codepoint: KeySpace},
 		},
 	}
