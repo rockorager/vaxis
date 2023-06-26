@@ -715,12 +715,14 @@ func escape(r rune, p *Parser) stateFn {
 	case in(r, 0x20, 0x2F):
 		p.collect(r)
 		return escapeIntermediate
-	case in(r, 0x30, 0x4F),
+	case in(r, 0x30, 0x4E),
 		in(r, 0x51, 0x57),
 		is(r, 0x59, 0x5A, 0x5C),
 		in(r, 0x60, 0x7E):
 		p.escapeDispatch(r)
 		return ground
+	case is(r, 0x4F):
+		return ss3
 	case is(r, 0x50):
 		p.clear()
 		return dcsEntry
@@ -734,6 +736,20 @@ func escape(r rune, p *Parser) stateFn {
 		return oscString
 	default:
 		// Return to ground on unexpected characters
+		return ground
+	}
+}
+
+func ss3(r rune, p *Parser) stateFn {
+	switch {
+	case in(r, 0x00, 0x17), is(r, 0x19), in(r, 0x1C, 0x1F):
+		p.execute(r)
+		return ss3
+	case is(r, 0x7F):
+		// ignore
+		return ss3
+	default:
+		p.emit(SS3(r))
 		return ground
 	}
 }
@@ -881,6 +897,12 @@ func (seq ESC) String() string {
 	buf.WriteRune(' ')
 	buf.WriteRune(seq.Final)
 	return buf.String()
+}
+
+type SS3 rune
+
+func (seq SS3) String() string {
+	return fmt.Sprintf("SS3 0x%X", rune(seq))
 }
 
 // A CSI Sequence
