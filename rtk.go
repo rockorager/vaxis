@@ -422,44 +422,13 @@ func handleSequence(seq ansi.Sequence) {
 			pasteBuf.WriteRune(rune(seq))
 			return
 		}
-		PostMsg(Key{Codepoint: rune(seq)})
+		PostMsg(decode_xterm(seq))
 	case ansi.C0:
-		key := Key{}
-		switch rune(seq) {
-		case 0x08:
-			key.Codepoint = KeyBackspace
-		case 0x09:
-			key.Codepoint = KeyTab
-		case 0x0D:
-			key.Codepoint = KeyEnter
-		case 0x1B:
-			key.Codepoint = KeyEsc
-		default:
-			switch {
-			case rune(seq) == 0x00:
-				key.Codepoint = '@'
-			case rune(seq) < 0x1A:
-				// normalize these to lowercase runes
-				key.Codepoint = rune(seq) + 0x60
-			case rune(seq) < 0x20:
-				key.Codepoint = rune(seq) + 0x40
-			}
-		}
-		key.Modifiers = ModCtrl
-		PostMsg(key)
+		PostMsg(decode_xterm(seq))
 	case ansi.ESC:
-		PostMsg(Key{
-			Codepoint: seq.Final,
-			Modifiers: ModAlt,
-		})
+		PostMsg(decode_xterm(seq))
 	case ansi.SS3:
-		Logger.Debug("SS3!!!!")
-		lookup := fmt.Sprintf("\x1bO%c", seq)
-		key, ok := keyMap[lookup]
-		if ok {
-			PostMsg(key)
-			return
-		}
+		PostMsg(decode_xterm(seq))
 	case ansi.CSI:
 		switch seq.Final {
 		case 'R':
@@ -514,10 +483,12 @@ func handleSequence(seq ansi.Sequence) {
 				switch seq.Parameters[0][0] {
 				case 200:
 					inPaste = true
+					return
 				case 201:
 					inPaste = false
 					PostMsg(Paste(pasteBuf.String()))
 					pasteBuf.Reset()
+					return
 				}
 			}
 		case 'M', 'm':
@@ -525,6 +496,7 @@ func handleSequence(seq ansi.Sequence) {
 			if ok {
 				PostMsg(mouse)
 			}
+			return
 		}
 
 		switch capabilities.kittyKeyboard {
@@ -534,22 +506,7 @@ func handleSequence(seq ansi.Sequence) {
 				PostMsg(key)
 			}
 		default:
-			// Lookup the key from terminfo
-			params := []string{}
-			for _, ps := range seq.Parameters {
-				if len(ps) > 1 {
-					Logger.Debug("Unknown sequence", "sequence", seq)
-				}
-				params = append(params, fmt.Sprintf("%d", ps[0]))
-			}
-			lookup := fmt.Sprintf("\x1b[%s%c", strings.Join(params, ";"), seq.Final)
-			Logger.Info("LOOKING UP %s%c", strings.TrimPrefix(lookup, "\x1b"))
-			key, ok := keyMap[lookup]
-			if !ok {
-				return
-			}
-			PostMsg(key)
-
+			PostMsg(decode_xterm(seq))
 		}
 	}
 }

@@ -360,8 +360,155 @@ func (k Key) String() string {
 	return buf.String()
 }
 
+func decode_xterm(seq ansi.Sequence) Key {
+	key := Key{}
+	switch seq := seq.(type) {
+	case ansi.Print:
+		key.Codepoint = rune(seq)
+		if key.Codepoint == 0x7F {
+			key.Codepoint = KeyBackspace
+		}
+	case ansi.C0:
+		switch rune(seq) {
+		case 0x08:
+			key.Codepoint = KeyBackspace
+		case 0x09:
+			key.Codepoint = KeyTab
+		case 0x0D:
+			key.Codepoint = KeyEnter
+		case 0x1B:
+			key.Codepoint = KeyEsc
+		default:
+			key.Modifiers = ModCtrl
+			switch {
+			case rune(seq) == 0x00:
+				key.Codepoint = '@'
+			case rune(seq) < 0x1A:
+				// normalize these to lowercase runes
+				key.Codepoint = rune(seq) + 0x60
+			case rune(seq) < 0x20:
+				key.Codepoint = rune(seq) + 0x40
+			}
+		}
+	case ansi.ESC:
+		key.Codepoint = seq.Final
+		key.Modifiers = ModAlt
+	case ansi.SS3:
+		switch rune(seq) {
+		case 'A':
+			key.Codepoint = KeyUp
+		case 'B':
+			key.Codepoint = KeyDown
+		case 'C':
+			key.Codepoint = KeyRight
+		case 'D':
+			key.Codepoint = KeyLeft
+		case 'F':
+			key.Codepoint = KeyEnd
+		case 'H':
+			key.Codepoint = KeyHome
+		case 'P':
+			key.Codepoint = KeyF01
+		case 'Q':
+			key.Codepoint = KeyF02
+		case 'R':
+			key.Codepoint = KeyF03
+		case 'S':
+			key.Codepoint = KeyF04
+		}
+	case ansi.CSI:
+		if len(seq.Parameters) < 1 {
+			return key
+		}
+		switch seq.Final {
+		case 'A':
+			key.Codepoint = KeyUp
+		case 'B':
+			key.Codepoint = KeyDown
+		case 'C':
+			key.Codepoint = KeyRight
+		case 'D':
+			key.Codepoint = KeyLeft
+		case 'F':
+			key.Codepoint = KeyEnd
+		case 'H':
+			key.Codepoint = KeyHome
+		case 'P':
+			key.Codepoint = KeyF01
+		case 'Q':
+			key.Codepoint = KeyF02
+		case 'R':
+			key.Codepoint = KeyF03
+		case 'S':
+			key.Codepoint = KeyF04
+		case '~':
+			id := seq.Parameters[0][0]
+			switch id {
+			case 2:
+				key.Codepoint = KeyInsert
+			case 3:
+				key.Codepoint = KeyDelete
+			case 5:
+				key.Codepoint = KeyPgUp
+			case 6:
+				key.Codepoint = KeyPgDown
+			case 15:
+				key.Codepoint = KeyF05
+			case 17:
+				key.Codepoint = KeyF06
+			case 18:
+				key.Codepoint = KeyF07
+			case 19:
+				key.Codepoint = KeyF08
+			case 20:
+				key.Codepoint = KeyF09
+			case 21:
+				key.Codepoint = KeyF10
+			case 23:
+				key.Codepoint = KeyF11
+			case 24:
+				key.Codepoint = KeyF12
+			}
+		}
+		if len(seq.Parameters) < 2 {
+			// No modifiers, we're done
+			return key
+		}
+		mods := seq.Parameters[1][0]
+		switch {
+		case key.Codepoint <= KeyF12 && key.Codepoint >= KeyF01:
+			// function keys don't have modifiers, instead are
+			// shifted up in name
+			switch mods {
+			case 2:
+				key.Codepoint += 12
+			case 3:
+				key.Codepoint += 48
+			case 4:
+				key.Codepoint += 60
+			case 5:
+				key.Codepoint += 24
+			case 6:
+				key.Codepoint += 36
+			}
+		default:
+			modVal := ModifierMask(mods - 1)
+			if modVal&ModShift != 0 {
+				key.Modifiers |= ModShift
+			}
+			if modVal&ModAlt != 0 {
+				key.Modifiers |= ModAlt
+			}
+			if modVal&ModCtrl != 0 {
+				key.Modifiers |= ModCtrl
+			}
+		}
+	}
+	return key
+}
+
 const (
-	extended rune = 1 << 30
+	extended = unicode.MaxRune + 1
 )
 
 const (
