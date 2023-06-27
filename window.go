@@ -26,11 +26,11 @@ func Clear(win Window) {
 // at the end of the text.
 func Print(win Window, text string) (maxWidth int, col int, row int) {
 	cols, rows := win.Size()
-	for _, egc := range EGCs(text) {
+	for _, char := range Characters(text) {
 		if row > rows {
 			break
 		}
-		if egc == "\n" {
+		if char == "\n" {
 			if col > maxWidth {
 				maxWidth = col
 			}
@@ -38,7 +38,7 @@ func Print(win Window, text string) (maxWidth int, col int, row int) {
 			row += 1
 			continue
 		}
-		w := uniseg.StringWidth(egc)
+		w := uniseg.StringWidth(char)
 		if col+w > cols {
 			if col > maxWidth {
 				maxWidth = col
@@ -46,7 +46,7 @@ func Print(win Window, text string) (maxWidth int, col int, row int) {
 			col = 0
 			row += 1
 		}
-		win.SetCell(col, row, Cell{Character: egc})
+		win.SetCell(col, row, Cell{Character: char})
 		col += w
 	}
 	return maxWidth, col, row

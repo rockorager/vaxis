@@ -71,8 +71,8 @@ var (
 	elapsed time.Duration
 )
 
-// Converts a string into a slice of EGCs suitable to assign to terminal cells
-func EGCs(s string) []string {
+// Converts a string into a slice of Characters suitable to assign to terminal cells
+func Characters(s string) []string {
 	egcs := []string{}
 	g := uniseg.NewGraphemes(s)
 	for g.Next() {
