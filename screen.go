@@ -1,12 +1,7 @@
 package rtk
 
-import (
-	"sync"
-)
-
 type screen struct {
 	buf  [][]Cell
-	mu   sync.Mutex
 	rows int
 	cols int
 }
@@ -16,16 +11,12 @@ func newScreen() *screen {
 	return std
 }
 
-func (s *screen) Size() (cols int, rows int) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+func (s *screen) size() (cols int, rows int) {
 	return s.cols, s.rows
 }
 
 // resize resizes the stdsurface based on a SIGWINCH
 func (s *screen) resize(cols int, rows int) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.buf = make([][]Cell, rows)
 	for row := range s.buf {
 		s.buf[row] = make([]Cell, cols)
@@ -35,9 +26,7 @@ func (s *screen) resize(cols int, rows int) {
 }
 
 // Set a cell at col, row
-func (s *screen) SetCell(col int, row int, cell Cell) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+func (s *screen) setCell(col int, row int, cell Cell) {
 	if col < 0 || row < 0 {
 		return
 	}
