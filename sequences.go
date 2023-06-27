@@ -1,38 +1,61 @@
 package rtk
 
 import (
+	"fmt"
 	"os"
 )
 
 const (
+	// Queries
 	// Device Status Report - Cursor Position Report
-	// dsrcpr = "\x1b[6n"
+	dsrcpr = "\x1b[6n"
 	// Device Status Report - XTVERSION
 	xtversion = "\x1b[>0q"
-
 	// Synchronized Update Mode
-	sumSet   = "\x1b[?2026h"
-	sumReset = "\x1b[?2026l"
 	sumQuery = "\x1b[?2026$p"
-
 	// kitty keyboard protocol
 	kkbpQuery  = "\x1b[?u"
 	kkbpEnable = "\x1b[=27u"
 	kkbpPush   = "\x1b[>1u"
 	kkbpPop    = "\x1b[<u"
 
-	// rgb. These usually aren't in terminfo in any way
-	setrgbf    = "\x1b[38:2:%p1%d:%p2%d:%p3%dm"
-	setrgbb    = "\x1b[48:2:%p1%d:%p2%d:%p3%dm"
-	setrgbfgbg = "\x1b[38:2:%p1%d:%p2%d:%p3%d;48:2:%p4%d:%p5%d:%p6%dm"
+	// Misc
+	clear = "\x1b[H\x1b[2J"
+	cup   = "\x1B[%d;%dH"
 
-	// These have no terminfo entry but they work everywhere so we hardcode
-	// them
-	fgop         = "\x1b[39m"
-	bgop         = "\x1b[49m"
-	boldDimReset = "\x1b[22m"
-	endBlink     = "\x1b[25m"
-	endInvis     = "\x1b[28m"
+	// SGR
+	sgrReset           = "\x1b[m"
+	boldSet            = "\x1b[1m"
+	dimSet             = "\x1b[2m"
+	italicSet          = "\x1b[3m"
+	underlineSet       = "\x1b[4m"
+	blinkSet           = "\x1b[5m"
+	reverseSet         = "\x1b[7m"
+	hiddenSet          = "\x1b[8m"
+	strikethroughSet   = "\x1b[9m"
+	boldDimReset       = "\x1b[22m"
+	italicReset        = "\x1b[23m"
+	underlineReset     = "\x1b[24m"
+	blinkReset         = "\x1b[25m"
+	reverseReset       = "\x1b[27m"
+	hiddenReset        = "\x1b[28m"
+	strikethroughReset = "\x1b[29m"
+	fgReset            = "\x1b[39m"
+	bgReset            = "\x1b[49m"
+	ulReset            = "\x1b[59m"
+
+	// SGR Parameterized
+	fgSet       = "\x1b[3%dm"
+	fgBrightSet = "\x1b[9%dm"
+	fgIndexSet  = "\x1b[38:5:%dm"
+	fgRGBSet    = "\x1b[38:2:%d:%d:%dm"
+	bgSet       = "\x1b[4%dm"
+	bgBrightSet = "\x1b[10%dm"
+	bgIndexSet  = "\x1b[48:5:%dm"
+	bgRGBSet    = "\x1b[48:2:%d:%d:%dm"
+	ulIndexSet  = "\x1b[58:5:%dm"
+	ulRGBSet    = "\x1b[58:2:%d:%d:%dm"
+	ulStyleSet  = "\x1b[4:%dm"
 
 	// bracketed paste signals. All terminals are using the same sequences.
 	// We only check terminfo for support. If supported, we turn it on and
@@ -40,95 +63,46 @@ const (
 	ps = "\x1b[200~" // paste started
 	pe = "\x1b[201~" // paste ended
 
+	// cursor styles
+	cursorStyleSet   = "\x1b[%d q"
+	cursorStyleReset = "\x1b[ q"
+
 	// mouse
 	setMouse   = "\x1b[?1006;1003h" // sgr + all event tracking
 	resetMouse = "\x1b[?1006;1003l"
+
+	// keypad
+	applicationMode = "\x1b="
+	numericMode     = "\x1b>"
+
+	// Private Modes
+	applicationKeys    = 1
+	cursorVisibility   = 25
+	mouseAllEvents     = 1003
+	mouseFocusEvents   = 1004
+	mouseSGR           = 1006
+	alternateScreen    = 1049
+	bracketedPaste     = 2004
+	synchronizedUpdate = 2026
 )
 
-// Below we pull from terminfo
-var (
-	clear  string
-	civis  string
-	cvvis  string
-	cnorm  string // set cursor back to normal
-	cup    string // move cursor to abs position
-	dsrcpr string // cursor report position
-	setaf  string
-	setab  string
-	smcup  string // enter alt screen
-	rmcup  string // exit alt screen
+func decset(mode int) string {
+	return fmt.Sprintf("\x1B[?%dh", mode)
+}
 
-	bold  string // start bold
-	dim   string // start dim
-	sitm  string // start italic
-	smul  string // start underline
-	blink string // start blink
-	rev   string // start reverse
-	invis string // start invis
-	smxx  string // start strikethrough
-	rmxx  string // end strikethrough
-	ritm  string // end italics
-	rmul  string // end underline
-	rmso  string // end reverse
-	sgr0  string // reset all attrs
+func decrst(mode int) string {
+	return fmt.Sprintf("\x1B[?%dl", mode)
+}
 
-	bd string // disable bracketed paste mode
-	be string // enable bracketed paste mode
-
-	smkx string // enable application cursor keys (SS3 [A-D])
-	rmkx string // disable application cursor keys
-
-	xm string // mouse support
-
-	se string // DECSUSR, cursor style
-	ss string
-)
+func tparm(s string, args ...any) string {
+	return fmt.Sprintf(s, args...)
+}
 
 func setupTermInfo() error {
 	info, err := infocmp(os.Getenv("TERM"))
 	if err != nil {
 		return err
 	}
-
-	// Set our terminfo strings
-	cup = info.Strings["cup"]
-	setaf = info.Strings["setaf"]
-	setab = info.Strings["setab"]
-	dsrcpr = info.Strings["u7"]
-	bold = info.Strings["bold"]
-	dim = info.Strings["dim"]
-	sitm = info.Strings["sitm"]
-	smul = info.Strings["smul"]
-	blink = info.Strings["blink"]
-	rev = info.Strings["rev"]
-	invis = info.Strings["invis"]
-	smxx = info.Strings["smxx"]
-	ritm = info.Strings["ritm"]
-	rmul = info.Strings["rmul"]
-	rmso = info.Strings["rmso"]
-	rmxx = info.Strings["rmxx"]
-	sgr0 = info.Strings["sgr0"]
-	smcup = info.Strings["smcup"]
-	rmcup = info.Strings["rmcup"]
-	clear = info.Strings["clear"]
-	civis = info.Strings["civis"]
-	cvvis = info.Strings["cvvis"]
-	cnorm = info.Strings["cnorm"]
-
-	// bracketed paste
-	bd = info.Strings["BD"]
-	be = info.Strings["BE"]
-
-	// cursor keys
-	smkx = info.Strings["smkx"]
-	rmkx = info.Strings["rmkx"]
-
-	// mouse
-	xm = info.Strings["XM"]
-
-	se = info.Strings["Se"]
-	ss = info.Strings["Ss"]
-
 	// Now we map all of the extended keys.....
 	capNameToExtended := map[string]Key{
 		"kcbt":  {Codepoint: KeyTab, Modifiers: ModShift},

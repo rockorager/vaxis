@@ -200,17 +200,20 @@ func Quit() {
 }
 
 func quit() {
-	tty.WriteString(cvvis) // show the cursor
-	tty.WriteString(sgr0)  // reset fg, bg, attrs
+	tty.WriteString(decset(cursorVisibility)) // show the cursor
+	tty.WriteString(sgrReset)                 // reset fg, bg, attrs
 	tty.WriteString(clear)
 
 	// Disable any modes we enabled
-	tty.WriteString(bd)      // bracketed paste
-	tty.WriteString(kkbpPop) // kitty keyboard
-	tty.WriteString(rmkx)    // application cursor keys
-	tty.WriteString(resetMouse)
+	tty.WriteString(decrst(bracketedPaste)) // bracketed paste
+	tty.WriteString(kkbpPop)                // kitty keyboard
+	tty.WriteString(decrst(applicationKeys))
+	tty.WriteString(numericMode)
+	tty.WriteString(decrst(mouseAllEvents))
+	tty.WriteString(decrst(mouseFocusEvents))
+	tty.WriteString(decrst(mouseSGR))
 
-	exitAltScreen()
+	tty.WriteString(decrst(alternateScreen))
 
 	term.Restore(int(tty.Fd()), savedState)
 
@@ -256,15 +259,15 @@ func render() string {
 			if renderBuf.Len() == 0 {
 				if cursor.visible {
 					// Hide cursor if it's visible
-					renderBuf.WriteString(civis)
+					renderBuf.WriteString(decrst(cursorVisibility))
 				}
 				if capabilities.synchronizedUpdate {
-					renderBuf.WriteString(sumSet)
+					renderBuf.WriteString(decset(synchronizedUpdate))
 				}
 			}
 			lastRender.buf[row][col] = next
 			if reposition {
-				renderBuf.WriteString(tparm(cup, row, col))
+				renderBuf.WriteString(tparm(cup, row+1, col+1))
 				reposition = false
 			}
 			// TODO Optimizations
@@ -281,12 +284,20 @@ func render() string {
 				ps := fg.Params()
 				switch len(ps) {
 				case 0:
-					renderBuf.WriteString(fgop)
+					renderBuf.WriteString(fgReset)
 				case 1:
-					renderBuf.WriteString(tparm(setaf, int(ps[0])))
+					switch {
+					case ps[0] < 8:
+						renderBuf.WriteString(fmt.Sprintf(fgSet, ps[0]))
+					case ps[0] < 16:
+						renderBuf.WriteString(fmt.Sprintf(fgBrightSet, ps[0]-8))
+					default:
+						renderBuf.WriteString(fmt.Sprintf(fgIndexSet, ps[0]))
+					}
 				case 3:
-					out := tparm(setrgbf, int(ps[0]), int(ps[1]), int(ps[2]))
-					renderBuf.WriteString(out)
+					out := fmt.Sprintf(fgRGBSet, ps[0], ps[1], ps[2])
+					out = strings.TrimPrefix(out, "\x1b")
+					renderBuf.WriteString(fmt.Sprintf(fgRGBSet, ps[0], ps[1], ps[2]))
 				}
 			}
 
@@ -295,12 +306,18 @@ func render() string {
 				ps := bg.Params()
 				switch len(ps) {
 				case 0:
-					renderBuf.WriteString(bgop)
+					renderBuf.WriteString(bgReset)
 				case 1:
-					renderBuf.WriteString(tparm(setab, int(ps[0])))
+					switch {
+					case ps[0] < 8:
+						renderBuf.WriteString(fmt.Sprintf(bgSet, ps[0]))
+					case ps[0] < 16:
+						renderBuf.WriteString(fmt.Sprintf(bgBrightSet, ps[0]-8))
+					default:
+						renderBuf.WriteString(fmt.Sprintf(bgIndexSet, ps[0]))
+					}
 				case 3:
-					out := tparm(setrgbb, int(ps[0]), int(ps[1]), int(ps[2]))
-					renderBuf.WriteString(out)
+					renderBuf.WriteString(fmt.Sprintf(bgRGBSet, ps[0], ps[1], ps[2]))
 				}
 			}
 
@@ -312,28 +329,28 @@ func render() string {
 				on := dAttr & next.Attribute
 
 				if on&AttrBold != 0 {
-					renderBuf.WriteString(bold)
+					renderBuf.WriteString(boldSet)
 				}
 				if on&AttrDim != 0 {
-					renderBuf.WriteString(dim)
+					renderBuf.WriteString(dimSet)
 				}
 				if on&AttrItalic != 0 {
-					renderBuf.WriteString(sitm)
+					renderBuf.WriteString(italicSet)
 				}
 				if on&AttrUnderline != 0 {
-					renderBuf.WriteString(smul)
+					renderBuf.WriteString(underlineSet)
 				}
 				if on&AttrBlink != 0 {
-					renderBuf.WriteString(blink)
+					renderBuf.WriteString(blinkSet)
 				}
 				if on&AttrReverse != 0 {
-					renderBuf.WriteString(rev)
+					renderBuf.WriteString(reverseSet)
 				}
 				if on&AttrInvisible != 0 {
-					renderBuf.WriteString(invis)
+					renderBuf.WriteString(hiddenSet)
 				}
 				if on&AttrStrikethrough != 0 {
-					renderBuf.WriteString(smxx)
+					renderBuf.WriteString(strikethroughSet)
 				}
 
 				// If the bit is changed and is in previous, it
@@ -345,7 +362,7 @@ func render() string {
 					// Normal intensity turns off dim. If it
 					// should be on, let's turn it back on
 					if next.Attribute&AttrDim != 0 {
-						renderBuf.WriteString(dim)
+						renderBuf.WriteString(dimSet)
 					}
 				}
 				if off&AttrDim != 0 {
@@ -354,28 +371,28 @@ func render() string {
 					// Normal intensity turns off bold. If it
 					// should be on, let's turn it back on
 					if next.Attribute&AttrBold != 0 {
-						renderBuf.WriteString(bold)
+						renderBuf.WriteString(boldSet)
 					}
 				}
 				if off&AttrItalic != 0 {
-					renderBuf.WriteString(ritm)
+					renderBuf.WriteString(italicReset)
 				}
 				if off&AttrUnderline != 0 {
-					renderBuf.WriteString(rmul)
+					renderBuf.WriteString(underlineReset)
 				}
 				if off&AttrBlink != 0 {
 					// turn off blink isn't in terminfo
-					renderBuf.WriteString(endBlink)
+					renderBuf.WriteString(blinkReset)
 				}
 				if off&AttrReverse != 0 {
-					renderBuf.WriteString(rmso)
+					renderBuf.WriteString(reverseReset)
 				}
 				if off&AttrInvisible != 0 {
 					// turn off invisible isn't in terminfo
-					renderBuf.WriteString(endInvis)
+					renderBuf.WriteString(hiddenReset)
 				}
 				if off&AttrStrikethrough != 0 {
-					renderBuf.WriteString(rmxx)
+					renderBuf.WriteString(strikethroughReset)
 				}
 				attr = next.Attribute
 			}
@@ -383,16 +400,16 @@ func render() string {
 		}
 	}
 	if renderBuf.Len() != 0 {
-		renderBuf.WriteString(sgr0)
+		renderBuf.WriteString(sgrReset)
 		if capabilities.synchronizedUpdate {
-			renderBuf.WriteString(sumReset)
+			renderBuf.WriteString(decrst(synchronizedUpdate))
 		}
 	}
 	if cursor.visible {
 		renderBuf.WriteString(showCursor())
 	}
 	if !cursor.visible {
-		renderBuf.WriteString(civis)
+		renderBuf.WriteString(decrst(cursorVisibility))
 	}
 	return renderBuf.String()
 }
@@ -543,31 +560,21 @@ func sendQueries() {
 		Logger.Info("RGB color supported")
 		capabilities.rgb = true
 	}
-	enterAltScreen()
-	tty.WriteString(civis)
+
+	tty.WriteString(decset(alternateScreen))
+	tty.WriteString(decrst(cursorVisibility))
 	tty.WriteString(xtversion)
 	tty.WriteString(kkbpQuery)
 	tty.WriteString(sumQuery)
 
 	// Enable some modes
-	tty.WriteString(be)       // bracketed paste
-	tty.WriteString(smkx)     // application cursor keys
-	tty.WriteString(setMouse) // mouse
-
+	tty.WriteString(decset(bracketedPaste))  // bracketed paste
+	tty.WriteString(decset(applicationKeys)) // application cursor keys
+	tty.WriteString(applicationMode)         // application cursor keys mode
+	tty.WriteString(decset(mouseAllEvents))
+	tty.WriteString(decset(mouseFocusEvents))
+	tty.WriteString(decset(mouseSGR))
 	tty.WriteString(clear)
-}
-
-// Terminal controls
-
-// Enter the alternate screen (for fullscreen applications)
-func enterAltScreen() {
-	Logger.Debug("Entering alt screen")
-	tty.WriteString(smcup)
-}
-
-func exitAltScreen() {
-	Logger.Debug("Exiting alt screen")
-	tty.WriteString(rmcup)
 }
 
 func HideCursor() {
@@ -584,8 +591,8 @@ func ShowCursor(col int, row int, style CursorStyle) {
 func showCursor() string {
 	buf := bytes.NewBuffer(nil)
 	buf.WriteString(cursorStyle())
-	buf.WriteString(tparm(cup, cursor.row, cursor.col))
-	buf.WriteString(cvvis)
+	buf.WriteString(tparm(cup, cursor.row+1, cursor.col+1))
+	buf.WriteString(decset(cursorVisibility))
 	return buf.String()
 }
 
@@ -621,7 +628,7 @@ const (
 
 func cursorStyle() string {
 	if cursor.style == CursorDefault {
-		return se
+		return cursorStyleReset
 	}
-	return tparm(ss, int(cursor.style))
+	return tparm(cursorStyleSet, int(cursor.style))
 }
