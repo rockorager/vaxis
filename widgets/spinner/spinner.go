@@ -45,7 +45,7 @@ func (m *Model) Draw(w rtk.Window) {
 	m.srf = w
 	if m.spinning {
 		w.SetCell(0, 0, rtk.Cell{
-			Character:        string(m.Frames[m.frame]),
+			Character:  string(m.Frames[m.frame]),
 			Foreground: m.Foreground,
 			Background: m.Background,
 			Attribute:  m.Attribute,
@@ -55,7 +55,10 @@ func (m *Model) Draw(w rtk.Window) {
 
 // Start the spinner. Start is thread safe and non-blocking
 func (m *Model) Start() {
-	rtk.SendMsg(startMsg{}, m)
+	rtk.PostMsg(rtk.SendMsg{
+		Msg:   startMsg{},
+		Model: m,
+	})
 }
 
 // Start should only be called from the Update loop
@@ -79,7 +82,10 @@ func (m *Model) start() {
 				return
 			case <-ticker.C:
 				m.frame = (m.frame + 1) % len(m.Frames)
-				rtk.PartialDraw(m, m.srf)
+				rtk.PostMsg(rtk.DrawModelMsg{
+					Model:  m,
+					Window: m.srf,
+				})
 			}
 		}
 	}()
@@ -87,7 +93,10 @@ func (m *Model) start() {
 
 // Stop the spinner. Stop is thread safe and non-blocking
 func (m *Model) Stop() {
-	rtk.SendMsg(stopMsg{}, m)
+	rtk.PostMsg(rtk.SendMsg{
+		Msg:   stopMsg{},
+		Model: m,
+	})
 }
 
 func (m *Model) stop() {
@@ -99,7 +108,10 @@ func (m *Model) stop() {
 
 // Toggle the spinner. Stop is thread safe and non-blocking
 func (m *Model) Toggle() {
-	rtk.SendMsg(toggleMsg{}, m)
+	rtk.PostMsg(rtk.SendMsg{
+		Msg:   toggleMsg{},
+		Model: m,
+	})
 }
 
 func (m *Model) toggle() {

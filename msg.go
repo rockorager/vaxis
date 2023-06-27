@@ -8,15 +8,8 @@ func PostMsg(msg Msg) {
 	msgs.push(msg)
 }
 
-// Posts a function to be run from the main thread
-func PostFunc(fn func()) {
-	PostMsg(funcMsg{
-		fn: fn,
-	})
-}
-
-type funcMsg struct {
-	fn func()
+type FuncMsg struct {
+	Func func()
 }
 
 // Init will always be the first Msg delivered
@@ -36,29 +29,15 @@ type Resize struct {
 // Paste if the pasted content
 type Paste string
 
-// SendMsg sends a Msg directly to a Model
-func SendMsg(msg Msg, model Model) {
-	PostMsg(sendMsg{
-		msg:   msg,
-		model: model,
-	})
+// SendMsg sends a message to a given model from the main thread
+type SendMsg struct {
+	Msg   Msg
+	Model Model
 }
 
-type sendMsg struct {
-	msg   Msg
-	model Model
-}
-
-// PartialDraw draws the provided model to the provided surface. It doesn't call
+// DrawModelMsg draws the provided model with the provided window. It doesn't call
 // draw on the primary model.
-func PartialDraw(model Model, window Window) {
-	PostMsg(partialDrawMsg{
-		model:  model,
-		window: window,
-	})
-}
-
-type partialDrawMsg struct {
-	model  Model
-	window Window
+type DrawModelMsg struct {
+	Model  Model
+	Window Window
 }

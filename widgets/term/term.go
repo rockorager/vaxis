@@ -164,7 +164,10 @@ func (vt *Model) Start(cmd *exec.Cmd) error {
 			select {
 			case <-tmr.C:
 				if vt.dirty && vt.visible.Load() && vt.window != nil {
-					rtk.PartialDraw(vt, *vt.window)
+					rtk.PostMsg(rtk.DrawModelMsg{
+						Model:  vt,
+						Window: *vt.window,
+					})
 				}
 			case seq := <-vt.parser.Next():
 				switch seq := seq.(type) {
@@ -450,7 +453,7 @@ func (vt *Model) Draw(win rtk.Window) {
 
 			egc := fmt.Sprintf("%c%s", cell.content, string(cell.combining))
 			win.SetCell(col, row, rtk.Cell{
-				Character:        egc,
+				Character:  egc,
 				Foreground: cell.fg,
 				Background: cell.bg,
 				Attribute:  cell.attrs,

@@ -39,10 +39,13 @@ func (s *simpleWidgets) Update(msg rtk.Msg) {
 						return
 					case <-ticker.C:
 						p += 1
-						rtk.SendMsg(progress.DataMsg{
-							Progress: float64(p),
-							Total:    float64(total),
-						}, s.progress1)
+						rtk.PostMsg(rtk.SendMsg{
+							Msg: progress.DataMsg{
+								Progress: float64(p),
+								Total:    float64(total),
+							},
+							Model: s.progress1,
+						})
 
 					}
 				}

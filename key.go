@@ -76,15 +76,10 @@ func (k Key) String() string {
 
 	switch {
 	case k.Codepoint == KeyTab:
-		// Handle further down
 	case k.Codepoint == KeySpace:
-		// Handle further down
 	case k.Codepoint == KeyEsc:
-		// Handle further down
 	case k.Codepoint == KeyBackspace:
-		// handle further down
 	case k.Codepoint == KeyEnter:
-		// Handle further down
 	case k.Codepoint < 0x00:
 		return "invalid"
 	case k.Codepoint < 0x20:

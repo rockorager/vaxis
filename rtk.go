@@ -69,6 +69,8 @@ var (
 	// Statistics
 	renders int
 	elapsed time.Duration
+
+	imgBuf *bytes.Buffer
 )
 
 // Converts a string into a slice of Characters suitable to assign to terminal cells
@@ -163,14 +165,14 @@ func Run(model Model) error {
 			lastRender.resize(msg.Cols, msg.Rows)
 			model.Update(msg)
 			model.Draw(Window{})
-		case sendMsg:
-			msg.model.Update(msg.msg)
+		case SendMsg:
+			msg.Model.Update(msg.Msg)
 			model.Draw(Window{})
-		case funcMsg:
-			msg.fn()
+		case FuncMsg:
+			msg.Func()
 			model.Draw(Window{})
-		case partialDrawMsg:
-			msg.model.Draw(msg.window)
+		case DrawModelMsg:
+			msg.Model.Draw(msg.Window)
 		default:
 			model.Update(msg)
 			model.Draw(Window{})

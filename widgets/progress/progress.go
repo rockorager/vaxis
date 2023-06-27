@@ -43,7 +43,7 @@ func (m *Model) Draw(win rtk.Window) {
 
 	for i := 0; i <= int(fullBlocks); i += 1 {
 		win.SetCell(i, 0, rtk.Cell{
-			Character:        "█",
+			Character:  "█",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
@@ -51,43 +51,43 @@ func (m *Model) Draw(win rtk.Window) {
 	switch {
 	case remainder >= 0.875:
 		win.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
-			Character:        "▉",
+			Character:  "▉",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
 	case remainder >= 0.75:
 		win.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
-			Character:        "▊",
+			Character:  "▊",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
 	case remainder >= 0.625:
 		win.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
-			Character:        "▋",
+			Character:  "▋",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
 	case remainder >= 0.5:
 		win.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
-			Character:        "▌",
+			Character:  "▌",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
 	case remainder >= 0.375:
 		win.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
-			Character:        "▍",
+			Character:  "▍",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
 	case remainder >= 0.25:
 		win.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
-			Character:        "▎",
+			Character:  "▎",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
 	case remainder >= 0.125:
 		win.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
-			Character:        "▏",
+			Character:  "▏",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
@@ -98,10 +98,13 @@ func (m *Model) Draw(win rtk.Window) {
 // progress message
 func (m *Model) Read(p []byte) (int, error) {
 	n, err := m.Reader.Read(p)
-	rtk.SendMsg(DataMsg{
-		Progress: m.progress + float64(n),
-		Total:    m.total,
-	}, m)
+	rtk.PostMsg(rtk.SendMsg{
+		Msg: DataMsg{
+			Progress: m.progress + float64(n),
+			Total:    m.total,
+		},
+		Model: m,
+	})
 	return n, err
 }
 
@@ -109,10 +112,13 @@ func (m *Model) Read(p []byte) (int, error) {
 // progress message
 func (m *Model) Write(p []byte) (int, error) {
 	n, err := m.Writer.Write(p)
-	rtk.SendMsg(DataMsg{
-		Progress: m.progress + float64(n),
-		Total:    m.total,
-	}, m)
+	rtk.PostMsg(rtk.SendMsg{
+		Msg: DataMsg{
+			Progress: m.progress + float64(n),
+			Total:    m.total,
+		},
+		Model: m,
+	})
 	return n, err
 }
 

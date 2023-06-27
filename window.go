@@ -161,7 +161,7 @@ func (win Window) Size() (width int, height int) {
 		if stdScreen == nil {
 			return 0, 0
 		}
-		pCols, pRows = stdScreen.Size()
+		pCols, pRows = stdScreen.size()
 	default:
 		pCols, pRows = win.Parent.Size()
 	}
@@ -201,7 +201,7 @@ func (win Window) SetCell(col int, row int, cell Cell) {
 	}
 	switch {
 	case win.Parent == nil:
-		stdScreen.SetCell(col+win.Column, row+win.Row, cell)
+		stdScreen.setCell(col+win.Column, row+win.Row, cell)
 	default:
 		win.Parent.SetCell(col+win.Column, row+win.Row, cell)
 	}

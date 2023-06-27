@@ -43,8 +43,10 @@ func (m *model) Update(msg rtk.Msg) {
 		}
 		m.keyClear.Stop()
 		m.keyClear = time.AfterFunc(1*time.Second, func() {
-			rtk.PostFunc(func() {
-				m.keys = ""
+			rtk.PostMsg(rtk.FuncMsg{
+				Func: func() {
+					m.keys = ""
+				},
 			})
 		})
 		switch msg.String() {
