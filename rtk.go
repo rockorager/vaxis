@@ -84,12 +84,8 @@ func Characters(s string) []string {
 }
 
 func Run(model Model) error {
-	// Setup terminal
-	err := setupTermInfo()
-	if err != nil {
-		return err
-	}
-	tty, _ = os.OpenFile("/dev/tty", os.O_RDWR, 0)
+	var err error
+	tty, err = os.OpenFile("/dev/tty", os.O_RDWR, 0)
 	parser := ansi.NewParser(tty)
 	savedState, err = term.MakeRaw(int(tty.Fd()))
 	if err != nil {
