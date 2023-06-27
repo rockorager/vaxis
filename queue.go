@@ -5,9 +5,6 @@ import (
 	"sync/atomic"
 )
 
-var (
-)
-
 // queue provides an infinitely buffered channel
 type queue[T interface{}] struct {
 	mu    sync.Mutex
