@@ -87,7 +87,7 @@ func Run(model Model) error {
 	if err != nil {
 		return err
 	}
-	tty = os.Stdout
+	tty, _ = os.OpenFile("/dev/tty", os.O_RDWR, 0)
 	parser := ansi.NewParser(tty)
 	savedState, err = term.MakeRaw(int(tty.Fd()))
 	if err != nil {
