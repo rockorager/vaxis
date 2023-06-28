@@ -81,15 +81,13 @@ func PrintSegments(win Window, segs ...Segment) (maxWidth int, col int, row int)
 			if row > rows {
 				break
 			}
-			if boundaries&uniseg.MaskLine == uniseg.LineMustBreak {
-				if uniseg.HasTrailingLineBreak(cluster) {
-					if col > maxWidth {
-						maxWidth = col
-					}
-					col = 0
-					row += 1
-					continue
+			if uniseg.HasTrailingLineBreak(cluster) {
+				if col > maxWidth {
+					maxWidth = col
 				}
+				col = 0
+				row += 1
+				continue
 			}
 			win.SetCell(col, row, Cell{
 				Character:      string(cluster),
