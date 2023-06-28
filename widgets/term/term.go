@@ -189,7 +189,8 @@ func (vt *Model) Update(msg rtk.Msg) {
 	switch msg := msg.(type) {
 	case rtk.Key:
 		// TODO Add DECKPAM/DECKPNM
-		str := applicationKeyCode(msg)
+		str := encodeXterm(msg, true)
+		// str := applicationKeyCode(msg)
 		vt.pty.WriteString(str)
 	case rtk.Paste:
 		vt.pty.WriteString("\x1B[200~")

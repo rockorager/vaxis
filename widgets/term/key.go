@@ -1,54 +1,70 @@
 package term
 
 import (
+	"bytes"
 	"fmt"
 	"unicode"
 
 	"git.sr.ht/~rockorager/rtk"
 )
 
-func normalKeyCode(msg rtk.Key) string {
-	if msg.Modifiers == 0 {
-		kc, ok := normalKeymap[msg.Codepoint]
-		if ok {
-			return kc
-		}
+// TODO we assume it's always application keys. Add in the right modes and
+// encode properly
+func encodeXterm(key rtk.Key, applicationMode bool) string {
+	// function keys
+	if val, ok := keymap[key.Codepoint]; ok {
+		return val
 	}
-	return keyCode(msg)
-}
 
-func applicationKeyCode(msg rtk.Key) string {
-	if msg.Modifiers == 0 {
-		kc, ok := applicationKeymap[msg.Codepoint]
-		if ok {
-			return kc
-		}
-	}
-	return keyCode(msg)
-}
-
-func keyCode(msg rtk.Key) string {
-	if msg.Codepoint < unicode.MaxRune {
-		switch msg.Modifiers {
-		case 0:
-			return string(msg.Codepoint)
-		case rtk.ModAlt:
-			return fmt.Sprintf("\x1B%c", msg.Codepoint)
-		case rtk.ModCtrl:
-			if unicode.IsLower(msg.Codepoint) {
-				return fmt.Sprintf("%c", msg.Codepoint-0x60)
+	// ignore any kitty mods
+	xtermMods := key.Modifiers & rtk.ModShift
+	xtermMods |= key.Modifiers & rtk.ModAlt
+	xtermMods |= key.Modifiers & rtk.ModCtrl
+	if xtermMods == 0 {
+		switch applicationMode {
+		case true:
+			// Special keys
+			if val, ok := normalKeymap[key.Codepoint]; ok {
+				return val
 			}
-			return fmt.Sprintf("%c", msg.Codepoint-0x40)
+		case false:
+			// Special keys
+			if val, ok := applicationKeymap[key.Codepoint]; ok {
+				return val
+			}
+		}
+
+		if key.Codepoint < unicode.MaxRune {
+			// Unicode keys
+			return string(key.Codepoint)
 		}
 	}
-	if kc, ok := xtermKeymap[msg.Codepoint]; ok {
-		if msg.Modifiers == 0 {
-			return fmt.Sprintf("\x1B[%d%c", kc.number, kc.final)
-		}
-		return fmt.Sprintf("\x1B[%d;%d%c", kc.number, int(msg.Modifiers)+1, kc.final)
+
+	if val, ok := xtermKeymap[key.Codepoint]; ok {
+		return fmt.Sprintf("\x1B[%d;%d%c", val.number, int(xtermMods)+1, val.final)
 	}
-	if kc, ok := keymap[msg.Codepoint]; ok {
-		return kc
+
+	buf := bytes.NewBuffer(nil)
+	if key.Codepoint < unicode.MaxRune {
+		if xtermMods&rtk.ModAlt != 0 {
+			buf.WriteRune('\x1b')
+		}
+		if xtermMods&rtk.ModCtrl != 0 {
+			if unicode.IsLower(key.Codepoint) {
+				buf.WriteRune(key.Codepoint - 0x60)
+				return buf.String()
+			}
+			buf.WriteRune(key.Codepoint - 0x40)
+			return buf.String()
+		}
+		if xtermMods&rtk.ModShift != 0 {
+			if unicode.IsLower(key.Codepoint) {
+				buf.WriteRune(unicode.ToUpper(key.Codepoint))
+				return buf.String()
+			}
+		}
+		buf.WriteRune(key.Codepoint)
+		return buf.String()
 	}
 	return ""
 }
@@ -69,36 +85,32 @@ var xtermKeymap = map[rune]keycode{
 	rtk.KeyDelete: {3, '~'},
 	rtk.KeyPgUp:   {5, '~'},
 	rtk.KeyPgDown: {6, '~'},
-	rtk.KeyF01:    {1, 'P'},
-	rtk.KeyF02:    {1, 'Q'},
-	rtk.KeyF03:    {1, 'R'},
-	rtk.KeyF04:    {1, 'S'},
-	rtk.KeyF05:    {15, '~'},
-	rtk.KeyF06:    {17, '~'},
-	rtk.KeyF07:    {18, '~'},
-	rtk.KeyF08:    {19, '~'},
-	rtk.KeyF09:    {20, '~'},
-	rtk.KeyF10:    {21, '~'},
-	rtk.KeyF11:    {23, '~'},
-	rtk.KeyF12:    {24, '~'},
 }
 
 var normalKeymap = map[rune]string{
-	rtk.KeyUp:    "\x1B[A",
-	rtk.KeyDown:  "\x1B[B",
-	rtk.KeyRight: "\x1B[C",
-	rtk.KeyLeft:  "\x1B[D",
-	rtk.KeyEnd:   "\x1B[F",
-	rtk.KeyHome:  "\x1B[H",
+	rtk.KeyUp:     "\x1B[A",
+	rtk.KeyDown:   "\x1B[B",
+	rtk.KeyRight:  "\x1B[C",
+	rtk.KeyLeft:   "\x1B[D",
+	rtk.KeyEnd:    "\x1B[F",
+	rtk.KeyHome:   "\x1B[H",
+	rtk.KeyInsert: "\x1B[2~",
+	rtk.KeyDelete: "\x1B[3~",
+	rtk.KeyPgUp:   "\x1B[5~",
+	rtk.KeyPgDown: "\x1B[6~",
 }
 
 var applicationKeymap = map[rune]string{
-	rtk.KeyUp:    "\x1BOA",
-	rtk.KeyDown:  "\x1BOB",
-	rtk.KeyRight: "\x1BOC",
-	rtk.KeyLeft:  "\x1BOD",
-	rtk.KeyEnd:   "\x1BOF",
-	rtk.KeyHome:  "\x1BOH",
+	rtk.KeyUp:     "\x1BOA",
+	rtk.KeyDown:   "\x1BOB",
+	rtk.KeyRight:  "\x1BOC",
+	rtk.KeyLeft:   "\x1BOD",
+	rtk.KeyEnd:    "\x1BOF",
+	rtk.KeyHome:   "\x1BOH",
+	rtk.KeyInsert: "\x1B[2~",
+	rtk.KeyDelete: "\x1B[3~",
+	rtk.KeyPgUp:   "\x1B[5~",
+	rtk.KeyPgDown: "\x1B[6~",
 }
 
 var keymap = map[rune]string{
@@ -142,4 +154,5 @@ var keymap = map[rune]string{
 	rtk.KeyF38: "\x1B[1;6Q",
 	rtk.KeyF39: "\x1B[1;6R",
 	rtk.KeyF40: "\x1B[1;6S",
+	// TODO add in the rest
 }
