@@ -365,13 +365,11 @@ func decodeXterm(seq ansi.Sequence) Key {
 	switch seq := seq.(type) {
 	case ansi.Print:
 		key.Codepoint = rune(seq)
-		if key.Codepoint == 0x7F {
-			key.Codepoint = KeyBackspace
-		}
 	case ansi.C0:
 		switch rune(seq) {
 		case 0x08:
 			key.Codepoint = KeyBackspace
+			key.Modifiers = ModCtrl
 		case 0x09:
 			key.Codepoint = KeyTab
 		case 0x0D:
