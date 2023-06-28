@@ -36,8 +36,10 @@ var (
 	// pasteBuf buffers bracketed paste text
 	pasteBuf *bytes.Buffer
 	// Have we requested a cursor position?
-	cursorPositionRequested bool
-	chCursorPositionReport  chan int
+	cursorPositionRequested  bool
+	chCursorPositionReport   chan int
+	deviceAttributesReceived chan struct{}
+	initialized              bool
 
 	// Rendering variables
 
@@ -60,6 +62,7 @@ var (
 		rgb                bool
 		kittyKeyboard      bool
 		styledUnderlines   bool
+		sixels             bool
 	}
 
 	cursor struct {
@@ -121,6 +124,7 @@ func Init(ctx context.Context) error {
 	)
 	PostMsg(InitMsg{})
 	resize(int(tty.Fd()))
+	deviceAttributesReceived = make(chan struct{})
 	sendQueries()
 
 	go func() {
@@ -147,6 +151,13 @@ func Init(ctx context.Context) error {
 			}
 		}
 	}()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-deviceAttributesReceived:
+		close(deviceAttributesReceived)
+		initialized = true
+	}
 	return nil
 }
 
@@ -207,7 +218,7 @@ func quit() {
 
 	// Disable any modes we enabled
 	tty.WriteString(decrst(bracketedPaste)) // bracketed paste
-	tty.WriteString(kkbpPop)                // kitty keyboard
+	tty.WriteString(kittyKBPop)             // kitty keyboard
 	tty.WriteString(decrst(cursorKeys))
 	tty.WriteString(numericMode)
 	tty.WriteString(decrst(mouseAllEvents))
@@ -460,6 +471,19 @@ func handleSequence(seq ansi.Sequence) {
 		PostMsg(decodeXterm(seq))
 	case ansi.CSI:
 		switch seq.Final {
+		case 'c':
+			if len(seq.Intermediate) == 1 && seq.Intermediate[0] == '?' {
+				for _, ps := range seq.Parameters {
+					switch ps[0] {
+					case 4:
+						capabilities.sixels = true
+						Logger.Info("Sixels supported")
+					}
+				}
+				if !initialized {
+					deviceAttributesReceived <- struct{}{}
+				}
+			}
 		case 'R':
 			// KeyF1 or DSRCPR
 			// This could be an F1 key, we need to buffer if we have
@@ -500,7 +524,7 @@ func handleSequence(seq ansi.Sequence) {
 			if len(seq.Intermediate) == 1 && seq.Intermediate[0] == '?' {
 				capabilities.kittyKeyboard = true
 				Logger.Info("Kitty Keyboard Protocol supported")
-				tty.WriteString(kkbpEnable)
+				tty.WriteString(kittyKBEnable)
 				return
 			}
 		case '~':
@@ -567,6 +591,16 @@ func handleSequence(seq ansi.Sequence) {
 					}
 				}
 			}
+		case '|':
+			if len(seq.Intermediate) < 1 {
+				return
+			}
+			switch seq.Intermediate[0] {
+			case '!':
+				if string(seq.Data) == hexEncode("~VTE") {
+					capabilities.styledUnderlines = true
+				}
+			}
 		}
 	}
 }
@@ -581,7 +615,8 @@ func sendQueries() {
 	tty.WriteString(decset(alternateScreen))
 	tty.WriteString(decrst(cursorVisibility))
 	tty.WriteString(xtversion)
-	tty.WriteString(kkbpQuery)
+	tty.WriteString(kittyKBQuery)
+	tty.WriteString(kittyGquery)
 	tty.WriteString(sumQuery)
 
 	// Enable some modes
@@ -596,6 +631,12 @@ func sendQueries() {
 	// Query some terminfo capabilities
 	tty.WriteString(xtgettcap("RGB"))
 	tty.WriteString(xtgettcap("Smulx"))
+	// Need to send tertiary for VTE based terminals. These don't respond to
+	// XTGETTCAP
+	tty.WriteString(tertiaryAttributes)
+	// Send Device Attributes is last. Everything responds, and when we get
+	// a response we'll return from init
+	tty.WriteString(primaryAttributes)
 }
 
 func HideCursor() {

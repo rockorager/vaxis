@@ -141,8 +141,8 @@ func main() {
 		slog.Error(err.Error())
 		os.Exit(1)
 	}
-	rtk.Init(context.Background())
 	rtk.Logger = log
+	rtk.Init(context.Background())
 	m := &model{
 		keyClear: time.NewTimer(0),
 	}

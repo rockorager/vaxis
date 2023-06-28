@@ -9,15 +9,20 @@ const (
 	// Queries
 	// Device Status Report - Cursor Position Report
 	dsrcpr = "\x1b[6n"
+	// Device primary attributes
+	primaryAttributes  = "\x1b[c"
+	tertiaryAttributes = "\x1b[=c"
 	// Device Status Report - XTVERSION
 	xtversion = "\x1b[>0q"
 	// Synchronized Update Mode
 	sumQuery = "\x1b[?2026$p"
 	// kitty keyboard protocol
-	kkbpQuery  = "\x1b[?u"
-	kkbpEnable = "\x1b[=27u"
-	kkbpPush   = "\x1b[>1u"
-	kkbpPop    = "\x1b[<u"
+	kittyKBQuery  = "\x1b[?u"
+	kittyKBEnable = "\x1b[=27u"
+	kittyKBPush   = "\x1b[>1u"
+	kittyKBPop    = "\x1b[<u"
+	// kitty graphics protocol
+	kittyGquery = "\x1b[_Gi=31,s=1,v=1,a=q,t=d,f=24;AAAA\x1b\\"
 
 	// Misc
 	clear = "\x1b[H\x1b[2J"
