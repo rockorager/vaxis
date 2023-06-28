@@ -55,9 +55,9 @@ func (m *model) Update(msg rtk.Msg) {
 			})
 		})
 		switch msg.String() {
-		case "Ctrl+c":
+		case "C-c":
 			rtk.Quit()
-		case "Ctrl+l":
+		case "C-l":
 			rtk.Refresh()
 		case "Right":
 			if m.current >= len(m.slides) {

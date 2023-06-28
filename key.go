@@ -64,13 +64,13 @@ func (k Key) String() string {
 			buf.WriteString("Super+")
 		}
 		if k.Modifiers&ModCtrl != 0 {
-			buf.WriteString("Ctrl+")
+			buf.WriteString("C-")
 		}
 		if k.Modifiers&ModAlt != 0 {
-			buf.WriteString("Alt+")
+			buf.WriteString("A-")
 		}
 		if k.Modifiers&ModShift != 0 {
-			buf.WriteString("Shift+")
+			buf.WriteString("S-")
 		}
 	}
 
@@ -93,7 +93,7 @@ func (k Key) String() string {
 		case k.Codepoint < 0x20:
 			val = k.Codepoint + 0x40
 		}
-		return fmt.Sprintf("Ctrl+%c", val)
+		return fmt.Sprintf("C-%c", val)
 	case k.Codepoint <= unicode.MaxRune:
 		buf.WriteRune(k.Codepoint)
 	}
