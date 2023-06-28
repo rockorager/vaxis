@@ -58,6 +58,7 @@ var (
 		synchronizedUpdate bool
 		rgb                bool
 		kittyKeyboard      bool
+		styledUnderlines   bool
 	}
 
 	cursor struct {
@@ -243,6 +244,8 @@ func render() string {
 		reposition = true
 		fg         Color
 		bg         Color
+		ul         Color
+		ulStyle    UnderlineStyle
 		attr       AttributeMask
 	)
 	for row := range stdScreen.buf {
@@ -317,6 +320,21 @@ func render() string {
 				}
 			}
 
+			if capabilities.styledUnderlines {
+				if ul != next.Underline {
+					ul = next.Underline
+					ps := bg.Params()
+					switch len(ps) {
+					case 0:
+						renderBuf.WriteString(ulColorReset)
+					case 1:
+						renderBuf.WriteString(fmt.Sprintf(ulIndexSet, ps[0]))
+					case 3:
+						renderBuf.WriteString(fmt.Sprintf(ulRGBSet, ps[0], ps[1], ps[2]))
+					}
+				}
+			}
+
 			if attr != next.Attribute {
 				// find the ones that have changed
 				dAttr := attr ^ next.Attribute
@@ -332,9 +350,6 @@ func render() string {
 				}
 				if on&AttrItalic != 0 {
 					renderBuf.WriteString(italicSet)
-				}
-				if on&AttrUnderline != 0 {
-					renderBuf.WriteString(underlineSet)
 				}
 				if on&AttrBlink != 0 {
 					renderBuf.WriteString(blinkSet)
@@ -373,9 +388,6 @@ func render() string {
 				if off&AttrItalic != 0 {
 					renderBuf.WriteString(italicReset)
 				}
-				if off&AttrUnderline != 0 {
-					renderBuf.WriteString(underlineReset)
-				}
 				if off&AttrBlink != 0 {
 					// turn off blink isn't in terminfo
 					renderBuf.WriteString(blinkReset)
@@ -392,6 +404,23 @@ func render() string {
 				}
 				attr = next.Attribute
 			}
+
+			if ulStyle != next.UnderlineStyle {
+				ulStyle = next.UnderlineStyle
+				switch capabilities.styledUnderlines {
+				case true:
+					renderBuf.WriteString(tparm(ulStyleSet, ulStyle))
+				case false:
+					switch ulStyle {
+					case UnderlineOff:
+						renderBuf.WriteString(underlineReset)
+					default:
+						// Fallback to single underlines
+						renderBuf.WriteString(underlineSet)
+					}
+				}
+			}
+
 			renderBuf.WriteString(next.Character)
 		}
 	}
@@ -503,6 +532,37 @@ func handleSequence(seq ansi.Sequence) {
 			}
 		default:
 			PostMsg(decodeXterm(seq))
+		}
+	case ansi.DCS:
+		switch seq.Final {
+		case 'r':
+			if len(seq.Intermediate) < 1 {
+				return
+			}
+			switch seq.Intermediate[0] {
+			case '+':
+				// XTGETTCAP response
+				if len(seq.Parameters) < 1 {
+					return
+				}
+				if seq.Parameters[0] == 0 {
+					return
+				}
+				vals := strings.Split(string(seq.Data), "=")
+				if len(vals) != 2 {
+					Logger.Error("error parsing XTGETTCAP", "value", string(seq.Data))
+				}
+				switch vals[0] {
+				case hexEncode("Smulx"):
+					capabilities.styledUnderlines = true
+					Logger.Info("Styled underlines supported")
+				case hexEncode("RGB"):
+					if !capabilities.rgb {
+						capabilities.rgb = true
+						Logger.Info("RGB Color supported")
+					}
+				}
+			}
 		}
 	}
 }

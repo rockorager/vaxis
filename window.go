@@ -53,10 +53,12 @@ func Print(win Window, text string) (maxWidth int, col int, row int) {
 }
 
 type Segment struct {
-	Text       string
-	Foreground Color
-	Background Color
-	Attributes AttributeMask
+	Text           string
+	Foreground     Color
+	Background     Color
+	Underline      Color
+	UnderlineStyle UnderlineStyle
+	Attributes     AttributeMask
 }
 
 // PrintSegments prints Segments of text, with each block having a given style.
@@ -86,10 +88,12 @@ func PrintSegments(win Window, segs ...Segment) (maxWidth int, col int, row int)
 				continue
 			}
 			win.SetCell(col, row, Cell{
-				Character:  string(cluster),
-				Foreground: seg.Foreground,
-				Background: seg.Background,
-				Attribute:  seg.Attributes,
+				Character:      string(cluster),
+				Foreground:     seg.Foreground,
+				Background:     seg.Background,
+				Underline:      seg.Underline,
+				UnderlineStyle: seg.UnderlineStyle,
+				Attribute:      seg.Attributes,
 			})
 
 			col += boundaries >> uniseg.ShiftWidth

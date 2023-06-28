@@ -21,7 +21,7 @@ func (vt *Model) sgr(params [][]int) {
 		case 3:
 			vt.cursor.attrs |= rtk.AttrItalic
 		case 4:
-			vt.cursor.attrs |= rtk.AttrUnderline
+			vt.cursor.ulStyle = rtk.UnderlineSingle
 		case 5:
 			vt.cursor.attrs |= rtk.AttrBlink
 		case 7:
@@ -38,7 +38,7 @@ func (vt *Model) sgr(params [][]int) {
 		case 23:
 			vt.cursor.attrs &^= rtk.AttrItalic
 		case 24:
-			vt.cursor.attrs &^= rtk.AttrUnderline
+			vt.cursor.ulStyle = rtk.UnderlineOff
 		case 25:
 			vt.cursor.attrs &^= rtk.AttrBlink
 		case 27:

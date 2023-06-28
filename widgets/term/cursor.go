@@ -5,10 +5,12 @@ import (
 )
 
 type cursor struct {
-	fg    rtk.Color
-	bg    rtk.Color
-	attrs rtk.AttributeMask
-	style rtk.CursorStyle
+	fg      rtk.Color
+	bg      rtk.Color
+	ul      rtk.Color
+	ulStyle rtk.UnderlineStyle
+	attrs   rtk.AttributeMask
+	style   rtk.CursorStyle
 
 	// position
 	row row    // 0-indexed

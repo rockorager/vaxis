@@ -42,7 +42,7 @@ const (
 	strikethroughReset = "\x1b[29m"
 	fgReset            = "\x1b[39m"
 	bgReset            = "\x1b[49m"
-	ulReset            = "\x1b[59m"
+	ulColorReset       = "\x1b[59m"
 
 	// SGR Parameterized
 	fgSet       = "\x1b[3%dm"
@@ -102,9 +102,15 @@ func tparm(s string, args ...any) string {
 func xtgettcap(cap string) string {
 	out := bytes.NewBuffer(nil)
 	out.WriteString("\x1bP+q")
+	out.WriteString(hexEncode(cap))
+	out.WriteString("\x1b\\")
+	return out.String()
+}
+
+func hexEncode(cap string) string {
+	out := bytes.NewBuffer(nil)
 	for _, ch := range cap {
 		out.WriteString(fmt.Sprintf("%X", ch))
 	}
-	out.WriteString("\x1b\\")
 	return out.String()
 }
