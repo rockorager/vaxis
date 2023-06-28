@@ -200,6 +200,7 @@ func PollMsg() Msg {
 	return m
 }
 
+// Msgs provides access to the channel of Msgs
 func Msgs() chan Msg {
 	return msgs.Chan()
 }
