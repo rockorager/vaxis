@@ -1,16 +1,16 @@
 package term
 
 import (
-	"git.sr.ht/~rockorager/rtk"
+	"git.sr.ht/~rockorager/vaxis"
 )
 
 type cell struct {
 	content   rune
 	combining []rune
 	width     int
-	fg        rtk.Color
-	bg        rtk.Color
-	attrs     rtk.AttributeMask
+	fg        vaxis.Color
+	bg        vaxis.Color
+	attrs     vaxis.AttributeMask
 	wrapped   bool
 }
 
@@ -25,7 +25,7 @@ func (c *cell) rune() rune {
 // on the screen. Erased characters are lost. The cursor position does not
 // change when erasing characters or lines. Erasing resets the attributes, but
 // applies the background color of the passed style
-func (c *cell) erase(bg rtk.Color) {
+func (c *cell) erase(bg vaxis.Color) {
 	c.content = 0
 	c.attrs = 0
 	c.bg = bg

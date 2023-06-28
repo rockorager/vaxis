@@ -7,8 +7,8 @@ import (
 	"os"
 	"time"
 
-	"git.sr.ht/~rockorager/rtk"
-	"git.sr.ht/~rockorager/rtk/widgets/align"
+	"git.sr.ht/~rockorager/vaxis"
+	"git.sr.ht/~rockorager/vaxis/widgets/align"
 	"github.com/rivo/uniseg"
 	"golang.org/x/exp/slog"
 )
@@ -16,7 +16,7 @@ import (
 var log *slog.Logger
 
 type model struct {
-	slides   []rtk.Model
+	slides   []vaxis.Model
 	current  int
 	keys     string
 	keyClear *time.Timer
@@ -24,17 +24,17 @@ type model struct {
 
 type visible bool
 
-func (m *model) Update(msg rtk.Msg) {
+func (m *model) Update(msg vaxis.Msg) {
 	switch msg := msg.(type) {
-	case rtk.InitMsg:
-		m.slides = []rtk.Model{
+	case vaxis.InitMsg:
+		m.slides = []vaxis.Model{
 			&input{},
 			newSimpleWidgets(),
 			newTerm(),
 			newTextInput(),
 		}
-	case rtk.Key:
-		if msg.EventType == rtk.EventRelease {
+	case vaxis.Key:
+		if msg.EventType == vaxis.EventRelease {
 			if m.current >= 1 {
 				if slide, ok := m.slides[m.current-1].(*input); ok {
 					slide.Update(msg)
@@ -49,7 +49,7 @@ func (m *model) Update(msg rtk.Msg) {
 		}
 		m.keyClear.Stop()
 		m.keyClear = time.AfterFunc(1*time.Second, func() {
-			rtk.PostMsg(rtk.FuncMsg{
+			vaxis.PostMsg(vaxis.FuncMsg{
 				Func: func() {
 					m.keys = ""
 				},
@@ -57,9 +57,9 @@ func (m *model) Update(msg rtk.Msg) {
 		})
 		switch msg.String() {
 		case "C-c":
-			rtk.Quit()
+			vaxis.Quit()
 		case "C-l":
-			rtk.Refresh()
+			vaxis.Refresh()
 		case "Right":
 			if m.current >= len(m.slides) {
 				break
@@ -87,44 +87,44 @@ func (m *model) Update(msg rtk.Msg) {
 				m.slides[m.current-1].Update(msg)
 			}
 		}
-	case rtk.Paste:
+	case vaxis.Paste:
 		if m.current > 0 {
 			m.slides[m.current-1].Update(msg)
 		}
 	}
 }
 
-func (m *model) Draw(win rtk.Window) {
-	rtk.Clear(win)
-	rtk.HideCursor()
+func (m *model) Draw(win vaxis.Window) {
+	vaxis.Clear(win)
+	vaxis.HideCursor()
 	_, rows := win.Size()
 	mid := fmt.Sprintf("%d of %d", m.current+1, 1+len(m.slides))
 	w := uniseg.StringWidth(mid)
-	rtk.Print(align.BottomRight(win, w, 1), mid)
+	vaxis.Print(align.BottomRight(win, w, 1), mid)
 	w = uniseg.StringWidth(m.keys)
-	rtk.Print(align.BottomMiddle(win, w, 1), m.keys)
+	vaxis.Print(align.BottomMiddle(win, w, 1), m.keys)
 	switch m.current {
 	case 0:
-		blocks := []rtk.Segment{
+		blocks := []vaxis.Segment{
 			{
-				Text: "rockorager's modern terminal toolkit\n\n",
+				Text: "vaxis\n\n",
 			},
 			{
-				Text:       "    Ctrl+C to quit\n",
-				Attributes: rtk.AttrDim,
+				Text:       "Ctrl+C to quit\n",
+				Attributes: vaxis.AttrDim,
 			},
 			{
-				Text:       "    <Right> next slide\n",
-				Attributes: rtk.AttrDim,
+				Text:       "<Right> next slide\n",
+				Attributes: vaxis.AttrDim,
 			},
 			{
-				Text:       "    <Left> previous slide\n",
-				Attributes: rtk.AttrDim,
+				Text:       "<Left> previous slide\n",
+				Attributes: vaxis.AttrDim,
 			},
 		}
-		rtk.PrintSegments(align.Center(win, 36, len(blocks)+1), blocks...)
+		vaxis.PrintSegments(align.Center(win, 36, len(blocks)+1), blocks...)
 	default:
-		m.slides[m.current-1].Draw(rtk.NewWindow(&win, 0, 0, -1, rows-1))
+		m.slides[m.current-1].Draw(vaxis.NewWindow(&win, 0, 0, -1, rows-1))
 	}
 }
 
@@ -143,12 +143,12 @@ func main() {
 		slog.Error(err.Error())
 		os.Exit(1)
 	}
-	rtk.Logger = log
-	rtk.Init(context.Background(), rtk.Options{})
+	vaxis.Logger = log
+	vaxis.Init(context.Background(), vaxis.Options{})
 	m := &model{
 		keyClear: time.NewTimer(0),
 	}
-	if err := rtk.Run(m); err != nil {
+	if err := vaxis.Run(m); err != nil {
 		slog.Error(err.Error())
 		os.Exit(1)
 	}

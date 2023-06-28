@@ -1,4 +1,4 @@
-package rtk
+package vaxis
 
 type screen struct {
 	buf  [][]Cell

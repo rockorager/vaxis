@@ -4,15 +4,15 @@ import (
 	"io"
 	"math"
 
-	"git.sr.ht/~rockorager/rtk"
+	"git.sr.ht/~rockorager/vaxis"
 )
 
 // Model represents a progress bar. A progress bar is also an io.Reader and an
 // io.Writer. If you pass it a DataMsg with a Total before calling Read or
 // Write, it will pass through the R/W and display the progress
 type Model struct {
-	Foreground rtk.Color
-	Background rtk.Color
+	Foreground vaxis.Color
+	Background vaxis.Color
 	Reader     io.Reader
 	Writer     io.Writer
 
@@ -24,7 +24,7 @@ func New() *Model {
 	return &Model{}
 }
 
-func (m *Model) Update(msg rtk.Msg) {
+func (m *Model) Update(msg vaxis.Msg) {
 	switch msg := msg.(type) {
 	case DataMsg:
 		m.total = msg.Total
@@ -32,7 +32,7 @@ func (m *Model) Update(msg rtk.Msg) {
 	}
 }
 
-func (m *Model) Draw(win rtk.Window) {
+func (m *Model) Draw(win vaxis.Window) {
 	if m.total == 0 {
 		return
 	}
@@ -42,7 +42,7 @@ func (m *Model) Draw(win rtk.Window) {
 	remainder := fracBlocks - fullBlocks
 
 	for i := 0; i <= int(fullBlocks); i += 1 {
-		win.SetCell(i, 0, rtk.Cell{
+		win.SetCell(i, 0, vaxis.Cell{
 			Character:  "█",
 			Foreground: m.Foreground,
 			Background: m.Background,
@@ -50,43 +50,43 @@ func (m *Model) Draw(win rtk.Window) {
 	}
 	switch {
 	case remainder >= 0.875:
-		win.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
+		win.SetCell(int(fullBlocks)+1, 0, vaxis.Cell{
 			Character:  "▉",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
 	case remainder >= 0.75:
-		win.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
+		win.SetCell(int(fullBlocks)+1, 0, vaxis.Cell{
 			Character:  "▊",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
 	case remainder >= 0.625:
-		win.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
+		win.SetCell(int(fullBlocks)+1, 0, vaxis.Cell{
 			Character:  "▋",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
 	case remainder >= 0.5:
-		win.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
+		win.SetCell(int(fullBlocks)+1, 0, vaxis.Cell{
 			Character:  "▌",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
 	case remainder >= 0.375:
-		win.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
+		win.SetCell(int(fullBlocks)+1, 0, vaxis.Cell{
 			Character:  "▍",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
 	case remainder >= 0.25:
-		win.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
+		win.SetCell(int(fullBlocks)+1, 0, vaxis.Cell{
 			Character:  "▎",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
 	case remainder >= 0.125:
-		win.SetCell(int(fullBlocks)+1, 0, rtk.Cell{
+		win.SetCell(int(fullBlocks)+1, 0, vaxis.Cell{
 			Character:  "▏",
 			Foreground: m.Foreground,
 			Background: m.Background,
@@ -98,7 +98,7 @@ func (m *Model) Draw(win rtk.Window) {
 // progress message
 func (m *Model) Read(p []byte) (int, error) {
 	n, err := m.Reader.Read(p)
-	rtk.PostMsg(rtk.SendMsg{
+	vaxis.PostMsg(vaxis.SendMsg{
 		Msg: DataMsg{
 			Progress: m.progress + float64(n),
 			Total:    m.total,
@@ -112,7 +112,7 @@ func (m *Model) Read(p []byte) (int, error) {
 // progress message
 func (m *Model) Write(p []byte) (int, error) {
 	n, err := m.Writer.Write(p)
-	rtk.PostMsg(rtk.SendMsg{
+	vaxis.PostMsg(vaxis.SendMsg{
 		Msg: DataMsg{
 			Progress: m.progress + float64(n),
 			Total:    m.total,

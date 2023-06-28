@@ -3,18 +3,18 @@ package textinput
 import (
 	"unicode"
 
-	"git.sr.ht/~rockorager/rtk"
+	"git.sr.ht/~rockorager/vaxis"
 )
 
 type Model struct {
-	Prompt  rtk.Segment
-	Content rtk.Segment
+	Prompt  vaxis.Segment
+	Content vaxis.Segment
 	cursor  int // the x position of the cursor
 }
 
-func (m *Model) Update(msg rtk.Msg) {
+func (m *Model) Update(msg vaxis.Msg) {
 	switch msg := msg.(type) {
-	case rtk.Key:
+	case vaxis.Key:
 		switch msg.String() {
 		case "Left":
 			if m.cursor == 0 {
@@ -52,8 +52,8 @@ func (m *Model) Update(msg rtk.Msg) {
 	}
 }
 
-func (m *Model) Draw(win rtk.Window) {
-	segs := []rtk.Segment{m.Prompt, m.Content}
-	rtk.PrintSegments(win, segs...)
+func (m *Model) Draw(win vaxis.Window) {
+	segs := []vaxis.Segment{m.Prompt, m.Content}
+	vaxis.PrintSegments(win, segs...)
 	win.ShowCursor(m.cursor, 0, 0)
 }

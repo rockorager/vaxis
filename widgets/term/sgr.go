@@ -1,7 +1,7 @@
 package term
 
 import (
-	"git.sr.ht/~rockorager/rtk"
+	"git.sr.ht/~rockorager/vaxis"
 )
 
 func (vt *Model) sgr(params [][]int) {
@@ -15,40 +15,40 @@ func (vt *Model) sgr(params [][]int) {
 			vt.cursor.fg = 0
 			vt.cursor.bg = 0
 		case 1:
-			vt.cursor.attrs |= rtk.AttrBold
+			vt.cursor.attrs |= vaxis.AttrBold
 		case 2:
-			vt.cursor.attrs |= rtk.AttrDim
+			vt.cursor.attrs |= vaxis.AttrDim
 		case 3:
-			vt.cursor.attrs |= rtk.AttrItalic
+			vt.cursor.attrs |= vaxis.AttrItalic
 		case 4:
-			vt.cursor.ulStyle = rtk.UnderlineSingle
+			vt.cursor.ulStyle = vaxis.UnderlineSingle
 		case 5:
-			vt.cursor.attrs |= rtk.AttrBlink
+			vt.cursor.attrs |= vaxis.AttrBlink
 		case 7:
-			vt.cursor.attrs |= rtk.AttrReverse
+			vt.cursor.attrs |= vaxis.AttrReverse
 		case 8:
-			vt.cursor.attrs |= rtk.AttrInvisible
+			vt.cursor.attrs |= vaxis.AttrInvisible
 		case 9:
-			vt.cursor.attrs |= rtk.AttrStrikethrough
+			vt.cursor.attrs |= vaxis.AttrStrikethrough
 		case 21:
 			// Double underlined, not supported
 		case 22:
-			vt.cursor.attrs &^= rtk.AttrBold
-			vt.cursor.attrs &^= rtk.AttrDim
+			vt.cursor.attrs &^= vaxis.AttrBold
+			vt.cursor.attrs &^= vaxis.AttrDim
 		case 23:
-			vt.cursor.attrs &^= rtk.AttrItalic
+			vt.cursor.attrs &^= vaxis.AttrItalic
 		case 24:
-			vt.cursor.ulStyle = rtk.UnderlineOff
+			vt.cursor.ulStyle = vaxis.UnderlineOff
 		case 25:
-			vt.cursor.attrs &^= rtk.AttrBlink
+			vt.cursor.attrs &^= vaxis.AttrBlink
 		case 27:
-			vt.cursor.attrs &^= rtk.AttrReverse
+			vt.cursor.attrs &^= vaxis.AttrReverse
 		case 28:
-			vt.cursor.attrs &^= rtk.AttrInvisible
+			vt.cursor.attrs &^= vaxis.AttrInvisible
 		case 29:
-			vt.cursor.attrs &^= rtk.AttrStrikethrough
+			vt.cursor.attrs &^= vaxis.AttrStrikethrough
 		case 30, 31, 32, 33, 34, 35, 36, 37:
-			vt.cursor.fg = rtk.IndexColor(uint8(params[i][0] - 30))
+			vt.cursor.fg = vaxis.IndexColor(uint8(params[i][0] - 30))
 		case 38:
 			switch len(params[i]) {
 			case 1:
@@ -62,14 +62,14 @@ func (vt *Model) sgr(params [][]int) {
 						vt.Logger.Error("[term] malformed SGR sequence")
 						return
 					}
-					vt.cursor.fg = rtk.RGBColor(
+					vt.cursor.fg = vaxis.RGBColor(
 						uint8(params[i+2][0]),
 						uint8(params[i+3][0]),
 						uint8(params[i+4][0]),
 					)
 					i += 4
 				case 5:
-					vt.cursor.fg = rtk.IndexColor(uint8(params[i+2][0]))
+					vt.cursor.fg = vaxis.IndexColor(uint8(params[i+2][0]))
 					i += 2
 				default:
 					vt.Logger.Error("[term] malformed SGR sequence")
@@ -80,13 +80,13 @@ func (vt *Model) sgr(params [][]int) {
 					vt.Logger.Error("[term] malformed SGR sequence")
 					return
 				}
-				vt.cursor.fg = rtk.IndexColor(uint8(params[i][2]))
+				vt.cursor.fg = vaxis.IndexColor(uint8(params[i][2]))
 			case 5:
 				if params[i][1] != 2 {
 					vt.Logger.Error("[term] malformed SGR sequence")
 					return
 				}
-				vt.cursor.fg = rtk.RGBColor(
+				vt.cursor.fg = vaxis.RGBColor(
 					uint8(params[i][2]),
 					uint8(params[i][3]),
 					uint8(params[i][4]),
@@ -96,7 +96,7 @@ func (vt *Model) sgr(params [][]int) {
 					vt.Logger.Error("[term] malformed SGR sequence")
 					return
 				}
-				vt.cursor.fg = rtk.RGBColor(
+				vt.cursor.fg = vaxis.RGBColor(
 					uint8(params[i][3]),
 					uint8(params[i][4]),
 					uint8(params[i][5]),
@@ -105,7 +105,7 @@ func (vt *Model) sgr(params [][]int) {
 		case 39:
 			vt.cursor.fg = 0
 		case 40, 41, 42, 43, 44, 45, 46, 47:
-			vt.cursor.bg = rtk.IndexColor(uint8(params[i][0] - 40))
+			vt.cursor.bg = vaxis.IndexColor(uint8(params[i][0] - 40))
 		case 48:
 			switch len(params[i]) {
 			case 1:
@@ -119,14 +119,14 @@ func (vt *Model) sgr(params [][]int) {
 						vt.Logger.Error("[term] malformed SGR sequence")
 						return
 					}
-					vt.cursor.bg = rtk.RGBColor(
+					vt.cursor.bg = vaxis.RGBColor(
 						uint8(params[i+2][0]),
 						uint8(params[i+3][0]),
 						uint8(params[i+4][0]),
 					)
 					i += 4
 				case 5:
-					vt.cursor.bg = rtk.IndexColor(uint8(params[i+2][0]))
+					vt.cursor.bg = vaxis.IndexColor(uint8(params[i+2][0]))
 					i += 2
 				default:
 					vt.Logger.Error("[term] malformed SGR sequence")
@@ -137,13 +137,13 @@ func (vt *Model) sgr(params [][]int) {
 					vt.Logger.Error("[term] malformed SGR sequence")
 					return
 				}
-				vt.cursor.bg = rtk.IndexColor(uint8(params[i][2]))
+				vt.cursor.bg = vaxis.IndexColor(uint8(params[i][2]))
 			case 5:
 				if params[i][1] != 2 {
 					vt.Logger.Error("[term] malformed SGR sequence")
 					return
 				}
-				vt.cursor.bg = rtk.RGBColor(
+				vt.cursor.bg = vaxis.RGBColor(
 					uint8(params[i][2]),
 					uint8(params[i][3]),
 					uint8(params[i][4]),
@@ -153,7 +153,7 @@ func (vt *Model) sgr(params [][]int) {
 					vt.Logger.Error("[term] malformed SGR sequence")
 					return
 				}
-				vt.cursor.bg = rtk.RGBColor(
+				vt.cursor.bg = vaxis.RGBColor(
 					uint8(params[i][3]),
 					uint8(params[i][4]),
 					uint8(params[i][5]),
@@ -162,9 +162,9 @@ func (vt *Model) sgr(params [][]int) {
 		case 49:
 			vt.cursor.bg = 0
 		case 90, 91, 92, 93, 94, 95, 96, 97:
-			vt.cursor.fg = rtk.IndexColor(uint8(params[i][0] - 90 + 8))
+			vt.cursor.fg = vaxis.IndexColor(uint8(params[i][0] - 90 + 8))
 		case 100, 101, 102, 103, 104, 105, 106, 107:
-			vt.cursor.bg = rtk.IndexColor(uint8(params[i][0] - 100 + 8))
+			vt.cursor.bg = vaxis.IndexColor(uint8(params[i][0] - 100 + 8))
 		}
 	}
 }

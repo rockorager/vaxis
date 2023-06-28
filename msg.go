@@ -1,4 +1,4 @@
-package rtk
+package vaxis
 
 // Msg is a passable message conveying some event, data, or just a friendly
 // hello

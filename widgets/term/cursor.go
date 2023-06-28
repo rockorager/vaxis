@@ -1,16 +1,16 @@
 package term
 
 import (
-	"git.sr.ht/~rockorager/rtk"
+	"git.sr.ht/~rockorager/vaxis"
 )
 
 type cursor struct {
-	fg      rtk.Color
-	bg      rtk.Color
-	ul      rtk.Color
-	ulStyle rtk.UnderlineStyle
-	attrs   rtk.AttributeMask
-	style   rtk.CursorStyle
+	fg      vaxis.Color
+	bg      vaxis.Color
+	ul      vaxis.Color
+	ulStyle vaxis.UnderlineStyle
+	attrs   vaxis.AttributeMask
+	style   vaxis.CursorStyle
 
 	// position
 	row row    // 0-indexed

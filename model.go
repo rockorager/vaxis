@@ -1,4 +1,4 @@
-package rtk
+package vaxis
 
 // A Model represents the state of an application
 type Model interface {

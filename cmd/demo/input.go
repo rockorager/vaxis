@@ -4,24 +4,24 @@ import (
 	"bytes"
 	"fmt"
 
-	"git.sr.ht/~rockorager/rtk"
-	"git.sr.ht/~rockorager/rtk/widgets/align"
+	"git.sr.ht/~rockorager/vaxis"
+	"git.sr.ht/~rockorager/vaxis/widgets/align"
 )
 
 type input struct {
 	events []string
 }
 
-func (m *input) Update(msg rtk.Msg) {
+func (m *input) Update(msg vaxis.Msg) {
 	switch msg := msg.(type) {
-	case rtk.Key:
+	case vaxis.Key:
 		prefix := "[key]"
 		switch msg.EventType {
-		case rtk.EventPress:
+		case vaxis.EventPress:
 			prefix = "[key::press]"
-		case rtk.EventRelease:
+		case vaxis.EventRelease:
 			prefix = "[key::release]"
-		case rtk.EventRepeat:
+		case vaxis.EventRepeat:
 			prefix = "[key::repeat]"
 		}
 		val := fmt.Sprintf("%-16s%s", prefix, msg)
@@ -29,45 +29,45 @@ func (m *input) Update(msg rtk.Msg) {
 		if len(m.events) > 200 {
 			m.events = m.events[100:]
 		}
-	case rtk.Mouse:
+	case vaxis.Mouse:
 		prefix := "[mouse]"
 		switch msg.EventType {
-		case rtk.EventPress:
+		case vaxis.EventPress:
 			prefix = "[mouse::press]"
-		case rtk.EventRelease:
+		case vaxis.EventRelease:
 			prefix = "[mouse::release]"
-		case rtk.EventMotion:
+		case vaxis.EventMotion:
 			prefix = "[mouse::motion]"
 		}
 		button := ""
 		switch msg.Modifiers {
-		case rtk.ModShift:
+		case vaxis.ModShift:
 			button += "s-"
-		case rtk.ModAlt:
+		case vaxis.ModAlt:
 			button += "a-"
-		case rtk.ModCtrl:
+		case vaxis.ModCtrl:
 			button += "c-"
 		}
 		switch msg.Button {
-		case rtk.MouseLeftButton:
+		case vaxis.MouseLeftButton:
 			button += "left"
-		case rtk.MouseMiddleButton:
+		case vaxis.MouseMiddleButton:
 			button += "middle"
-		case rtk.MouseRightButton:
+		case vaxis.MouseRightButton:
 			button += "right"
-		case rtk.MouseNoButton:
+		case vaxis.MouseNoButton:
 			button += "none"
-		case rtk.MouseWheelUp:
+		case vaxis.MouseWheelUp:
 			button += "wheel-up"
-		case rtk.MouseWheelDown:
+		case vaxis.MouseWheelDown:
 			button += "wheel-down"
-		case rtk.MouseButton8:
+		case vaxis.MouseButton8:
 			button += "button 8"
-		case rtk.MouseButton9:
+		case vaxis.MouseButton9:
 			button += "button 9"
-		case rtk.MouseButton10:
+		case vaxis.MouseButton10:
 			button += "button 10"
-		case rtk.MouseButton11:
+		case vaxis.MouseButton11:
 			button += "button 11"
 		}
 		val := fmt.Sprintf("%-16s %s row=%d col=%d", prefix, button, msg.Row, msg.Col)
@@ -78,7 +78,7 @@ func (m *input) Update(msg rtk.Msg) {
 	}
 }
 
-func (m *input) Draw(win rtk.Window) {
+func (m *input) Draw(win vaxis.Window) {
 	_, rows := win.Size()
 	win = align.TopMiddle(win, 50, rows-5)
 	_, rows = win.Size()
@@ -90,5 +90,5 @@ func (m *input) Draw(win rtk.Window) {
 	for i := top; i < len(m.events); i += 1 {
 		out.WriteString(m.events[i] + "\n")
 	}
-	rtk.Print(win, out.String())
+	vaxis.Print(win, out.String())
 }

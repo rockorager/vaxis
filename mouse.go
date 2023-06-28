@@ -1,7 +1,7 @@
-package rtk
+package vaxis
 
 import (
-	"git.sr.ht/~rockorager/rtk/ansi"
+	"git.sr.ht/~rockorager/vaxis/ansi"
 )
 
 type Mouse struct {

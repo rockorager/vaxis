@@ -1,4 +1,4 @@
-package rtk
+package vaxis
 
 import (
 	"bytes"
@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"git.sr.ht/~rockorager/rtk/ansi"
+	"git.sr.ht/~rockorager/vaxis/ansi"
 	"github.com/rivo/uniseg"
 	"golang.org/x/exp/slog"
 	"golang.org/x/sys/unix"

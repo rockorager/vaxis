@@ -1,8 +1,8 @@
 package term
 
-import "git.sr.ht/~rockorager/rtk"
+import "git.sr.ht/~rockorager/vaxis"
 
 type Redraw struct {
 	Term   *Model
-	Window rtk.Window
+	Window vaxis.Window
 }

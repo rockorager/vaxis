@@ -1,4 +1,4 @@
-package rtk
+package vaxis
 
 import (
 	"github.com/rivo/uniseg"

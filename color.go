@@ -1,4 +1,4 @@
-package rtk
+package vaxis
 
 // Color is a terminal color. The zero value represents the default foreground
 // or background color

@@ -1,4 +1,4 @@
-package rtk
+package vaxis
 
 type Cell struct {
 	Character      string // Extended Grapheme Cluster

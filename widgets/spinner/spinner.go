@@ -4,22 +4,22 @@ import (
 	"context"
 	"time"
 
-	"git.sr.ht/~rockorager/rtk"
+	"git.sr.ht/~rockorager/vaxis"
 )
 
 // Model is a spinner. It has a duration and a set of frames. It will request
 // partial-draws using the last provided Surface at the duration specified
 type Model struct {
 	Duration   time.Duration
-	Foreground rtk.Color
-	Background rtk.Color
-	Attribute  rtk.AttributeMask
+	Foreground vaxis.Color
+	Background vaxis.Color
+	Attribute  vaxis.AttributeMask
 	Frames     []rune
 
 	frame    int
 	spinning bool
 	cancel   context.CancelFunc
-	srf      rtk.Window
+	srf      vaxis.Window
 }
 
 // New creates a new spinner
@@ -30,7 +30,7 @@ func New(dur time.Duration) *Model {
 	}
 }
 
-func (m *Model) Update(msg rtk.Msg) {
+func (m *Model) Update(msg vaxis.Msg) {
 	switch msg.(type) {
 	case startMsg:
 		m.start()
@@ -41,10 +41,10 @@ func (m *Model) Update(msg rtk.Msg) {
 	}
 }
 
-func (m *Model) Draw(w rtk.Window) {
+func (m *Model) Draw(w vaxis.Window) {
 	m.srf = w
 	if m.spinning {
-		w.SetCell(0, 0, rtk.Cell{
+		w.SetCell(0, 0, vaxis.Cell{
 			Character:  string(m.Frames[m.frame]),
 			Foreground: m.Foreground,
 			Background: m.Background,
@@ -55,7 +55,7 @@ func (m *Model) Draw(w rtk.Window) {
 
 // Start the spinner. Start is thread safe and non-blocking
 func (m *Model) Start() {
-	rtk.PostMsg(rtk.SendMsg{
+	vaxis.PostMsg(vaxis.SendMsg{
 		Msg:   startMsg{},
 		Model: m,
 	})
@@ -82,7 +82,7 @@ func (m *Model) start() {
 				return
 			case <-ticker.C:
 				m.frame = (m.frame + 1) % len(m.Frames)
-				rtk.PostMsg(rtk.DrawModelMsg{
+				vaxis.PostMsg(vaxis.DrawModelMsg{
 					Model:  m,
 					Window: m.srf,
 				})
@@ -93,7 +93,7 @@ func (m *Model) start() {
 
 // Stop the spinner. Stop is thread safe and non-blocking
 func (m *Model) Stop() {
-	rtk.PostMsg(rtk.SendMsg{
+	vaxis.PostMsg(vaxis.SendMsg{
 		Msg:   stopMsg{},
 		Model: m,
 	})
@@ -108,7 +108,7 @@ func (m *Model) stop() {
 
 // Toggle the spinner. Stop is thread safe and non-blocking
 func (m *Model) Toggle() {
-	rtk.PostMsg(rtk.SendMsg{
+	vaxis.PostMsg(vaxis.SendMsg{
 		Msg:   toggleMsg{},
 		Model: m,
 	})

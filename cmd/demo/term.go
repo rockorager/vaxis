@@ -4,8 +4,8 @@ import (
 	"os"
 	"os/exec"
 
-	"git.sr.ht/~rockorager/rtk"
-	"git.sr.ht/~rockorager/rtk/widgets/term"
+	"git.sr.ht/~rockorager/vaxis"
+	"git.sr.ht/~rockorager/vaxis/widgets/term"
 )
 
 type vt struct {
@@ -21,7 +21,7 @@ func newTerm() *vt {
 	return vt
 }
 
-func (vt *vt) Update(msg rtk.Msg) {
+func (vt *vt) Update(msg vaxis.Msg) {
 	switch msg := msg.(type) {
 	case visible:
 		vt.term.SetVisible(bool(msg))
@@ -30,6 +30,6 @@ func (vt *vt) Update(msg rtk.Msg) {
 	}
 }
 
-func (vt *vt) Draw(win rtk.Window) {
+func (vt *vt) Draw(win vaxis.Window) {
 	vt.term.Draw(win)
 }

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"git.sr.ht/~rockorager/rtk"
-	"git.sr.ht/~rockorager/rtk/widgets/textinput"
+	"git.sr.ht/~rockorager/vaxis"
+	"git.sr.ht/~rockorager/vaxis/widgets/textinput"
 )
 
 type textInput struct {
@@ -16,10 +16,10 @@ func newTextInput() *textInput {
 	return input
 }
 
-func (m *textInput) Update(msg rtk.Msg) {
+func (m *textInput) Update(msg vaxis.Msg) {
 	m.input.Update(msg)
 }
 
-func (m *textInput) Draw(win rtk.Window) {
+func (m *textInput) Draw(win vaxis.Window) {
 	m.input.Draw(win)
 }

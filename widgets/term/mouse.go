@@ -1,10 +1,10 @@
 package term
 
 import (
-	"git.sr.ht/~rockorager/rtk"
+	"git.sr.ht/~rockorager/vaxis"
 )
 
-func (vt *Model) handleMouse(msg rtk.Mouse) string {
+func (vt *Model) handleMouse(msg vaxis.Mouse) string {
 	// if vt.mode&mouseButtons == 0 && vt.mode&mouseDrag == 0 && vt.mode&mouseMotion == 0 && vt.mode&mouseSGR == 0 {
 	// 	if vt.mode&altScroll != 0 && vt.mode&smcup != 0 {
 	// 		// Translate wheel motion into arrows up and down

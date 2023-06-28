@@ -12,8 +12,8 @@ import (
 	"syscall"
 	"time"
 
-	"git.sr.ht/~rockorager/rtk"
-	"git.sr.ht/~rockorager/rtk/ansi"
+	"git.sr.ht/~rockorager/vaxis"
+	"git.sr.ht/~rockorager/vaxis/ansi"
 	"github.com/creack/pty"
 	"github.com/rivo/uniseg"
 	"golang.org/x/exp/slog"
@@ -52,7 +52,7 @@ type Model struct {
 	primaryState cursorState
 	altState     cursorState
 
-	window  *rtk.Window
+	window  *vaxis.Window
 	visible atomic.Bool
 
 	cmd    *exec.Cmd
@@ -164,7 +164,7 @@ func (vt *Model) Start(cmd *exec.Cmd) error {
 			select {
 			case <-tmr.C:
 				if vt.dirty && vt.visible.Load() && vt.window != nil {
-					rtk.PostMsg(rtk.DrawModelMsg{
+					vaxis.PostMsg(vaxis.DrawModelMsg{
 						Model:  vt,
 						Window: *vt.window,
 					})
@@ -185,12 +185,12 @@ func (vt *Model) Start(cmd *exec.Cmd) error {
 	return nil
 }
 
-func (vt *Model) Update(msg rtk.Msg) {
+func (vt *Model) Update(msg vaxis.Msg) {
 	switch msg := msg.(type) {
-	case rtk.Key:
+	case vaxis.Key:
 		str := encodeXterm(msg, vt.mode&deckpam != 0, vt.mode&decckm != 0)
 		vt.pty.WriteString(str)
-	case rtk.Paste:
+	case vaxis.Paste:
 		if vt.mode&paste != 0 {
 			vt.pty.WriteString("\x1B[200~")
 			vt.pty.WriteString(string(msg))
@@ -434,7 +434,7 @@ func (vt *Model) Close() {
 	vt.pty.Close()
 }
 
-func (vt *Model) Draw(win rtk.Window) {
+func (vt *Model) Draw(win vaxis.Window) {
 	vt.mu.Lock()
 	defer vt.mu.Unlock()
 	width, height := win.Size()
@@ -455,7 +455,7 @@ func (vt *Model) Draw(win rtk.Window) {
 			}
 
 			egc := fmt.Sprintf("%c%s", cell.content, string(cell.combining))
-			win.SetCell(col, row, rtk.Cell{
+			win.SetCell(col, row, vaxis.Cell{
 				Character:  egc,
 				Foreground: cell.fg,
 				Background: cell.bg,

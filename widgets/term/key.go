@@ -5,21 +5,21 @@ import (
 	"fmt"
 	"unicode"
 
-	"git.sr.ht/~rockorager/rtk"
+	"git.sr.ht/~rockorager/vaxis"
 )
 
 // TODO we assume it's always application keys. Add in the right modes and
 // encode properly
-func encodeXterm(key rtk.Key, deckpam bool, decckm bool) string {
+func encodeXterm(key vaxis.Key, deckpam bool, decckm bool) string {
 	// function keys
 	if val, ok := keymap[key.Codepoint]; ok {
 		return val
 	}
 
 	// ignore any kitty mods
-	xtermMods := key.Modifiers & rtk.ModShift
-	xtermMods |= key.Modifiers & rtk.ModAlt
-	xtermMods |= key.Modifiers & rtk.ModCtrl
+	xtermMods := key.Modifiers & vaxis.ModShift
+	xtermMods |= key.Modifiers & vaxis.ModAlt
+	xtermMods |= key.Modifiers & vaxis.ModCtrl
 	if xtermMods == 0 {
 		switch decckm {
 		case true:
@@ -57,10 +57,10 @@ func encodeXterm(key rtk.Key, deckpam bool, decckm bool) string {
 
 	buf := bytes.NewBuffer(nil)
 	if key.Codepoint < unicode.MaxRune {
-		if xtermMods&rtk.ModAlt != 0 {
+		if xtermMods&vaxis.ModAlt != 0 {
 			buf.WriteRune('\x1b')
 		}
-		if xtermMods&rtk.ModCtrl != 0 {
+		if xtermMods&vaxis.ModCtrl != 0 {
 			if unicode.IsLower(key.Codepoint) {
 				buf.WriteRune(key.Codepoint - 0x60)
 				return buf.String()
@@ -68,7 +68,7 @@ func encodeXterm(key rtk.Key, deckpam bool, decckm bool) string {
 			buf.WriteRune(key.Codepoint - 0x40)
 			return buf.String()
 		}
-		if xtermMods&rtk.ModShift != 0 {
+		if xtermMods&vaxis.ModShift != 0 {
 			if unicode.IsLower(key.Codepoint) {
 				buf.WriteRune(unicode.ToUpper(key.Codepoint))
 				return buf.String()
@@ -86,93 +86,93 @@ type keycode struct {
 }
 
 var xtermKeymap = map[rune]keycode{
-	rtk.KeyUp:     {1, 'A'},
-	rtk.KeyDown:   {1, 'B'},
-	rtk.KeyRight:  {1, 'C'},
-	rtk.KeyLeft:   {1, 'D'},
-	rtk.KeyEnd:    {1, 'F'},
-	rtk.KeyHome:   {1, 'H'},
-	rtk.KeyInsert: {2, '~'},
-	rtk.KeyDelete: {3, '~'},
-	rtk.KeyPgUp:   {5, '~'},
-	rtk.KeyPgDown: {6, '~'},
+	vaxis.KeyUp:     {1, 'A'},
+	vaxis.KeyDown:   {1, 'B'},
+	vaxis.KeyRight:  {1, 'C'},
+	vaxis.KeyLeft:   {1, 'D'},
+	vaxis.KeyEnd:    {1, 'F'},
+	vaxis.KeyHome:   {1, 'H'},
+	vaxis.KeyInsert: {2, '~'},
+	vaxis.KeyDelete: {3, '~'},
+	vaxis.KeyPgUp:   {5, '~'},
+	vaxis.KeyPgDown: {6, '~'},
 }
 
 var cursorKeysApplicationMode = map[rune]string{
-	rtk.KeyUp:    "\x1BOA",
-	rtk.KeyDown:  "\x1BOB",
-	rtk.KeyRight: "\x1BOC",
-	rtk.KeyLeft:  "\x1BOD",
-	rtk.KeyEnd:   "\x1BOF",
-	rtk.KeyHome:  "\x1BOH",
+	vaxis.KeyUp:    "\x1BOA",
+	vaxis.KeyDown:  "\x1BOB",
+	vaxis.KeyRight: "\x1BOC",
+	vaxis.KeyLeft:  "\x1BOD",
+	vaxis.KeyEnd:   "\x1BOF",
+	vaxis.KeyHome:  "\x1BOH",
 }
 
 var cursorKeysNormalMode = map[rune]string{
-	rtk.KeyUp:    "\x1B[A",
-	rtk.KeyDown:  "\x1B[B",
-	rtk.KeyRight: "\x1B[C",
-	rtk.KeyLeft:  "\x1B[D",
-	rtk.KeyEnd:   "\x1B[F",
-	rtk.KeyHome:  "\x1B[H",
+	vaxis.KeyUp:    "\x1B[A",
+	vaxis.KeyDown:  "\x1B[B",
+	vaxis.KeyRight: "\x1B[C",
+	vaxis.KeyLeft:  "\x1B[D",
+	vaxis.KeyEnd:   "\x1B[F",
+	vaxis.KeyHome:  "\x1B[H",
 }
 
 // TODO are these needed? can we even detect this from the host? I guess we can
 // with kitty keyboard enabled on host but not in subterm. Double check keypad
 // arrows in application mode vs other arrows (CSI vs SS3?)
 var numericKeymap = map[rune]string{
-	rtk.KeyInsert: "\x1B[2~",
-	rtk.KeyDelete: "\x1B[3~",
-	rtk.KeyPgUp:   "\x1B[5~",
-	rtk.KeyPgDown: "\x1B[6~",
+	vaxis.KeyInsert: "\x1B[2~",
+	vaxis.KeyDelete: "\x1B[3~",
+	vaxis.KeyPgUp:   "\x1B[5~",
+	vaxis.KeyPgDown: "\x1B[6~",
 }
 
 var applicationKeymap = map[rune]string{
-	rtk.KeyInsert: "\x1B[2~",
-	rtk.KeyDelete: "\x1B[3~",
-	rtk.KeyPgUp:   "\x1B[5~",
-	rtk.KeyPgDown: "\x1B[6~",
+	vaxis.KeyInsert: "\x1B[2~",
+	vaxis.KeyDelete: "\x1B[3~",
+	vaxis.KeyPgUp:   "\x1B[5~",
+	vaxis.KeyPgDown: "\x1B[6~",
 }
 
 var keymap = map[rune]string{
-	rtk.KeyF01: "\x1BOP",
-	rtk.KeyF02: "\x1BOQ",
-	rtk.KeyF03: "\x1BOR",
-	rtk.KeyF04: "\x1BOS",
-	rtk.KeyF05: "\x1B[15~",
-	rtk.KeyF06: "\x1B[17~",
-	rtk.KeyF07: "\x1B[18~",
-	rtk.KeyF08: "\x1B[19~",
-	rtk.KeyF09: "\x1B[20~",
-	rtk.KeyF10: "\x1B[21~",
-	rtk.KeyF11: "\x1B[23~",
-	rtk.KeyF12: "\x1B[24~",
-	rtk.KeyF13: "\x1B[1;2P",
-	rtk.KeyF14: "\x1B[1;2Q",
-	rtk.KeyF15: "\x1B[1;2R",
-	rtk.KeyF16: "\x1B[1;2S",
-	rtk.KeyF17: "\x1B[15;2~",
-	rtk.KeyF18: "\x1B[17;2~",
-	rtk.KeyF19: "\x1B[18;2~",
-	rtk.KeyF20: "\x1B[19;2~",
-	rtk.KeyF21: "\x1B[20;2~",
-	rtk.KeyF22: "\x1B[21;2~",
-	rtk.KeyF23: "\x1B[23;2~",
-	rtk.KeyF24: "\x1B[24;2~",
-	rtk.KeyF25: "\x1B[1;5P",
-	rtk.KeyF26: "\x1B[1;5Q",
-	rtk.KeyF27: "\x1B[1;5R",
-	rtk.KeyF28: "\x1B[1;5S",
-	rtk.KeyF29: "\x1B[15;5~",
-	rtk.KeyF30: "\x1B[17;5~",
-	rtk.KeyF31: "\x1B[18;5~",
-	rtk.KeyF32: "\x1B[19;5~",
-	rtk.KeyF33: "\x1B[20;5~",
-	rtk.KeyF34: "\x1B[21;5~",
-	rtk.KeyF35: "\x1B[23;5~",
-	rtk.KeyF36: "\x1B[24;5~",
-	rtk.KeyF37: "\x1B[1;6P",
-	rtk.KeyF38: "\x1B[1;6Q",
-	rtk.KeyF39: "\x1B[1;6R",
-	rtk.KeyF40: "\x1B[1;6S",
+	vaxis.KeyF01: "\x1BOP",
+	vaxis.KeyF02: "\x1BOQ",
+	vaxis.KeyF03: "\x1BOR",
+	vaxis.KeyF04: "\x1BOS",
+	vaxis.KeyF05: "\x1B[15~",
+	vaxis.KeyF06: "\x1B[17~",
+	vaxis.KeyF07: "\x1B[18~",
+	vaxis.KeyF08: "\x1B[19~",
+	vaxis.KeyF09: "\x1B[20~",
+	vaxis.KeyF10: "\x1B[21~",
+	vaxis.KeyF11: "\x1B[23~",
+	vaxis.KeyF12: "\x1B[24~",
+	vaxis.KeyF13: "\x1B[1;2P",
+	vaxis.KeyF14: "\x1B[1;2Q",
+	vaxis.KeyF15: "\x1B[1;2R",
+	vaxis.KeyF16: "\x1B[1;2S",
+	vaxis.KeyF17: "\x1B[15;2~",
+	vaxis.KeyF18: "\x1B[17;2~",
+	vaxis.KeyF19: "\x1B[18;2~",
+	vaxis.KeyF20: "\x1B[19;2~",
+	vaxis.KeyF21: "\x1B[20;2~",
+	vaxis.KeyF22: "\x1B[21;2~",
+	vaxis.KeyF23: "\x1B[23;2~",
+	vaxis.KeyF24: "\x1B[24;2~",
+	vaxis.KeyF25: "\x1B[1;5P",
+	vaxis.KeyF26: "\x1B[1;5Q",
+	vaxis.KeyF27: "\x1B[1;5R",
+	vaxis.KeyF28: "\x1B[1;5S",
+	vaxis.KeyF29: "\x1B[15;5~",
+	vaxis.KeyF30: "\x1B[17;5~",
+	vaxis.KeyF31: "\x1B[18;5~",
+	vaxis.KeyF32: "\x1B[19;5~",
+	vaxis.KeyF33: "\x1B[20;5~",
+	vaxis.KeyF34: "\x1B[21;5~",
+	vaxis.KeyF35: "\x1B[23;5~",
+	vaxis.KeyF36: "\x1B[24;5~",
+	vaxis.KeyF37: "\x1B[1;6P",
+	vaxis.KeyF38: "\x1B[1;6Q",
+	vaxis.KeyF39: "\x1B[1;6R",
+	vaxis.KeyF40: "\x1B[1;6S",
 	// TODO add in the rest
 }

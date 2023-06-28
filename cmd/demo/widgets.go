@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"git.sr.ht/~rockorager/rtk"
-	"git.sr.ht/~rockorager/rtk/widgets/progress"
-	"git.sr.ht/~rockorager/rtk/widgets/spinner"
+	"git.sr.ht/~rockorager/vaxis"
+	"git.sr.ht/~rockorager/vaxis/widgets/progress"
+	"git.sr.ht/~rockorager/vaxis/widgets/spinner"
 )
 
 type simpleWidgets struct {
@@ -19,7 +19,7 @@ type simpleWidgets struct {
 	progress1 *progress.Model
 }
 
-func (s *simpleWidgets) Update(msg rtk.Msg) {
+func (s *simpleWidgets) Update(msg vaxis.Msg) {
 	switch msg := msg.(type) {
 	case visible:
 		switch msg {
@@ -39,7 +39,7 @@ func (s *simpleWidgets) Update(msg rtk.Msg) {
 						return
 					case <-ticker.C:
 						p += 1
-						rtk.PostMsg(rtk.SendMsg{
+						vaxis.PostMsg(vaxis.SendMsg{
 							Msg: progress.DataMsg{
 								Progress: float64(p),
 								Total:    float64(total),
@@ -59,11 +59,11 @@ func (s *simpleWidgets) Update(msg rtk.Msg) {
 	}
 }
 
-func (s *simpleWidgets) Draw(win rtk.Window) {
-	s.spinner1.Draw(rtk.NewWindow(&win, 0, 0, 1, 1))
-	s.spinner2.Draw(rtk.NewWindow(&win, 1, 0, 1, 1))
-	s.spinner3.Draw(rtk.NewWindow(&win, 2, 0, 1, 1))
-	s.progress1.Draw(rtk.NewWindow(&win, 0, 3, -1, 1))
+func (s *simpleWidgets) Draw(win vaxis.Window) {
+	s.spinner1.Draw(vaxis.NewWindow(&win, 0, 0, 1, 1))
+	s.spinner2.Draw(vaxis.NewWindow(&win, 1, 0, 1, 1))
+	s.spinner3.Draw(vaxis.NewWindow(&win, 2, 0, 1, 1))
+	s.progress1.Draw(vaxis.NewWindow(&win, 0, 3, -1, 1))
 }
 
 func newSimpleWidgets() *simpleWidgets {

@@ -1,11 +1,11 @@
-package rtk
+package vaxis
 
 import (
 	"bytes"
 	"fmt"
 	"unicode"
 
-	"git.sr.ht/~rockorager/rtk/ansi"
+	"git.sr.ht/~rockorager/vaxis/ansi"
 )
 
 type Key struct {

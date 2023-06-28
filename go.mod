@@ -1,4 +1,4 @@
-module git.sr.ht/~rockorager/rtk
+module git.sr.ht/~rockorager/vaxis
 
 go 1.20
 

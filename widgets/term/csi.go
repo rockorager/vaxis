@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"git.sr.ht/~rockorager/rtk"
+	"git.sr.ht/~rockorager/vaxis"
 )
 
 func (vt *Model) csi(csi string, params [][]int) {
@@ -118,7 +118,7 @@ func (vt *Model) csi(csi string, params [][]int) {
 	case "u":
 		vt.decrc()
 	case " q":
-		vt.cursor.style = rtk.CursorStyle(ps(params))
+		vt.cursor.style = vaxis.CursorStyle(ps(params))
 	}
 }
 
