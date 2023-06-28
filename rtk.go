@@ -60,6 +60,7 @@ var (
 	capabilities struct {
 		synchronizedUpdate bool
 		rgb                bool
+		kittyGraphics      bool
 		kittyKeyboard      bool
 		styledUnderlines   bool
 		sixels             bool
@@ -601,6 +602,14 @@ func handleSequence(seq ansi.Sequence) {
 					capabilities.styledUnderlines = true
 				}
 			}
+		}
+	case ansi.APC:
+		if len(seq.Data) == 0 {
+			return
+		}
+		if strings.HasPrefix(seq.Data, "G") {
+			Logger.Info("Kitty graphics supported")
+			capabilities.kittyGraphics = true
 		}
 	}
 }

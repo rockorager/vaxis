@@ -43,6 +43,7 @@ type Parser struct {
 	mu         sync.Mutex
 
 	oscData []rune
+	apcData []rune
 
 	dcs DCS
 }
@@ -328,6 +329,13 @@ func (p *Parser) put(r rune) {
 func (p *Parser) unhook() {
 	p.emit(p.dcs)
 	p.dcs = DCS{}
+}
+
+func (p *Parser) apcUnhook() {
+	p.emit(APC{
+		Data: string(p.apcData),
+	})
+	p.apcData = []rune{}
 }
 
 // in returns true if the rune lies within the range, inclusive of the endpoints
@@ -742,8 +750,11 @@ func escape(r rune, p *Parser) stateFn {
 	case is(r, 0x50):
 		p.clear()
 		return dcsEntry
-	case is(r, 0x58, 0x5E, 0x5F):
-		return sosPmApc
+	case is(r, 0x58, 0x5E):
+		return sosPm
+	case is(r, 0x5F):
+		p.exit = p.apcUnhook
+		return apc
 	case is(r, 0x5B):
 		p.clear()
 		return csiEntry
@@ -811,14 +822,26 @@ func escapeIntermediate(r rune, p *Parser) stateFn {
 // The VT500 doesn’t define any function for these control strings, so this
 // state ignores all received characters until the control function ST is
 // recognised.
-func sosPmApc(r rune, p *Parser) stateFn {
+func sosPm(r rune, p *Parser) stateFn {
 	p.ignoreST = true
 	switch {
 	case in(r, 0x00, 0x17), is(r, 0x19), in(r, 0x1C, 0x1F):
 		// ignore
-		return sosPmApc
+		return sosPm
 	default:
-		return sosPmApc
+		return sosPm
+	}
+}
+
+func apc(r rune, p *Parser) stateFn {
+	p.ignoreST = true
+	switch {
+	case in(r, 0x00, 0x17), is(r, 0x19), in(r, 0x1C, 0x1F):
+		// ignore
+		return sosPm
+	default:
+		p.apcData = append(p.apcData, r)
+		return sosPm
 	}
 }
 
@@ -992,6 +1015,14 @@ func (seq DCS) String() string {
 		segments = append(segments, string(seq.Data))
 	}
 	return strings.Join(segments, " ")
+}
+
+type APC struct {
+	Data string
+}
+
+func (seq APC) String() string {
+	return "APC " + seq.Data
 }
 
 // Sent when the underlying PTY is closed
