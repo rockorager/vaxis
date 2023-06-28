@@ -7,9 +7,12 @@ import (
 )
 
 type Model struct {
-	Prompt  vaxis.Segment
-	Content vaxis.Segment
-	cursor  int // the x position of the cursor
+	Prompt    vaxis.Segment
+	Content   vaxis.Segment
+	// TODO handle the cursor better with the new wrapping
+	cursor    int // the x position of the cursor
+	cursorCol int
+	cursorRow int
 }
 
 func (m *Model) Update(msg vaxis.Msg) {
@@ -20,12 +23,12 @@ func (m *Model) Update(msg vaxis.Msg) {
 			if m.cursor == 0 {
 				return
 			}
-			m.cursor -= 1
+			// TODO
 		case "Right":
 			if m.cursor >= len(m.Content.Text) {
 				return
 			}
-			m.cursor += 1
+			// TODO
 		case "BackSpace":
 			switch {
 			case m.cursor == 0:
@@ -65,11 +68,15 @@ func (m *Model) Update(msg vaxis.Msg) {
 }
 
 func (m *Model) Draw(win vaxis.Window) {
+	var col int
+	var row int
 	switch m.Prompt.Text {
 	case "":
-		vaxis.PrintSegments(win, m.Content)
+		_, col, row = vaxis.PrintSegments(win, m.Content)
 	default:
-		vaxis.PrintSegments(win, m.Prompt, m.Content)
+		_, col, row = vaxis.PrintSegments(win, m.Prompt, m.Content)
 	}
-	win.ShowCursor(m.cursor, 0, 0)
+	win.ShowCursor(col, row, 0)
+	m.cursorCol = col
+	m.cursorRow = row
 }
