@@ -32,6 +32,11 @@ type Parser struct {
 	params       []rune
 	final        rune
 
+	// we turn ignoreST on when we enter a state that can "only" be exited
+	// by ST. This will have the effect of ignore an ST so we don't see
+	// ambiguous "Alt+\" when parsing input
+	ignoreST bool
+
 	// escTimeout is a timeout for interpretting an Esc keypress vs an
 	// escape sequence
 	escTimeout *time.Timer
@@ -636,6 +641,7 @@ func dcsParam(r rune, p *Parser) stateFn {
 // string, until a final character has been recognised. The data string
 // that follows is not checked by this parser.
 func dcsIgnore(r rune, p *Parser) stateFn {
+	p.ignoreST = true
 	switch {
 	case in(r, 0x00, 0x17), is(r, 0x19), in(r, 0x1C, 0x1F):
 		// ignore
@@ -662,6 +668,7 @@ func dcsIgnore(r rune, p *Parser) stateFn {
 // last soft character in a DECDLD string can be completed when there is no
 // other means of knowing that its definition has ended, for example.
 func dcsPassthrough(r rune, p *Parser) stateFn {
+	p.ignoreST = true
 	p.exit = p.unhook
 	switch {
 	case in(r, 0x00, 0x17), is(r, 0x19), in(r, 0x1C, 0x1F):
@@ -705,6 +712,9 @@ func dcsPassthrough(r rune, p *Parser) stateFn {
 // that enabled me to derive this state diagram have been as subtle as
 // that.
 func escape(r rune, p *Parser) stateFn {
+	defer func() {
+		p.ignoreST = false
+	}()
 	switch {
 	case in(r, 0x00, 0x17), is(r, 0x19), in(r, 0x1C, 0x1F):
 		p.execute(r)
@@ -717,8 +727,14 @@ func escape(r rune, p *Parser) stateFn {
 		return escapeIntermediate
 	case in(r, 0x30, 0x4E),
 		in(r, 0x51, 0x57),
-		is(r, 0x59, 0x5A, 0x5C),
+		is(r, 0x59, 0x5A),
 		in(r, 0x60, 0x7E):
+		p.escapeDispatch(r)
+		return ground
+	case is(r, 0x5C):
+		if p.ignoreST {
+			return ground
+		}
 		p.escapeDispatch(r)
 		return ground
 	case is(r, 0x4F):
@@ -796,6 +812,7 @@ func escapeIntermediate(r rune, p *Parser) stateFn {
 // state ignores all received characters until the control function ST is
 // recognised.
 func sosPmApc(r rune, p *Parser) stateFn {
+	p.ignoreST = true
 	switch {
 	case in(r, 0x00, 0x17), is(r, 0x19), in(r, 0x1C, 0x1F):
 		// ignore
@@ -845,6 +862,7 @@ func ground(r rune, p *Parser) stateFn {
 // and VT525 terminals. Earlier terminals treat OSC in the same way as PM
 // and APC, ignoring the entire control string.
 func oscString(r rune, p *Parser) stateFn {
+	p.ignoreST = true
 	switch {
 	case is(r, 0x07):
 		p.exit()

@@ -22,7 +22,7 @@ const (
 	kittyKBPush   = "\x1b[>1u"
 	kittyKBPop    = "\x1b[<u"
 	// kitty graphics protocol
-	kittyGquery = "\x1b[_Gi=31,s=1,v=1,a=q,t=d,f=24;AAAA\x1b\\"
+	kittyGquery = "\x1b_Gi=31,s=1,v=1,a=q,t=d,f=24;AAAA\x1b\\"
 
 	// Misc
 	clear = "\x1b[H\x1b[2J"
