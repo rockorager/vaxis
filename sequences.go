@@ -25,8 +25,11 @@ const (
 	kittyGquery = "\x1b_Gi=31,s=1,v=1,a=q,t=d,f=24;AAAA\x1b\\"
 
 	// Misc
-	clear = "\x1b[H\x1b[2J"
-	cup   = "\x1B[%d;%dH"
+	clear      = "\x1b[H\x1b[2J"
+	cup        = "\x1B[%d;%dH"
+	osc8WithID = "\x1b]8;id=%s;%s\x1b\\"
+	osc8       = "\x1b]8;;%s\x1b\\"
+	osc8End    = "\x1b]8;;\x1b\\"
 
 	// SGR
 	sgrReset           = "\x1b[m"

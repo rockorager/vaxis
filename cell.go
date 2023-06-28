@@ -7,6 +7,8 @@ type Cell struct {
 	Underline      Color
 	UnderlineStyle UnderlineStyle
 	Attribute      AttributeMask
+	Hyperlink      string
+	HyperlinkID    string
 }
 
 // AttributeMask represents a bitmask of boolean attributes to style a cell

@@ -263,6 +263,8 @@ func render() string {
 		ul         Color
 		ulStyle    UnderlineStyle
 		attr       AttributeMask
+		link       string
+		linkID     string
 	)
 	for row := range stdScreen.buf {
 		for col := range stdScreen.buf[row] {
@@ -437,6 +439,18 @@ func render() string {
 				}
 			}
 
+			if link != next.Hyperlink || linkID != next.HyperlinkID {
+				link = next.Hyperlink
+				linkID = next.HyperlinkID
+				switch {
+				case link == "" && linkID == "":
+					renderBuf.WriteString(osc8End)
+				case linkID == "":
+					renderBuf.WriteString(tparm(osc8, link))
+				default:
+					renderBuf.WriteString(tparm(osc8WithID, link, linkID))
+				}
+			}
 			renderBuf.WriteString(next.Character)
 		}
 	}

@@ -59,6 +59,8 @@ type Segment struct {
 	Underline      Color
 	UnderlineStyle UnderlineStyle
 	Attributes     AttributeMask
+	Hyperlink      string
+	HyperlinkID    string
 }
 
 // PrintSegments prints Segments of text, with each block having a given style.
@@ -94,6 +96,8 @@ func PrintSegments(win Window, segs ...Segment) (maxWidth int, col int, row int)
 				Underline:      seg.Underline,
 				UnderlineStyle: seg.UnderlineStyle,
 				Attribute:      seg.Attributes,
+				Hyperlink:      seg.Hyperlink,
+				HyperlinkID:    seg.HyperlinkID,
 			})
 
 			col += boundaries >> uniseg.ShiftWidth

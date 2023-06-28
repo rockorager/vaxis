@@ -114,9 +114,8 @@ func (m *model) Draw(win rtk.Window) {
 				Attributes: rtk.AttrDim,
 			},
 			{
-				Text:           "    <Right> next slide\n",
-				Attributes:     rtk.AttrDim,
-				UnderlineStyle: rtk.UnderlineCurly,
+				Text:       "    <Right> next slide\n",
+				Attributes: rtk.AttrDim,
 			},
 			{
 				Text:       "    <Left> previous slide\n",
