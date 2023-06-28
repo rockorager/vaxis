@@ -676,6 +676,7 @@ var kittyKeyMap = map[string]rune{
 	"11~":    KeyF01,
 	"1Q":     KeyF02,
 	"12~":    KeyF02,
+	"1R":     KeyF03,
 	"13~":    KeyF03,
 	"1S":     KeyF04,
 	"14~":    KeyF04,
@@ -743,7 +744,7 @@ var kittyKeyMap = map[string]rune{
 func parseKittyKbp(seq ansi.CSI) Key {
 	key := Key{}
 	switch seq.Final {
-	case 'u', '~', 'A', 'B', 'C', 'D', 'E', 'F', 'H', 'P', 'Q', 'S':
+	case 'u', '~', 'A', 'B', 'C', 'D', 'E', 'F', 'H', 'P', 'Q', 'R', 'S':
 	default:
 		return key
 	}
