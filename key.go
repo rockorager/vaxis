@@ -360,7 +360,7 @@ func (k Key) String() string {
 	return buf.String()
 }
 
-func decode_xterm(seq ansi.Sequence) Key {
+func decodeXterm(seq ansi.Sequence) Key {
 	key := Key{}
 	switch seq := seq.(type) {
 	case ansi.Print:
@@ -640,10 +640,10 @@ const (
 	// Aliases
 	KeyEnter     = 0x0D
 	KeyReturn    = KeyEnter
-	KeyBackspace = 0x08
 	KeyTab       = 0x09
 	KeyEsc       = 0x1B
 	KeySpace     = 0x20
+	KeyBackspace = 0x7F
 )
 
 // keyMap is built from terminfo entries

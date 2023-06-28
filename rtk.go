@@ -418,13 +418,13 @@ func handleSequence(seq ansi.Sequence) {
 			pasteBuf.WriteRune(rune(seq))
 			return
 		}
-		PostMsg(decode_xterm(seq))
+		PostMsg(decodeXterm(seq))
 	case ansi.C0:
-		PostMsg(decode_xterm(seq))
+		PostMsg(decodeXterm(seq))
 	case ansi.ESC:
-		PostMsg(decode_xterm(seq))
+		PostMsg(decodeXterm(seq))
 	case ansi.SS3:
-		PostMsg(decode_xterm(seq))
+		PostMsg(decodeXterm(seq))
 	case ansi.CSI:
 		switch seq.Final {
 		case 'R':
@@ -502,7 +502,7 @@ func handleSequence(seq ansi.Sequence) {
 				PostMsg(key)
 			}
 		default:
-			PostMsg(decode_xterm(seq))
+			PostMsg(decodeXterm(seq))
 		}
 	}
 }
