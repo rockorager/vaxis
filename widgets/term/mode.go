@@ -38,6 +38,10 @@ const (
 	dectcem
 	// National replacement character sets
 	decnrcm
+	// Application keypad
+	deckpam
+	// Normal keypad
+	deckpnm
 
 	// xterm
 	//

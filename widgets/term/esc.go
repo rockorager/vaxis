@@ -21,9 +21,11 @@ func (vt *Model) esc(esc string) {
 		vt.charsets.singleShift = true
 		vt.charsets.selected = g3
 	case "=":
-		// DECKPAM
+		vt.mode |= deckpam
+		vt.mode &^= deckpnm
 	case ">":
-		// DECKPNM
+		vt.mode |= deckpnm
+		vt.mode &^= deckpam
 	case "c":
 		vt.ris()
 	case "(0":

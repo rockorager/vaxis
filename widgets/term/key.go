@@ -10,7 +10,7 @@ import (
 
 // TODO we assume it's always application keys. Add in the right modes and
 // encode properly
-func encodeXterm(key rtk.Key, applicationMode bool) string {
+func encodeXterm(key rtk.Key, deckpam bool, decckm bool) string {
 	// function keys
 	if val, ok := keymap[key.Codepoint]; ok {
 		return val
@@ -21,15 +21,26 @@ func encodeXterm(key rtk.Key, applicationMode bool) string {
 	xtermMods |= key.Modifiers & rtk.ModAlt
 	xtermMods |= key.Modifiers & rtk.ModCtrl
 	if xtermMods == 0 {
-		switch applicationMode {
+		switch decckm {
+		case true:
+			if val, ok := cursorKeysApplicationMode[key.Codepoint]; ok {
+				return val
+			}
+		case false:
+			if val, ok := cursorKeysNormalMode[key.Codepoint]; ok {
+				return val
+			}
+		}
+
+		switch deckpam {
 		case true:
 			// Special keys
-			if val, ok := normalKeymap[key.Codepoint]; ok {
+			if val, ok := applicationKeymap[key.Codepoint]; ok {
 				return val
 			}
 		case false:
 			// Special keys
-			if val, ok := applicationKeymap[key.Codepoint]; ok {
+			if val, ok := numericKeymap[key.Codepoint]; ok {
 				return val
 			}
 		}
@@ -87,13 +98,28 @@ var xtermKeymap = map[rune]keycode{
 	rtk.KeyPgDown: {6, '~'},
 }
 
-var normalKeymap = map[rune]string{
-	rtk.KeyUp:     "\x1B[A",
-	rtk.KeyDown:   "\x1B[B",
-	rtk.KeyRight:  "\x1B[C",
-	rtk.KeyLeft:   "\x1B[D",
-	rtk.KeyEnd:    "\x1B[F",
-	rtk.KeyHome:   "\x1B[H",
+var cursorKeysApplicationMode = map[rune]string{
+	rtk.KeyUp:    "\x1BOA",
+	rtk.KeyDown:  "\x1BOB",
+	rtk.KeyRight: "\x1BOC",
+	rtk.KeyLeft:  "\x1BOD",
+	rtk.KeyEnd:   "\x1BOF",
+	rtk.KeyHome:  "\x1BOH",
+}
+
+var cursorKeysNormalMode = map[rune]string{
+	rtk.KeyUp:    "\x1B[A",
+	rtk.KeyDown:  "\x1B[B",
+	rtk.KeyRight: "\x1B[C",
+	rtk.KeyLeft:  "\x1B[D",
+	rtk.KeyEnd:   "\x1B[F",
+	rtk.KeyHome:  "\x1B[H",
+}
+
+// TODO are these needed? can we even detect this from the host? I guess we can
+// with kitty keyboard enabled on host but not in subterm. Double check keypad
+// arrows in application mode vs other arrows (CSI vs SS3?)
+var numericKeymap = map[rune]string{
 	rtk.KeyInsert: "\x1B[2~",
 	rtk.KeyDelete: "\x1B[3~",
 	rtk.KeyPgUp:   "\x1B[5~",
@@ -101,12 +127,6 @@ var normalKeymap = map[rune]string{
 }
 
 var applicationKeymap = map[rune]string{
-	rtk.KeyUp:     "\x1BOA",
-	rtk.KeyDown:   "\x1BOB",
-	rtk.KeyRight:  "\x1BOC",
-	rtk.KeyLeft:   "\x1BOD",
-	rtk.KeyEnd:    "\x1BOF",
-	rtk.KeyHome:   "\x1BOH",
 	rtk.KeyInsert: "\x1B[2~",
 	rtk.KeyDelete: "\x1B[3~",
 	rtk.KeyPgUp:   "\x1B[5~",
