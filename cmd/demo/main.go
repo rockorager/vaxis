@@ -88,6 +88,9 @@ func (m *model) Update(msg rtk.Msg) {
 			}
 		}
 	case rtk.Paste:
+		if m.current > 0 {
+			m.slides[m.current-1].Update(msg)
+		}
 	}
 }
 

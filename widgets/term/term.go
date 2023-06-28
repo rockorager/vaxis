@@ -191,9 +191,13 @@ func (vt *Model) Update(msg rtk.Msg) {
 		str := encodeXterm(msg, vt.mode&deckpam != 0, vt.mode&decckm != 0)
 		vt.pty.WriteString(str)
 	case rtk.Paste:
-		vt.pty.WriteString("\x1B[200~")
+		if vt.mode&paste != 0 {
+			vt.pty.WriteString("\x1B[200~")
+			vt.pty.WriteString(string(msg))
+			vt.pty.WriteString("\x1B[201~")
+			return
+		}
 		vt.pty.WriteString(string(msg))
-		vt.pty.WriteString("\x1B[201~")
 	}
 }
 
