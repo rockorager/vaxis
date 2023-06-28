@@ -144,7 +144,7 @@ func main() {
 		os.Exit(1)
 	}
 	rtk.Logger = log
-	rtk.Init(context.Background())
+	rtk.Init(context.Background(), rtk.Options{})
 	m := &model{
 		keyClear: time.NewTimer(0),
 	}

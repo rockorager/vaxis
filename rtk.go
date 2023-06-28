@@ -89,7 +89,15 @@ func Characters(s string) []string {
 	return egcs
 }
 
-func Init(ctx context.Context) error {
+type Options struct {
+	// DisableKittyKeyboard disables the use of the Kitty Keyboard protocol.
+	// By default, if support is detected the protocol will be used. Your
+	// application will receive key release events as well as improved key
+	// support
+	DisableKittyKeyboard bool
+}
+
+func Init(ctx context.Context, opts Options) error {
 	var err error
 	tty, err = os.OpenFile("/dev/tty", os.O_RDWR, 0)
 	parser := ansi.NewParser(tty)
@@ -158,6 +166,12 @@ func Init(ctx context.Context) error {
 	case <-deviceAttributesReceived:
 		close(deviceAttributesReceived)
 		initialized = true
+	}
+
+	// Disable features based on options. We've already received all of our
+	// queries so this still has effect
+	if opts.DisableKittyKeyboard {
+		capabilities.kittyKeyboard = false
 	}
 	return nil
 }
