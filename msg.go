@@ -12,8 +12,8 @@ type FuncMsg struct {
 	Func func()
 }
 
-// Init will always be the first Msg delivered
-type Init struct{}
+// InitMsg will always be the first Msg delivered
+type InitMsg struct{}
 
 // QuitMsg is delivered whenever the application is about to close
 type QuitMsg struct{}

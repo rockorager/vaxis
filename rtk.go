@@ -2,6 +2,7 @@ package rtk
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -84,7 +85,7 @@ func Characters(s string) []string {
 	return egcs
 }
 
-func Run(model Model) error {
+func Init(ctx context.Context) error {
 	var err error
 	tty, err = os.OpenFile("/dev/tty", os.O_RDWR, 0)
 	parser := ansi.NewParser(tty)
@@ -118,7 +119,7 @@ func Run(model Model) error {
 		syscall.SIGSEGV,
 		syscall.SIGTERM,
 	)
-	PostMsg(Init{})
+	PostMsg(InitMsg{})
 	resize(int(tty.Fd()))
 	sendQueries()
 
@@ -146,7 +147,10 @@ func Run(model Model) error {
 			}
 		}
 	}()
+	return nil
+}
 
+func Run(model Model) error {
 	for msg := range msgs.ch {
 		if msg == nil {
 			continue

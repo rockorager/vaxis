@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -25,7 +26,7 @@ type visible bool
 
 func (m *model) Update(msg rtk.Msg) {
 	switch msg := msg.(type) {
-	case rtk.Init:
+	case rtk.InitMsg:
 		m.slides = []rtk.Model{
 			&input{},
 			newSimpleWidgets(),
@@ -140,6 +141,7 @@ func main() {
 		slog.Error(err.Error())
 		os.Exit(1)
 	}
+	rtk.Init(context.Background())
 	rtk.Logger = log
 	m := &model{
 		keyClear: time.NewTimer(0),
