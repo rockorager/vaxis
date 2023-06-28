@@ -203,7 +203,7 @@ func quit() {
 	// Disable any modes we enabled
 	tty.WriteString(decrst(bracketedPaste)) // bracketed paste
 	tty.WriteString(kkbpPop)                // kitty keyboard
-	tty.WriteString(decrst(applicationKeys))
+	tty.WriteString(decrst(cursorKeys))
 	tty.WriteString(numericMode)
 	tty.WriteString(decrst(mouseAllEvents))
 	tty.WriteString(decrst(mouseFocusEvents))
@@ -521,9 +521,9 @@ func sendQueries() {
 	tty.WriteString(sumQuery)
 
 	// Enable some modes
-	tty.WriteString(decset(bracketedPaste))  // bracketed paste
-	tty.WriteString(decset(applicationKeys)) // application cursor keys
-	tty.WriteString(applicationMode)         // application cursor keys mode
+	tty.WriteString(decset(bracketedPaste)) // bracketed paste
+	tty.WriteString(decset(cursorKeys))     // application cursor keys
+	tty.WriteString(applicationMode)        // application cursor keys mode
 	tty.WriteString(decset(mouseAllEvents))
 	tty.WriteString(decset(mouseFocusEvents))
 	tty.WriteString(decset(mouseSGR))

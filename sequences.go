@@ -76,7 +76,7 @@ const (
 	numericMode     = "\x1b>"
 
 	// Private Modes
-	applicationKeys    = 1
+	cursorKeys         = 1
 	cursorVisibility   = 25
 	mouseAllEvents     = 1003
 	mouseFocusEvents   = 1004
