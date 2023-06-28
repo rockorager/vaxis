@@ -37,10 +37,22 @@ func (m *Model) Update(msg vaxis.Msg) {
 			}
 			m.cursor -= 1
 		default:
+			if msg.EventType == vaxis.EventRelease {
+				return
+			}
+			if msg.Modifiers&vaxis.ModCtrl != 0 {
+				return
+			}
+			if msg.Modifiers&vaxis.ModAlt != 0 {
+				return
+			}
+			if msg.Modifiers&vaxis.ModSuper != 0 {
+				return
+			}
 			if unicode.IsGraphic(msg.Codepoint) {
 				switch {
 				case m.cursor == len(m.Content.Text):
-					m.Content.Text += string(msg.Codepoint)
+					m.Content.Text = m.Content.Text + string(msg.Codepoint)
 				default:
 					m.Content.Text = m.Content.Text[:m.cursor] +
 						string(msg.Codepoint) +
@@ -53,7 +65,11 @@ func (m *Model) Update(msg vaxis.Msg) {
 }
 
 func (m *Model) Draw(win vaxis.Window) {
-	segs := []vaxis.Segment{m.Prompt, m.Content}
-	vaxis.PrintSegments(win, segs...)
+	switch m.Prompt.Text {
+	case "":
+		vaxis.PrintSegments(win, m.Content)
+	default:
+		vaxis.PrintSegments(win, m.Prompt, m.Content)
+	}
 	win.ShowCursor(m.cursor, 0, 0)
 }
