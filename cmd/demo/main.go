@@ -143,8 +143,9 @@ func main() {
 		slog.Error(err.Error())
 		os.Exit(1)
 	}
-	vaxis.Logger = log
-	vaxis.Init(context.Background(), vaxis.Options{})
+	vaxis.Init(context.Background(), vaxis.Options{
+		Logger: log,
+	})
 	m := &model{
 		keyClear: time.NewTimer(0),
 	}

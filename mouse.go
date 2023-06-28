@@ -40,12 +40,12 @@ const (
 func parseMouseEvent(seq ansi.CSI) (Mouse, bool) {
 	mouse := Mouse{}
 	if len(seq.Intermediate) != 1 && seq.Intermediate[0] != '<' {
-		Logger.Error("[CSI] unknown sequence", "sequence", seq)
+		log.Error("[CSI] unknown sequence", "sequence", seq)
 		return mouse, false
 	}
 
 	if len(seq.Parameters) != 3 {
-		Logger.Error("[CSI] unknown sequence", "sequence", seq)
+		log.Error("[CSI] unknown sequence", "sequence", seq)
 		return mouse, false
 	}
 

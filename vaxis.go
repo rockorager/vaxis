@@ -19,10 +19,7 @@ import (
 )
 
 var (
-	// Logger is a slog.Logger that vaxis will dump logs to. vaxis uses stdlib
-	// levels for logging, and a trace level at -8
-	// TODO make the trace level
-	Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+	log = slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	// async is an asynchronous queue, provided as a helper for applications
 	async *queue[Msg]
@@ -90,6 +87,9 @@ func Characters(s string) []string {
 }
 
 type Options struct {
+	// Logger is an optional slog.Logger that vaxis will log to. vaxis uses
+	// stdlib levels for logging
+	Logger *slog.Logger
 	// DisableKittyKeyboard disables the use of the Kitty Keyboard protocol.
 	// By default, if support is detected the protocol will be used. Your
 	// application will receive key release events as well as improved key
@@ -104,6 +104,9 @@ func Init(ctx context.Context, opts Options) error {
 	savedState, err = term.MakeRaw(int(tty.Fd()))
 	if err != nil {
 		return err
+	}
+	if opts.Logger != nil {
+		log = opts.Logger
 	}
 
 	// Rendering
@@ -151,7 +154,7 @@ func Init(ctx context.Context, opts Options) error {
 				case syscall.SIGWINCH, syscall.SIGCONT:
 					resize(int(tty.Fd()))
 				default:
-					Logger.Debug("Signal caught", "signal", sig)
+					log.Debug("Signal caught", "signal", sig)
 					quit()
 					return
 				}
@@ -265,9 +268,9 @@ func quit() {
 
 	term.Restore(int(tty.Fd()), savedState)
 
-	Logger.Info("Renders", "val", renders)
+	log.Info("Renders", "val", renders)
 	if renders != 0 {
-		Logger.Info("Time/render", "val", elapsed/time.Duration(renders))
+		log.Info("Time/render", "val", elapsed/time.Duration(renders))
 	}
 }
 
@@ -505,7 +508,7 @@ func render() string {
 }
 
 func handleSequence(seq ansi.Sequence) {
-	Logger.Debug("[stdin]", "sequence", seq)
+	log.Debug("[stdin]", "sequence", seq)
 	switch seq := seq.(type) {
 	case ansi.Print:
 		if inPaste {
@@ -527,7 +530,7 @@ func handleSequence(seq ansi.Sequence) {
 					switch ps[0] {
 					case 4:
 						capabilities.sixels = true
-						Logger.Info("Sixels supported")
+						log.Info("Sixels supported")
 					}
 				}
 				if !initialized {
@@ -544,7 +547,7 @@ func handleSequence(seq ansi.Sequence) {
 			if cursorPositionRequested {
 				cursorPositionRequested = false
 				if len(seq.Parameters) != 2 {
-					Logger.Error("not enough DSRCPR params")
+					log.Error("not enough DSRCPR params")
 					return
 				}
 				chCursorPositionReport <- seq.Parameters[0][0]
@@ -554,18 +557,18 @@ func handleSequence(seq ansi.Sequence) {
 		case 'y':
 			// DECRPM - DEC Report Mode
 			if len(seq.Parameters) < 1 {
-				Logger.Error("not enough DECRPM params")
+				log.Error("not enough DECRPM params")
 				return
 			}
 			switch seq.Parameters[0][0] {
 			case 2026:
 				if len(seq.Parameters) < 2 {
-					Logger.Error("not enough DECRPM params")
+					log.Error("not enough DECRPM params")
 					return
 				}
 				switch seq.Parameters[1][0] {
 				case 1, 2:
-					Logger.Info("Synchronized Update Mode supported")
+					log.Info("Synchronized Update Mode supported")
 					capabilities.synchronizedUpdate = true
 				}
 			}
@@ -573,14 +576,14 @@ func handleSequence(seq ansi.Sequence) {
 		case 'u':
 			if len(seq.Intermediate) == 1 && seq.Intermediate[0] == '?' {
 				capabilities.kittyKeyboard = true
-				Logger.Info("Kitty Keyboard Protocol supported")
+				log.Info("Kitty Keyboard Protocol supported")
 				tty.WriteString(kittyKBEnable)
 				return
 			}
 		case '~':
 			if len(seq.Intermediate) == 0 {
 				if len(seq.Parameters) == 0 {
-					Logger.Error("[CSI] unknown sequence with final '~'")
+					log.Error("[CSI] unknown sequence with final '~'")
 					return
 				}
 				switch seq.Parameters[0][0] {
@@ -628,16 +631,16 @@ func handleSequence(seq ansi.Sequence) {
 				}
 				vals := strings.Split(string(seq.Data), "=")
 				if len(vals) != 2 {
-					Logger.Error("error parsing XTGETTCAP", "value", string(seq.Data))
+					log.Error("error parsing XTGETTCAP", "value", string(seq.Data))
 				}
 				switch vals[0] {
 				case hexEncode("Smulx"):
 					capabilities.styledUnderlines = true
-					Logger.Info("Styled underlines supported")
+					log.Info("Styled underlines supported")
 				case hexEncode("RGB"):
 					if !capabilities.rgb {
 						capabilities.rgb = true
-						Logger.Info("RGB Color supported")
+						log.Info("RGB Color supported")
 					}
 				}
 			}
@@ -657,7 +660,7 @@ func handleSequence(seq ansi.Sequence) {
 			return
 		}
 		if strings.HasPrefix(seq.Data, "G") {
-			Logger.Info("Kitty graphics supported")
+			log.Info("Kitty graphics supported")
 			capabilities.kittyGraphics = true
 		}
 	}
@@ -666,7 +669,7 @@ func handleSequence(seq ansi.Sequence) {
 func sendQueries() {
 	switch os.Getenv("COLORTERM") {
 	case "truecolor", "24bit":
-		Logger.Info("RGB color supported")
+		log.Info("RGB color supported")
 		capabilities.rgb = true
 	}
 
@@ -725,7 +728,7 @@ func CursorPosition() (col int, row int) {
 	timeout := time.NewTimer(10 * time.Millisecond)
 	select {
 	case <-timeout.C:
-		Logger.Warn("CursorPosition timed out")
+		log.Warn("CursorPosition timed out")
 		return -1, -1
 	case row = <-chCursorPositionReport:
 		// if we get one, we'll get another
