@@ -72,10 +72,6 @@ const (
 	cursorStyleSet   = "\x1b[%d q"
 	cursorStyleReset = "\x1b[ q"
 
-	// mouse
-	setMouse   = "\x1b[?1006;1003h" // sgr + all event tracking
-	resetMouse = "\x1b[?1006;1003l"
-
 	// keypad
 	applicationMode = "\x1b="
 	numericMode     = "\x1b>"
