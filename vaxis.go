@@ -176,6 +176,27 @@ func Init(ctx context.Context, opts Options) error {
 	return nil
 }
 
+// Poll returns the next Msg. When a QuitMsg is received, all input processing
+// will cease.
+func Poll() Msg {
+	for msg := range msgs.ch {
+		if msg == nil {
+			continue
+		}
+		switch msg := msg.(type) {
+		case QuitMsg:
+			close(chQuit)
+		case Resize:
+			stdScreen.resize(msg.Cols, msg.Rows)
+			lastRender.resize(msg.Cols, msg.Rows)
+		}
+		return msg
+	}
+	return QuitMsg{}
+}
+
+// Run operates an event loop for the provided Model. Users of the Run loop
+// don't need to explicitly render, the loop will render every event
 func Run(model Model) error {
 	for msg := range msgs.ch {
 		if msg == nil {
