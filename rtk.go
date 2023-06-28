@@ -528,6 +528,10 @@ func sendQueries() {
 	tty.WriteString(decset(mouseFocusEvents))
 	tty.WriteString(decset(mouseSGR))
 	tty.WriteString(clear)
+
+	// Query some terminfo capabilities
+	tty.WriteString(xtgettcap("RGB"))
+	tty.WriteString(xtgettcap("Smulx"))
 }
 
 func HideCursor() {

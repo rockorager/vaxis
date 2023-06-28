@@ -1,6 +1,7 @@
 package rtk
 
 import (
+	"bytes"
 	"fmt"
 )
 
@@ -95,4 +96,15 @@ func decrst(mode int) string {
 
 func tparm(s string, args ...any) string {
 	return fmt.Sprintf(s, args...)
+}
+
+// xtgettcap prepares a query of a given terminfo capability
+func xtgettcap(cap string) string {
+	out := bytes.NewBuffer(nil)
+	out.WriteString("\x1bP+q")
+	for _, ch := range cap {
+		out.WriteString(fmt.Sprintf("%X", ch))
+	}
+	out.WriteString("\x1b\\")
+	return out.String()
 }
