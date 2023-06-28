@@ -34,6 +34,11 @@ func (m *model) Update(msg rtk.Msg) {
 		}
 	case rtk.Key:
 		if msg.EventType == rtk.EventRelease {
+			if m.current >= 1 {
+				if slide, ok := m.slides[m.current-1].(*input); ok {
+					slide.Update(msg)
+				}
+			}
 			break
 		}
 
