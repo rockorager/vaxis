@@ -651,6 +651,7 @@ func handleSequence(seq ansi.Sequence) {
 			switch seq.Intermediate[0] {
 			case '!':
 				if string(seq.Data) == hexEncode("~VTE") {
+					log.Info("Styled underlines supported")
 					capabilities.styledUnderlines = true
 				}
 			}
