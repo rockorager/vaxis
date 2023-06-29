@@ -25,9 +25,9 @@ type Resize struct {
 	Rows int
 }
 
-// Paste is delivered when a bracketed paste was detected. The value of
-// Paste if the pasted content
-type Paste string
+// PasteMsg is delivered when a bracketed paste was detected. The value of
+// PasteMsg if the pasted content
+type PasteMsg string
 
 // SendMsg sends a message to a given model from the main thread
 type SendMsg struct {

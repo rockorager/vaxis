@@ -3,6 +3,7 @@ package vaxis
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"os"
@@ -29,7 +30,8 @@ var (
 	// quitting
 	chQuit chan struct{}
 	// inPaste signals that we are within a bracketed paste
-	inPaste bool
+	inPaste    bool
+	osc52Paste chan string
 	// pasteBuf buffers bracketed paste text
 	pasteBuf *bytes.Buffer
 	// Have we requested a cursor position?
@@ -37,6 +39,8 @@ var (
 	chCursorPositionReport   chan int
 	deviceAttributesReceived chan struct{}
 	initialized              bool
+	// Disambiguate, report all keys as escapes, report associated text
+	kittyKBFlags = 25
 
 	// Rendering variables
 
@@ -95,6 +99,9 @@ type Options struct {
 	// application will receive key release events as well as improved key
 	// support
 	DisableKittyKeyboard bool
+	// ReportKeyboardEvents will report key release and key repeat events if
+	// KittyKeyboardProtocol is enabled and supported by the terminal
+	ReportKeyboardEvents bool
 }
 
 func Init(ctx context.Context, opts Options) error {
@@ -108,6 +115,9 @@ func Init(ctx context.Context, opts Options) error {
 	if opts.Logger != nil {
 		log = opts.Logger
 	}
+	if opts.ReportKeyboardEvents {
+		kittyKBFlags += 2
+	}
 
 	// Rendering
 	renderBuf = &bytes.Buffer{}
@@ -116,6 +126,7 @@ func Init(ctx context.Context, opts Options) error {
 
 	// pasteBuf buffers bracketed paste
 	pasteBuf = &bytes.Buffer{}
+	osc52Paste = make(chan string)
 
 	// Setup internals and signal handling
 	msgs = newQueue[Msg]()
@@ -584,7 +595,7 @@ func handleSequence(seq ansi.Sequence) {
 			if len(seq.Intermediate) == 1 && seq.Intermediate[0] == '?' {
 				capabilities.kittyKeyboard = true
 				log.Info("Kitty Keyboard Protocol supported")
-				tty.WriteString(kittyKBEnable)
+				tty.WriteString(tparm(kittyKBEnable, kittyKBFlags))
 				return
 			}
 		case '~':
@@ -599,7 +610,7 @@ func handleSequence(seq ansi.Sequence) {
 					return
 				case 201:
 					inPaste = false
-					PostMsg(Paste(pasteBuf.String()))
+					PostMsg(PasteMsg(pasteBuf.String()))
 					pasteBuf.Reset()
 					return
 				}
@@ -670,6 +681,24 @@ func handleSequence(seq ansi.Sequence) {
 		if strings.HasPrefix(seq.Data, "G") {
 			log.Info("Kitty graphics supported")
 			capabilities.kittyGraphics = true
+		}
+	case ansi.OSC:
+		if strings.HasPrefix(string(seq.Payload), "52") {
+			vals := strings.Split(string(seq.Payload), ";")
+			if len(vals) != 3 {
+				log.Error("invalid OSC 52 payload")
+				return
+			}
+			b, err := base64.StdEncoding.DecodeString(vals[2])
+			if err != nil {
+				log.Error("couldn't decode OSC 52", "error", err)
+				return
+			}
+			ctx, _ := context.WithTimeout(context.Background(), 10*time.Millisecond)
+			select {
+			case osc52Paste <- string(b):
+			case <-ctx.Done():
+			}
 		}
 	}
 }
@@ -762,4 +791,25 @@ func cursorStyle() string {
 		return cursorStyleReset
 	}
 	return tparm(cursorStyleSet, int(cursor.style))
+}
+
+// Copy copies the provided string to the system clipboard
+func Copy(s string) {
+	b64 := base64.StdEncoding.EncodeToString([]byte(s))
+	tty.WriteString(tparm(osc52put, b64))
+}
+
+// Paste requests the content from the system clipboard. Paste works by
+// requesting the data from the underlying terminal, which responds back with
+// the data. Depending on usage, this could take some time. Callers can provide
+// a context to set a deadline for this function to return. An error will be
+// returned if the context is cancelled.
+func Paste(ctx context.Context) (string, error) {
+	tty.WriteString(osc52pop)
+	select {
+	case str := <-osc52Paste:
+		return str, nil
+	case <-ctx.Done():
+		return "", ctx.Err()
+	}
 }

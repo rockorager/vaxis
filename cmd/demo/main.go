@@ -87,7 +87,7 @@ func (m *model) Update(msg vaxis.Msg) {
 				m.slides[m.current-1].Update(msg)
 			}
 		}
-	case vaxis.Paste:
+	case vaxis.PasteMsg:
 		if m.current > 0 {
 			m.slides[m.current-1].Update(msg)
 		}

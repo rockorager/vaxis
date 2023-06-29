@@ -18,11 +18,11 @@ const (
 	sumQuery = "\x1b[?2026$p"
 	// kitty keyboard protocol
 	kittyKBQuery  = "\x1b[?u"
-	kittyKBEnable = "\x1b[=27u"
+	kittyKBEnable = "\x1b[=%du"
 	kittyKBPush   = "\x1b[>1u"
 	kittyKBPop    = "\x1b[<u"
 	// kitty graphics protocol
-	kittyGquery = "\x1b_Gi=31,s=1,v=1,a=q,t=d,f=24;AAAA\x1b\\"
+	kittyGquery = "\x1b_Gi=1,a=q\x1b\\"
 
 	// Misc
 	clear      = "\x1b[H\x1b[2J"
@@ -30,6 +30,8 @@ const (
 	osc8WithID = "\x1b]8;id=%s;%s\x1b\\"
 	osc8       = "\x1b]8;;%s\x1b\\"
 	osc8End    = "\x1b]8;;\x1b\\"
+	osc52put   = "\x1b]52;c;%s\x1b\\"
+	osc52pop   = "\x1b]52;c;?\x1b\\"
 
 	// SGR
 	sgrReset           = "\x1b[m"

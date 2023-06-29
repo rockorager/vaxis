@@ -190,7 +190,7 @@ func (vt *Model) Update(msg vaxis.Msg) {
 	case vaxis.Key:
 		str := encodeXterm(msg, vt.mode&deckpam != 0, vt.mode&decckm != 0)
 		vt.pty.WriteString(str)
-	case vaxis.Paste:
+	case vaxis.PasteMsg:
 		if vt.mode&paste != 0 {
 			vt.pty.WriteString("\x1B[200~")
 			vt.pty.WriteString(string(msg))
