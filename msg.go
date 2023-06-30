@@ -21,8 +21,10 @@ type QuitMsg struct{}
 // Resize is delivered whenever a window size change is detected (likely via
 // SIGWINCH)
 type Resize struct {
-	Cols int
-	Rows int
+	Cols   int
+	Rows   int
+	XPixel int
+	YPixel int
 }
 
 // PasteMsg is delivered when a bracketed paste was detected. The value of

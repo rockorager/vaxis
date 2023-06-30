@@ -14,9 +14,12 @@ func Fill(win Window, cell Cell) {
 	}
 }
 
-// Clear fills the Window with spaces with the default colors
+// Clear fills the Window with spaces with the default colors. Clear
+// will also clear any graphics for the next render by calling
+// ClearGraphics
 func Clear(win Window) {
 	Fill(win, Cell{Character: " "})
+	ClearGraphics()
 }
 
 // Print prints text to a Window. The text will be wrapped to the width, line
@@ -221,4 +224,19 @@ func (win Window) ShowCursor(col int, row int, style CursorStyle) {
 		return
 	}
 	win.Parent.ShowCursor(col+win.Column, row+win.Row, style)
+}
+
+// returns the origin of the window, column x row, 0-indexed
+func (win Window) origin() (int, int) {
+	w := win
+	col := 0
+	row := 0
+	for {
+		col += w.Column
+		row += w.Row
+		if w.Parent == nil {
+			return col, row
+		}
+		w = *w.Parent
+	}
 }

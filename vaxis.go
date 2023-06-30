@@ -66,6 +66,10 @@ var (
 		styledUnderlines   bool
 		sixels             bool
 	}
+	winsize Resize
+
+	lastGraphicPlacements map[string]*placement
+	nextGraphicPlacements map[string]*placement
 
 	cursor struct {
 		row     int
@@ -127,6 +131,9 @@ func Init(ctx context.Context, opts Options) error {
 	// pasteBuf buffers bracketed paste
 	pasteBuf = &bytes.Buffer{}
 	osc52Paste = make(chan string)
+
+	nextGraphicPlacements = make(map[string]*placement)
+	lastGraphicPlacements = make(map[string]*placement)
 
 	// Setup internals and signal handling
 	msgs = newQueue[Msg]()
@@ -232,6 +239,7 @@ func Run(model Model) error {
 		case Resize:
 			stdScreen.resize(msg.Cols, msg.Rows)
 			lastRender.resize(msg.Cols, msg.Rows)
+			lastGraphicPlacements = make(map[string]*placement)
 			model.Update(msg)
 			model.Draw(Window{})
 		case SendMsg:
@@ -257,10 +265,13 @@ func resize(fd int) error {
 	if err != nil {
 		return err
 	}
-	PostMsg(Resize{
-		Cols: int(size.Col),
-		Rows: int(size.Row),
-	})
+	winsize = Resize{
+		Cols:   int(size.Col),
+		Rows:   int(size.Row),
+		XPixel: int(size.Xpixel),
+		YPixel: int(size.Ypixel),
+	}
+	PostMsg(winsize)
 	return nil
 }
 
@@ -322,9 +333,40 @@ func render() string {
 		link       string
 		linkID     string
 	)
+	for id, p := range nextGraphicPlacements {
+		p.lockRegion()
+		if _, ok := lastGraphicPlacements[id]; ok {
+			continue
+		}
+		if renderBuf.Len() == 0 {
+			if cursor.visible {
+				// Hide cursor if it's visible
+				renderBuf.WriteString(decrst(cursorVisibility))
+			}
+			if capabilities.synchronizedUpdate {
+				renderBuf.WriteString(decset(synchronizedUpdate))
+			}
+		}
+		renderBuf.WriteString(tparm(cup, p.row+1, p.col+1))
+		renderBuf.WriteString(p.draw())
+		lastGraphicPlacements[id] = p
+	}
+	for id, p := range lastGraphicPlacements {
+		// Delete any placements we don't have this round
+		if _, ok := nextGraphicPlacements[id]; ok {
+			continue
+		}
+		p.delete()
+		delete(lastGraphicPlacements, id)
+	}
 	for row := range stdScreen.buf {
 		for col := range stdScreen.buf[row] {
 			next := stdScreen.buf[row][col]
+			if next.sixel {
+				lastRender.buf[row][col].sixel = true
+				reposition = true
+				continue
+			}
 			if next == lastRender.buf[row][col] && !refresh {
 				reposition = true
 				continue
@@ -548,6 +590,9 @@ func handleSequence(seq ansi.Sequence) {
 					switch ps[0] {
 					case 4:
 						capabilities.sixels = true
+						if graphicsProtocol < sixelGraphics {
+							graphicsProtocol = sixelGraphics
+						}
 						log.Info("Sixels supported")
 					}
 				}
@@ -681,6 +726,9 @@ func handleSequence(seq ansi.Sequence) {
 		if strings.HasPrefix(seq.Data, "G") {
 			log.Info("Kitty graphics supported")
 			capabilities.kittyGraphics = true
+			if graphicsProtocol < kittyGraphics {
+				graphicsProtocol = kittyGraphics
+			}
 		}
 	case ansi.OSC:
 		if strings.HasPrefix(string(seq.Payload), "52") {

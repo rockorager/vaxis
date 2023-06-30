@@ -32,6 +32,7 @@ func (m *model) Update(msg vaxis.Msg) {
 			newSimpleWidgets(),
 			newTerm(),
 			newTextInput(),
+			newImage(),
 		}
 	case vaxis.Key:
 		if msg.EventType == vaxis.EventRelease {

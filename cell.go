@@ -9,6 +9,10 @@ type Cell struct {
 	Attribute      AttributeMask
 	Hyperlink      string
 	HyperlinkID    string
+
+	// sixel marks if this cell has had a sixel graphic drawn on it.
+	// If true, it won't be drawn in the render cycle.
+	sixel bool
 }
 
 // AttributeMask represents a bitmask of boolean attributes to style a cell
