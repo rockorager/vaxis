@@ -838,10 +838,10 @@ func apc(r rune, p *Parser) stateFn {
 	switch {
 	case in(r, 0x00, 0x17), is(r, 0x19), in(r, 0x1C, 0x1F):
 		// ignore
-		return sosPm
+		return apc
 	default:
 		p.apcData = append(p.apcData, r)
-		return sosPm
+		return apc
 	}
 }
 
