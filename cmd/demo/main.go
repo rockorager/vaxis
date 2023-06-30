@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"os"
 	"time"
@@ -144,7 +143,7 @@ func main() {
 		slog.Error(err.Error())
 		os.Exit(1)
 	}
-	vaxis.Init(context.Background(), vaxis.Options{
+	vaxis.Init(vaxis.Options{
 		Logger: log,
 	})
 	m := &model{

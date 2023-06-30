@@ -1,34 +1,36 @@
 package main
 
 import (
-	"context"
-
 	"git.sr.ht/~rockorager/vaxis"
+	"git.sr.ht/~rockorager/vaxis/widgets/align"
 )
 
-type model struct{}
-
-func (m *model) Update(msg vaxis.Msg) {
-	switch msg := msg.(type) {
-	case vaxis.Key:
-		switch msg.String() {
-		case "C-c":
-			vaxis.Quit()
-		}
-	}
-}
-
-func (m *model) Draw(win vaxis.Window) {
-	vaxis.Print(win, "Hello, World!")
-}
-
 func main() {
-	err := vaxis.Init(context.Background(), vaxis.Options{})
+	err := vaxis.Init(vaxis.Options{})
 	if err != nil {
 		panic(err)
 	}
-	m := &model{}
-	if err := vaxis.Run(m); err != nil {
-		panic(err)
+	for {
+		switch msg := vaxis.PollMsg().(type) {
+		case vaxis.Resize:
+			win := vaxis.Window{}
+			vaxis.Clear(win)
+			first := align.Center(win, 13, 1)
+			second := align.Center(win, 18, 1)
+			second.Row += 1
+			vaxis.PrintSegments(first, vaxis.Segment{
+				Text: "Hello, World!",
+			})
+			vaxis.PrintSegments(second, vaxis.Segment{
+				Text:       "Press ESC to exit.",
+				Attributes: vaxis.AttrDim,
+			})
+		case vaxis.Key:
+			switch msg.String() {
+			case "Escape":
+				vaxis.Close()
+				return
+			}
+		}
 	}
 }

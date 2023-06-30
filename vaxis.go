@@ -108,7 +108,11 @@ type Options struct {
 	ReportKeyboardEvents bool
 }
 
-func Init(ctx context.Context, opts Options) error {
+func Init(opts Options) error {
+	// Let's give some deadline for our queries responding. If they don't,
+	// it means the terminal doesn't respond to Primary Device Attributes
+	// and that is a problem
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	var err error
 	tty, err = os.OpenFile("/dev/tty", os.O_RDWR, 0)
 	parser := ansi.NewParser(tty)
@@ -187,6 +191,7 @@ func Init(ctx context.Context, opts Options) error {
 	case <-deviceAttributesReceived:
 		close(deviceAttributesReceived)
 		initialized = true
+		cancel()
 	}
 
 	// Disable features based on options. We've already received all of our
