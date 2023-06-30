@@ -103,9 +103,8 @@ func (g Graphic) Draw(win Window) error {
 		height:  h,
 	}
 
-	switch {
-	case capabilities.kittyGraphics:
-	case capabilities.sixels:
+	switch graphicsProtocol {
+	case sixelGraphics:
 		buf := bytes.NewBuffer(nil)
 		enc := sixel.NewEncoder(buf)
 		err = enc.Encode(img)
@@ -113,6 +112,7 @@ func (g Graphic) Draw(win Window) error {
 			return err
 		}
 		placement.cache = buf.String()
+	case kittyGraphics:
 	}
 
 	// we key the placement by it's ID, drawing location and
