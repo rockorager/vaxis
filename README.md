@@ -18,36 +18,27 @@ It begins with them, but ends with me. Their son, Vaxis
 ```go
 package main
 
-import (
-	"context"
-
-	"git.sr.ht/~rockorager/vaxis"
-)
-
-type model struct{}
-
-func (m *model) Update(msg vaxis.Msg) {
-	switch msg := msg.(type) {
-	case vaxis.Key:
-		switch msg.String() {
-		case "C-c":
-			vaxis.Quit()
-		}
-	}
-}
-
-func (m *model) Draw(win vaxis.Window) {
-	vaxis.Print(win, "Hello, World!")
-}
+import "git.sr.ht/~rockorager/vaxis"
 
 func main() {
-	err := vaxis.Init(context.Background(), vaxis.Options{})
+	err := vaxis.Init(vaxis.Options{})
 	if err != nil {
 		panic(err)
 	}
-	m := &model{}
-	if err := vaxis.Run(m); err != nil {
-		panic(err)
+	for {
+		switch msg := vaxis.PollMsg().(type) {
+		case vaxis.Resize:
+			win := vaxis.Window{}
+			vaxis.Clear(win)
+			vaxis.Print(win, "Hello, World!")
+			vaxis.Render()
+		case vaxis.Key:
+			switch msg.String() {
+			case "C-c":
+				vaxis.Close()
+				return
+			}
+		}
 	}
 }
 ```

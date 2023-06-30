@@ -1,9 +1,6 @@
 package main
 
-import (
-	"git.sr.ht/~rockorager/vaxis"
-	"git.sr.ht/~rockorager/vaxis/widgets/align"
-)
+import "git.sr.ht/~rockorager/vaxis"
 
 func main() {
 	err := vaxis.Init(vaxis.Options{})
@@ -15,19 +12,11 @@ func main() {
 		case vaxis.Resize:
 			win := vaxis.Window{}
 			vaxis.Clear(win)
-			first := align.Center(win, 13, 1)
-			second := align.Center(win, 18, 1)
-			second.Row += 1
-			vaxis.PrintSegments(first, vaxis.Segment{
-				Text: "Hello, World!",
-			})
-			vaxis.PrintSegments(second, vaxis.Segment{
-				Text:       "Press ESC to exit.",
-				Attributes: vaxis.AttrDim,
-			})
+			vaxis.Print(win, "Hello, World!")
+			vaxis.Render()
 		case vaxis.Key:
 			switch msg.String() {
-			case "Escape":
+			case "C-c":
 				vaxis.Close()
 				return
 			}
