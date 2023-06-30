@@ -173,7 +173,7 @@ func Init(ctx context.Context, opts Options) error {
 					resize(int(tty.Fd()))
 				default:
 					log.Debug("Signal caught", "signal", sig)
-					quit()
+					Close()
 					return
 				}
 			case <-chQuit:
@@ -208,6 +208,7 @@ func PollMsg() Msg {
 		switch msg := msg.(type) {
 		case QuitMsg:
 			close(chQuit)
+			return msg
 		case Resize:
 			stdScreen.resize(msg.Cols, msg.Rows)
 			lastRender.resize(msg.Cols, msg.Rows)
@@ -234,7 +235,7 @@ func Run(model Model) error {
 		case QuitMsg:
 			close(chQuit)
 			model.Update(msg)
-			quit()
+			Close()
 			return nil
 		case Resize:
 			stdScreen.resize(msg.Cols, msg.Rows)
@@ -279,7 +280,7 @@ func Quit() {
 	PostMsg(QuitMsg{})
 }
 
-func quit() {
+func Close() {
 	tty.WriteString(decset(cursorVisibility)) // show the cursor
 	tty.WriteString(sgrReset)                 // reset fg, bg, attrs
 	tty.WriteString(clear)
