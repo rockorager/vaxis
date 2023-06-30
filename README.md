@@ -24,6 +24,8 @@ most dank TUI library
 | Kitty Keyboard            |  ✅   |  ❌   |    ❌     |    ✅     |
 | Styled Underlines         |  ✅   |  ❌   |    ❌     |    ✅     |
 | System Clipboard (OSC 52) |  ✅   |  ❌   |    ❌     |    ❌     |
-| Images                    |  ❌   |  ❌   |    ❌     |    ✅     |
+| Images (sixel)            |  ✅   |  ❌   |    ❌     |    ✅     |
+| Images (kitty)            |  ❌   |  ❌   |    ❌     |    ✅     |
+| Images (iterm2)           |  ❌   |  ❌   |    ❌     |    ✅     |
 | Video                     |  ❌   |  ❌   |    ❌     |    ✅     |
 | Dank                      |  🆗   |  ❌   |    ❌     |    ✅     |
