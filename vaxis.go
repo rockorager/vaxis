@@ -217,6 +217,7 @@ func PollMsg() Msg {
 		case Resize:
 			stdScreen.resize(msg.Cols, msg.Rows)
 			lastRender.resize(msg.Cols, msg.Rows)
+			lastGraphicPlacements = make(map[string]*placement)
 		}
 		m = msg
 		break
@@ -362,7 +363,16 @@ func render() string {
 		if _, ok := nextGraphicPlacements[id]; ok {
 			continue
 		}
-		p.delete()
+		if renderBuf.Len() == 0 {
+			if cursor.visible {
+				// Hide cursor if it's visible
+				renderBuf.WriteString(decrst(cursorVisibility))
+			}
+			if capabilities.synchronizedUpdate {
+				renderBuf.WriteString(decset(synchronizedUpdate))
+			}
+		}
+		renderBuf.WriteString(p.delete())
 		delete(lastGraphicPlacements, id)
 	}
 	for row := range stdScreen.buf {
@@ -730,6 +740,9 @@ func handleSequence(seq ansi.Sequence) {
 			return
 		}
 		if strings.HasPrefix(seq.Data, "G") {
+			if capabilities.kittyGraphics {
+				return
+			}
 			log.Info("Kitty graphics supported")
 			capabilities.kittyGraphics = true
 			if graphicsProtocol < kittyGraphics {

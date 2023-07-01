@@ -2,15 +2,18 @@ package vaxis
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"image"
+	"image/png"
+	"io"
 	"math"
 
 	"github.com/mattn/go-sixel"
 )
 
 var (
-	nextID           uint64 = 0
+	nextID           uint64 = 1
 	graphics                = map[Graphic]image.Image{}
 	graphicsProtocol        = noGraphics
 )
@@ -113,6 +116,29 @@ func (g Graphic) Draw(win Window) error {
 		}
 		placement.cache = buf.String()
 	case kittyGraphics:
+		buf := bytes.NewBuffer(nil)
+		wc := base64.NewEncoder(base64.StdEncoding, buf)
+		err := png.Encode(wc, img)
+		if err != nil {
+			return err
+		}
+		wc.Close()
+		b := make([]byte, 4096)
+		for buf.Len() > 0 {
+			n, err := buf.Read(b)
+			if err == io.EOF {
+				break
+			}
+			if n == 0 {
+				break
+			}
+			m := 1
+			if buf.Len() == 0 {
+				m = 0
+			}
+			tty.WriteString(fmt.Sprintf("\x1B_Gf=100,i=%d,m=%d;%s\x1B\\", g, m, string(b[:n])))
+		}
+		placement.cache = fmt.Sprintf("\x1B_Ga=p,i=%d\x1B\\", g)
 	}
 
 	// we key the placement by it's ID, drawing location and
@@ -150,6 +176,7 @@ type placement struct {
 func (p *placement) delete() string {
 	switch {
 	case capabilities.kittyGraphics:
+		return fmt.Sprintf("\x1B_Ga=d,d=i,i=%d\x1B\\", p.graphic)
 	case capabilities.sixels:
 		// For sixels we just have to loop over an remove the
 		// sixel lock
