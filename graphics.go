@@ -109,8 +109,7 @@ func (g Graphic) Draw(win Window) error {
 	switch graphicsProtocol {
 	case sixelGraphics:
 		buf := bytes.NewBuffer(nil)
-		enc := sixel.NewEncoder(buf)
-		err = enc.Encode(img)
+		err := sixel.NewEncoder(buf).Encode(img)
 		if err != nil {
 			return err
 		}
