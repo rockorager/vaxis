@@ -57,7 +57,7 @@ most dank TUI library
 | Styled Underlines         |  ✅   |  ❌   |    ❌     |    ✅     |
 | System Clipboard (OSC 52) |  ✅   |  ❌   |    ❌     |    ❌     |
 | Images (sixel)            |  ✅   |  ❌   |    ❌     |    ✅     |
-| Images (kitty)            |  ❌   |  ❌   |    ❌     |    ✅     |
+| Images (kitty)            |  ✅   |  ❌   |    ❌     |    ✅     |
 | Images (iterm2)           |  ❌   |  ❌   |    ❌     |    ✅     |
 | Video                     |  ❌   |  ❌   |    ❌     |    ✅     |
 | Dank                      |  🆗   |  ❌   |    ❌     |    ✅     |

@@ -794,7 +794,12 @@ func sendQueries() {
 	tty.WriteString(clear)
 
 	// Query some terminfo capabilities
+	// Just another way to see if we have RGB support
 	tty.WriteString(xtgettcap("RGB"))
+	// We request Smulx to check for styled underlines. Technically, Smulx
+	// only means the terminal supports different underline types (curly,
+	// dashed, etc), but we'll assume the terminal also suppports underline
+	// colors (CSI 58 : ...)
 	tty.WriteString(xtgettcap("Smulx"))
 	// Need to send tertiary for VTE based terminals. These don't respond to
 	// XTGETTCAP
