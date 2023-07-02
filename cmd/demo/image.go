@@ -10,16 +10,13 @@ import (
 )
 
 type img struct {
-	g vaxis.Graphic
+	g *vaxis.Graphic
 }
 
 func (i *img) Update(msg vaxis.Msg) {}
 
 func (i *img) Draw(win vaxis.Window) {
-	cols, rows, err := i.g.CellSize()
-	if err != nil {
-		return
-	}
+	cols, rows := i.g.CellSize()
 	i.g.Draw(align.Center(win, cols, rows))
 }
 
@@ -32,7 +29,10 @@ func newImage() *img {
 	if err != nil {
 		panic(err)
 	}
-	id := vaxis.NewGraphic(graphic)
+	id, err := vaxis.NewGraphic(graphic)
+	if err != nil {
+		panic(err)
+	}
 	i := &img{id}
 	return i
 }

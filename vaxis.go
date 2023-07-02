@@ -217,7 +217,10 @@ func PollMsg() Msg {
 		case Resize:
 			stdScreen.resize(msg.Cols, msg.Rows)
 			lastRender.resize(msg.Cols, msg.Rows)
-			lastGraphicPlacements = make(map[string]*placement)
+			for k, v := range lastGraphicPlacements {
+				tty.WriteString(v.delete())
+				delete(lastGraphicPlacements, k)
+			}
 		}
 		m = msg
 		break
@@ -246,7 +249,10 @@ func Run(model Model) error {
 		case Resize:
 			stdScreen.resize(msg.Cols, msg.Rows)
 			lastRender.resize(msg.Cols, msg.Rows)
-			lastGraphicPlacements = make(map[string]*placement)
+			for k, v := range lastGraphicPlacements {
+				tty.WriteString(v.delete())
+				delete(lastGraphicPlacements, k)
+			}
 			model.Update(msg)
 			model.Draw(Window{})
 		case SendMsg:
@@ -340,6 +346,23 @@ func render() string {
 		link       string
 		linkID     string
 	)
+	for id, p := range lastGraphicPlacements {
+		// Delete any placements we don't have this round
+		if _, ok := nextGraphicPlacements[id]; ok {
+			continue
+		}
+		if renderBuf.Len() == 0 {
+			if cursor.visible {
+				// Hide cursor if it's visible
+				renderBuf.WriteString(decrst(cursorVisibility))
+			}
+			if capabilities.synchronizedUpdate {
+				renderBuf.WriteString(decset(synchronizedUpdate))
+			}
+		}
+		renderBuf.WriteString(p.delete())
+		delete(lastGraphicPlacements, id)
+	}
 	for id, p := range nextGraphicPlacements {
 		p.lockRegion()
 		if _, ok := lastGraphicPlacements[id]; ok {
@@ -357,23 +380,6 @@ func render() string {
 		renderBuf.WriteString(tparm(cup, p.row+1, p.col+1))
 		renderBuf.WriteString(p.draw())
 		lastGraphicPlacements[id] = p
-	}
-	for id, p := range lastGraphicPlacements {
-		// Delete any placements we don't have this round
-		if _, ok := nextGraphicPlacements[id]; ok {
-			continue
-		}
-		if renderBuf.Len() == 0 {
-			if cursor.visible {
-				// Hide cursor if it's visible
-				renderBuf.WriteString(decrst(cursorVisibility))
-			}
-			if capabilities.synchronizedUpdate {
-				renderBuf.WriteString(decset(synchronizedUpdate))
-			}
-		}
-		renderBuf.WriteString(p.delete())
-		delete(lastGraphicPlacements, id)
 	}
 	for row := range stdScreen.buf {
 		for col := range stdScreen.buf[row] {
