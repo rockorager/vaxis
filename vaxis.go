@@ -865,18 +865,18 @@ func cursorStyle() string {
 	return tparm(cursorStyleSet, int(cursor.style))
 }
 
-// Copy copies the provided string to the system clipboard
-func Copy(s string) {
+// ClipboardPush copies the provided string to the system clipboard
+func ClipboardPush(s string) {
 	b64 := base64.StdEncoding.EncodeToString([]byte(s))
 	tty.WriteString(tparm(osc52put, b64))
 }
 
-// Paste requests the content from the system clipboard. Paste works by
+// ClipboardPop requests the content from the system clipboard. ClipboardPop works by
 // requesting the data from the underlying terminal, which responds back with
 // the data. Depending on usage, this could take some time. Callers can provide
 // a context to set a deadline for this function to return. An error will be
 // returned if the context is cancelled.
-func Paste(ctx context.Context) (string, error) {
+func ClipboardPop(ctx context.Context) (string, error) {
 	tty.WriteString(osc52pop)
 	select {
 	case str := <-osc52Paste:
