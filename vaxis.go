@@ -245,7 +245,6 @@ func Run(model Model) error {
 			Close()
 			return nil
 		case Resize:
-			log.Info("[graphics] resize")
 			stdScreen.resize(msg.Cols, msg.Rows)
 			lastRender.resize(msg.Cols, msg.Rows)
 			model.Update(msg)
