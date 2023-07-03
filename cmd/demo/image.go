@@ -31,7 +31,8 @@ func newImage() *img {
 	}
 	id, err := vaxis.NewGraphic(graphic)
 	if err != nil {
-		panic(err)
+		log.Error("No graphics protocol supported")
+		return nil
 	}
 	i := &img{id}
 	return i

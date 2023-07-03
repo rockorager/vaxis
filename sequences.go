@@ -23,6 +23,8 @@ const (
 	kittyKBPop    = "\x1b[<u"
 	// kitty graphics protocol
 	kittyGquery = "\x1b_Gi=1,a=q\x1b\\"
+	// sixel query XTSMGRAPHICS
+	xtsmSixelGeom = "\x1b[?2;1;0S"
 
 	// Misc
 	clear      = "\x1b[H\x1b[2J"

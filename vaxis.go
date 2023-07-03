@@ -633,6 +633,23 @@ func handleSequence(seq ansi.Sequence) {
 				chCursorPositionReport <- seq.Parameters[1][0]
 				return
 			}
+		case 'S':
+			if len(seq.Intermediate) == 1 && seq.Intermediate[0] == '?' {
+				if len(seq.Parameters) < 3 {
+					break
+				}
+				switch seq.Parameters[0][0] {
+				case 2:
+					if seq.Parameters[1][0] == 0 {
+						capabilities.sixels = true
+						if graphicsProtocol < sixelGraphics {
+							graphicsProtocol = sixelGraphics
+						}
+						log.Info("Sixels supported")
+					}
+				}
+				return
+			}
 		case 'y':
 			// DECRPM - DEC Report Mode
 			if len(seq.Parameters) < 1 {
@@ -783,6 +800,8 @@ func sendQueries() {
 	tty.WriteString(kittyKBQuery)
 	tty.WriteString(kittyGquery)
 	tty.WriteString(sumQuery)
+
+	tty.WriteString(xtsmSixelGeom)
 
 	// Enable some modes
 	tty.WriteString(decset(bracketedPaste)) // bracketed paste
