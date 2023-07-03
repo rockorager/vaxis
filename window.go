@@ -14,12 +14,13 @@ func Fill(win Window, cell Cell) {
 	}
 }
 
-// Clear fills the Window with spaces with the default colors. Clear
-// will also clear any graphics for the next render by calling
-// ClearGraphics
+// Clear fills the Window with spaces with the default colors and removes all
+// graphics placements
 func Clear(win Window) {
 	Fill(win, Cell{Character: " "})
-	ClearGraphics()
+	for k := range nextGraphicPlacements {
+		delete(nextGraphicPlacements, k)
+	}
 }
 
 // Print prints text to a Window. The text will be wrapped to the width, line

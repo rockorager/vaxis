@@ -68,8 +68,8 @@ var (
 	}
 	winsize Resize
 
-	lastGraphicPlacements map[string]*placement
-	nextGraphicPlacements map[string]*placement
+	lastGraphicPlacements map[int]*placement
+	nextGraphicPlacements map[int]*placement
 
 	cursor struct {
 		row     int
@@ -136,8 +136,8 @@ func Init(opts Options) error {
 	pasteBuf = &bytes.Buffer{}
 	osc52Paste = make(chan string)
 
-	nextGraphicPlacements = make(map[string]*placement)
-	lastGraphicPlacements = make(map[string]*placement)
+	nextGraphicPlacements = make(map[int]*placement)
+	lastGraphicPlacements = make(map[int]*placement)
 
 	// Setup internals and signal handling
 	msgs = newQueue[Msg]()
@@ -217,10 +217,6 @@ func PollMsg() Msg {
 		case Resize:
 			stdScreen.resize(msg.Cols, msg.Rows)
 			lastRender.resize(msg.Cols, msg.Rows)
-			for k, v := range lastGraphicPlacements {
-				tty.WriteString(v.delete())
-				delete(lastGraphicPlacements, k)
-			}
 		}
 		m = msg
 		break
@@ -247,12 +243,9 @@ func Run(model Model) error {
 			Close()
 			return nil
 		case Resize:
+			log.Info("[graphics] resize")
 			stdScreen.resize(msg.Cols, msg.Rows)
 			lastRender.resize(msg.Cols, msg.Rows)
-			for k, v := range lastGraphicPlacements {
-				tty.WriteString(v.delete())
-				delete(lastGraphicPlacements, k)
-			}
 			model.Update(msg)
 			model.Draw(Window{})
 		case SendMsg:
@@ -346,9 +339,9 @@ func render() string {
 		link       string
 		linkID     string
 	)
+	// Delete any placements we don't have this round
 	for id, p := range lastGraphicPlacements {
-		// Delete any placements we don't have this round
-		if _, ok := nextGraphicPlacements[id]; ok {
+		if _, ok := nextGraphicPlacements[id]; ok && !refresh {
 			continue
 		}
 		if renderBuf.Len() == 0 {
@@ -363,6 +356,7 @@ func render() string {
 		renderBuf.WriteString(p.delete())
 		delete(lastGraphicPlacements, id)
 	}
+	// draw new placements
 	for id, p := range nextGraphicPlacements {
 		p.lockRegion()
 		if _, ok := lastGraphicPlacements[id]; ok {

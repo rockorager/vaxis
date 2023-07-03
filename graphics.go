@@ -8,6 +8,7 @@ import (
 	"image/png"
 	"io"
 	"math"
+	"strconv"
 
 	"github.com/mattn/go-sixel"
 )
@@ -78,17 +79,6 @@ func NewGraphic(img image.Image) (*Graphic, error) {
 	return g, nil
 }
 
-// Clears all graphics from the screen
-func ClearGraphics() {
-	for k, v := range lastGraphicPlacements {
-		tty.WriteString(v.delete())
-		delete(lastGraphicPlacements, k)
-	}
-	for k := range nextGraphicPlacements {
-		delete(nextGraphicPlacements, k)
-	}
-}
-
 // columns x lines
 func (g Graphic) CellSize() (columns int, lines int) {
 	// Looks complicated but we're just calculating the size of the
@@ -112,29 +102,22 @@ func (g Graphic) PixelSize(id uint64) (x int, y int) {
 // geometry haven't changed), it will persist between renders
 func (g Graphic) Draw(win Window) {
 	col, row := win.origin()
-	placementID := fmt.Sprintf("%d;%d;%d", g.id, col, row)
-	if p, ok := lastGraphicPlacements[placementID]; ok {
-		nextGraphicPlacements[placementID] = p
-		return
-	}
-
 	placement := &placement{
 		graphic: &g,
 		col:     col,
 		row:     row,
 	}
-	nextGraphicPlacements[placementID] = placement
+	id, err := placement.id()
+	if err != nil {
+		return
+	}
+	nextGraphicPlacements[id] = placement
 	return
 }
 
+// Delete removes the graphic from memory
 func (g Graphic) Delete() {
 	// TODO
-	// delete(graphics, g)
-	// for k, v := range nextGraphicPlacements {
-	// 	if v.graphic == g {
-	// 		delete(nextGraphicPlacements, k)
-	// 	}
-	// }
 }
 
 // placement is an image placement. If two placements are identical, the
@@ -145,12 +128,27 @@ type placement struct {
 	row     int
 }
 
-// Delete clears the sixel flag on cells, or if kitty protocol is
+func (p placement) id() (int, error) {
+	idStr := fmt.Sprintf("%d%d%d", p.graphic.id, p.col, p.row)
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		// This will probably never happen?? Not sure how it could
+		return 0, err
+	}
+	return id, nil
+}
+
+// delete clears the sixel flag on cells, or if kitty protocol is
 // supported it deletes via that protocol
 func (p *placement) delete() string {
 	switch graphicsProtocol {
 	case kittyGraphics:
-		return fmt.Sprintf("\x1B_Ga=d,d=i,i=%d\x1B\\", p.graphic.id)
+		id, err := p.id()
+		if err != nil {
+			// fallback to deleting all placements for this graphic
+			return fmt.Sprintf("\x1B_Ga=d,d=i,i=%d\x1B\\", p.graphic.id)
+		}
+		return fmt.Sprintf("\x1B_Ga=d,d=i,i=%d,p=%d\x1B\\", p.graphic.id, id)
 	case sixelGraphics:
 		// For sixels we just have to loop over an remove the
 		// sixel lock
@@ -190,5 +188,13 @@ func (p *placement) lockRegion() {
 
 // draw
 func (p *placement) draw() string {
+	switch graphicsProtocol {
+	case kittyGraphics:
+		id, err := p.id()
+		if err != nil {
+			return p.graphic.placement
+		}
+		return fmt.Sprintf("\x1B_Ga=p,i=%d,p=%d\x1B\\", p.graphic.id, id)
+	}
 	return p.graphic.placement
 }
