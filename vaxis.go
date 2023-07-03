@@ -236,6 +236,8 @@ func Run(model Model) error {
 		if msg == nil {
 			continue
 		}
+		win := Window{}
+		Clear(win)
 		switch msg := msg.(type) {
 		case QuitMsg:
 			close(chQuit)
@@ -247,18 +249,18 @@ func Run(model Model) error {
 			stdScreen.resize(msg.Cols, msg.Rows)
 			lastRender.resize(msg.Cols, msg.Rows)
 			model.Update(msg)
-			model.Draw(Window{})
+			model.Draw(win)
 		case SendMsg:
 			msg.Model.Update(msg.Msg)
-			model.Draw(Window{})
+			model.Draw(win)
 		case FuncMsg:
 			msg.Func()
-			model.Draw(Window{})
+			model.Draw(win)
 		case DrawModelMsg:
 			msg.Model.Draw(msg.Window)
 		default:
 			model.Update(msg)
-			model.Draw(Window{})
+			model.Draw(win)
 		}
 		Render()
 	}
