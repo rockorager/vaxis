@@ -528,10 +528,6 @@ func TestDCS(t *testing.T) {
 						';',
 					},
 				},
-				ESC{
-					Final:        '\\',
-					Intermediate: []rune{},
-				},
 			},
 		},
 	}
@@ -838,10 +834,6 @@ func TestOSC(t *testing.T) {
 						'm',
 					},
 				},
-				ESC{
-					Final:        '\\',
-					Intermediate: []rune{},
-				},
 				Print('L'),
 				Print('i'),
 				Print('n'),
@@ -852,10 +844,6 @@ func TestOSC(t *testing.T) {
 						';',
 						';',
 					},
-				},
-				ESC{
-					Final:        '\\',
-					Intermediate: []rune{},
 				},
 			},
 		},
