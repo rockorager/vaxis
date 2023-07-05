@@ -2,6 +2,7 @@ package spinner
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"git.sr.ht/~rockorager/vaxis"
@@ -17,9 +18,10 @@ type Model struct {
 	Frames     []rune
 
 	frame    int
+	mu       sync.Mutex
 	spinning bool
 	cancel   context.CancelFunc
-	srf      vaxis.Window
+	win      vaxis.Window
 }
 
 // New creates a new spinner
@@ -42,14 +44,16 @@ func (m *Model) Update(msg vaxis.Msg) {
 }
 
 func (m *Model) Draw(w vaxis.Window) {
-	m.srf = w
+	m.win = w
 	if m.spinning {
+		m.mu.Lock()
 		w.SetCell(0, 0, vaxis.Cell{
 			Character:  string(m.Frames[m.frame]),
 			Foreground: m.Foreground,
 			Background: m.Background,
 			Attribute:  m.Attribute,
 		})
+		m.mu.Unlock()
 	}
 }
 
@@ -81,10 +85,12 @@ func (m *Model) start() {
 				ticker.Stop()
 				return
 			case <-ticker.C:
+				m.mu.Lock()
 				m.frame = (m.frame + 1) % len(m.Frames)
+				m.mu.Unlock()
 				vaxis.PostMsg(vaxis.DrawModelMsg{
 					Model:  m,
-					Window: m.srf,
+					Window: m.win,
 				})
 			}
 		}
