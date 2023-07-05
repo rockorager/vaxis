@@ -116,9 +116,5 @@ func xtgettcap(cap string) string {
 }
 
 func hexEncode(cap string) string {
-	out := bytes.NewBuffer(nil)
-	for _, ch := range cap {
-		out.WriteString(fmt.Sprintf("%X", ch))
-	}
-	return out.String()
+	return fmt.Sprintf("%X", cap)
 }
