@@ -163,12 +163,14 @@ func (vt *Model) Start(cmd *exec.Cmd) error {
 		for {
 			select {
 			case <-tmr.C:
+				vt.mu.Lock()
 				if vt.dirty && vt.visible.Load() && vt.window != nil {
 					vaxis.PostMsg(vaxis.DrawModelMsg{
 						Model:  vt,
 						Window: *vt.window,
 					})
 				}
+				vt.mu.Unlock()
 			case seq := <-vt.parser.Next():
 				switch seq := seq.(type) {
 				case ansi.EOF:
@@ -198,6 +200,8 @@ func (vt *Model) Update(msg vaxis.Msg) {
 			return
 		}
 		vt.pty.WriteString(string(msg))
+	case vaxis.Visible:
+		vt.visible.Store(bool(msg))
 	}
 }
 
@@ -504,7 +508,3 @@ func (vt *Model) Draw(win vaxis.Window) {
 // 	}
 // 	return false
 // }
-
-func (vt *Model) SetVisible(vis bool) {
-	vt.visible.Store(vis)
-}

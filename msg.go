@@ -43,3 +43,5 @@ type DrawModelMsg struct {
 	Model  Model
 	Window Window
 }
+
+type Visible bool
