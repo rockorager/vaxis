@@ -7,16 +7,13 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 	"time"
 
 	"git.sr.ht/~rockorager/vaxis/ansi"
+	"github.com/mattn/go-tty"
 	"github.com/rivo/uniseg"
 	"golang.org/x/exp/slog"
-	"golang.org/x/sys/unix"
-	"golang.org/x/term"
 )
 
 var (
@@ -52,9 +49,11 @@ var (
 	// optimize what we update on the next render
 	lastRender *screen
 
-	// tty is the terminal we are talking with
-	tty        *os.File
-	savedState *term.State
+	// device is our tty
+	device *tty.TTY
+	// ttyOut is the terminal we are talking with
+	ttyOut *os.File
+	// savedState *term.State
 
 	capabilities struct {
 		synchronizedUpdate bool
@@ -112,12 +111,12 @@ func Init(opts Options) error {
 	// and that is a problem
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	var err error
-	tty, err = os.OpenFile("/dev/tty", os.O_RDWR, 0)
-	parser := ansi.NewParser(tty)
-	savedState, err = term.MakeRaw(int(tty.Fd()))
+	device, err = tty.Open()
 	if err != nil {
 		return err
 	}
+	ttyOut = device.Output()
+	parser := ansi.NewParser(device.Input())
 	if opts.Logger != nil {
 		log = opts.Logger
 	}
@@ -140,22 +139,12 @@ func Init(opts Options) error {
 	// Setup internals and signal handling
 	msgs = newQueue[Msg]()
 	chQuit = make(chan struct{})
-	chOSSignals := make(chan os.Signal)
 	chCursorPositionReport = make(chan int)
-	signal.Notify(chOSSignals,
-		syscall.SIGWINCH, // triggers Resize
-		syscall.SIGCONT,  // triggers Resize
-		syscall.SIGABRT,
-		syscall.SIGBUS,
-		syscall.SIGFPE,
-		syscall.SIGILL,
-		syscall.SIGINT,
-		syscall.SIGQUIT,
-		syscall.SIGSEGV,
-		syscall.SIGTERM,
-	)
 	PostMsg(InitMsg{})
-	resize(int(tty.Fd()))
+
+	chSIGWINCH := device.SIGWINCH()
+
+	reportWinsize()
 	deviceAttributesReceived = make(chan struct{})
 	sendQueries()
 
@@ -169,15 +158,8 @@ func Init(opts Options) error {
 				default:
 					handleSequence(seq)
 				}
-			case sig := <-chOSSignals:
-				switch sig {
-				case syscall.SIGWINCH, syscall.SIGCONT:
-					resize(int(tty.Fd()))
-				default:
-					log.Debug("Signal caught", "signal", sig)
-					Close()
-					return
-				}
+			case <-chSIGWINCH:
+				reportWinsize()
 			case <-chQuit:
 				return
 			}
@@ -263,20 +245,20 @@ func Run(model Model) error {
 	return nil
 }
 
-// resize posts a Resize Msg
-func resize(fd int) error {
-	size, err := unix.IoctlGetWinsize(fd, unix.TIOCGWINSZ)
+// reportWinsize posts a Resize Msg
+func reportWinsize() {
+	col, row, x, y, err := device.SizePixel()
 	if err != nil {
-		return err
+		log.Error("couldn't get winsize", "error", err)
+		return
 	}
 	winsize = Resize{
-		Cols:   int(size.Col),
-		Rows:   int(size.Row),
-		XPixel: int(size.Xpixel),
-		YPixel: int(size.Ypixel),
+		Cols:   col,
+		Rows:   row,
+		XPixel: x,
+		YPixel: y,
 	}
 	PostMsg(winsize)
-	return nil
 }
 
 func Quit() {
@@ -284,22 +266,22 @@ func Quit() {
 }
 
 func Close() {
-	tty.WriteString(decset(cursorVisibility)) // show the cursor
-	tty.WriteString(sgrReset)                 // reset fg, bg, attrs
-	tty.WriteString(clear)
+	ttyOut.WriteString(decset(cursorVisibility)) // show the cursor
+	ttyOut.WriteString(sgrReset)                 // reset fg, bg, attrs
+	ttyOut.WriteString(clear)
 
 	// Disable any modes we enabled
-	tty.WriteString(decrst(bracketedPaste)) // bracketed paste
-	tty.WriteString(kittyKBPop)             // kitty keyboard
-	tty.WriteString(decrst(cursorKeys))
-	tty.WriteString(numericMode)
-	tty.WriteString(decrst(mouseAllEvents))
-	tty.WriteString(decrst(mouseFocusEvents))
-	tty.WriteString(decrst(mouseSGR))
+	ttyOut.WriteString(decrst(bracketedPaste)) // bracketed paste
+	ttyOut.WriteString(kittyKBPop)             // kitty keyboard
+	ttyOut.WriteString(decrst(cursorKeys))
+	ttyOut.WriteString(numericMode)
+	ttyOut.WriteString(decrst(mouseAllEvents))
+	ttyOut.WriteString(decrst(mouseFocusEvents))
+	ttyOut.WriteString(decrst(mouseSGR))
 
-	tty.WriteString(decrst(alternateScreen))
+	ttyOut.WriteString(decrst(alternateScreen))
 
-	term.Restore(int(tty.Fd()), savedState)
+	device.Close()
 
 	log.Info("Renders", "val", renders)
 	if renders != 0 {
@@ -313,7 +295,7 @@ func Render() {
 	defer renderBuf.Reset()
 	out := render()
 	if out != "" {
-		tty.WriteString(out)
+		ttyOut.WriteString(out)
 	}
 	elapsed += time.Since(start)
 	renders += 1
@@ -671,7 +653,7 @@ func handleSequence(seq ansi.Sequence) {
 			if len(seq.Intermediate) == 1 && seq.Intermediate[0] == '?' {
 				capabilities.kittyKeyboard = true
 				log.Info("Kitty Keyboard Protocol supported")
-				tty.WriteString(tparm(kittyKBEnable, kittyKBFlags))
+				ttyOut.WriteString(tparm(kittyKBEnable, kittyKBFlags))
 				return
 			}
 		case '~':
@@ -792,38 +774,38 @@ func sendQueries() {
 		capabilities.rgb = true
 	}
 
-	tty.WriteString(decset(alternateScreen))
-	tty.WriteString(decrst(cursorVisibility))
-	tty.WriteString(xtversion)
-	tty.WriteString(kittyKBQuery)
-	tty.WriteString(kittyGquery)
-	tty.WriteString(sumQuery)
+	ttyOut.WriteString(decset(alternateScreen))
+	ttyOut.WriteString(decrst(cursorVisibility))
+	ttyOut.WriteString(xtversion)
+	ttyOut.WriteString(kittyKBQuery)
+	ttyOut.WriteString(kittyGquery)
+	ttyOut.WriteString(sumQuery)
 
-	tty.WriteString(xtsmSixelGeom)
+	ttyOut.WriteString(xtsmSixelGeom)
 
 	// Enable some modes
-	tty.WriteString(decset(bracketedPaste)) // bracketed paste
-	tty.WriteString(decset(cursorKeys))     // application cursor keys
-	tty.WriteString(applicationMode)        // application cursor keys mode
-	tty.WriteString(decset(mouseAllEvents))
-	tty.WriteString(decset(mouseFocusEvents))
-	tty.WriteString(decset(mouseSGR))
-	tty.WriteString(clear)
+	ttyOut.WriteString(decset(bracketedPaste)) // bracketed paste
+	ttyOut.WriteString(decset(cursorKeys))     // application cursor keys
+	ttyOut.WriteString(applicationMode)        // application cursor keys mode
+	ttyOut.WriteString(decset(mouseAllEvents))
+	ttyOut.WriteString(decset(mouseFocusEvents))
+	ttyOut.WriteString(decset(mouseSGR))
+	ttyOut.WriteString(clear)
 
 	// Query some terminfo capabilities
 	// Just another way to see if we have RGB support
-	tty.WriteString(xtgettcap("RGB"))
+	ttyOut.WriteString(xtgettcap("RGB"))
 	// We request Smulx to check for styled underlines. Technically, Smulx
 	// only means the terminal supports different underline types (curly,
 	// dashed, etc), but we'll assume the terminal also suppports underline
 	// colors (CSI 58 : ...)
-	tty.WriteString(xtgettcap("Smulx"))
+	ttyOut.WriteString(xtgettcap("Smulx"))
 	// Need to send tertiary for VTE based terminals. These don't respond to
 	// XTGETTCAP
-	tty.WriteString(tertiaryAttributes)
+	ttyOut.WriteString(tertiaryAttributes)
 	// Send Device Attributes is last. Everything responds, and when we get
 	// a response we'll return from init
-	tty.WriteString(primaryAttributes)
+	ttyOut.WriteString(primaryAttributes)
 }
 
 func HideCursor() {
@@ -850,7 +832,7 @@ func showCursor() string {
 func CursorPosition() (col int, row int) {
 	// DSRCPR - reports cursor position
 	cursorPositionRequested = true
-	tty.WriteString(dsrcpr)
+	ttyOut.WriteString(dsrcpr)
 	timeout := time.NewTimer(10 * time.Millisecond)
 	select {
 	case <-timeout.C:
@@ -885,7 +867,7 @@ func cursorStyle() string {
 // ClipboardPush copies the provided string to the system clipboard
 func ClipboardPush(s string) {
 	b64 := base64.StdEncoding.EncodeToString([]byte(s))
-	tty.WriteString(tparm(osc52put, b64))
+	ttyOut.WriteString(tparm(osc52put, b64))
 }
 
 // ClipboardPop requests the content from the system clipboard. ClipboardPop works by
@@ -894,7 +876,7 @@ func ClipboardPush(s string) {
 // a context to set a deadline for this function to return. An error will be
 // returned if the context is cancelled.
 func ClipboardPop(ctx context.Context) (string, error) {
-	tty.WriteString(osc52pop)
+	ttyOut.WriteString(osc52pop)
 	select {
 	case str := <-osc52Paste:
 		return str, nil
