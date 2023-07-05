@@ -22,12 +22,7 @@ func newTerm() *vt {
 }
 
 func (vt *vt) Update(msg vaxis.Msg) {
-	switch msg := msg.(type) {
-	case visible:
-		vt.term.SetVisible(bool(msg))
-	default:
-		vt.term.Update(msg)
-	}
+	vt.term.Update(msg)
 }
 
 func (vt *vt) Draw(win vaxis.Window) {

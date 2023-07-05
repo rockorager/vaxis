@@ -21,8 +21,6 @@ type model struct {
 	keyClear *time.Timer
 }
 
-type visible bool
-
 func (m *model) Update(msg vaxis.Msg) {
 	switch msg := msg.(type) {
 	case vaxis.InitMsg:
@@ -68,22 +66,22 @@ func (m *model) Update(msg vaxis.Msg) {
 				break
 			}
 			if m.current > 0 {
-				m.slides[m.current-1].Update(visible(false))
+				m.slides[m.current-1].Update(vaxis.Visible(false))
 			}
 			m.current += 1
 			if m.current > 0 {
-				m.slides[m.current-1].Update(visible(true))
+				m.slides[m.current-1].Update(vaxis.Visible(true))
 			}
 		case "Left":
 			if m.current <= 0 {
 				break
 			}
 			if m.current > 0 {
-				m.slides[m.current-1].Update(visible(false))
+				m.slides[m.current-1].Update(vaxis.Visible(false))
 			}
 			m.current -= 1
 			if m.current > 0 {
-				m.slides[m.current-1].Update(visible(true))
+				m.slides[m.current-1].Update(vaxis.Visible(true))
 			}
 		default:
 			if m.current > 0 {

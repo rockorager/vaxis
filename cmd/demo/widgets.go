@@ -21,7 +21,7 @@ type simpleWidgets struct {
 
 func (s *simpleWidgets) Update(msg vaxis.Msg) {
 	switch msg := msg.(type) {
-	case visible:
+	case vaxis.Visible:
 		switch msg {
 		case true:
 			s.spinner1.Start()
