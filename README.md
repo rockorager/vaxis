@@ -34,7 +34,7 @@ func main() {
 			vaxis.Render()
 		case vaxis.Key:
 			switch msg.String() {
-			case "C-c":
+			case "Ctrl+c":
 				vaxis.Close()
 				return
 			}

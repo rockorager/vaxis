@@ -59,9 +59,9 @@ func (m *model) Update(msg vaxis.Msg) {
 			})
 		})
 		switch msg.String() {
-		case "C-c":
+		case "Ctrl+c":
 			vaxis.Quit()
-		case "C-l":
+		case "Ctrl+l":
 			vaxis.Refresh()
 		case "Right":
 			if m.current >= len(m.slides) {
