@@ -19,6 +19,7 @@ type Cell struct {
 type AttributeMask uint8
 
 const (
+	AttrNone               = 0
 	AttrBold AttributeMask = 1 << iota
 	AttrDim
 	AttrItalic
