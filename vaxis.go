@@ -22,8 +22,6 @@ import (
 var (
 	log = slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	// async is an asynchronous queue, provided as a helper for applications
-	async *queue[Msg]
 	// msgs is the main event loop Msg queue
 	msgs *queue[Msg]
 	// chQuit is a channel to signal to running goroutines that we are
