@@ -237,7 +237,6 @@ func Run(model Model) error {
 			continue
 		}
 		win := Window{}
-		Clear(win)
 		switch msg := msg.(type) {
 		case QuitMsg:
 			close(chQuit)
