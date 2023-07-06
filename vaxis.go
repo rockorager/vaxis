@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"git.sr.ht/~rockorager/vaxis/ansi"
-	"github.com/mattn/go-tty"
+	"github.com/containerd/console"
 	"github.com/rivo/uniseg"
 	"golang.org/x/exp/slog"
 )
@@ -49,11 +51,10 @@ var (
 	// optimize what we update on the next render
 	lastRender *screen
 
-	// device is our tty
-	device *tty.TTY
-	// ttyOut is the terminal we are talking with
-	ttyOut *os.File
-	// savedState *term.State
+	// stdout is the terminal we are talking with
+	stdout *os.File
+	stdin  *os.File
+	con    console.Console
 
 	capabilities struct {
 		synchronizedUpdate bool
@@ -113,13 +114,14 @@ func Init(opts Options) error {
 	// it means the terminal doesn't respond to Primary Device Attributes
 	// and that is a problem
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	var err error
-	device, err = tty.Open()
+	stdout = os.Stdout
+	stdin = os.Stdin
+	con = console.Current()
+	err := con.SetRaw()
 	if err != nil {
 		return err
 	}
-	ttyOut = device.Output()
-	parser := ansi.NewParser(device.Input())
+	parser := ansi.NewParser(stdin)
 	if opts.Logger != nil {
 		log = opts.Logger
 	}
@@ -145,8 +147,7 @@ func Init(opts Options) error {
 	chCursorPositionReport = make(chan int)
 	PostMsg(InitMsg{})
 
-	chSIGWINCH := device.SIGWINCH()
-
+	chSIGWINCH := make(chan os.Signal)
 	reportWinsize()
 	stdScreen.resize(winsize.Cols, winsize.Rows)
 	lastRender.resize(winsize.Cols, winsize.Rows)
@@ -169,6 +170,7 @@ func Init(opts Options) error {
 			}
 		}
 	}()
+	signal.Notify(chSIGWINCH, syscall.SIGWINCH)
 	sendQueries()
 	select {
 	case <-ctx.Done():
@@ -250,43 +252,27 @@ func Run(model Model) error {
 	return nil
 }
 
-// reportWinsize posts a Resize Msg
-func reportWinsize() {
-	col, row, x, y, err := device.SizePixel()
-	if err != nil {
-		log.Error("couldn't get winsize", "error", err)
-		return
-	}
-	winsize = Resize{
-		Cols:   col,
-		Rows:   row,
-		XPixel: x,
-		YPixel: y,
-	}
-	PostMsg(winsize)
-}
-
 func Quit() {
 	PostMsg(QuitMsg{})
 }
 
 func Close() {
-	ttyOut.WriteString(decset(cursorVisibility)) // show the cursor
-	ttyOut.WriteString(sgrReset)                 // reset fg, bg, attrs
-	ttyOut.WriteString(clear)
+	stdout.WriteString(decset(cursorVisibility)) // show the cursor
+	stdout.WriteString(sgrReset)                 // reset fg, bg, attrs
+	stdout.WriteString(clear)
 
 	// Disable any modes we enabled
-	ttyOut.WriteString(decrst(bracketedPaste)) // bracketed paste
-	ttyOut.WriteString(kittyKBPop)             // kitty keyboard
-	ttyOut.WriteString(decrst(cursorKeys))
-	ttyOut.WriteString(numericMode)
-	ttyOut.WriteString(decrst(mouseAllEvents))
-	ttyOut.WriteString(decrst(mouseFocusEvents))
-	ttyOut.WriteString(decrst(mouseSGR))
+	stdout.WriteString(decrst(bracketedPaste)) // bracketed paste
+	stdout.WriteString(kittyKBPop)             // kitty keyboard
+	stdout.WriteString(decrst(cursorKeys))
+	stdout.WriteString(numericMode)
+	stdout.WriteString(decrst(mouseAllEvents))
+	stdout.WriteString(decrst(mouseFocusEvents))
+	stdout.WriteString(decrst(mouseSGR))
 
-	ttyOut.WriteString(decrst(alternateScreen))
+	stdout.WriteString(decrst(alternateScreen))
 
-	device.Close()
+	con.Close()
 
 	log.Info("Renders", "val", renders)
 	if renders != 0 {
@@ -300,7 +286,7 @@ func Render() {
 	defer renderBuf.Reset()
 	out := render()
 	if out != "" {
-		ttyOut.WriteString(out)
+		stdout.WriteString(out)
 	}
 	elapsed += time.Since(start)
 	renders += 1
@@ -664,7 +650,7 @@ func handleSequence(seq ansi.Sequence) {
 			if len(seq.Intermediate) == 1 && seq.Intermediate[0] == '?' {
 				capabilities.kittyKeyboard = true
 				log.Info("Kitty Keyboard Protocol supported")
-				ttyOut.WriteString(tparm(kittyKBEnable, kittyKBFlags))
+				stdout.WriteString(tparm(kittyKBEnable, kittyKBFlags))
 				return
 			}
 		case '~':
@@ -785,40 +771,40 @@ func sendQueries() {
 		capabilities.rgb = true
 	}
 
-	ttyOut.WriteString(decset(alternateScreen))
-	ttyOut.WriteString(decrst(cursorVisibility))
-	ttyOut.WriteString(xtversion)
-	ttyOut.WriteString(kittyKBQuery)
-	ttyOut.WriteString(kittyGquery)
-	ttyOut.WriteString(sumQuery)
+	stdout.WriteString(decset(alternateScreen))
+	stdout.WriteString(decrst(cursorVisibility))
+	stdout.WriteString(xtversion)
+	stdout.WriteString(kittyKBQuery)
+	stdout.WriteString(kittyGquery)
+	stdout.WriteString(sumQuery)
 
-	ttyOut.WriteString(xtsmSixelGeom)
+	stdout.WriteString(xtsmSixelGeom)
 
 	capabilities.unicode = queryUnicodeSupport()
 
 	// Enable some modes
-	ttyOut.WriteString(decset(bracketedPaste)) // bracketed paste
-	ttyOut.WriteString(decset(cursorKeys))     // application cursor keys
-	ttyOut.WriteString(applicationMode)        // application cursor keys mode
-	ttyOut.WriteString(decset(mouseAllEvents))
-	ttyOut.WriteString(decset(mouseFocusEvents))
-	ttyOut.WriteString(decset(mouseSGR))
-	ttyOut.WriteString(clear)
+	stdout.WriteString(decset(bracketedPaste)) // bracketed paste
+	stdout.WriteString(decset(cursorKeys))     // application cursor keys
+	stdout.WriteString(applicationMode)        // application cursor keys mode
+	stdout.WriteString(decset(mouseAllEvents))
+	stdout.WriteString(decset(mouseFocusEvents))
+	stdout.WriteString(decset(mouseSGR))
+	stdout.WriteString(clear)
 
 	// Query some terminfo capabilities
 	// Just another way to see if we have RGB support
-	ttyOut.WriteString(xtgettcap("RGB"))
+	stdout.WriteString(xtgettcap("RGB"))
 	// We request Smulx to check for styled underlines. Technically, Smulx
 	// only means the terminal supports different underline types (curly,
 	// dashed, etc), but we'll assume the terminal also suppports underline
 	// colors (CSI 58 : ...)
-	ttyOut.WriteString(xtgettcap("Smulx"))
+	stdout.WriteString(xtgettcap("Smulx"))
 	// Need to send tertiary for VTE based terminals. These don't respond to
 	// XTGETTCAP
-	ttyOut.WriteString(tertiaryAttributes)
+	stdout.WriteString(tertiaryAttributes)
 	// Send Device Attributes is last. Everything responds, and when we get
 	// a response we'll return from init
-	ttyOut.WriteString(primaryAttributes)
+	stdout.WriteString(primaryAttributes)
 }
 
 func HideCursor() {
@@ -845,7 +831,7 @@ func showCursor() string {
 func CursorPosition() (col int, row int) {
 	// DSRCPR - reports cursor position
 	cursorPositionRequested = true
-	ttyOut.WriteString(dsrcpr)
+	stdout.WriteString(dsrcpr)
 	timeout := time.NewTimer(10 * time.Millisecond)
 	select {
 	case <-timeout.C:
@@ -880,7 +866,7 @@ func cursorStyle() string {
 // ClipboardPush copies the provided string to the system clipboard
 func ClipboardPush(s string) {
 	b64 := base64.StdEncoding.EncodeToString([]byte(s))
-	ttyOut.WriteString(tparm(osc52put, b64))
+	stdout.WriteString(tparm(osc52put, b64))
 }
 
 // ClipboardPop requests the content from the system clipboard. ClipboardPop works by
@@ -889,7 +875,7 @@ func ClipboardPush(s string) {
 // a context to set a deadline for this function to return. An error will be
 // returned if the context is cancelled.
 func ClipboardPop(ctx context.Context) (string, error) {
-	ttyOut.WriteString(osc52pop)
+	stdout.WriteString(osc52pop)
 	select {
 	case str := <-osc52Paste:
 		return str, nil
@@ -913,10 +899,10 @@ func advance(ch string) int {
 // that don't render this properly will report (probably) 4 cells of movement
 // (one for each emoji in the ZWJ sequence)
 func queryUnicodeSupport() bool {
-	ttyOut.WriteString(tparm(cup, 1, 1))
+	stdout.WriteString(tparm(cup, 1, 1))
 	test := "👩‍🚀"
 	originX, _ := CursorPosition()
-	ttyOut.WriteString(test)
+	stdout.WriteString(test)
 	newX, _ := CursorPosition()
 	if newX-originX > 2 {
 		return false
