@@ -931,6 +931,10 @@ func queryUnicodeSupport() bool {
 // RenderedWidth returns the rendered width of the provided string. The result
 // is dependent on if your terminal can support unicode properly. RenderedWidth
 // must be called after Init to ensure Unicode support has been detected.
+//
+// This is best effort. It will usually be correct, and in the few cases it's
+// wrong will end up wrong in the nicer-rendering way (complex emojis will have
+// extra space after them. This is preferable to messing up the internal model)
 func RenderedWidth(s string) int {
 	if capabilities.unicode {
 		return uniseg.StringWidth(s)
