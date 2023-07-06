@@ -901,6 +901,15 @@ func ClipboardPop(ctx context.Context) (string, error) {
 	}
 }
 
+// Notify (attempts) to send a system notification via OSC 9
+func Notify(s string) {
+	stdout.WriteString(tparm(notify, s))
+}
+
+func SetTitle(s string) {
+	stdout.WriteString(tparm(setTitle, s))
+}
+
 // advance returns the extra amount to advance the column by when rendering
 func advance(ch string) int {
 	w := RenderedWidth(ch) - 1

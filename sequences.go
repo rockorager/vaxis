@@ -34,6 +34,8 @@ const (
 	osc8End    = "\x1b]8;;\x1b\\"
 	osc52put   = "\x1b]52;c;%s\x1b\\"
 	osc52pop   = "\x1b]52;c;?\x1b\\"
+	notify     = "\x1b]9;%s\x1b\\"
+	setTitle   = "\x1b]2;%s\x1b\\"
 
 	// SGR
 	sgrReset           = "\x1b[m"
