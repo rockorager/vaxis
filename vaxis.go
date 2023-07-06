@@ -920,7 +920,10 @@ func RenderedWidth(s string) int {
 	}
 	w := 0
 	for _, r := range s {
-		w += uniseg.StringWidth((string(r)))
+		// Why runewidth here? uniseg differs from wcwidth a bit but is
+		// more accurate for terminals which support unicode. We use
+		// uniseg there, and runewidth here
+		w += runewidth.RuneWidth(r)
 	}
 	return w
 }
