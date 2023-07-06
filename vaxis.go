@@ -910,6 +910,10 @@ func SetTitle(s string) {
 	stdout.WriteString(tparm(setTitle, s))
 }
 
+func Bell() {
+	stdout.WriteString("\a")
+}
+
 // advance returns the extra amount to advance the column by when rendering
 func advance(ch string) int {
 	w := RenderedWidth(ch) - 1
