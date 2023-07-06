@@ -16,4 +16,3 @@ func reportWinsize() {
 	}
 	PostMsg(winsize)
 }
-}
