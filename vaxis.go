@@ -14,6 +14,7 @@ import (
 
 	"git.sr.ht/~rockorager/vaxis/ansi"
 	"github.com/containerd/console"
+	"github.com/mattn/go-runewidth"
 	"github.com/rivo/uniseg"
 	"golang.org/x/exp/slog"
 )
@@ -358,7 +359,15 @@ func render() string {
 				reposition = true
 				// Advance the column by the width of this
 				// character
-				col += advance(next.Character)
+				skip := advance(next.Character)
+				for i := 1; i < skip+1; i += 1 {
+					if col+i >= len(stdScreen.buf[row]) {
+						break
+					}
+					// null out any cells we end up skipping
+					lastRender.buf[row][col+i] = Cell{}
+				}
+				col += skip
 				continue
 			}
 			if renderBuf.Len() == 0 {
@@ -542,7 +551,15 @@ func render() string {
 			renderBuf.WriteString(next.Character)
 			// Advance the column by the width of this
 			// character
-			col += advance(next.Character)
+			skip := advance(next.Character)
+			for i := 1; i < skip+1; i += 1 {
+				if col+i >= len(stdScreen.buf[row]) {
+					break
+				}
+				// null out any cells we end up skipping
+				lastRender.buf[row][col+i] = Cell{}
+			}
+			col += skip
 		}
 	}
 	if renderBuf.Len() != 0 {

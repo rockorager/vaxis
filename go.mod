@@ -5,6 +5,7 @@ go 1.20
 require (
 	github.com/containerd/console v1.0.3
 	github.com/creack/pty v1.1.18
+	github.com/mattn/go-runewidth v0.0.14
 	github.com/mattn/go-sixel v0.0.5
 	github.com/rivo/uniseg v0.4.4
 	github.com/stretchr/testify v1.8.3

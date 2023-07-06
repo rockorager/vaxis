@@ -76,13 +76,12 @@ func PrintSegments(win Window, segs ...Segment) (maxWidth int, col int, row int)
 	cols, rows := win.Size()
 	for _, seg := range segs {
 		var (
-			b              = []byte(seg.Text)
-			state      int = -1
-			boundaries int
-			cluster    []byte
+			b           = []byte(seg.Text)
+			state   int = -1
+			cluster []byte
 		)
 		for len(b) > 0 {
-			cluster, b, boundaries, state = uniseg.Step(b, state)
+			cluster, b, _, state = uniseg.Step(b, state)
 			if row > rows {
 				break
 			}
@@ -105,12 +104,7 @@ func PrintSegments(win Window, segs ...Segment) (maxWidth int, col int, row int)
 				HyperlinkID:    seg.HyperlinkID,
 			})
 
-			switch capabilities.unicode {
-			case true:
-				col += boundaries >> uniseg.ShiftWidth
-			case false:
-				col += RenderedWidth(string(cluster))
-			}
+			col += RenderedWidth(string(cluster))
 			if col+nextBreak(b) > cols {
 				if col > maxWidth {
 					maxWidth = col
