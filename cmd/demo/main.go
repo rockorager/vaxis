@@ -122,6 +122,14 @@ func (m *model) Draw(win vaxis.Window) {
 				Text:       "<Left> previous slide\n",
 				Attributes: vaxis.AttrDim,
 			},
+			{
+				Text:       "Ascension Islang flag: 🇦🇨inline\n",
+				Attributes: vaxis.AttrDim,
+			},
+			{
+				Text:       "Family: 👨‍👩‍👧‍👦inline\n",
+				Attributes: vaxis.AttrDim,
+			},
 		}
 		vaxis.PrintSegments(align.Center(win, 36, len(blocks)+1), blocks...)
 	default:

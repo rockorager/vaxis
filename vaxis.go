@@ -356,7 +356,7 @@ func render() string {
 		lastGraphicPlacements[id] = p
 	}
 	for row := range stdScreen.buf {
-		for col := range stdScreen.buf[row] {
+		for col := 0; col < len(stdScreen.buf[row]); col += 1 {
 			next := stdScreen.buf[row][col]
 			if next.sixel {
 				lastRender.buf[row][col].sixel = true
@@ -365,6 +365,9 @@ func render() string {
 			}
 			if next == lastRender.buf[row][col] && !refresh {
 				reposition = true
+				// Advance the column by the width of this
+				// character
+				col += advance(next.Character)
 				continue
 			}
 			if renderBuf.Len() == 0 {
@@ -546,6 +549,9 @@ func render() string {
 				}
 			}
 			renderBuf.WriteString(next.Character)
+			// Advance the column by the width of this
+			// character
+			col += advance(next.Character)
 		}
 	}
 	if renderBuf.Len() != 0 {
@@ -883,4 +889,13 @@ func ClipboardPop(ctx context.Context) (string, error) {
 	case <-ctx.Done():
 		return "", ctx.Err()
 	}
+}
+
+// advance returns the extra amount to advance the column by when rendering
+func advance(ch string) int {
+	w := uniseg.StringWidth(ch) - 1
+	if w < 0 {
+		return 0
+	}
+	return w
 }
