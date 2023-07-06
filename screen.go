@@ -26,15 +26,16 @@ func (s *screen) resize(cols int, rows int) {
 }
 
 // Set a cell at col, row
-func (s *screen) setCell(col int, row int, cell Cell) {
+func (s *screen) setCell(col int, row int, cell Cell) int {
 	if col < 0 || row < 0 {
-		return
+		return 0
 	}
 	if col >= s.cols {
-		return
+		return 0
 	}
 	if row >= s.rows {
-		return
+		return 0
 	}
 	s.buf[row][col] = cell
+	return RenderedWidth(cell.Character)
 }

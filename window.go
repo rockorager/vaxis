@@ -42,7 +42,8 @@ func Print(win Window, text string) (maxWidth int, col int, row int) {
 			row += 1
 			continue
 		}
-		w := uniseg.StringWidth(char)
+		w := RenderedWidth(char)
+		// w := uniseg.StringWidth(char)
 		if col+w > cols {
 			if col > maxWidth {
 				maxWidth = col
@@ -104,7 +105,12 @@ func PrintSegments(win Window, segs ...Segment) (maxWidth int, col int, row int)
 				HyperlinkID:    seg.HyperlinkID,
 			})
 
-			col += boundaries >> uniseg.ShiftWidth
+			switch capabilities.unicode {
+			case true:
+				col += boundaries >> uniseg.ShiftWidth
+			case false:
+				col += RenderedWidth(string(cluster))
+			}
 			if col+nextBreak(b) > cols {
 				if col > maxWidth {
 					maxWidth = col
@@ -200,22 +206,22 @@ func (win Window) Size() (width int, height int) {
 // SetCell is used to place data at the given cell location.  Note that since
 // the Window doesn't retain this data, if the location is outside of the
 // visible area, it is simply discarded.
-func (win Window) SetCell(col int, row int, cell Cell) {
+func (win Window) SetCell(col int, row int, cell Cell) int {
 	cols, rows := win.Size()
 	if cols == 0 || rows == 0 {
-		return
+		return 0
 	}
 	if col >= cols {
-		return
+		return 0
 	}
 	if row >= rows {
-		return
+		return 0
 	}
 	switch {
 	case win.Parent == nil:
-		stdScreen.setCell(col+win.Column, row+win.Row, cell)
+		return stdScreen.setCell(col+win.Column, row+win.Row, cell)
 	default:
-		win.Parent.SetCell(col+win.Column, row+win.Row, cell)
+		return win.Parent.SetCell(col+win.Column, row+win.Row, cell)
 	}
 }
 

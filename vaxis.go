@@ -62,6 +62,9 @@ var (
 		kittyKeyboard      bool
 		styledUnderlines   bool
 		sixels             bool
+		// unicode refers to rendering complex unicode graphemes
+		// properly.
+		unicode bool
 	}
 	winsize Resize
 
@@ -145,8 +148,9 @@ func Init(opts Options) error {
 	chSIGWINCH := device.SIGWINCH()
 
 	reportWinsize()
+	stdScreen.resize(winsize.Cols, winsize.Rows)
+	lastRender.resize(winsize.Cols, winsize.Rows)
 	deviceAttributesReceived = make(chan struct{})
-	sendQueries()
 
 	go func() {
 		for {
@@ -165,6 +169,7 @@ func Init(opts Options) error {
 			}
 		}
 	}()
+	sendQueries()
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -789,6 +794,8 @@ func sendQueries() {
 
 	ttyOut.WriteString(xtsmSixelGeom)
 
+	capabilities.unicode = queryUnicodeSupport()
+
 	// Enable some modes
 	ttyOut.WriteString(decset(bracketedPaste)) // bracketed paste
 	ttyOut.WriteString(decset(cursorKeys))     // application cursor keys
@@ -893,9 +900,41 @@ func ClipboardPop(ctx context.Context) (string, error) {
 
 // advance returns the extra amount to advance the column by when rendering
 func advance(ch string) int {
-	w := uniseg.StringWidth(ch) - 1
+	w := RenderedWidth(ch) - 1
 	if w < 0 {
 		return 0
+	}
+	return w
+}
+
+// Determines if our terminal knows about unicode. The test string should
+// produce an emoji that is ~1.5 cells wide. Terminals that properly render this
+// will report that their cursor has moved forward by 2 total cells. Terminals
+// that don't render this properly will report (probably) 4 cells of movement
+// (one for each emoji in the ZWJ sequence)
+func queryUnicodeSupport() bool {
+	ttyOut.WriteString(tparm(cup, 1, 1))
+	test := "👩‍🚀"
+	originX, _ := CursorPosition()
+	ttyOut.WriteString(test)
+	newX, _ := CursorPosition()
+	if newX-originX > 2 {
+		return false
+	}
+	log.Info("Unicode supported")
+	return true
+}
+
+// RenderedWidth returns the rendered width of the provided string. The result
+// is dependent on if your terminal can support unicode properly. RenderedWidth
+// must be called after Init to ensure Unicode support has been detected.
+func RenderedWidth(s string) int {
+	if capabilities.unicode {
+		return uniseg.StringWidth(s)
+	}
+	w := 0
+	for _, r := range s {
+		w += uniseg.StringWidth((string(r)))
 	}
 	return w
 }

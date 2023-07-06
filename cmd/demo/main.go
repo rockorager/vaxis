@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"git.sr.ht/~rockorager/vaxis"
@@ -98,7 +99,7 @@ func (m *model) Update(msg vaxis.Msg) {
 func (m *model) Draw(win vaxis.Window) {
 	vaxis.Clear(win)
 	vaxis.HideCursor()
-	_, rows := win.Size()
+	cols, rows := win.Size()
 	mid := fmt.Sprintf("%d of %d", m.current+1, 1+len(m.slides))
 	w := uniseg.StringWidth(mid)
 	vaxis.Print(align.BottomRight(win, w, 1), mid)
@@ -106,6 +107,10 @@ func (m *model) Draw(win vaxis.Window) {
 	vaxis.Print(align.BottomMiddle(win, w, 1), m.keys)
 	switch m.current {
 	case 0:
+		family := "👨‍👩‍👧‍👦"
+		w := vaxis.RenderedWidth(family)
+		vaxis.Print(win, family+strings.Repeat("-", cols-w))
+
 		blocks := []vaxis.Segment{
 			{
 				Text: "vaxis\n\n",
