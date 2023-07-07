@@ -97,7 +97,7 @@ func PrintSegments(win Window, segs ...Segment) (maxWidth int, col int, row int)
 				Character:      string(cluster),
 				Foreground:     seg.Foreground,
 				Background:     seg.Background,
-				Underline:      seg.Underline,
+				UnderlineColor:      seg.Underline,
 				UnderlineStyle: seg.UnderlineStyle,
 				Attribute:      seg.Attributes,
 				Hyperlink:      seg.Hyperlink,

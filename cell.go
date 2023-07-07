@@ -4,7 +4,7 @@ type Cell struct {
 	Character      string // Extended Grapheme Cluster
 	Foreground     Color
 	Background     Color
-	Underline      Color
+	UnderlineColor Color
 	UnderlineStyle UnderlineStyle
 	Attribute      AttributeMask
 	Hyperlink      string

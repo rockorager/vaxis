@@ -27,11 +27,12 @@ func PollMsg() Msg {
 	return m
 }
 
-// Msgs provides access to the channel of Msgs
-func Msgs() chan Msg {
+// MsgChannel provides access to the channel of MsgChannel
+func MsgChannel() chan Msg {
 	return msgs.Chan()
 }
 
+// FuncMsg is a Msg which calls Func from the main event loop
 type FuncMsg struct {
 	Func func()
 }
@@ -65,4 +66,6 @@ type DrawModelMsg struct {
 	Window Window
 }
 
+// Visible is a Msg which tells any given widget it's visibility state. This is
+// used by some provided widgets, and also provided as a helper
 type Visible bool

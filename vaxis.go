@@ -115,6 +115,12 @@ type Options struct {
 	Framerate uint
 }
 
+// Init sets up all internal data structures, queries the terminal for feature
+// support, and enters the alternate screen.
+//
+// Terminals *must* respond to Primary Device Attributes queries for this
+// function to return error free. A timeout is implemented, and if a terminal
+// does not respond in less than 3 seconds an error will be returned.
 func Init(opts Options) error {
 	// Let's give some deadline for our queries responding. If they don't,
 	// it means the terminal doesn't respond to Primary Device Attributes
@@ -238,6 +244,8 @@ func Run(model Model) error {
 	}
 }
 
+// Close shuts down the event loops and returns the terminal to it's original
+// state
 func Close() {
 	close(chQuit)
 	stdout.WriteString(decset(cursorVisibility)) // show the cursor
@@ -263,7 +271,7 @@ func Close() {
 	}
 }
 
-// Render the surface's content to the terminal
+// Render renders the model's content to the terminal
 func Render() {
 	start := time.Now()
 	defer renderBuf.Reset()
@@ -276,7 +284,8 @@ func Render() {
 	refresh = false
 }
 
-// Refresh forces a full render of the entire screen
+// Refresh forces a full render of the entire screen. Traditionally, this should
+// be bound to Ctrl+l
 func Refresh() {
 	refresh = true
 	Render()
@@ -424,8 +433,8 @@ func render() string {
 			}
 
 			if capabilities.styledUnderlines {
-				if ul != next.Underline {
-					ul = next.Underline
+				if ul != next.UnderlineColor {
+					ul = next.UnderlineColor
 					ps := ul.Params()
 					if !capabilities.rgb {
 						ps = ul.AsIndex().Params()
@@ -815,10 +824,13 @@ func sendQueries() {
 	stdout.WriteString(primaryAttributes)
 }
 
+// HideCursor hides the hardware cursor
 func HideCursor() {
 	cursor.visible = false
 }
 
+// ShowCursor shows the cursor at the given colxrow, with the given style. The
+// passed column and row are 0-indexed and global
 func ShowCursor(col int, row int, style CursorStyle) {
 	cursor.style = style
 	cursor.col = col
@@ -897,10 +909,12 @@ func Notify(s string) {
 	stdout.WriteString(tparm(notify, s))
 }
 
+// SetTitle sets the terminal's title via OSC 2
 func SetTitle(s string) {
 	stdout.WriteString(tparm(setTitle, s))
 }
 
+// Bell sends a BEL control signal to the terminal
 func Bell() {
 	stdout.WriteString("\a")
 }
