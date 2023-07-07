@@ -4,6 +4,7 @@ package vaxis
 // hello
 type Msg interface{}
 
+// PostMsg posts a Msg into the main event loop
 func PostMsg(msg Msg) {
 	if msg == nil {
 		return
