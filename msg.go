@@ -11,6 +11,30 @@ func PostMsg(msg Msg) {
 	msgs.push(msg)
 }
 
+// PollMsg returns the next Msg. When a QuitMsg is received, all input processing
+// will cease.
+func PollMsg() Msg {
+	var m Msg
+	for msg := range msgs.ch {
+		switch msg := msg.(type) {
+		case QuitMsg:
+			close(chQuit)
+			return msg
+		case Resize:
+			stdScreen.resize(msg.Cols, msg.Rows)
+			lastRender.resize(msg.Cols, msg.Rows)
+		}
+		m = msg
+		break
+	}
+	return m
+}
+
+// Msgs provides access to the channel of Msgs
+func Msgs() chan Msg {
+	return msgs.Chan()
+}
+
 type FuncMsg struct {
 	Func func()
 }
