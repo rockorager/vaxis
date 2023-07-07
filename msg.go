@@ -12,15 +12,11 @@ func PostMsg(msg Msg) {
 	msgs.push(msg)
 }
 
-// PollMsg returns the next Msg. When a QuitMsg is received, all input processing
-// will cease.
+// PollMsg returns the next Msg
 func PollMsg() Msg {
 	var m Msg
 	for msg := range msgs.ch {
 		switch msg := msg.(type) {
-		case QuitMsg:
-			close(chQuit)
-			return msg
 		case Resize:
 			stdScreen.resize(msg.Cols, msg.Rows)
 			lastRender.resize(msg.Cols, msg.Rows)
@@ -42,9 +38,6 @@ type FuncMsg struct {
 
 // InitMsg will always be the first Msg delivered
 type InitMsg struct{}
-
-// QuitMsg is delivered whenever the application is about to close
-type QuitMsg struct{}
 
 // Resize is delivered whenever a window size change is detected (likely via
 // SIGWINCH)

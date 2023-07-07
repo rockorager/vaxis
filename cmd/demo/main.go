@@ -59,7 +59,7 @@ func (m *model) Update(msg vaxis.Msg) {
 		})
 		switch msg.String() {
 		case "Ctrl+c":
-			vaxis.Quit()
+			vaxis.Close()
 		case "Ctrl+l":
 			vaxis.Refresh()
 		case "Right":

@@ -83,7 +83,8 @@ var (
 	renders int
 	elapsed time.Duration
 
-	imgBuf *bytes.Buffer
+	imgBuf    *bytes.Buffer
+	framerate uint
 )
 
 // Converts a string into a slice of Characters suitable to assign to terminal cells
@@ -108,6 +109,10 @@ type Options struct {
 	// ReportKeyboardEvents will report key release and key repeat events if
 	// KittyKeyboardProtocol is enabled and supported by the terminal
 	ReportKeyboardEvents bool
+	// Framerate is the framerate (in frames per second) to render at in the
+	// event loop. Default is 120 FPS. If using the PollMsg for a custom
+	// event loop, this value is unused
+	Framerate uint
 }
 
 func Init(opts Options) error {
@@ -128,6 +133,12 @@ func Init(opts Options) error {
 	}
 	if opts.ReportKeyboardEvents {
 		kittyKBFlags += 2
+	}
+	switch opts.Framerate {
+	case 0:
+		framerate = 120
+	default:
+		framerate = opts.Framerate
 	}
 
 	// Rendering
@@ -193,41 +204,42 @@ func Init(opts Options) error {
 // Run operates an event loop for the provided Model. Users of the Run loop
 // don't need to explicitly render, the loop will render every event
 func Run(model Model) error {
-	for msg := range msgs.ch {
-		win := Window{}
-		switch msg := msg.(type) {
-		case QuitMsg:
-			close(chQuit)
-			model.Update(msg)
-			Close()
+	dur := time.Duration((float64(1) / float64(framerate)) * float64(time.Second))
+	tick := time.NewTicker(dur)
+	updated := false
+	for {
+		select {
+		case <-chQuit:
 			return nil
-		case Resize:
-			stdScreen.resize(msg.Cols, msg.Rows)
-			lastRender.resize(msg.Cols, msg.Rows)
-			model.Update(msg)
-			model.Draw(win)
-		case SendMsg:
-			msg.Model.Update(msg.Msg)
-			model.Draw(win)
-		case FuncMsg:
-			msg.Func()
-			model.Draw(win)
-		case DrawModelMsg:
-			msg.Model.Draw(msg.Window)
-		default:
-			model.Update(msg)
-			model.Draw(win)
+		case <-tick.C:
+			if !updated {
+				continue
+			}
+			model.Draw(Window{})
+			Render()
+			updated = false
+		case msg := <-msgs.ch:
+			updated = true
+			switch msg := msg.(type) {
+			case Resize:
+				stdScreen.resize(msg.Cols, msg.Rows)
+				lastRender.resize(msg.Cols, msg.Rows)
+			case SendMsg:
+				msg.Model.Update(msg.Msg)
+			case FuncMsg:
+				msg.Func()
+			case DrawModelMsg:
+				msg.Model.Draw(msg.Window)
+				Render()
+			default:
+				model.Update(msg)
+			}
 		}
-		Render()
 	}
-	return nil
-}
-
-func Quit() {
-	PostMsg(QuitMsg{})
 }
 
 func Close() {
+	close(chQuit)
 	stdout.WriteString(decset(cursorVisibility)) // show the cursor
 	stdout.WriteString(sgrReset)                 // reset fg, bg, attrs
 	stdout.WriteString(clear)
