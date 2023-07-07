@@ -107,7 +107,7 @@ func (m *model) Draw(win vaxis.Window) {
 	vaxis.Print(align.BottomMiddle(win, w, 1), m.keys)
 	switch m.current {
 	case 0:
-		family := "👨‍👩‍👧‍👦"
+		family := "👨‍👩‍👧‍👦👩‍🚀"
 		w := vaxis.RenderedWidth(family)
 		vaxis.Print(win, family+strings.Repeat("-", cols-w))
 
