@@ -396,6 +396,9 @@ func render() string {
 			if fg != next.Foreground {
 				fg = next.Foreground
 				ps := fg.Params()
+				if !capabilities.rgb {
+					ps = fg.AsIndex().Params()
+				}
 				switch len(ps) {
 				case 0:
 					renderBuf.WriteString(fgReset)
@@ -418,6 +421,9 @@ func render() string {
 			if bg != next.Background {
 				bg = next.Background
 				ps := bg.Params()
+				if !capabilities.rgb {
+					ps = bg.AsIndex().Params()
+				}
 				switch len(ps) {
 				case 0:
 					renderBuf.WriteString(bgReset)
@@ -438,7 +444,10 @@ func render() string {
 			if capabilities.styledUnderlines {
 				if ul != next.Underline {
 					ul = next.Underline
-					ps := bg.Params()
+					ps := ul.Params()
+					if !capabilities.rgb {
+						ps = ul.AsIndex().Params()
+					}
 					switch len(ps) {
 					case 0:
 						renderBuf.WriteString(ulColorReset)
