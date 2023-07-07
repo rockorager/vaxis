@@ -195,9 +195,6 @@ func Init(opts Options) error {
 func PollMsg() Msg {
 	var m Msg
 	for msg := range msgs.ch {
-		if msg == nil {
-			continue
-		}
 		switch msg := msg.(type) {
 		case QuitMsg:
 			close(chQuit)
@@ -221,9 +218,6 @@ func Msgs() chan Msg {
 // don't need to explicitly render, the loop will render every event
 func Run(model Model) error {
 	for msg := range msgs.ch {
-		if msg == nil {
-			continue
-		}
 		win := Window{}
 		switch msg := msg.(type) {
 		case QuitMsg:

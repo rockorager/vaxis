@@ -5,6 +5,9 @@ package vaxis
 type Msg interface{}
 
 func PostMsg(msg Msg) {
+	if msg == nil {
+		return
+	}
 	msgs.push(msg)
 }
 
