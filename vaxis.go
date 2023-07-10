@@ -83,7 +83,6 @@ var (
 	renders int
 	elapsed time.Duration
 
-	imgBuf    *bytes.Buffer
 	framerate uint
 )
 
