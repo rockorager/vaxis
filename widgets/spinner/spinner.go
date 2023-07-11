@@ -44,16 +44,16 @@ func (m *Model) Update(msg vaxis.Msg) {
 }
 
 func (m *Model) Draw(w vaxis.Window) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.win = w
 	if m.spinning {
-		m.mu.Lock()
 		w.SetCell(0, 0, vaxis.Cell{
 			Character:  string(m.Frames[m.frame]),
 			Foreground: m.Foreground,
 			Background: m.Background,
 			Attribute:  m.Attribute,
 		})
-		m.mu.Unlock()
 	}
 }
 
@@ -87,11 +87,11 @@ func (m *Model) start() {
 			case <-ticker.C:
 				m.mu.Lock()
 				m.frame = (m.frame + 1) % len(m.Frames)
-				m.mu.Unlock()
 				vaxis.PostMsg(vaxis.DrawModelMsg{
 					Model:  m,
 					Window: m.win,
 				})
+				m.mu.Unlock()
 			}
 		}
 	}()
