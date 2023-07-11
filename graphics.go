@@ -73,7 +73,7 @@ func NewGraphic(img image.Image) (*Graphic, error) {
 			}
 			stdout.WriteString(fmt.Sprintf("\x1B_Gf=100,i=%d,m=%d;%s\x1B\\", g.id, m, string(b[:n])))
 		}
-		g.placement = fmt.Sprintf("\x1B_Ga=p,i=%d\x1B\\", g.id)
+		g.placement = fmt.Sprintf("\x1B_GC=1,a=p,i=%d\x1B\\", g.id)
 	default:
 		return nil, fmt.Errorf("no graphics protocol supported")
 	}

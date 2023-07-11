@@ -94,6 +94,7 @@ const (
 	alternateScreen    = 1049
 	bracketedPaste     = 2004
 	synchronizedUpdate = 2026
+	sixelScrolling     = 8452
 )
 
 func decset(mode int) string {

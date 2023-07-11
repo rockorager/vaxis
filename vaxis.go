@@ -258,6 +258,7 @@ func Close() {
 	stdout.WriteString(decrst(mouseAllEvents))
 	stdout.WriteString(decrst(mouseFocusEvents))
 	stdout.WriteString(decrst(mouseSGR))
+	stdout.WriteString(decrst(sixelScrolling))
 
 	stdout.WriteString(decrst(alternateScreen))
 
@@ -787,6 +788,7 @@ func sendQueries() {
 	}
 
 	stdout.WriteString(decset(alternateScreen))
+	stdout.WriteString(decset(sixelScrolling))
 	stdout.WriteString(decrst(cursorVisibility))
 	stdout.WriteString(xtversion)
 	stdout.WriteString(kittyKBQuery)
