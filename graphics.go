@@ -208,8 +208,8 @@ func ResizeGraphic(img image.Image, w int, h int) image.Image {
 	// Looks complicated but we're just calculating the size of the
 	// image in cells, and rounding up since we will always take
 	// over any cell we bleed into.
-	columns := math.Ceil(float64(pixelWidth) * float64(winsize.Cols) / float64(winsize.XPixel))
-	lines := math.Ceil(float64(pixelHeight) * float64(winsize.Rows) / float64(winsize.YPixel))
+	columns := float64(pixelWidth) * float64(winsize.Cols) / float64(winsize.XPixel)
+	lines := float64(pixelHeight) * float64(winsize.Rows) / float64(winsize.YPixel)
 	if columns <= float64(w) && lines <= float64(h) {
 		return img
 	}
@@ -225,7 +225,7 @@ func ResizeGraphic(img image.Image, w int, h int) image.Image {
 		// appropriately
 		newPixelWidth = int(sfX * float64(pixelWidth))
 		newPixelHeight = int(sfX * float64(pixelHeight))
-	case sfX >  sfY:
+	case sfX > sfY:
 		newPixelWidth = int(sfY * float64(pixelWidth))
 		newPixelHeight = int(sfY * float64(pixelHeight))
 	}
