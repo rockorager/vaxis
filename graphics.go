@@ -11,6 +11,7 @@ import (
 	"strconv"
 
 	"github.com/mattn/go-sixel"
+	"golang.org/x/image/draw"
 )
 
 var (
@@ -197,4 +198,38 @@ func (p *placement) draw() string {
 		return fmt.Sprintf("\x1B_Ga=p,i=%d,p=%d\x1B\\", p.graphic.id, id)
 	}
 	return p.graphic.placement
+}
+
+// Resizes an image to fit within the provided rectangle (as cells). If the
+// image already fits, it won't be resized
+func ResizeGraphic(img image.Image, w int, h int) image.Image {
+	pixelWidth := img.Bounds().Max.X
+	pixelHeight := img.Bounds().Max.Y
+	// Looks complicated but we're just calculating the size of the
+	// image in cells, and rounding up since we will always take
+	// over any cell we bleed into.
+	columns := math.Ceil(float64(pixelWidth) * float64(winsize.Cols) / float64(winsize.XPixel))
+	lines := math.Ceil(float64(pixelHeight) * float64(winsize.Rows) / float64(winsize.YPixel))
+	if columns <= float64(w) && lines <= float64(h) {
+		return img
+	}
+	sfX := float64(w) / columns
+	sfY := float64(h) / lines
+	newPixelWidth := pixelWidth
+	newPixelHeight := pixelHeight
+	switch {
+	case sfX == sfY:
+		// no-op
+	case sfX < sfY:
+		// Width is farther off, so set our new width to w and scale h
+		// appropriately
+		newPixelWidth = int(sfX * float64(pixelWidth))
+		newPixelHeight = int(sfX * float64(pixelHeight))
+	case sfX >  sfY:
+		newPixelWidth = int(sfY * float64(pixelWidth))
+		newPixelHeight = int(sfY * float64(pixelHeight))
+	}
+	dst := image.NewRGBA(image.Rect(0, 0, newPixelWidth, newPixelHeight))
+	draw.NearestNeighbor.Scale(dst, dst.Rect, img, img.Bounds(), draw.Over, nil)
+	return dst
 }
