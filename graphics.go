@@ -177,7 +177,7 @@ func (p *placement) lockRegion() {
 				continue
 			}
 			for col := p.col; col < (p.col + w); col += 1 {
-				if row >= len(stdScreen.buf[0]) {
+				if col >= len(stdScreen.buf[0]) {
 					continue
 				}
 				stdScreen.buf[row][col].sixel = true
