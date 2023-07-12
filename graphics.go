@@ -71,7 +71,7 @@ func NewGraphic(img image.Image) (*Graphic, error) {
 			if buf.Len() == 0 {
 				m = 0
 			}
-			stdout.WriteString(fmt.Sprintf("\x1B_Gf=100,i=%d,m=%d;%s\x1B\\", g.id, m, string(b[:n])))
+			fmt.Fprintf(stdout, "\x1B_Gf=100,i=%d,m=%d;%s\x1B\\", g.id, m, string(b[:n]))
 		}
 		g.placement = fmt.Sprintf("\x1B_GC=1,a=p,i=%d\x1B\\", g.id)
 	default:
