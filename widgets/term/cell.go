@@ -5,9 +5,9 @@ import (
 )
 
 type cell struct {
-	content   rune
 	combining []rune
 	width     int
+	content   rune
 	fg        vaxis.Color
 	bg        vaxis.Color
 	attrs     vaxis.AttributeMask

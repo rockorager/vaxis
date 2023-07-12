@@ -64,10 +64,10 @@ type Model struct {
 }
 
 type cursorState struct {
+	charsets charsets
 	cursor   cursor
 	decawm   bool
 	decom    bool
-	charsets charsets
 }
 
 type margin struct {

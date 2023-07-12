@@ -924,8 +924,8 @@ func (seq C0) String() string {
 
 // An escape sequence with intermediate characters
 type ESC struct {
-	Final        rune
 	Intermediate []rune
+	Final        rune
 }
 
 func (seq ESC) String() string {
@@ -948,9 +948,9 @@ func (seq SS3) String() string {
 
 // A CSI Sequence
 type CSI struct {
-	Final        rune
 	Intermediate []rune
 	Parameters   [][]int
+	Final        rune
 }
 
 func (seq CSI) String() string {

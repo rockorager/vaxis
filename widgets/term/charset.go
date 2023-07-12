@@ -8,9 +8,9 @@ const (
 )
 
 type charsets struct {
+	designations map[charsetDesignator]charset
 	selected     charsetDesignator
 	saved        charsetDesignator
-	designations map[charsetDesignator]charset
 	singleShift  bool
 }
 

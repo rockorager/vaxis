@@ -12,11 +12,12 @@ import (
 	"syscall"
 	"time"
 
-	"git.sr.ht/~rockorager/vaxis/ansi"
 	"github.com/containerd/console"
 	"github.com/mattn/go-runewidth"
 	"github.com/rivo/uniseg"
 	"golang.org/x/exp/slog"
+
+	"git.sr.ht/~rockorager/vaxis/ansi"
 )
 
 var (
