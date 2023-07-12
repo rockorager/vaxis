@@ -27,10 +27,10 @@ const (
 )
 
 type Graphic struct {
-	id          uint64
+	placement   string
 	pixelWidth  int
 	pixelHeight int
-	placement   string
+	id          uint64
 }
 
 // NewGraphic loads a graphic into memory. Depending on the terminal
