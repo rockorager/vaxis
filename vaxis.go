@@ -395,16 +395,14 @@ func render() string {
 				case 1:
 					switch {
 					case ps[0] < 8:
-						renderBuf.WriteString(fmt.Sprintf(fgSet, ps[0]))
+						fmt.Fprintf(renderBuf, fgSet, ps[0])
 					case ps[0] < 16:
-						renderBuf.WriteString(fmt.Sprintf(fgBrightSet, ps[0]-8))
+						fmt.Fprintf(renderBuf, fgBrightSet, ps[0]-8)
 					default:
-						renderBuf.WriteString(fmt.Sprintf(fgIndexSet, ps[0]))
+						fmt.Fprintf(renderBuf, fgIndexSet, ps[0])
 					}
 				case 3:
-					out := fmt.Sprintf(fgRGBSet, ps[0], ps[1], ps[2])
-					out = strings.TrimPrefix(out, "\x1b")
-					renderBuf.WriteString(fmt.Sprintf(fgRGBSet, ps[0], ps[1], ps[2]))
+					fmt.Fprintf(renderBuf, fgRGBSet, ps[0], ps[1], ps[2])
 				}
 			}
 
@@ -420,14 +418,14 @@ func render() string {
 				case 1:
 					switch {
 					case ps[0] < 8:
-						renderBuf.WriteString(fmt.Sprintf(bgSet, ps[0]))
+						fmt.Fprintf(renderBuf, bgSet, ps[0])
 					case ps[0] < 16:
-						renderBuf.WriteString(fmt.Sprintf(bgBrightSet, ps[0]-8))
+						fmt.Fprintf(renderBuf, bgBrightSet, ps[0]-8)
 					default:
-						renderBuf.WriteString(fmt.Sprintf(bgIndexSet, ps[0]))
+						fmt.Fprintf(renderBuf, bgIndexSet, ps[0])
 					}
 				case 3:
-					renderBuf.WriteString(fmt.Sprintf(bgRGBSet, ps[0], ps[1], ps[2]))
+					fmt.Fprintf(renderBuf, bgRGBSet, ps[0], ps[1], ps[2])
 				}
 			}
 
@@ -442,9 +440,9 @@ func render() string {
 					case 0:
 						renderBuf.WriteString(ulColorReset)
 					case 1:
-						renderBuf.WriteString(fmt.Sprintf(ulIndexSet, ps[0]))
+						fmt.Fprintf(renderBuf, ulIndexSet, ps[0])
 					case 3:
-						renderBuf.WriteString(fmt.Sprintf(ulRGBSet, ps[0], ps[1], ps[2]))
+						fmt.Fprintf(renderBuf, ulRGBSet, ps[0], ps[1], ps[2])
 					}
 				}
 			}
@@ -771,7 +769,8 @@ func handleSequence(seq ansi.Sequence) {
 				log.Error("couldn't decode OSC 52", "error", err)
 				return
 			}
-			ctx, _ := context.WithTimeout(context.Background(), 10*time.Millisecond)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+			defer cancel()
 			select {
 			case osc52Paste <- string(b):
 			case <-ctx.Done():
