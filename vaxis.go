@@ -125,6 +125,7 @@ func Init(opts Options) error {
 	// it means the terminal doesn't respond to Primary Device Attributes
 	// and that is a problem
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
 	stdout = os.Stdout
 	stdin = os.Stdin
 	con = console.Current()
@@ -195,7 +196,6 @@ func Init(opts Options) error {
 	case <-deviceAttributesReceived:
 		close(deviceAttributesReceived)
 		initialized = true
-		cancel()
 	}
 
 	// Disable features based on options. We've already received all of our
