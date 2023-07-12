@@ -113,7 +113,6 @@ func (g Graphic) Draw(win Window) {
 		return
 	}
 	nextGraphicPlacements[id] = placement
-	return
 }
 
 // Delete removes the graphic from memory

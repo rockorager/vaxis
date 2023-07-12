@@ -1,15 +1,14 @@
 package vaxis
 
 type Cell struct {
-	Character      string // Extended Grapheme Cluster
+	Character      string // EGC
+	Hyperlink      string
+	HyperlinkID    string
 	Foreground     Color
 	Background     Color
 	UnderlineColor Color
 	UnderlineStyle UnderlineStyle
 	Attribute      AttributeMask
-	Hyperlink      string
-	HyperlinkID    string
-
 	// sixel marks if this cell has had a sixel graphic drawn on it.
 	// If true, it won't be drawn in the render cycle.
 	sixel bool

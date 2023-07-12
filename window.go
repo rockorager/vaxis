@@ -59,13 +59,13 @@ func Print(win Window, text string) (maxWidth int, col int, row int) {
 
 type Segment struct {
 	Text           string
+	Hyperlink      string
+	HyperlinkID    string
 	Foreground     Color
 	Background     Color
 	Underline      Color
 	UnderlineStyle UnderlineStyle
 	Attributes     AttributeMask
-	Hyperlink      string
-	HyperlinkID    string
 }
 
 // PrintSegments prints Segments of text, with each block having a given style.
@@ -76,8 +76,8 @@ func PrintSegments(win Window, segs ...Segment) (maxWidth int, col int, row int)
 	cols, rows := win.Size()
 	for _, seg := range segs {
 		var (
-			b           = []byte(seg.Text)
-			state   int = -1
+			b       = []byte(seg.Text)
+			state   = -1
 			cluster []byte
 		)
 		for len(b) > 0 {
@@ -97,7 +97,7 @@ func PrintSegments(win Window, segs ...Segment) (maxWidth int, col int, row int)
 				Character:      string(cluster),
 				Foreground:     seg.Foreground,
 				Background:     seg.Background,
-				UnderlineColor:      seg.Underline,
+				UnderlineColor: seg.Underline,
 				UnderlineStyle: seg.UnderlineStyle,
 				Attribute:      seg.Attributes,
 				Hyperlink:      seg.Hyperlink,
@@ -141,11 +141,11 @@ func nextBreak(b []byte) int {
 // If parent is nil, the underlying screen will be the parent and offsets will
 // be relative to that.
 type Window struct {
+	Parent *Window
 	Column int // col offset from parent
 	Row    int // row offset from parent
 	Width  int // width of the surface, in cols
 	Height int // height of the surface, in rows
-	Parent *Window
 }
 
 // NewWindow returns a new Window. The x and y coordinates are an offset
@@ -168,8 +168,8 @@ func (win Window) Size() (width int, height int) {
 		pCols int
 		pRows int
 	)
-	switch {
-	case win.Parent == nil:
+	switch win.Parent {
+	case nil:
 		if stdScreen == nil {
 			return 0, 0
 		}
@@ -211,8 +211,8 @@ func (win Window) SetCell(col int, row int, cell Cell) int {
 	if row >= rows {
 		return 0
 	}
-	switch {
-	case win.Parent == nil:
+	switch win.Parent {
+	case nil:
 		return stdScreen.setCell(col+win.Column, row+win.Row, cell)
 	default:
 		return win.Parent.SetCell(col+win.Column, row+win.Row, cell)

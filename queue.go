@@ -6,10 +6,10 @@ import (
 )
 
 // queue provides an infinitely buffered channel
-type queue[T interface{}] struct {
-	mu    sync.Mutex
+type queue[T any] struct {
 	ch    chan T
 	items []T
+	mu    sync.Mutex
 	busy  atomic.Bool
 }
 
