@@ -80,6 +80,8 @@ func (k Key) String() string {
 	case k.Codepoint == KeyEsc:
 	case k.Codepoint == KeyBackspace:
 	case k.Codepoint == KeyEnter:
+	case k.Codepoint == 0x08:
+		k.Codepoint = KeyBackspace
 	case k.Codepoint < 0x00:
 		return "invalid"
 	case k.Codepoint < 0x20:
