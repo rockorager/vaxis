@@ -7,10 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"git.sr.ht/~rockorager/vaxis"
-	"git.sr.ht/~rockorager/vaxis/widgets/align"
 	"github.com/rivo/uniseg"
 	"golang.org/x/exp/slog"
+
+	"git.sr.ht/~rockorager/vaxis"
+	"git.sr.ht/~rockorager/vaxis/widgets/align"
 )
 
 var log *slog.Logger

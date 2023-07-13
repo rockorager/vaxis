@@ -1,3 +1,4 @@
+// Package vaxis is a terminal user interface for modern terminals
 package vaxis
 
 import (
