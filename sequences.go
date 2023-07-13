@@ -1,7 +1,6 @@
 package vaxis
 
 import (
-	"bytes"
 	"fmt"
 )
 
@@ -111,11 +110,7 @@ func tparm(s string, args ...any) string {
 
 // xtgettcap prepares a query of a given terminfo capability
 func xtgettcap(cap string) string {
-	out := bytes.NewBuffer(nil)
-	out.WriteString("\x1bP+q")
-	out.WriteString(hexEncode(cap))
-	out.WriteString("\x1b\\")
-	return out.String()
+	return "\x1bP+q" + hexEncode(cap) + "\x1b\\"
 }
 
 func hexEncode(cap string) string {

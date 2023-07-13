@@ -220,11 +220,13 @@ func (win Window) SetCell(col int, row int, cell Cell) int {
 }
 
 func (win Window) ShowCursor(col int, row int, style CursorStyle) {
+	col += win.Column
+	row += win.Row
 	if win.Parent == nil {
 		ShowCursor(col, row, style)
 		return
 	}
-	win.Parent.ShowCursor(col+win.Column, row+win.Row, style)
+	win.Parent.ShowCursor(col, row, style)
 }
 
 // returns the origin of the window, column x row, 0-indexed
