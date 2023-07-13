@@ -17,10 +17,10 @@ import (
 var log *slog.Logger
 
 type model struct {
+	keyClear *time.Timer
+	keys     string
 	slides   []vaxis.Model
 	current  int
-	keys     string
-	keyClear *time.Timer
 }
 
 func (m *model) Update(msg vaxis.Msg) {
@@ -149,15 +149,10 @@ func main() {
 		fmt.Print(logBuf.String())
 	}()
 
-	var err error
 	handler := slog.NewTextHandler(logBuf, &slog.HandlerOptions{
 		Level: slog.LevelDebug,
 	})
 	log = slog.New(handler)
-	if err != nil {
-		slog.Error(err.Error())
-		os.Exit(1)
-	}
 	vaxis.Init(vaxis.Options{
 		Logger: log,
 	})
