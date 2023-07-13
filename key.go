@@ -779,6 +779,10 @@ func parseKittyKbp(seq ansi.CSI) Key {
 			// 1. We subtract one to normalize to our internal
 			// representation
 			key.Modifiers = ModifierMask(pm[0] - 1)
+			if key.Modifiers < 0 {
+				key.Modifiers = 0
+			}
+			log.Debug("modifiers", "modifiers", key.Modifiers)
 			if len(pm) > 1 {
 				key.EventType = EventType(pm[1])
 			} else {
