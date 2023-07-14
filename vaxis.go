@@ -263,7 +263,7 @@ func Close() {
 	stdout.WriteString(decrst(mouseFocusEvents))
 	stdout.WriteString(decrst(mouseSGR))
 	stdout.WriteString(decrst(sixelScrolling))
-	stdout.WriteString(tparm(mouseShape, ""))
+	stdout.WriteString(tparm(mouseShape, MouseShapeDefault))
 
 	stdout.WriteString(decrst(alternateScreen))
 
