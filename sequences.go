@@ -35,6 +35,7 @@ const (
 	osc52pop   = "\x1b]52;c;?\x1b\\"
 	notify     = "\x1b]9;%s\x1b\\"
 	setTitle   = "\x1b]2;%s\x1b\\"
+	mouseShape = "\x1b]22;%s\x1b\\"
 
 	// SGR
 	sgrReset           = "\x1b[m"

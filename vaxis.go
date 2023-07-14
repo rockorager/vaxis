@@ -74,6 +74,8 @@ var (
 
 	lastGraphicPlacements map[int]*placement
 	nextGraphicPlacements map[int]*placement
+	lastMouseShape        MouseShape
+	nextMouseShape        MouseShape
 
 	cursor struct {
 		row     int
@@ -261,6 +263,7 @@ func Close() {
 	stdout.WriteString(decrst(mouseFocusEvents))
 	stdout.WriteString(decrst(mouseSGR))
 	stdout.WriteString(decrst(sixelScrolling))
+	stdout.WriteString(tparm(mouseShape, ""))
 
 	stdout.WriteString(decrst(alternateScreen))
 
@@ -338,6 +341,21 @@ func render() string {
 		renderBuf.WriteString(tparm(cup, p.row+1, p.col+1))
 		renderBuf.WriteString(p.draw())
 		lastGraphicPlacements[id] = p
+	}
+	if lastMouseShape != nextMouseShape {
+		if renderBuf.Len() == 0 {
+			if cursor.visible {
+				// Hide cursor if it's visible
+				renderBuf.WriteString(decrst(cursorVisibility))
+			}
+			if capabilities.synchronizedUpdate {
+				renderBuf.WriteString(decset(synchronizedUpdate))
+			}
+		}
+		shape := strings.TrimPrefix(tparm(mouseShape, nextMouseShape), "\x1b")
+		log.Info(shape)
+		renderBuf.WriteString(tparm(mouseShape, nextMouseShape))
+		lastMouseShape = nextMouseShape
 	}
 	for row := range stdScreen.buf {
 		for col := 0; col < len(stdScreen.buf[row]); col += 1 {
@@ -966,4 +984,8 @@ func RenderedWidth(s string) int {
 		w += runewidth.RuneWidth(r)
 	}
 	return w
+}
+
+func SetMouseShape(shape MouseShape) {
+	nextMouseShape = shape
 }

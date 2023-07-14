@@ -4,6 +4,7 @@ import (
 	"git.sr.ht/~rockorager/vaxis/ansi"
 )
 
+// Mouse is a mouse event
 type Mouse struct {
 	Button    MouseButton
 	Row       int
@@ -12,6 +13,7 @@ type Mouse struct {
 	Modifiers ModifierMask
 }
 
+// MouseButton represents a mouse button
 type MouseButton int
 
 const (
@@ -27,6 +29,21 @@ const (
 	MouseButton9  MouseButton = 129
 	MouseButton10 MouseButton = 130
 	MouseButton11 MouseButton = 131
+)
+
+type MouseShape string
+
+const (
+	MouseShapeDefault          MouseShape = "default"
+	MouseShapeTextInput        MouseShape = "text"
+	MouseShapeClickable        MouseShape = "pointer"
+	MouseShapeHelp             MouseShape = "help"
+	MouseShapeBusyBackground   MouseShape = "progress"
+	MouseShapeBusy             MouseShape = "wait"
+	MouseShapeResizeHorizontal MouseShape = "col-resize"
+	MouseShapeResizeVertical   MouseShape = "row-resize"
+	// The thick plus sign cursor that's typically used in spread-sheet applications to select cells.
+	MouseShapeCell MouseShape = "cell"
 )
 
 const (

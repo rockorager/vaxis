@@ -55,6 +55,7 @@ most dank TUI library
 | Bracketed Paste           |  ✅   |  ✅   |    ❌     |    ❌     |
 | Kitty Keyboard            |  ✅   |  ❌   |    ❌     |    ✅     |
 | Styled Underlines         |  ✅   |  ❌   |    ❌     |    ✅     |
+| Mouse Shapes (OSC 22)     |  ✅   |  ❌   |    ❌     |    ❌     |
 | System Clipboard (OSC 52) |  ✅   |  ❌   |    ❌     |    ❌     |
 | Synchronized Output       |  ✅   |  ❌   |    ❌     |    ✅     |
 | Images (sixel)            |  ✅   |  ❌   |    ❌     |    ✅     |
