@@ -48,18 +48,20 @@ func main() {
 Notcurses is included because it's the most advanced, most efficient,
 most dank TUI library
 
-| Feature                   | Vaxis | tcell | bubbletea | notcurses |
-| ------------------------- | :---: | :---: | :-------: | :-------: |
-| RGB                       |  ✅   |  ✅   |    ✅     |    ✅     |
-| Hyperlinks                |  ✅   |  ✅   |    ❌     |    ❌     |
-| Bracketed Paste           |  ✅   |  ✅   |    ❌     |    ❌     |
-| Kitty Keyboard            |  ✅   |  ❌   |    ❌     |    ✅     |
-| Styled Underlines         |  ✅   |  ❌   |    ❌     |    ✅     |
-| Mouse Shapes (OSC 22)     |  ✅   |  ❌   |    ❌     |    ❌     |
-| System Clipboard (OSC 52) |  ✅   |  ❌   |    ❌     |    ❌     |
-| Synchronized Output       |  ✅   |  ❌   |    ❌     |    ✅     |
-| Images (sixel)            |  ✅   |  ❌   |    ❌     |    ✅     |
-| Images (kitty)            |  ✅   |  ❌   |    ❌     |    ✅     |
-| Images (iterm2)           |  ❌   |  ❌   |    ❌     |    ✅     |
-| Video                     |  ❌   |  ❌   |    ❌     |    ✅     |
-| Dank                      |  🆗   |  ❌   |    ❌     |    ✅     |
+| Feature                        | Vaxis | tcell | bubbletea | notcurses |
+| ------------------------------ | :---: | :---: | :-------: | :-------: |
+| RGB                            |  ✅   |  ✅   |    ✅     |    ✅     |
+| Hyperlinks                     |  ✅   |  ✅   |    ❌     |    ❌     |
+| Bracketed Paste                |  ✅   |  ✅   |    ❌     |    ❌     |
+| Kitty Keyboard                 |  ✅   |  ❌   |    ❌     |    ✅     |
+| Styled Underlines              |  ✅   |  ❌   |    ❌     |    ✅     |
+| Mouse Shapes (OSC 22)          |  ✅   |  ❌   |    ❌     |    ❌     |
+| System Clipboard (OSC 52)      |  ✅   |  ❌   |    ❌     |    ❌     |
+| System Notifications (OSC 9)   |  ✅   |  ❌   |    ❌     |    ❌     |
+| System Notifications (OSC 777) |  ✅   |  ❌   |    ❌     |    ❌     |
+| Synchronized Output            |  ✅   |  ❌   |    ❌     |    ✅     |
+| Images (sixel)                 |  ✅   |  ❌   |    ❌     |    ✅     |
+| Images (kitty)                 |  ✅   |  ❌   |    ❌     |    ✅     |
+| Images (iterm2)                |  ❌   |  ❌   |    ❌     |    ✅     |
+| Video                          |  ❌   |  ❌   |    ❌     |    ✅     |
+| Dank                           |  🆗   |  ❌   |    ❌     |    ✅     |
