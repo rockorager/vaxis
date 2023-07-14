@@ -352,8 +352,6 @@ func render() string {
 				renderBuf.WriteString(decset(synchronizedUpdate))
 			}
 		}
-		shape := strings.TrimPrefix(tparm(mouseShape, nextMouseShape), "\x1b")
-		log.Info(shape)
 		renderBuf.WriteString(tparm(mouseShape, nextMouseShape))
 		lastMouseShape = nextMouseShape
 	}
