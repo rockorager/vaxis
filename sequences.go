@@ -36,7 +36,7 @@ const (
 	osc9notify   = "\x1b]9;%s\x1b\\"
 	osc777notify = "\x1b]777;notify;%s;%s\x1b\\"
 	setTitle     = "\x1b]2;%s\x1b\\"
-	mouseCursor  = "\x1b]22;%s\x1b\\"
+	mouseShape   = "\x1b]22;%s\x1b\\"
 
 	// SGR
 	sgrReset           = "\x1b[m"
