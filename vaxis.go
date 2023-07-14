@@ -925,9 +925,14 @@ func ClipboardPop(ctx context.Context) (string, error) {
 	}
 }
 
-// Notify (attempts) to send a system notification via OSC 9
-func Notify(s string) {
-	stdout.WriteString(tparm(notify, s))
+// Notify (attempts) to send a system notification. If title is the empty
+// string, OSC9 will be used - otherwise osc777 is used
+func Notify(title string, body string) {
+	if title == "" {
+		stdout.WriteString(tparm(osc9notify, body))
+		return
+	}
+	stdout.WriteString(tparm(osc777notify, title, body))
 }
 
 // SetTitle sets the terminal's title via OSC 2

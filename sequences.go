@@ -26,16 +26,17 @@ const (
 	xtsmSixelGeom = "\x1b[?2;1;0S"
 
 	// Misc
-	clear      = "\x1b[H\x1b[2J"
-	cup        = "\x1B[%d;%dH"
-	osc8WithID = "\x1b]8;id=%s;%s\x1b\\"
-	osc8       = "\x1b]8;;%s\x1b\\"
-	osc8End    = "\x1b]8;;\x1b\\"
-	osc52put   = "\x1b]52;c;%s\x1b\\"
-	osc52pop   = "\x1b]52;c;?\x1b\\"
-	notify     = "\x1b]9;%s\x1b\\"
-	setTitle   = "\x1b]2;%s\x1b\\"
-	mouseShape = "\x1b]22;%s\x1b\\"
+	clear        = "\x1b[H\x1b[2J"
+	cup          = "\x1B[%d;%dH"
+	osc8WithID   = "\x1b]8;id=%s;%s\x1b\\"
+	osc8         = "\x1b]8;;%s\x1b\\"
+	osc8End      = "\x1b]8;;\x1b\\"
+	osc52put     = "\x1b]52;c;%s\x1b\\"
+	osc52pop     = "\x1b]52;c;?\x1b\\"
+	osc9notify   = "\x1b]9;%s\x1b\\"
+	osc777notify = "\x1b]777;notify;%s;%s\x1b\\"
+	setTitle     = "\x1b]2;%s\x1b\\"
+	mouseCursor  = "\x1b]22;%s\x1b\\"
 
 	// SGR
 	sgrReset           = "\x1b[m"
