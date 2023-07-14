@@ -116,8 +116,13 @@ func (g Graphic) Draw(win Window) {
 }
 
 // Delete removes the graphic from memory
-func (g Graphic) Delete() {
-	// TODO
+func (g *Graphic) Delete() {
+	switch graphicsProtocol {
+	case sixelGraphics:
+		g.placement = ""
+	case kittyGraphics:
+		fmt.Fprintf(stdout, "\x1B_Ga=d,d=I,i=%d\x1B\\", g.id)
+	}
 }
 
 // placement is an image placement. If two placements are identical, the
