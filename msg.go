@@ -69,3 +69,9 @@ type DrawModelMsg struct {
 // Visible is a Msg which tells any given widget it's visibility state. This is
 // used by some provided widgets, and also provided as a helper
 type Visible bool
+
+// FocusIn is sent when the terminal has gained focus
+type FocusIn struct{}
+
+// FocusOut is sent when the terminal has lost focus
+type FocusOut struct{}

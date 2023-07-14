@@ -627,6 +627,10 @@ func handleSequence(seq ansi.Sequence) {
 					deviceAttributesReceived <- struct{}{}
 				}
 			}
+		case 'I':
+			PostMsg(FocusIn{})
+		case 'O':
+			PostMsg(FocusOut{})
 		case 'R':
 			// KeyF1 or DSRCPR
 			// This could be an F1 key, we need to buffer if we have
