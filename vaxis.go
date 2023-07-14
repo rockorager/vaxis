@@ -17,6 +17,8 @@ import (
 	"github.com/mattn/go-runewidth"
 	"github.com/rivo/uniseg"
 	"golang.org/x/exp/slog"
+	"golang.org/x/sys/unix"
+	"golang.org/x/term"
 
 	"git.sr.ht/~rockorager/vaxis/ansi"
 )
@@ -58,6 +60,7 @@ var (
 	stdout *os.File
 	stdin  *os.File
 	con    console.Console
+	state  *term.State
 
 	capabilities struct {
 		synchronizedUpdate bool
@@ -132,8 +135,8 @@ func Init(opts Options) error {
 	defer cancel()
 	stdout = os.Stdout
 	stdin = os.Stdin
-	con = console.Current()
-	err := con.SetRaw()
+	var err error
+	state, err = term.MakeRaw(int(os.Stdout.Fd()))
 	if err != nil {
 		return err
 	}
@@ -267,7 +270,7 @@ func Close() {
 
 	stdout.WriteString(decrst(alternateScreen))
 
-	con.Close()
+	term.Restore(int(os.Stdout.Fd()), state)
 
 	log.Info("Renders", "val", renders)
 	if renders != 0 {
@@ -995,4 +998,20 @@ func RenderedWidth(s string) int {
 
 func SetMouseShape(shape MouseShape) {
 	nextMouseShape = shape
+}
+
+// reportWinsize posts a Resize Msg
+func reportWinsize() {
+	ws, err := unix.IoctlGetWinsize(int(stdout.Fd()), unix.TIOCGWINSZ)
+	if err != nil {
+		log.Error("couldn't get winsize", "error", err)
+		return
+	}
+	winsize = Resize{
+		Cols:   int(ws.Col),
+		Rows:   int(ws.Row),
+		XPixel: int(ws.Xpixel),
+		YPixel: int(ws.Ypixel),
+	}
+	PostMsg(winsize)
 }
