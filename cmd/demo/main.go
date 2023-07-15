@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lmittmann/tint"
 	"github.com/rivo/uniseg"
 	"golang.org/x/exp/slog"
 
@@ -149,8 +150,10 @@ func main() {
 		fmt.Print(logBuf.String())
 	}()
 
-	handler := slog.NewTextHandler(logBuf, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
+	handler := tint.NewHandler(os.Stderr, &tint.Options{
+		AddSource:  true,
+		Level:      slog.LevelDebug,
+		TimeFormat: "15:04:05.000",
 	})
 	log = slog.New(handler)
 	err := vaxis.Init(vaxis.Options{
