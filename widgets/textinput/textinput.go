@@ -7,8 +7,8 @@ import (
 )
 
 type Model struct {
-	Prompt    vaxis.Segment
-	Content   vaxis.Segment
+	Prompt  vaxis.Segment
+	Content vaxis.Segment
 	// TODO handle the cursor better with the new wrapping
 	cursor    int // the x position of the cursor
 	cursorCol int
@@ -18,6 +18,9 @@ type Model struct {
 func (m *Model) Update(msg vaxis.Msg) {
 	switch msg := msg.(type) {
 	case vaxis.Key:
+		if m.cursor > len(m.Content.Text) {
+			m.cursor = len(m.Content.Text)
+		}
 		switch msg.String() {
 		case "Left":
 			if m.cursor == 0 {
