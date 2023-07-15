@@ -13,7 +13,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/containerd/console"
 	"github.com/mattn/go-runewidth"
 	"github.com/rivo/uniseg"
 	"golang.org/x/exp/slog"
