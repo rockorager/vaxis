@@ -26,8 +26,11 @@ func (w *writer) Write(p []byte) (n int, err error) {
 		if capabilities.synchronizedUpdate {
 			w.buf.WriteString(decset(synchronizedUpdate))
 		}
-		if lastCursor.visible {
-			// Hide cursor if it's visible
+		if lastCursor.visible && nextCursor.visible {
+			// Hide cursor if it's visible, and only write this if
+			// the next cursor is visible also. we'll explicitly
+			// turn the cursor off in the render loop if there is a
+			// change to the state of cursor visibility
 			w.buf.WriteString(decrst(cursorVisibility))
 		}
 	}
@@ -64,9 +67,10 @@ func (w *writer) Flush() (n int, err error) {
 	}
 	defer w.buf.Reset()
 	w.buf.WriteString(sgrReset)
-	// We use nextCursor for Flush, this lets keep the cursor hidden if it
-	// doesn't need to be shown again
-	if nextCursor.visible {
+	// We check against both. If the state changed, this was written in the
+	// render loop. this portion only restores where teh cursor was prior to
+	// the render
+	if nextCursor.visible && lastCursor.visible {
 		w.buf.WriteString(showCursor())
 	}
 	if capabilities.synchronizedUpdate {
