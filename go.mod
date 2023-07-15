@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/creack/pty v1.1.18
+	github.com/lmittmann/tint v0.3.4
 	github.com/mattn/go-runewidth v0.0.14
 	github.com/mattn/go-sixel v0.0.5
 	github.com/rivo/uniseg v0.4.4
