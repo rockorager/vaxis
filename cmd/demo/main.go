@@ -153,9 +153,12 @@ func main() {
 		Level: slog.LevelDebug,
 	})
 	log = slog.New(handler)
-	vaxis.Init(vaxis.Options{
+	err := vaxis.Init(vaxis.Options{
 		Logger: log,
 	})
+	if err != nil {
+		panic(err)
+	}
 	m := &model{
 		keyClear: time.NewTimer(0),
 	}

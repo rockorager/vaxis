@@ -198,7 +198,9 @@ func Init(opts Options) error {
 	sendQueries()
 	select {
 	case <-ctx.Done():
-		return ctx.Err()
+		close(deviceAttributesReceived)
+		initialized = true
+		return context.Canceled
 	case <-deviceAttributesReceived:
 		close(deviceAttributesReceived)
 		initialized = true
@@ -830,10 +832,11 @@ func CursorPosition() (col int, row int) {
 	// DSRCPR - reports cursor position
 	cursorPositionRequested = true
 	stdout.WriteString(dsrcpr)
-	timeout := time.NewTimer(10 * time.Millisecond)
+	timeout := time.NewTimer(50 * time.Millisecond)
 	select {
 	case <-timeout.C:
 		log.Warn("CursorPosition timed out")
+		cursorPositionRequested = false
 		return -1, -1
 	case row = <-chCursorPositionReport:
 		// if we get one, we'll get another
