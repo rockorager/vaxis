@@ -534,7 +534,12 @@ func render() {
 					w.WriteString(tparm(osc8WithID, link, linkID))
 				}
 			}
-			w.WriteString(next.Character)
+			switch next.Character {
+			case "\x00":
+				w.WriteString(" ")
+			default:
+				w.WriteString(next.Character)
+			}
 			// Advance the column by the width of this
 			// character
 			skip := advance(next.Character)

@@ -17,7 +17,10 @@ func Fill(win Window, cell Cell) {
 // Clear fills the Window with spaces with the default colors and removes all
 // graphics placements
 func Clear(win Window) {
-	Fill(win, Cell{Character: " "})
+	// We fill with a \x00 cell to differentiate between eg a text input
+	// space and a cleared cell. \x00 is rendered as a space, but the
+	// internal model will differentiate
+	Fill(win, Cell{Character: "\x00"})
 	for k := range nextGraphicPlacements {
 		delete(nextGraphicPlacements, k)
 	}
