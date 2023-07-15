@@ -72,6 +72,10 @@ func RGBColor(r uint8, g uint8, b uint8) Color {
 	return color | rgb
 }
 
+func HexColor(v uint32) Color {
+	return Color(v) | rgb
+}
+
 func IndexColor(index uint8) Color {
 	color := Color(index)
 	return color | indexed
