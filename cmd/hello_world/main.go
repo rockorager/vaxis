@@ -1,3 +1,5 @@
+//go:build ignore
+
 package main
 
 import "git.sr.ht/~rockorager/vaxis"
