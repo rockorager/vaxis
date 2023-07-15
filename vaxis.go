@@ -766,7 +766,9 @@ func sendQueries() {
 		capabilities.rgb = true
 	}
 
-	w.WriteString(decset(alternateScreen))
+	// We enter the alt screen without our buffered writer to prevent our
+	// unicode query from bleeding onto the main terminal
+	stdout.WriteString(decset(alternateScreen))
 	w.WriteString(decset(sixelScrolling))
 	w.WriteString(decrst(cursorVisibility))
 	w.WriteString(xtversion)
