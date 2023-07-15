@@ -1,0 +1,76 @@
+package vaxis
+
+import (
+	"bytes"
+	"fmt"
+)
+
+// writer is a buffered writer for a terminal. If the terminal supports
+// synchronized output, all writes will be wrapped with synchronized mode
+// set/reset. The internal buffer will be reset upon flushing
+type writer struct {
+	buf *bytes.Buffer
+}
+
+func newWriter() *writer {
+	return &writer{
+		buf: bytes.NewBuffer(make([]byte, 8192)),
+	}
+}
+
+func (w *writer) Write(p []byte) (n int, err error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+	if w.buf.Len() == 0 {
+		if capabilities.synchronizedUpdate {
+			w.buf.WriteString(decset(synchronizedUpdate))
+		}
+		if lastCursor.visible {
+			// Hide cursor if it's visible
+			w.buf.WriteString(decrst(cursorVisibility))
+		}
+	}
+	return w.buf.Write(p)
+}
+
+func (w *writer) WriteString(s string) (n int, err error) {
+	if s == "" {
+		return 0, nil
+	}
+	if w.buf.Len() == 0 {
+		if lastCursor.visible {
+			// Hide cursor if it's visible
+			w.buf.WriteString(decrst(cursorVisibility))
+		}
+		if capabilities.synchronizedUpdate {
+			w.buf.WriteString(decset(synchronizedUpdate))
+		}
+	}
+	return w.buf.WriteString(s)
+}
+
+func (w *writer) Printf(s string, args ...any) (n int, err error) {
+	return fmt.Fprintf(w, s, args...)
+}
+
+func (w *writer) Len() int {
+	return w.buf.Len()
+}
+
+func (w *writer) Flush() (n int, err error) {
+	if w.buf.Len() == 0 {
+		return 0, nil
+	}
+	defer w.buf.Reset()
+	w.buf.WriteString(sgrReset)
+	// We use nextCursor for Flush, this lets keep the cursor hidden if it
+	// doesn't need to be shown again
+	if nextCursor.visible {
+		w.buf.WriteString(showCursor())
+	}
+	if capabilities.synchronizedUpdate {
+		w.buf.WriteString(decrst(synchronizedUpdate))
+	}
+	return stdout.Write(w.buf.Bytes())
+}

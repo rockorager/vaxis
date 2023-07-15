@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"fmt"
 	"io"
 	"os"
 	"os/signal"
@@ -44,9 +43,8 @@ var (
 	kittyKBFlags = 25
 
 	// Rendering variables
-
-	// renderBuf buffers the output that we'll send to the tty
-	renderBuf *bytes.Buffer
+	// w is our buffered, synchronized-update writer
+	w *writer
 	// refresh signals if we should do a delta render or full render
 	refresh bool
 	// stdScreen is the stdScreen Surface
@@ -58,7 +56,6 @@ var (
 	// stdout is the terminal we are talking with
 	stdout *os.File
 	stdin  *os.File
-	con    console.Console
 	state  *term.State
 
 	capabilities struct {
@@ -79,18 +76,21 @@ var (
 	lastMouseShape        MouseShape
 	nextMouseShape        MouseShape
 
-	cursor struct {
-		row     int
-		col     int
-		style   CursorStyle
-		visible bool
-	}
+	nextCursor cursorState
+	lastCursor cursorState
 	// Statistics
 	renders int
 	elapsed time.Duration
 
 	framerate uint
 )
+
+type cursorState struct {
+	row     int
+	col     int
+	style   CursorStyle
+	visible bool
+}
 
 // Converts a string into a slice of Characters suitable to assign to terminal cells
 func Characters(s string) []string {
@@ -154,7 +154,7 @@ func Init(opts Options) error {
 	}
 
 	// Rendering
-	renderBuf = &bytes.Buffer{}
+	w = newWriter()
 	lastRender = newScreen()
 	stdScreen = newScreen()
 
@@ -252,22 +252,23 @@ func Run(model Model) error {
 // state
 func Close() {
 	close(chQuit)
-	stdout.WriteString(decset(cursorVisibility)) // show the cursor
-	stdout.WriteString(sgrReset)                 // reset fg, bg, attrs
-	stdout.WriteString(clear)
+	w.WriteString(decset(cursorVisibility)) // show the cursor
+	w.WriteString(sgrReset)                 // reset fg, bg, attrs
+	w.WriteString(clear)
 
 	// Disable any modes we enabled
-	stdout.WriteString(decrst(bracketedPaste)) // bracketed paste
-	stdout.WriteString(kittyKBPop)             // kitty keyboard
-	stdout.WriteString(decrst(cursorKeys))
-	stdout.WriteString(numericMode)
-	stdout.WriteString(decrst(mouseAllEvents))
-	stdout.WriteString(decrst(mouseFocusEvents))
-	stdout.WriteString(decrst(mouseSGR))
-	stdout.WriteString(decrst(sixelScrolling))
-	stdout.WriteString(tparm(mouseShape, MouseShapeDefault))
+	w.WriteString(decrst(bracketedPaste)) // bracketed paste
+	w.WriteString(kittyKBPop)             // kitty keyboard
+	w.WriteString(decrst(cursorKeys))
+	w.WriteString(numericMode)
+	w.WriteString(decrst(mouseAllEvents))
+	w.WriteString(decrst(mouseFocusEvents))
+	w.WriteString(decrst(mouseSGR))
+	w.WriteString(decrst(sixelScrolling))
+	w.WriteString(tparm(mouseShape, MouseShapeDefault))
 
-	stdout.WriteString(decrst(alternateScreen))
+	w.WriteString(decrst(alternateScreen))
+	w.Flush()
 
 	term.Restore(int(os.Stdout.Fd()), state)
 
@@ -280,11 +281,9 @@ func Close() {
 // Render renders the model's content to the terminal
 func Render() {
 	start := time.Now()
-	defer renderBuf.Reset()
-	out := render()
-	if out != "" {
-		stdout.WriteString(out)
-	}
+	// defer renderBuf.Reset()
+	render()
+	w.Flush()
 	elapsed += time.Since(start)
 	renders += 1
 	refresh = false
@@ -297,7 +296,7 @@ func Refresh() {
 	Render()
 }
 
-func render() string {
+func render() {
 	var (
 		reposition = true
 		fg         Color
@@ -313,16 +312,7 @@ func render() string {
 		if _, ok := nextGraphicPlacements[id]; ok && !refresh {
 			continue
 		}
-		if renderBuf.Len() == 0 {
-			if cursor.visible {
-				// Hide cursor if it's visible
-				renderBuf.WriteString(decrst(cursorVisibility))
-			}
-			if capabilities.synchronizedUpdate {
-				renderBuf.WriteString(decset(synchronizedUpdate))
-			}
-		}
-		renderBuf.WriteString(p.delete())
+		w.WriteString(p.delete())
 		delete(lastGraphicPlacements, id)
 	}
 	// draw new placements
@@ -331,30 +321,12 @@ func render() string {
 		if _, ok := lastGraphicPlacements[id]; ok {
 			continue
 		}
-		if renderBuf.Len() == 0 {
-			if cursor.visible {
-				// Hide cursor if it's visible
-				renderBuf.WriteString(decrst(cursorVisibility))
-			}
-			if capabilities.synchronizedUpdate {
-				renderBuf.WriteString(decset(synchronizedUpdate))
-			}
-		}
-		renderBuf.WriteString(tparm(cup, p.row+1, p.col+1))
-		renderBuf.WriteString(p.draw())
+		w.WriteString(tparm(cup, p.row+1, p.col+1))
+		w.WriteString(p.draw())
 		lastGraphicPlacements[id] = p
 	}
 	if lastMouseShape != nextMouseShape {
-		if renderBuf.Len() == 0 {
-			if cursor.visible {
-				// Hide cursor if it's visible
-				renderBuf.WriteString(decrst(cursorVisibility))
-			}
-			if capabilities.synchronizedUpdate {
-				renderBuf.WriteString(decset(synchronizedUpdate))
-			}
-		}
-		renderBuf.WriteString(tparm(mouseShape, nextMouseShape))
+		w.WriteString(tparm(mouseShape, nextMouseShape))
 		lastMouseShape = nextMouseShape
 	}
 	for row := range stdScreen.buf {
@@ -380,18 +352,9 @@ func render() string {
 				col += skip
 				continue
 			}
-			if renderBuf.Len() == 0 {
-				if cursor.visible {
-					// Hide cursor if it's visible
-					renderBuf.WriteString(decrst(cursorVisibility))
-				}
-				if capabilities.synchronizedUpdate {
-					renderBuf.WriteString(decset(synchronizedUpdate))
-				}
-			}
 			lastRender.buf[row][col] = next
 			if reposition {
-				renderBuf.WriteString(tparm(cup, row+1, col+1))
+				w.WriteString(tparm(cup, row+1, col+1))
 				reposition = false
 			}
 			// TODO Optimizations
@@ -411,18 +374,18 @@ func render() string {
 				}
 				switch len(ps) {
 				case 0:
-					renderBuf.WriteString(fgReset)
+					w.WriteString(fgReset)
 				case 1:
 					switch {
 					case ps[0] < 8:
-						fmt.Fprintf(renderBuf, fgSet, ps[0])
+						w.Printf(fgSet, ps[0])
 					case ps[0] < 16:
-						fmt.Fprintf(renderBuf, fgBrightSet, ps[0]-8)
+						w.Printf(fgBrightSet, ps[0]-8)
 					default:
-						fmt.Fprintf(renderBuf, fgIndexSet, ps[0])
+						w.Printf(fgIndexSet, ps[0])
 					}
 				case 3:
-					fmt.Fprintf(renderBuf, fgRGBSet, ps[0], ps[1], ps[2])
+					w.Printf(fgRGBSet, ps[0], ps[1], ps[2])
 				}
 			}
 
@@ -434,18 +397,18 @@ func render() string {
 				}
 				switch len(ps) {
 				case 0:
-					renderBuf.WriteString(bgReset)
+					w.WriteString(bgReset)
 				case 1:
 					switch {
 					case ps[0] < 8:
-						fmt.Fprintf(renderBuf, bgSet, ps[0])
+						w.Printf(bgSet, ps[0])
 					case ps[0] < 16:
-						fmt.Fprintf(renderBuf, bgBrightSet, ps[0]-8)
+						w.Printf(bgBrightSet, ps[0]-8)
 					default:
-						fmt.Fprintf(renderBuf, bgIndexSet, ps[0])
+						w.Printf(bgIndexSet, ps[0])
 					}
 				case 3:
-					fmt.Fprintf(renderBuf, bgRGBSet, ps[0], ps[1], ps[2])
+					w.Printf(bgRGBSet, ps[0], ps[1], ps[2])
 				}
 			}
 
@@ -458,11 +421,11 @@ func render() string {
 					}
 					switch len(ps) {
 					case 0:
-						renderBuf.WriteString(ulColorReset)
+						w.WriteString(ulColorReset)
 					case 1:
-						fmt.Fprintf(renderBuf, ulIndexSet, ps[0])
+						w.Printf(ulIndexSet, ps[0])
 					case 3:
-						fmt.Fprintf(renderBuf, ulRGBSet, ps[0], ps[1], ps[2])
+						w.Printf(ulRGBSet, ps[0], ps[1], ps[2])
 					}
 				}
 			}
@@ -475,25 +438,25 @@ func render() string {
 				on := dAttr & next.Attribute
 
 				if on&AttrBold != 0 {
-					renderBuf.WriteString(boldSet)
+					w.WriteString(boldSet)
 				}
 				if on&AttrDim != 0 {
-					renderBuf.WriteString(dimSet)
+					w.WriteString(dimSet)
 				}
 				if on&AttrItalic != 0 {
-					renderBuf.WriteString(italicSet)
+					w.WriteString(italicSet)
 				}
 				if on&AttrBlink != 0 {
-					renderBuf.WriteString(blinkSet)
+					w.WriteString(blinkSet)
 				}
 				if on&AttrReverse != 0 {
-					renderBuf.WriteString(reverseSet)
+					w.WriteString(reverseSet)
 				}
 				if on&AttrInvisible != 0 {
-					renderBuf.WriteString(hiddenSet)
+					w.WriteString(hiddenSet)
 				}
 				if on&AttrStrikethrough != 0 {
-					renderBuf.WriteString(strikethroughSet)
+					w.WriteString(strikethroughSet)
 				}
 
 				// If the bit is changed and is in previous, it
@@ -501,38 +464,38 @@ func render() string {
 				off := dAttr & attr
 				if off&AttrBold != 0 {
 					// Normal intensity isn't in terminfo
-					renderBuf.WriteString(boldDimReset)
+					w.WriteString(boldDimReset)
 					// Normal intensity turns off dim. If it
 					// should be on, let's turn it back on
 					if next.Attribute&AttrDim != 0 {
-						renderBuf.WriteString(dimSet)
+						w.WriteString(dimSet)
 					}
 				}
 				if off&AttrDim != 0 {
 					// Normal intensity isn't in terminfo
-					renderBuf.WriteString(boldDimReset)
+					w.WriteString(boldDimReset)
 					// Normal intensity turns off bold. If it
 					// should be on, let's turn it back on
 					if next.Attribute&AttrBold != 0 {
-						renderBuf.WriteString(boldSet)
+						w.WriteString(boldSet)
 					}
 				}
 				if off&AttrItalic != 0 {
-					renderBuf.WriteString(italicReset)
+					w.WriteString(italicReset)
 				}
 				if off&AttrBlink != 0 {
 					// turn off blink isn't in terminfo
-					renderBuf.WriteString(blinkReset)
+					w.WriteString(blinkReset)
 				}
 				if off&AttrReverse != 0 {
-					renderBuf.WriteString(reverseReset)
+					w.WriteString(reverseReset)
 				}
 				if off&AttrInvisible != 0 {
 					// turn off invisible isn't in terminfo
-					renderBuf.WriteString(hiddenReset)
+					w.WriteString(hiddenReset)
 				}
 				if off&AttrStrikethrough != 0 {
-					renderBuf.WriteString(strikethroughReset)
+					w.WriteString(strikethroughReset)
 				}
 				attr = next.Attribute
 			}
@@ -541,14 +504,14 @@ func render() string {
 				ulStyle = next.UnderlineStyle
 				switch capabilities.styledUnderlines {
 				case true:
-					renderBuf.WriteString(tparm(ulStyleSet, ulStyle))
+					w.WriteString(tparm(ulStyleSet, ulStyle))
 				case false:
 					switch ulStyle {
 					case UnderlineOff:
-						renderBuf.WriteString(underlineReset)
+						w.WriteString(underlineReset)
 					default:
 						// Fallback to single underlines
-						renderBuf.WriteString(underlineSet)
+						w.WriteString(underlineSet)
 					}
 				}
 			}
@@ -558,14 +521,14 @@ func render() string {
 				linkID = next.HyperlinkID
 				switch {
 				case link == "" && linkID == "":
-					renderBuf.WriteString(osc8End)
+					w.WriteString(osc8End)
 				case linkID == "":
-					renderBuf.WriteString(tparm(osc8, link))
+					w.WriteString(tparm(osc8, link))
 				default:
-					renderBuf.WriteString(tparm(osc8WithID, link, linkID))
+					w.WriteString(tparm(osc8WithID, link, linkID))
 				}
 			}
-			renderBuf.WriteString(next.Character)
+			w.WriteString(next.Character)
 			// Advance the column by the width of this
 			// character
 			skip := advance(next.Character)
@@ -579,19 +542,10 @@ func render() string {
 			col += skip
 		}
 	}
-	if renderBuf.Len() != 0 {
-		renderBuf.WriteString(sgrReset)
-		if capabilities.synchronizedUpdate {
-			renderBuf.WriteString(decrst(synchronizedUpdate))
-		}
+	lastCursor = nextCursor
+	if w.Len() != 0 {
+		w.WriteString(sgrReset)
 	}
-	if cursor.visible {
-		renderBuf.WriteString(showCursor())
-	}
-	if !cursor.visible {
-		renderBuf.WriteString(decrst(cursorVisibility))
-	}
-	return renderBuf.String()
 }
 
 func handleSequence(seq ansi.Sequence) {
@@ -810,61 +764,62 @@ func sendQueries() {
 		capabilities.rgb = true
 	}
 
-	stdout.WriteString(decset(alternateScreen))
-	stdout.WriteString(decset(sixelScrolling))
-	stdout.WriteString(decrst(cursorVisibility))
-	stdout.WriteString(xtversion)
-	stdout.WriteString(kittyKBQuery)
-	stdout.WriteString(kittyGquery)
-	stdout.WriteString(sumQuery)
+	w.WriteString(decset(alternateScreen))
+	w.WriteString(decset(sixelScrolling))
+	w.WriteString(decrst(cursorVisibility))
+	w.WriteString(xtversion)
+	w.WriteString(kittyKBQuery)
+	w.WriteString(kittyGquery)
+	w.WriteString(sumQuery)
 
-	stdout.WriteString(xtsmSixelGeom)
+	w.WriteString(xtsmSixelGeom)
 
 	capabilities.unicode = queryUnicodeSupport()
 
 	// Enable some modes
-	stdout.WriteString(decset(bracketedPaste)) // bracketed paste
-	stdout.WriteString(decset(cursorKeys))     // application cursor keys
-	stdout.WriteString(applicationMode)        // application cursor keys mode
-	stdout.WriteString(decset(mouseAllEvents))
-	stdout.WriteString(decset(mouseFocusEvents))
-	stdout.WriteString(decset(mouseSGR))
-	stdout.WriteString(clear)
+	w.WriteString(decset(bracketedPaste)) // bracketed paste
+	w.WriteString(decset(cursorKeys))     // application cursor keys
+	w.WriteString(applicationMode)        // application cursor keys mode
+	w.WriteString(decset(mouseAllEvents))
+	w.WriteString(decset(mouseFocusEvents))
+	w.WriteString(decset(mouseSGR))
+	w.WriteString(clear)
 
 	// Query some terminfo capabilities
 	// Just another way to see if we have RGB support
-	stdout.WriteString(xtgettcap("RGB"))
+	w.WriteString(xtgettcap("RGB"))
 	// We request Smulx to check for styled underlines. Technically, Smulx
 	// only means the terminal supports different underline types (curly,
 	// dashed, etc), but we'll assume the terminal also suppports underline
 	// colors (CSI 58 : ...)
-	stdout.WriteString(xtgettcap("Smulx"))
+	w.WriteString(xtgettcap("Smulx"))
 	// Need to send tertiary for VTE based terminals. These don't respond to
 	// XTGETTCAP
-	stdout.WriteString(tertiaryAttributes)
+	w.WriteString(tertiaryAttributes)
 	// Send Device Attributes is last. Everything responds, and when we get
 	// a response we'll return from init
-	stdout.WriteString(primaryAttributes)
+	w.WriteString(primaryAttributes)
+	w.Flush()
 }
 
 // HideCursor hides the hardware cursor
 func HideCursor() {
-	cursor.visible = false
+	nextCursor.visible = false
 }
 
 // ShowCursor shows the cursor at the given colxrow, with the given style. The
 // passed column and row are 0-indexed and global
 func ShowCursor(col int, row int, style CursorStyle) {
-	cursor.style = style
-	cursor.col = col
-	cursor.row = row
-	cursor.visible = true
+	nextCursor.style = style
+	nextCursor.col = col
+	nextCursor.row = row
+	nextCursor.visible = true
 }
 
 func showCursor() string {
 	buf := bytes.NewBuffer(nil)
 	buf.WriteString(cursorStyle())
-	buf.WriteString(tparm(cup, cursor.row+1, cursor.col+1))
+	buf.WriteString(tparm(cup, nextCursor.row+1, nextCursor.col+1))
 	buf.WriteString(decset(cursorVisibility))
 	return buf.String()
 }
@@ -900,10 +855,10 @@ const (
 )
 
 func cursorStyle() string {
-	if cursor.style == CursorDefault {
+	if nextCursor.style == CursorDefault {
 		return cursorStyleReset
 	}
-	return tparm(cursorStyleSet, int(cursor.style))
+	return tparm(cursorStyleSet, int(nextCursor.style))
 }
 
 // ClipboardPush copies the provided string to the system clipboard
@@ -965,6 +920,9 @@ func queryUnicodeSupport() bool {
 	stdout.WriteString(tparm(cup, 1, 1))
 	test := "👩‍🚀"
 	originX, _ := CursorPosition()
+	if originX < 0 {
+		return false
+	}
 	stdout.WriteString(test)
 	newX, _ := CursorPosition()
 	if newX-originX > 2 {
