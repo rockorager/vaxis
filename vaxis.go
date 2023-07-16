@@ -286,6 +286,8 @@ func Render() {
 	// defer renderBuf.Reset()
 	render()
 	w.Flush()
+	// updating cursor state has to be after Flush, we check state change in
+	// flush.
 	lastCursor = nextCursor
 	elapsed += time.Since(start)
 	renders += 1
@@ -310,9 +312,6 @@ func render() {
 		link       string
 		linkID     string
 	)
-	if !nextCursor.visible && lastCursor.visible {
-		w.WriteString(decrst(cursorVisibility))
-	}
 	// Delete any placements we don't have this round
 	for id, p := range lastGraphicPlacements {
 		if _, ok := nextGraphicPlacements[id]; ok && !refresh {

@@ -63,7 +63,21 @@ func (w *writer) Len() int {
 
 func (w *writer) Flush() (n int, err error) {
 	if w.buf.Len() == 0 {
-		return 0, nil
+		// If we didn't write any visual changes, make sure we make any
+		// cursor changes here. Write directly to stdout for these as
+		// they are short and don't require synchronization
+		switch {
+		case !nextCursor.visible && lastCursor.visible:
+			return stdout.WriteString(decrst(cursorVisibility))
+		case nextCursor.row != lastCursor.row:
+			return stdout.WriteString(showCursor())
+		case nextCursor.col != lastCursor.col:
+			return stdout.WriteString(showCursor())
+		case nextCursor.style != lastCursor.style:
+			return stdout.WriteString(showCursor())
+		default:
+			return 0, nil
+		}
 	}
 	defer w.buf.Reset()
 	w.buf.WriteString(sgrReset)
