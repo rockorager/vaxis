@@ -25,16 +25,6 @@ func (ev *EventTerminal) VT() *Model {
 	return ev.vt
 }
 
-// EventRedraw is emitted when the terminal requires redrawing
-type EventRedraw struct {
-	*EventTerminal
-}
-
-// EventClosed is emitted when the terminal exits
-type EventClosed struct {
-	*EventTerminal
-}
-
 // EventTitle is emitted when the terminal's title changes
 type EventTitle struct {
 	*EventTerminal

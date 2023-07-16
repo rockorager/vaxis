@@ -10,7 +10,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"syscall"
-	"time"
 
 	"git.sr.ht/~rockorager/vaxis"
 	"git.sr.ht/~rockorager/vaxis/ansi"
@@ -34,7 +33,8 @@ type Model struct {
 	// environment. If not set, xterm-256color will be used
 	TERM string
 
-	mu sync.Mutex
+	mu     sync.Mutex
+	parent vaxis.Model
 
 	activeScreen  [][]cell
 	altScreen     [][]cell
@@ -77,14 +77,15 @@ type margin struct {
 	right  column
 }
 
-func New() *Model {
+func New(parent vaxis.Model) *Model {
 	tabs := []column{}
 	for i := 7; i < (50 * 7); i += 8 {
 		tabs = append(tabs, column(i))
 	}
-	return &Model{
+	m := &Model{
 		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 		OSC8:   true,
+		parent: parent,
 		charsets: charsets{
 			designations: map[charsetDesignator]charset{
 				g0: ascii,
@@ -122,6 +123,8 @@ func New() *Model {
 		// sequence can trigger two events, this should be increased
 		// events: make(chan tcell.Event, 2),
 	}
+	m.visible.Store(true)
+	return m
 }
 
 // Start starts the terminal with the specified command. Start returns when the
@@ -159,28 +162,20 @@ func (vt *Model) Start(cmd *exec.Cmd) error {
 	vt.parser = ansi.NewParser(vt.pty)
 	go func() {
 		defer vt.recover()
-		tmr := time.NewTicker(4 * time.Millisecond)
-		for {
-			select {
-			case <-tmr.C:
-				vt.mu.Lock()
-				if vt.dirty && vt.visible.Load() && vt.window != nil {
-					vaxis.PostMsg(vaxis.DrawModelMsg{
-						Model:  vt,
-						Window: *vt.window,
-					})
-				}
-				vt.mu.Unlock()
-			case seq := <-vt.parser.Next():
-				switch seq := seq.(type) {
-				case ansi.EOF:
-					// vt.eventHandler(&EventClosed{
-					// 	EventTerminal: newEventTerminal(vt),
-					// })
-					return
-				default:
-					vt.update(seq)
-				}
+		for seq := range vt.parser.Next() {
+			switch seq := seq.(type) {
+			case ansi.EOF:
+				err := cmd.Wait()
+				vaxis.PostMsg(vaxis.SendMsg{
+					Msg: ClosedMsg{
+						Term:  vt,
+						Error: err,
+					},
+					Model: vt.parent,
+				})
+				return
+			default:
+				vt.update(seq)
 			}
 		}
 	}()
@@ -211,7 +206,6 @@ func (vt *Model) update(seq ansi.Sequence) {
 	switch seq := seq.(type) {
 	case ansi.Print:
 		vt.print(rune(seq))
-		return
 	case ansi.C0:
 		vt.c0(rune(seq))
 	case ansi.ESC:
@@ -226,6 +220,14 @@ func (vt *Model) update(seq ansi.Sequence) {
 	}
 	// TODO optimize when we post EventRedraw
 	vt.dirty = true
+	vaxis.PostMsg(vaxis.SendMsg{
+		Msg:   RedrawMsg{vt},
+		Model: vt.parent,
+	})
+}
+
+func (vt *Model) SetParent(m vaxis.Model) {
+	vt.parent = m
 }
 
 func (vt *Model) String() string {
