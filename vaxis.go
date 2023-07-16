@@ -242,7 +242,7 @@ func Run(model Model) error {
 			case FuncMsg:
 				msg.Func()
 			case DrawModelMsg:
-				msg.Model.Draw(msg.Window)
+				// msg.Model.Draw(msg.Window)
 			default:
 				model.Update(msg)
 			}
