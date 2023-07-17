@@ -72,12 +72,6 @@ const (
 	ulRGBSet    = "\x1b[58:2:%d:%d:%dm"
 	ulStyleSet  = "\x1b[4:%dm"
 
-	// bracketed paste signals. All terminals are using the same sequences.
-	// We only check terminfo for support. If supported, we turn it on and
-	// we'll see these on pastes
-	ps = "\x1b[200~" // paste started
-	pe = "\x1b[201~" // paste ended
-
 	// cursor styles
 	cursorStyleSet   = "\x1b[%d q"
 	cursorStyleReset = "\x1b[ q"

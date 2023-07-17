@@ -171,7 +171,7 @@ func Init(opts Options) error {
 	chCursorPositionReport = make(chan int)
 	PostMsg(InitMsg{})
 
-	chSIGWINCH := make(chan os.Signal)
+	chSIGWINCH := make(chan os.Signal, 1)
 	reportWinsize()
 	stdScreen.resize(winsize.Cols, winsize.Rows)
 	lastRender.resize(winsize.Cols, winsize.Rows)
@@ -254,25 +254,25 @@ func Run(model Model) error {
 // state
 func Close() {
 	close(chQuit)
-	w.WriteString(decset(cursorVisibility)) // show the cursor
-	w.WriteString(sgrReset)                 // reset fg, bg, attrs
-	w.WriteString(clear)
+	_, _ = w.WriteString(decset(cursorVisibility)) // show the cursor
+	_, _ = w.WriteString(sgrReset)                 // reset fg, bg, attrs
+	_, _ = w.WriteString(clear)
 
 	// Disable any modes we enabled
-	w.WriteString(decrst(bracketedPaste)) // bracketed paste
-	w.WriteString(kittyKBPop)             // kitty keyboard
-	w.WriteString(decrst(cursorKeys))
-	w.WriteString(numericMode)
-	w.WriteString(decrst(mouseAllEvents))
-	w.WriteString(decrst(mouseFocusEvents))
-	w.WriteString(decrst(mouseSGR))
-	w.WriteString(decrst(sixelScrolling))
-	w.WriteString(tparm(mouseShape, MouseShapeDefault))
+	_, _ = w.WriteString(decrst(bracketedPaste)) // bracketed paste
+	_, _ = w.WriteString(kittyKBPop)             // kitty keyboard
+	_, _ = w.WriteString(decrst(cursorKeys))
+	_, _ = w.WriteString(numericMode)
+	_, _ = w.WriteString(decrst(mouseAllEvents))
+	_, _ = w.WriteString(decrst(mouseFocusEvents))
+	_, _ = w.WriteString(decrst(mouseSGR))
+	_, _ = w.WriteString(decrst(sixelScrolling))
+	_, _ = w.WriteString(tparm(mouseShape, MouseShapeDefault))
 
-	w.WriteString(decrst(alternateScreen))
-	w.Flush()
+	_, _ = w.WriteString(decrst(alternateScreen))
+	_, _ = w.Flush()
 
-	term.Restore(int(os.Stdout.Fd()), state)
+	_ = term.Restore(int(os.Stdout.Fd()), state)
 
 	log.Info("Renders", "val", renders)
 	if renders != 0 {
@@ -285,7 +285,8 @@ func Render() {
 	start := time.Now()
 	// defer renderBuf.Reset()
 	render()
-	w.Flush()
+	n, _ := w.Flush()
+	log.Debug("flushed", "bytes", n)
 	// updating cursor state has to be after Flush, we check state change in
 	// flush.
 	lastCursor = nextCursor
@@ -317,7 +318,7 @@ func render() {
 		if _, ok := nextGraphicPlacements[id]; ok && !refresh {
 			continue
 		}
-		w.WriteString(p.delete())
+		_, _ = w.WriteString(p.delete())
 		delete(lastGraphicPlacements, id)
 	}
 	// draw new placements
@@ -326,12 +327,12 @@ func render() {
 		if _, ok := lastGraphicPlacements[id]; ok {
 			continue
 		}
-		w.WriteString(tparm(cup, p.row+1, p.col+1))
-		w.WriteString(p.draw())
+		_, _ = w.WriteString(tparm(cup, p.row+1, p.col+1))
+		_, _ = w.WriteString(p.draw())
 		lastGraphicPlacements[id] = p
 	}
 	if lastMouseShape != nextMouseShape {
-		w.WriteString(tparm(mouseShape, nextMouseShape))
+		_, _ = w.WriteString(tparm(mouseShape, nextMouseShape))
 		lastMouseShape = nextMouseShape
 	}
 	for row := range stdScreen.buf {
@@ -359,7 +360,7 @@ func render() {
 			}
 			lastRender.buf[row][col] = next
 			if reposition {
-				w.WriteString(tparm(cup, row+1, col+1))
+				_, _ = w.WriteString(tparm(cup, row+1, col+1))
 				reposition = false
 			}
 			// TODO Optimizations
@@ -379,7 +380,7 @@ func render() {
 				}
 				switch len(ps) {
 				case 0:
-					w.WriteString(fgReset)
+					_, _ = w.WriteString(fgReset)
 				case 1:
 					switch {
 					case ps[0] < 8:
@@ -402,7 +403,7 @@ func render() {
 				}
 				switch len(ps) {
 				case 0:
-					w.WriteString(bgReset)
+					_, _ = w.WriteString(bgReset)
 				case 1:
 					switch {
 					case ps[0] < 8:
@@ -426,11 +427,11 @@ func render() {
 					}
 					switch len(ps) {
 					case 0:
-						w.WriteString(ulColorReset)
+						_, _ = w.WriteString(ulColorReset)
 					case 1:
-						w.Printf(ulIndexSet, ps[0])
+						_, _ = w.Printf(ulIndexSet, ps[0])
 					case 3:
-						w.Printf(ulRGBSet, ps[0], ps[1], ps[2])
+						_, _ = w.Printf(ulRGBSet, ps[0], ps[1], ps[2])
 					}
 				}
 			}
@@ -443,25 +444,25 @@ func render() {
 				on := dAttr & next.Attribute
 
 				if on&AttrBold != 0 {
-					w.WriteString(boldSet)
+					_, _ = w.WriteString(boldSet)
 				}
 				if on&AttrDim != 0 {
-					w.WriteString(dimSet)
+					_, _ = w.WriteString(dimSet)
 				}
 				if on&AttrItalic != 0 {
-					w.WriteString(italicSet)
+					_, _ = w.WriteString(italicSet)
 				}
 				if on&AttrBlink != 0 {
-					w.WriteString(blinkSet)
+					_, _ = w.WriteString(blinkSet)
 				}
 				if on&AttrReverse != 0 {
-					w.WriteString(reverseSet)
+					_, _ = w.WriteString(reverseSet)
 				}
 				if on&AttrInvisible != 0 {
-					w.WriteString(hiddenSet)
+					_, _ = w.WriteString(hiddenSet)
 				}
 				if on&AttrStrikethrough != 0 {
-					w.WriteString(strikethroughSet)
+					_, _ = w.WriteString(strikethroughSet)
 				}
 
 				// If the bit is changed and is in previous, it
@@ -469,38 +470,38 @@ func render() {
 				off := dAttr & attr
 				if off&AttrBold != 0 {
 					// Normal intensity isn't in terminfo
-					w.WriteString(boldDimReset)
+					_, _ = w.WriteString(boldDimReset)
 					// Normal intensity turns off dim. If it
 					// should be on, let's turn it back on
 					if next.Attribute&AttrDim != 0 {
-						w.WriteString(dimSet)
+						_, _ = w.WriteString(dimSet)
 					}
 				}
 				if off&AttrDim != 0 {
 					// Normal intensity isn't in terminfo
-					w.WriteString(boldDimReset)
+					_, _ = w.WriteString(boldDimReset)
 					// Normal intensity turns off bold. If it
 					// should be on, let's turn it back on
 					if next.Attribute&AttrBold != 0 {
-						w.WriteString(boldSet)
+						_, _ = w.WriteString(boldSet)
 					}
 				}
 				if off&AttrItalic != 0 {
-					w.WriteString(italicReset)
+					_, _ = w.WriteString(italicReset)
 				}
 				if off&AttrBlink != 0 {
 					// turn off blink isn't in terminfo
-					w.WriteString(blinkReset)
+					_, _ = w.WriteString(blinkReset)
 				}
 				if off&AttrReverse != 0 {
-					w.WriteString(reverseReset)
+					_, _ = w.WriteString(reverseReset)
 				}
 				if off&AttrInvisible != 0 {
 					// turn off invisible isn't in terminfo
-					w.WriteString(hiddenReset)
+					_, _ = w.WriteString(hiddenReset)
 				}
 				if off&AttrStrikethrough != 0 {
-					w.WriteString(strikethroughReset)
+					_, _ = w.WriteString(strikethroughReset)
 				}
 				attr = next.Attribute
 			}
@@ -509,14 +510,14 @@ func render() {
 				ulStyle = next.UnderlineStyle
 				switch capabilities.styledUnderlines {
 				case true:
-					w.WriteString(tparm(ulStyleSet, ulStyle))
+					_, _ = w.WriteString(tparm(ulStyleSet, ulStyle))
 				case false:
 					switch ulStyle {
 					case UnderlineOff:
-						w.WriteString(underlineReset)
+						_, _ = w.WriteString(underlineReset)
 					default:
 						// Fallback to single underlines
-						w.WriteString(underlineSet)
+						_, _ = w.WriteString(underlineSet)
 					}
 				}
 			}
@@ -526,18 +527,18 @@ func render() {
 				linkID = next.HyperlinkID
 				switch {
 				case link == "" && linkID == "":
-					w.WriteString(osc8End)
+					_, _ = w.WriteString(osc8End)
 				case linkID == "":
-					w.WriteString(tparm(osc8, link))
+					_, _ = w.WriteString(tparm(osc8, link))
 				default:
-					w.WriteString(tparm(osc8WithID, link, linkID))
+					_, _ = w.WriteString(tparm(osc8WithID, link, linkID))
 				}
 			}
 			switch next.Character {
 			case "\x00":
-				w.WriteString(" ")
+				_, _ = w.WriteString(" ")
 			default:
-				w.WriteString(next.Character)
+				_, _ = w.WriteString(next.Character)
 			}
 			// Advance the column by the width of this
 			// character
@@ -553,7 +554,7 @@ func render() {
 		}
 	}
 	if nextCursor.visible && !lastCursor.visible {
-		w.WriteString(showCursor())
+		_, _ = w.WriteString(showCursor())
 	}
 }
 
@@ -776,41 +777,41 @@ func sendQueries() {
 	// We enter the alt screen without our buffered writer to prevent our
 	// unicode query from bleeding onto the main terminal
 	stdout.WriteString(decset(alternateScreen))
-	w.WriteString(decset(sixelScrolling))
-	w.WriteString(decrst(cursorVisibility))
-	w.WriteString(xtversion)
-	w.WriteString(kittyKBQuery)
-	w.WriteString(kittyGquery)
-	w.WriteString(sumQuery)
+	_, _ = w.WriteString(decset(sixelScrolling))
+	_, _ = w.WriteString(decrst(cursorVisibility))
+	_, _ = w.WriteString(xtversion)
+	_, _ = w.WriteString(kittyKBQuery)
+	_, _ = w.WriteString(kittyGquery)
+	_, _ = w.WriteString(sumQuery)
 
-	w.WriteString(xtsmSixelGeom)
+	_, _ = w.WriteString(xtsmSixelGeom)
 
 	capabilities.unicode = queryUnicodeSupport()
 
 	// Enable some modes
-	w.WriteString(decset(bracketedPaste)) // bracketed paste
-	w.WriteString(decset(cursorKeys))     // application cursor keys
-	w.WriteString(applicationMode)        // application cursor keys mode
-	w.WriteString(decset(mouseAllEvents))
-	w.WriteString(decset(mouseFocusEvents))
-	w.WriteString(decset(mouseSGR))
-	w.WriteString(clear)
+	_, _ = w.WriteString(decset(bracketedPaste)) // bracketed paste
+	_, _ = w.WriteString(decset(cursorKeys))     // application cursor keys
+	_, _ = w.WriteString(applicationMode)        // application cursor keys mode
+	_, _ = w.WriteString(decset(mouseAllEvents))
+	_, _ = w.WriteString(decset(mouseFocusEvents))
+	_, _ = w.WriteString(decset(mouseSGR))
+	_, _ = w.WriteString(clear)
 
 	// Query some terminfo capabilities
 	// Just another way to see if we have RGB support
-	w.WriteString(xtgettcap("RGB"))
+	_, _ = w.WriteString(xtgettcap("RGB"))
 	// We request Smulx to check for styled underlines. Technically, Smulx
 	// only means the terminal supports different underline types (curly,
 	// dashed, etc), but we'll assume the terminal also suppports underline
 	// colors (CSI 58 : ...)
-	w.WriteString(xtgettcap("Smulx"))
+	_, _ = w.WriteString(xtgettcap("Smulx"))
 	// Need to send tertiary for VTE based terminals. These don't respond to
 	// XTGETTCAP
-	w.WriteString(tertiaryAttributes)
+	_, _ = w.WriteString(tertiaryAttributes)
 	// Send Device Attributes is last. Everything responds, and when we get
 	// a response we'll return from init
-	w.WriteString(primaryAttributes)
-	w.Flush()
+	_, _ = w.WriteString(primaryAttributes)
+	_, _ = w.Flush()
 }
 
 // HideCursor hides the hardware cursor

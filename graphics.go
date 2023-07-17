@@ -16,7 +16,6 @@ import (
 
 var (
 	nextID           uint64 = 0
-	graphics                = make(map[uint64]Graphic)
 	graphicsProtocol        = noGraphics
 )
 

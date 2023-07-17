@@ -646,9 +646,6 @@ const (
 	KeyBackspace = 0x7F
 )
 
-// keyMap is built from terminfo entries
-var keyMap = map[string]Key{}
-
 var kittyKeyMap = map[string]rune{
 	"27u":    KeyEsc,
 	"13u":    KeyEnter,
