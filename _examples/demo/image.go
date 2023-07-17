@@ -21,7 +21,7 @@ func (i *img) Draw(win vaxis.Window) {
 }
 
 func newImage() *img {
-	f, err := os.Open("./cmd/demo/vaxis.png")
+	f, err := os.Open("./_examples/demo/vaxis.png")
 	if err != nil {
 		panic(err)
 	}

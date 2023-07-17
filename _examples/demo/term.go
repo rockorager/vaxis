@@ -13,9 +13,8 @@ type vt struct {
 }
 
 func newTerm() *vt {
-	vt := &vt{
-		term: term.New(),
-	}
+	vt := &vt{}
+	vt.term = term.New(vt)
 	vt.term.Logger = log
 	vt.term.Start(exec.Command(os.Getenv("SHELL")))
 	return vt
