@@ -126,9 +126,9 @@ func TestIs(t *testing.T) {
 
 func TestAnywhere(t *testing.T) {
 	tests := []struct {
+		expected stateFn
 		name     string
 		input    rune
-		expected stateFn
 	}{
 		{
 			name:     "0x18",
