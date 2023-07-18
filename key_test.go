@@ -1,51 +1,52 @@
-package vaxis
+package vaxis_test
 
 import (
 	"testing"
 
+	"git.sr.ht/~rockorager/vaxis"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestKey(t *testing.T) {
 	tests := []struct {
 		name string
-		key  Key
+		key  vaxis.Key
 	}{
 		{
 			name: "j",
-			key:  Key{Codepoint: 'j'},
+			key:  vaxis.Key{Codepoint: 'j'},
 		},
 		{
 			name: "Ctrl+@",
-			key:  Key{Codepoint: 0x00},
+			key:  vaxis.Key{Codepoint: 0x00},
 		},
 		{
 			name: "Ctrl+a",
-			key:  Key{Codepoint: 0x01},
+			key:  vaxis.Key{Codepoint: 0x01},
 		},
 		{
 			name: "Alt+a",
-			key:  Key{Codepoint: 'a', Modifiers: ModAlt},
+			key:  vaxis.Key{Codepoint: 'a', Modifiers: vaxis.ModAlt},
 		},
 		{
 			name: "F1",
-			key:  Key{Codepoint: KeyF01},
+			key:  vaxis.Key{Codepoint: vaxis.KeyF01},
 		},
 		{
 			name: "Shift+F1",
-			key:  Key{Codepoint: KeyF01, Modifiers: ModShift},
+			key:  vaxis.Key{Codepoint: vaxis.KeyF01, Modifiers: vaxis.ModShift},
 		},
 		{
 			name: "Shift+Tab",
-			key:  Key{Codepoint: KeyTab, Modifiers: ModShift},
+			key:  vaxis.Key{Codepoint: vaxis.KeyTab, Modifiers: vaxis.ModShift},
 		},
 		{
 			name: "Escape",
-			key:  Key{Codepoint: KeyEsc},
+			key:  vaxis.Key{Codepoint: vaxis.KeyEsc},
 		},
 		{
 			name: "space",
-			key:  Key{Codepoint: KeySpace},
+			key:  vaxis.Key{Codepoint: vaxis.KeySpace},
 		},
 	}
 
@@ -54,5 +55,22 @@ func TestKey(t *testing.T) {
 			actual := test.key.String()
 			assert.Equal(t, test.name, actual)
 		})
+	}
+}
+
+func ExampleKey() {
+	msg := vaxis.PollMsg()
+	switch msg := msg.(type) {
+	case vaxis.Key:
+		switch msg.String() {
+		case "Ctrl+c":
+			vaxis.Close()
+		case "Ctrl+l":
+			vaxis.Refresh()
+		case "j":
+			// Down?
+		default:
+			// handle the key
+		}
 	}
 }
