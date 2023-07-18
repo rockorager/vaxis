@@ -787,7 +787,7 @@ func parseKittyKbp(seq ansi.CSI) Key {
 		case 2:
 			// text-as-codepoint
 			key.Codepoint = rune(pm[0])
-			// key.Modifiers = 0
+			key.Modifiers &^= ModShift
 		}
 	}
 	return key
