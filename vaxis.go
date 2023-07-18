@@ -107,9 +107,7 @@ type Options struct {
 	// stdlib levels for logging
 	Logger *slog.Logger
 	// DisableKittyKeyboard disables the use of the Kitty Keyboard protocol.
-	// By default, if support is detected the protocol will be used. Your
-	// application will receive key release events as well as improved key
-	// support
+	// By default, if support is detected the protocol will be used.
 	DisableKittyKeyboard bool
 	// ReportKeyboardEvents will report key release and key repeat events if
 	// KittyKeyboardProtocol is enabled and supported by the terminal

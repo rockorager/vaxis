@@ -60,6 +60,10 @@ func Print(win Window, text string) (maxWidth int, col int, row int) {
 	return maxWidth, col, row
 }
 
+// Segment is a string of text with a given set of decorations. A Segment is
+// nearly equivalent to a Cell, except that Cells should only contain a single
+// grapheme, whereas a segment is a string of text. Segments can be printed to
+// Windows using the Print methods.
 type Segment struct {
 	Text           string
 	Hyperlink      string
