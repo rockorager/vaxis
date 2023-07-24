@@ -25,7 +25,7 @@ var (
 	log = slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	// msgs is the main event loop Msg queue
-	msgs *queue[Msg]
+	msgs *Queue[Msg]
 	// chQuit is a channel to signal to running goroutines that we are
 	// quitting
 	chQuit chan struct{}
@@ -164,7 +164,7 @@ func Init(opts Options) error {
 	lastGraphicPlacements = make(map[int]*placement)
 
 	// Setup internals and signal handling
-	msgs = newQueue[Msg]()
+	msgs = NewQueue[Msg]()
 	chQuit = make(chan struct{})
 	chCursorPositionReport = make(chan int)
 	PostMsg(InitMsg{})

@@ -5,26 +5,26 @@ import (
 	"sync/atomic"
 )
 
-// queue provides an infinitely buffered channel
-type queue[T any] struct {
+// Queue provides an infinitely buffered channel
+type Queue[T any] struct {
 	ch    chan T
 	items []T
 	mu    sync.Mutex
 	busy  atomic.Bool
 }
 
-func newQueue[T any]() *queue[T] {
-	q := &queue[T]{
+func NewQueue[T any]() *Queue[T] {
+	q := &Queue[T]{
 		ch: make(chan T),
 	}
 	return q
 }
 
-func (q *queue[T]) Chan() chan T {
+func (q *Queue[T]) Chan() chan T {
 	return q.ch
 }
 
-func (q *queue[T]) push(item T) {
+func (q *Queue[T]) push(item T) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
@@ -34,7 +34,7 @@ func (q *queue[T]) push(item T) {
 	}
 }
 
-func (q *queue[T]) pop() (T, bool) {
+func (q *Queue[T]) pop() (T, bool) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
@@ -52,7 +52,7 @@ func (q *queue[T]) pop() (T, bool) {
 	return item, true
 }
 
-func (q *queue[T]) process() {
+func (q *Queue[T]) process() {
 	q.busy.Store(true)
 	defer q.busy.Store(false)
 

@@ -1,7 +1,7 @@
 package vaxis
 
 // cmds is an asynchronous queue, provided as a helper for applications
-var cmds = newQueue[Cmd]()
+var cmds = NewQueue[Cmd]()
 
 // Cmd is some long-running task. The Cmd queue is provided as a helper for
 // applications to use as a queue running in parallel with the main event loop.
