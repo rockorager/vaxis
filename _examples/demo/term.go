@@ -5,6 +5,7 @@ import (
 	"os/exec"
 
 	"git.sr.ht/~rockorager/vaxis"
+	"git.sr.ht/~rockorager/vaxis/widgets/border"
 	"git.sr.ht/~rockorager/vaxis/widgets/term"
 )
 
@@ -25,5 +26,5 @@ func (vt *vt) Update(msg vaxis.Msg) {
 }
 
 func (vt *vt) Draw(win vaxis.Window) {
-	vt.term.Draw(win)
+	vt.term.Draw(border.All(win, 0, 0))
 }
