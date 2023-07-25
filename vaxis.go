@@ -29,6 +29,7 @@ var (
 	// chQuit is a channel to signal to running goroutines that we are
 	// quitting
 	chQuit chan struct{}
+	closed bool
 	// inPaste signals that we are within a bracketed paste
 	inPaste    bool
 	osc52Paste chan string
@@ -226,6 +227,9 @@ func Run(model Model) error {
 			if !updated {
 				continue
 			}
+			if closed {
+				return nil
+			}
 			model.Draw(Window{})
 			Render()
 			updated = false
@@ -251,6 +255,9 @@ func Run(model Model) error {
 // Close shuts down the event loops and returns the terminal to it's original
 // state
 func Close() {
+	if closed {
+		return
+	}
 	close(chQuit)
 	_, _ = w.WriteString(decset(cursorVisibility)) // show the cursor
 	_, _ = w.WriteString(sgrReset)                 // reset fg, bg, attrs
@@ -276,6 +283,7 @@ func Close() {
 	if renders != 0 {
 		log.Info("Time/render", "val", elapsed/time.Duration(renders))
 	}
+	closed = true
 }
 
 // Render renders the model's content to the terminal
