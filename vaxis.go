@@ -291,8 +291,7 @@ func Render() {
 	start := time.Now()
 	// defer renderBuf.Reset()
 	render()
-	n, _ := w.Flush()
-	log.Debug("flushed", "bytes", n)
+	_, _ = w.Flush()
 	// updating cursor state has to be after Flush, we check state change in
 	// flush.
 	lastCursor = nextCursor
