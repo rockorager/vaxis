@@ -9,7 +9,7 @@ func PostMsg(msg Msg) {
 	if msg == nil {
 		return
 	}
-	msgs.push(msg)
+	msgs.Push(msg)
 }
 
 // PollMsg returns the next Msg

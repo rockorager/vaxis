@@ -15,7 +15,7 @@ func PostCmd(cmd Cmd) {
 	if cmd == nil {
 		return
 	}
-	cmds.push(cmd)
+	cmds.Push(cmd)
 }
 
 // PollCmd returns the next Cmd. PollCmd blocks until a Cmd is available

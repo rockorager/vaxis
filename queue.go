@@ -24,7 +24,7 @@ func (q *Queue[T]) Chan() chan T {
 	return q.ch
 }
 
-func (q *Queue[T]) push(item T) {
+func (q *Queue[T]) Push(item T) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
