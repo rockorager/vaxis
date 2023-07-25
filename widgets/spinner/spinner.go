@@ -48,8 +48,8 @@ func (m *Model) Draw(w vaxis.Window) {
 	defer m.mu.Unlock()
 	m.win = w
 	if m.spinning {
-		w.SetCell(0, 0, vaxis.Cell{
-			Character:  string(m.Frames[m.frame]),
+		w.SetCell(0, 0, vaxis.Text{
+			Content:    string(m.Frames[m.frame]),
 			Foreground: m.Foreground,
 			Background: m.Background,
 			Attribute:  m.Attribute,

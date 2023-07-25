@@ -4,8 +4,8 @@ import "git.sr.ht/~rockorager/vaxis"
 
 func ExampleRGBColor() {
 	color := vaxis.RGBColor(1, 2, 3)
-	vaxis.Fill(vaxis.Window{}, vaxis.Cell{
-		Character:  " ",
+	vaxis.Fill(vaxis.Window{}, vaxis.Text{
+		Content:    " ",
 		Background: color,
 	})
 }
@@ -13,8 +13,8 @@ func ExampleRGBColor() {
 func ExampleIndexColor() {
 	// Index 1 is usually a red
 	color := vaxis.IndexColor(1)
-	vaxis.Fill(vaxis.Window{}, vaxis.Cell{
-		Character:  " ",
+	vaxis.Fill(vaxis.Window{}, vaxis.Text{
+		Content:    " ",
 		Background: color,
 	})
 }
@@ -22,8 +22,8 @@ func ExampleIndexColor() {
 func ExampleHexColor() {
 	// Creates an RGB color from a hex value
 	color := vaxis.HexColor(0x00AABB)
-	vaxis.Fill(vaxis.Window{}, vaxis.Cell{
-		Character:  " ",
+	vaxis.Fill(vaxis.Window{}, vaxis.Text{
+		Content:    " ",
 		Background: color,
 	})
 }

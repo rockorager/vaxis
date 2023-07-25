@@ -90,5 +90,5 @@ func (m *input) Draw(win vaxis.Window) {
 	for i := top; i < len(m.events); i += 1 {
 		out.WriteString(m.events[i] + "\n")
 	}
-	vaxis.Print(win, out.String())
+	vaxis.Print(win, vaxis.Text{Content: out.String()})
 }

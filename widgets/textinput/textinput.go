@@ -7,8 +7,8 @@ import (
 )
 
 type Model struct {
-	Prompt  vaxis.Segment
-	Content vaxis.Segment
+	Prompt  vaxis.Text
+	Content vaxis.Text
 	// TODO handle the cursor better with the new wrapping
 	cursor    int // the x position of the cursor
 	cursorCol int
@@ -18,8 +18,8 @@ type Model struct {
 func (m *Model) Update(msg vaxis.Msg) {
 	switch msg := msg.(type) {
 	case vaxis.Key:
-		if m.cursor > len(m.Content.Text) {
-			m.cursor = len(m.Content.Text)
+		if m.cursor > len(m.Content.Content) {
+			m.cursor = len(m.Content.Content)
 		}
 		switch msg.String() {
 		case "Left":
@@ -28,7 +28,7 @@ func (m *Model) Update(msg vaxis.Msg) {
 			}
 			// TODO
 		case "Right":
-			if m.cursor >= len(m.Content.Text) {
+			if m.cursor >= len(m.Content.Content) {
 				return
 			}
 			// TODO
@@ -36,10 +36,10 @@ func (m *Model) Update(msg vaxis.Msg) {
 			switch {
 			case m.cursor == 0:
 				return
-			case m.cursor == len(m.Content.Text):
-				m.Content.Text = m.Content.Text[:m.cursor-1]
+			case m.cursor == len(m.Content.Content):
+				m.Content.Content = m.Content.Content[:m.cursor-1]
 			default:
-				m.Content.Text = m.Content.Text[:m.cursor-1] + m.Content.Text[m.cursor:]
+				m.Content.Content = m.Content.Content[:m.cursor-1] + m.Content.Content[m.cursor:]
 			}
 			m.cursor -= 1
 		default:
@@ -57,12 +57,12 @@ func (m *Model) Update(msg vaxis.Msg) {
 			}
 			if unicode.IsGraphic(msg.Codepoint) {
 				switch {
-				case m.cursor == len(m.Content.Text):
-					m.Content.Text = m.Content.Text + string(msg.Codepoint)
+				case m.cursor == len(m.Content.Content):
+					m.Content.Content = m.Content.Content + string(msg.Codepoint)
 				default:
-					m.Content.Text = m.Content.Text[:m.cursor] +
+					m.Content.Content = m.Content.Content[:m.cursor] +
 						string(msg.Codepoint) +
-						m.Content.Text[m.cursor:]
+						m.Content.Content[m.cursor:]
 				}
 				m.cursor += 1
 			}
@@ -73,11 +73,11 @@ func (m *Model) Update(msg vaxis.Msg) {
 func (m *Model) Draw(win vaxis.Window) {
 	var col int
 	var row int
-	switch m.Prompt.Text {
+	switch m.Prompt.Content {
 	case "":
-		_, col, row = vaxis.PrintSegments(win, m.Content)
+		_, col, row = vaxis.Print(win, m.Content)
 	default:
-		_, col, row = vaxis.PrintSegments(win, m.Prompt, m.Content)
+		_, col, row = vaxis.Print(win, m.Prompt, m.Content)
 	}
 	win.ShowCursor(col, row, 0)
 	m.cursorCol = col

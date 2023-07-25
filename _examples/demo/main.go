@@ -104,41 +104,41 @@ func (m *model) Draw(win vaxis.Window) {
 	cols, rows := win.Size()
 	mid := fmt.Sprintf("%d of %d", m.current+1, 1+len(m.slides))
 	w := uniseg.StringWidth(mid)
-	vaxis.Print(align.BottomRight(win, w, 1), mid)
+	vaxis.Print(align.BottomRight(win, w, 1), vaxis.Text{Content: mid})
 	w = uniseg.StringWidth(m.keys)
-	vaxis.Print(align.BottomMiddle(win, w, 1), m.keys)
+	vaxis.Print(align.BottomMiddle(win, w, 1), vaxis.Text{Content: m.keys})
 	switch m.current {
 	case 0:
 		family := "👨‍👩‍👧‍👦👩‍🚀"
 		w := vaxis.RenderedWidth(family)
-		vaxis.Print(win, family+strings.Repeat("-", cols-w))
+		vaxis.Print(win, vaxis.Text{Content: family + strings.Repeat("-", cols-w)})
 
-		blocks := []vaxis.Segment{
+		blocks := []vaxis.Text{
 			{
-				Text: "vaxis\n\n",
+				Content: "vaxis\n\n",
 			},
 			{
-				Text:       "Ctrl+C to quit\n",
-				Attributes: vaxis.AttrDim,
+				Content:   "Ctrl+C to quit\n",
+				Attribute: vaxis.AttrDim,
 			},
 			{
-				Text:       "<Right> next slide\n",
-				Attributes: vaxis.AttrDim,
+				Content:   "<Right> next slide\n",
+				Attribute: vaxis.AttrDim,
 			},
 			{
-				Text:       "<Left> previous slide\n",
-				Attributes: vaxis.AttrDim,
+				Content:   "<Left> previous slide\n",
+				Attribute: vaxis.AttrDim,
 			},
 			{
-				Text:       "Ascension Islang flag: 🇦🇨inline\n",
-				Attributes: vaxis.AttrDim,
+				Content:   "Ascension Islang flag: 🇦🇨inline\n",
+				Attribute: vaxis.AttrDim,
 			},
 			{
-				Text:       "Family: 👨‍👩‍👧‍👦inline\n",
-				Attributes: vaxis.AttrDim,
+				Content:   "Family: 👨‍👩‍👧‍👦inline\n",
+				Attribute: vaxis.AttrDim,
 			},
 		}
-		vaxis.PrintSegments(align.Center(win, 36, len(blocks)+1), blocks...)
+		vaxis.Print(align.Center(win, 36, len(blocks)+1), blocks...)
 	default:
 		m.slides[m.current-1].Draw(vaxis.NewWindow(&win, 0, 0, -1, rows-1))
 	}

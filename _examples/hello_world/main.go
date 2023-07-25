@@ -12,7 +12,9 @@ func main() {
 		case vaxis.Resize:
 			win := vaxis.Window{}
 			vaxis.Clear(win)
-			vaxis.Print(win, "Hello, World!")
+			vaxis.Print(win, vaxis.Text{Content: "Hello, World!"})
+			truncWin := vaxis.NewWindow(&win, 0, 1, 10, 0)
+			vaxis.PrintLine(truncWin, 0, "…", vaxis.Text{Content: "This line should be truncated at 6 characters"})
 			vaxis.Render()
 		case vaxis.Key:
 			switch msg.String() {

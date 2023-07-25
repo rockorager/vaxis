@@ -42,52 +42,52 @@ func (m *Model) Draw(win vaxis.Window) {
 	remainder := fracBlocks - fullBlocks
 
 	for i := 0; i <= int(fullBlocks); i += 1 {
-		win.SetCell(i, 0, vaxis.Cell{
-			Character:  "█",
+		win.SetCell(i, 0, vaxis.Text{
+			Content:    "█",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
 	}
 	switch {
 	case remainder >= 0.875:
-		win.SetCell(int(fullBlocks)+1, 0, vaxis.Cell{
-			Character:  "▉",
+		win.SetCell(int(fullBlocks)+1, 0, vaxis.Text{
+			Content:    "▉",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
 	case remainder >= 0.75:
-		win.SetCell(int(fullBlocks)+1, 0, vaxis.Cell{
-			Character:  "▊",
+		win.SetCell(int(fullBlocks)+1, 0, vaxis.Text{
+			Content:    "▊",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
 	case remainder >= 0.625:
-		win.SetCell(int(fullBlocks)+1, 0, vaxis.Cell{
-			Character:  "▋",
+		win.SetCell(int(fullBlocks)+1, 0, vaxis.Text{
+			Content:    "▋",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
 	case remainder >= 0.5:
-		win.SetCell(int(fullBlocks)+1, 0, vaxis.Cell{
-			Character:  "▌",
+		win.SetCell(int(fullBlocks)+1, 0, vaxis.Text{
+			Content:    "▌",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
 	case remainder >= 0.375:
-		win.SetCell(int(fullBlocks)+1, 0, vaxis.Cell{
-			Character:  "▍",
+		win.SetCell(int(fullBlocks)+1, 0, vaxis.Text{
+			Content:    "▍",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
 	case remainder >= 0.25:
-		win.SetCell(int(fullBlocks)+1, 0, vaxis.Cell{
-			Character:  "▎",
+		win.SetCell(int(fullBlocks)+1, 0, vaxis.Text{
+			Content:    "▎",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})
 	case remainder >= 0.125:
-		win.SetCell(int(fullBlocks)+1, 0, vaxis.Cell{
-			Character:  "▏",
+		win.SetCell(int(fullBlocks)+1, 0, vaxis.Text{
+			Content:    "▏",
 			Foreground: m.Foreground,
 			Background: m.Background,
 		})

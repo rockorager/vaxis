@@ -1,7 +1,7 @@
 package vaxis
 
-type Cell struct {
-	Character      string // EGC
+type Text struct {
+	Content        string
 	Hyperlink      string
 	HyperlinkID    string
 	Foreground     Color

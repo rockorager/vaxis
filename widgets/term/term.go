@@ -461,8 +461,8 @@ func (vt *Model) Draw(win vaxis.Window) {
 			}
 
 			egc := fmt.Sprintf("%c%s", cell.content, string(cell.combining))
-			win.SetCell(col, row, vaxis.Cell{
-				Character:  egc,
+			win.SetCell(col, row, vaxis.Text{
+				Content:    egc,
 				Foreground: cell.fg,
 				Background: cell.bg,
 				Attribute:  cell.attrs,

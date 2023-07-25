@@ -5,7 +5,7 @@ import (
 )
 
 // Fill completely fills the Window with the provided cell
-func Fill(win Window, cell Cell) {
+func Fill(win Window, cell Text) {
 	cols, rows := win.Size()
 	for row := 0; row < rows; row += 1 {
 		for col := 0; col < cols; col += 1 {
@@ -20,70 +20,21 @@ func Clear(win Window) {
 	// We fill with a \x00 cell to differentiate between eg a text input
 	// space and a cleared cell. \x00 is rendered as a space, but the
 	// internal model will differentiate
-	Fill(win, Cell{Character: "\x00"})
+	Fill(win, Text{Content: "\x00"})
 	for k := range nextGraphicPlacements {
 		delete(nextGraphicPlacements, k)
 	}
 }
 
-// Print prints text to a Window. The text will be wrapped to the width, line
-// breaks will begin a new line at the first column of the surface. If the text
-// overflows the height of the surface then only the top portion will be shown.
-// Print returns the max width of the text area, and the position of the cursor
-// at the end of the text.
-func Print(win Window, text string) (maxWidth int, col int, row int) {
-	cols, rows := win.Size()
-	for _, char := range Characters(text) {
-		if row > rows {
-			break
-		}
-		if char == "\n" {
-			if col > maxWidth {
-				maxWidth = col
-			}
-			col = 0
-			row += 1
-			continue
-		}
-		w := RenderedWidth(char)
-		// w := uniseg.StringWidth(char)
-		if col+w > cols {
-			if col > maxWidth {
-				maxWidth = col
-			}
-			col = 0
-			row += 1
-		}
-		win.SetCell(col, row, Cell{Character: char})
-		col += w
-	}
-	return maxWidth, col, row
-}
-
-// Segment is a string of text with a given set of decorations. A Segment is
-// nearly equivalent to a Cell, except that Cells should only contain a single
-// grapheme, whereas a segment is a string of text. Segments can be printed to
-// Windows using the Print methods.
-type Segment struct {
-	Text           string
-	Hyperlink      string
-	HyperlinkID    string
-	Foreground     Color
-	Background     Color
-	Underline      Color
-	UnderlineStyle UnderlineStyle
-	Attributes     AttributeMask
-}
-
-// PrintSegments prints Segments of text, with each block having a given style.
+// Print prints segments of Text, with each block having a given style.
 // Text will be wrapped, line breaks will begin a new line at the first column
 // of the surface. If the text overflows the height of the surface then only the
 // top portion will be shown
-func PrintSegments(win Window, segs ...Segment) (maxWidth int, col int, row int) {
+func Print(win Window, segs ...Text) (maxWidth int, col int, row int) {
 	cols, rows := win.Size()
 	for _, seg := range segs {
 		var (
-			b       = []byte(seg.Text)
+			b       = []byte(seg.Content)
 			state   = -1
 			cluster []byte
 		)
@@ -100,18 +51,9 @@ func PrintSegments(win Window, segs ...Segment) (maxWidth int, col int, row int)
 				row += 1
 				continue
 			}
-			win.SetCell(col, row, Cell{
-				Character:      string(cluster),
-				Foreground:     seg.Foreground,
-				Background:     seg.Background,
-				UnderlineColor: seg.Underline,
-				UnderlineStyle: seg.UnderlineStyle,
-				Attribute:      seg.Attributes,
-				Hyperlink:      seg.Hyperlink,
-				HyperlinkID:    seg.HyperlinkID,
-			})
-
-			col += RenderedWidth(string(cluster))
+			cSeg := seg
+			cSeg.Content = string(cluster)
+			col += win.SetCell(col, row, cSeg)
 			if col+nextBreak(b) > cols {
 				if col > maxWidth {
 					maxWidth = col
@@ -122,6 +64,33 @@ func PrintSegments(win Window, segs ...Segment) (maxWidth int, col int, row int)
 		}
 	}
 	return maxWidth, col, row
+}
+
+// PrintLine prints a single line of text to the specified row. If the text is
+// wider than the width of the window, trunc will be used as a truncating
+// indicator (eg "This line has mo…"). If the row is outside the bounds of the
+// window, nothing will be printed
+func PrintLine(win Window, row int, trunc string, segs ...Text) {
+	cols, rows := win.Size()
+	if row >= rows {
+		return
+	}
+	col := 0
+	truncWidth := RenderedWidth(trunc)
+	for _, seg := range segs {
+		for _, char := range Characters(seg.Content) {
+			w := RenderedWidth(char)
+			chText := seg
+			if col+truncWidth+w > cols {
+				chText.Content = trunc
+				win.SetCell(col, row, chText)
+				return
+			}
+			chText.Content = char
+			win.SetCell(col, row, chText)
+			col += w
+		}
+	}
 }
 
 // returns the stringwidth until the next can or must break
@@ -207,7 +176,7 @@ func (win Window) Size() (width int, height int) {
 // SetCell is used to place data at the given cell location.  Note that since
 // the Window doesn't retain this data, if the location is outside of the
 // visible area, it is simply discarded.
-func (win Window) SetCell(col int, row int, cell Cell) int {
+func (win Window) SetCell(col int, row int, cell Text) int {
 	cols, rows := win.Size()
 	if cols == 0 || rows == 0 {
 		return 0

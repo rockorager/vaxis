@@ -35,8 +35,8 @@ func (m *Model) Draw(win vaxis.Window) {
 		m.Character = "▐"
 	}
 	for i := 0; i < barH; i += 1 {
-		cell := vaxis.Cell{
-			Character:  m.Character,
+		cell := vaxis.Text{
+			Content:    m.Character,
 			Foreground: m.Foreground,
 		}
 		win.SetCell(0, barTop+i, cell)

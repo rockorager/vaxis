@@ -352,13 +352,13 @@ func render() {
 				reposition = true
 				// Advance the column by the width of this
 				// character
-				skip := advance(next.Character)
+				skip := advance(next.Content)
 				for i := 1; i < skip+1; i += 1 {
 					if col+i >= len(stdScreen.buf[row]) {
 						break
 					}
 					// null out any cells we end up skipping
-					lastRender.buf[row][col+i] = Cell{}
+					lastRender.buf[row][col+i] = Text{}
 				}
 				col += skip
 				continue
@@ -539,21 +539,21 @@ func render() {
 					_, _ = w.WriteString(tparm(osc8WithID, link, linkID))
 				}
 			}
-			switch next.Character {
+			switch next.Content {
 			case "\x00":
 				_, _ = w.WriteString(" ")
 			default:
-				_, _ = w.WriteString(next.Character)
+				_, _ = w.WriteString(next.Content)
 			}
 			// Advance the column by the width of this
 			// character
-			skip := advance(next.Character)
+			skip := advance(next.Content)
 			for i := 1; i < skip+1; i += 1 {
 				if col+i >= len(stdScreen.buf[row]) {
 					break
 				}
 				// null out any cells we end up skipping
-				lastRender.buf[row][col+i] = Cell{}
+				lastRender.buf[row][col+i] = Text{}
 			}
 			col += skip
 		}
