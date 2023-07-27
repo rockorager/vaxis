@@ -28,9 +28,9 @@ func main() {
 	for {
 		switch msg := vaxis.PollMsg().(type) {
 		case vaxis.Resize:
-			win := vaxis.Window{}
+			win := vaxis.Window{Width: -1, Height: -1}
 			vaxis.Clear(win)
-			vaxis.Print(win, "Hello, World!")
+			vaxis.Print(win, vaxis.Text{Content: "Hello, World!"})
 			vaxis.Render()
 		case vaxis.Key:
 			switch msg.String() {
