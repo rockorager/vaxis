@@ -10,10 +10,10 @@ func main() {
 	for {
 		switch msg := vaxis.PollMsg().(type) {
 		case vaxis.Resize:
-			win := vaxis.Window{}
+			win := vaxis.Window{Width: -1, Height: -1}
 			vaxis.Clear(win)
 			vaxis.Print(win, vaxis.Text{Content: "Hello, World!"})
-			truncWin := vaxis.NewWindow(&win, 0, 1, 10, 0)
+			truncWin := vaxis.NewWindow(&win, 0, 1, 10, -1)
 			vaxis.PrintLine(truncWin, 0, "…", vaxis.Text{Content: "This line should be truncated at 6 characters"})
 			vaxis.Render()
 		case vaxis.Key:

@@ -230,7 +230,7 @@ func Run(model Model) error {
 			if closed {
 				return nil
 			}
-			model.Draw(Window{})
+			model.Draw(Window{Width: -1, Height: -1})
 			Render()
 			updated = false
 		case msg := <-msgs.ch:

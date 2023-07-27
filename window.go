@@ -126,7 +126,7 @@ type Window struct {
 
 // NewWindow returns a new Window. The x and y coordinates are an offset
 // relative to the parent. The origin 0,0 represents the upper left.  The width
-// and height can be set to 0 to have the window expand to fill it's parent. The
+// and height can be set to -1 to have the window expand to fill it's parent. The
 // Window cannot exist outside of it's parent's Window.
 func NewWindow(parent *Window, col, row, cols, rows int) Window {
 	return Window{
@@ -157,7 +157,7 @@ func (win Window) Size() (width int, height int) {
 	switch {
 	case (win.Column + win.Width) > pCols:
 		width = pCols - win.Column
-	case win.Width <= 0:
+	case win.Width < 0:
 		width = pCols - win.Column
 	default:
 		width = win.Width
@@ -165,7 +165,7 @@ func (win Window) Size() (width int, height int) {
 	switch {
 	case (win.Row + win.Height) > pRows:
 		height = pRows - win.Row
-	case win.Height <= 0:
+	case win.Height < 0:
 		height = pRows - win.Row
 	default:
 		height = win.Height
