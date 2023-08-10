@@ -76,10 +76,10 @@ func PrintLine(win Window, row int, trunc string, segs ...Text) {
 		return
 	}
 	col := 0
-	truncWidth := RenderedWidth(trunc)
+	truncWidth := characterWidth(trunc)
 	for _, seg := range segs {
 		for _, char := range Characters(seg.Content) {
-			w := RenderedWidth(char)
+			w := characterWidth(char)
 			chText := seg
 			if col+truncWidth+w > cols {
 				chText.Content = trunc

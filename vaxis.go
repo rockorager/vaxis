@@ -283,6 +283,7 @@ func Close() {
 	if renders != 0 {
 		log.Info("Time/render", "val", elapsed/time.Duration(renders))
 	}
+	log.Info("Cached characters", "val", len(characterWidthCache))
 	closed = true
 }
 
@@ -922,7 +923,7 @@ func Bell() {
 
 // advance returns the extra amount to advance the column by when rendering
 func advance(ch string) int {
-	w := RenderedWidth(ch) - 1
+	w := characterWidth(ch) - 1
 	if w < 0 {
 		return 0
 	}
@@ -968,6 +969,22 @@ func RenderedWidth(s string) int {
 		// uniseg there, and runewidth here
 		w += runewidth.RuneWidth(r)
 	}
+	return w
+}
+
+var characterWidthCache = make(map[string]int, 512)
+
+// characterWidth measures the width of a grapheme cluster, caching the result .
+// We only ever call this with characters, making it highly cacheable since
+// there is likely to only ever be a finite set of characters in the lifetime of
+// an application
+func characterWidth(s string) int {
+	w, ok := characterWidthCache[s]
+	if ok {
+		return w
+	}
+	w = RenderedWidth(s)
+	characterWidthCache[s] = w
 	return w
 }
 

@@ -37,5 +37,5 @@ func (s *screen) setCell(col int, row int, text Text) int {
 		return 0
 	}
 	s.buf[row][col] = text
-	return RenderedWidth(text.Content)
+	return characterWidth(text.Content)
 }
