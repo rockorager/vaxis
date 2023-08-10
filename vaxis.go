@@ -95,10 +95,12 @@ type cursorState struct {
 
 // Converts a string into a slice of Characters suitable to assign to terminal cells
 func Characters(s string) []string {
-	egcs := []string{}
-	g := uniseg.NewGraphemes(s)
-	for g.Next() {
-		egcs = append(egcs, g.Str())
+	egcs := make([]string, 0, len(s))
+	state := -1
+	cluster := ""
+	for s != "" {
+		cluster, s, _, state = uniseg.StepString(s, state)
+		egcs = append(egcs, cluster)
 	}
 	return egcs
 }
