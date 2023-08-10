@@ -33,7 +33,29 @@ func Clear(win Window) {
 // of the surface. If the text overflows the height of the surface then only the
 // top portion will be shown
 func Print(win Window, segs ...Text) (col int, row int) {
-	return PrintOffset(win, 0, segs...)
+	cols, rows := win.Size()
+	for _, seg := range segs {
+		for _, char := range Characters(seg.Content) {
+			if strings.ContainsRune(char.Grapheme, '\n') {
+				col = 0
+				row += 1
+				continue
+			}
+			if row > rows {
+				return col, row
+			}
+			chText := seg
+			chText.Content = char.Grapheme
+			chText.WidthHint = char.Width
+			win.SetCell(col, row, chText)
+			col += char.Width
+			if col >= cols {
+				row += 1
+				col = 0
+			}
+		}
+	}
+	return col, row
 }
 
 // printWrap uses unicode line break logic to wrap text. this is expensive, but
@@ -72,38 +94,6 @@ func printWrap(win Window, segs ...Text) (col int, row int) {
 				// }
 				col = 0
 				row += 1
-			}
-		}
-	}
-	return col, row
-}
-
-func PrintOffset(win Window, offset int, segs ...Text) (col int, row int) {
-	cols, rows := win.Size()
-	row = -offset
-	for _, seg := range segs {
-		for _, char := range Characters(seg.Content) {
-			if strings.ContainsRune(char.Grapheme, '\n') {
-				col = 0
-				row += 1
-				continue
-			}
-			if row > rows {
-				return col, row
-			}
-			switch {
-			case row < 0:
-				col += char.Width
-			default:
-				chText := seg
-				chText.Content = char.Grapheme
-				chText.WidthHint = char.Width
-				win.SetCell(col, row, chText)
-				col += char.Width
-			}
-			if col >= cols {
-				row += 1
-				col = 0
 			}
 		}
 	}
