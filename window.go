@@ -64,7 +64,8 @@ func printWrap(win Window, segs ...Text) (col int, row int) {
 			}
 			cSeg := seg
 			cSeg.Content = string(cluster)
-			col += win.SetCell(col, row, cSeg)
+			win.SetCell(col, row, cSeg)
+			col += characterWidth(string(cluster))
 			if col+nextBreak(b) > cols {
 				// if col > maxWidth {
 				// 	maxWidth = col
@@ -96,7 +97,8 @@ func PrintOffset(win Window, offset int, segs ...Text) (col int, row int) {
 			default:
 				chText := seg
 				chText.Content = char
-				col += win.SetCell(col, row, chText)
+				win.SetCell(col, row, chText)
+				col += characterWidth(char)
 			}
 			if col >= cols {
 				row += 1
@@ -170,75 +172,60 @@ type Window struct {
 // and height can be set to -1 to have the window expand to fill it's parent. The
 // Window cannot exist outside of it's parent's Window.
 func NewWindow(parent *Window, col, row, cols, rows int) Window {
-	return Window{
+	win := Window{
 		Row:    row,
 		Column: col,
 		Width:  cols,
 		Height: rows,
 		Parent: parent,
 	}
+	var (
+		w int
+		h int
+	)
+	switch parent {
+	case nil:
+		w, h = stdScreen.size()
+	default:
+		w, h = parent.Size()
+	}
+
+	switch {
+	case cols < 0:
+		win.Width = w - col
+	case cols+col > w:
+		win.Width = w - col
+	}
+
+	switch {
+	case rows < 0:
+		win.Height = h - row
+	case rows+row > w:
+		win.Height = h - row
+	}
+	return win
 }
 
 // Size returns the visible size of the Window in character cells.
 func (win Window) Size() (width int, height int) {
-	var (
-		pCols int
-		pRows int
-	)
-	switch win.Parent {
-	case nil:
-		if stdScreen == nil {
-			return 0, 0
-		}
-		pCols, pRows = stdScreen.size()
-	default:
-		pCols, pRows = win.Parent.Size()
-	}
-
-	switch {
-	case (win.Column + win.Width) > pCols:
-		width = pCols - win.Column
-	case win.Width < 0:
-		width = pCols - win.Column
-	default:
-		width = win.Width
-	}
-	switch {
-	case (win.Row + win.Height) > pRows:
-		height = pRows - win.Row
-	case win.Height < 0:
-		height = pRows - win.Row
-	default:
-		height = win.Height
-	}
-	return width, height
+	return win.Width, win.Height
 }
 
 // SetCell is used to place data at the given cell location.  Note that since
 // the Window doesn't retain this data, if the location is outside of the
 // visible area, it is simply discarded.
-func (win Window) SetCell(col int, row int, cell Text) int {
-	cols, rows := win.Size()
-	if cols == 0 || rows == 0 {
-		return 0
+func (win Window) SetCell(col int, row int, cell Text) {
+	if row >= win.Height || col > win.Width {
+		return
 	}
-	if col >= cols {
-		return 0
-	}
-	if row >= rows {
-		return 0
-	}
-	if row < 0 {
-		return 0
-	}
-	if col < 0 {
-		return 0
+	if row < 0 || col < 0 {
+		return
 	}
 	switch win.Parent {
 	case nil:
-		return stdScreen.setCell(col+win.Column, row+win.Row, cell)
+		stdScreen.setCell(col+win.Column, row+win.Row, cell)
 	default:
-		return win.Parent.SetCell(col+win.Column, row+win.Row, cell)
+		win.Parent.SetCell(col+win.Column, row+win.Row, cell)
 	}
 }
 

@@ -98,9 +98,11 @@ func Characters(s string) []string {
 	egcs := make([]string, 0, len(s))
 	state := -1
 	cluster := ""
+	w := 0
 	for s != "" {
-		cluster, s, _, state = uniseg.StepString(s, state)
+		cluster, s, w, state = uniseg.FirstGraphemeClusterInString(s, state)
 		egcs = append(egcs, cluster)
+		characterWidthCache[cluster] = w
 	}
 	return egcs
 }
@@ -232,7 +234,7 @@ func Run(model Model) error {
 			if closed {
 				return nil
 			}
-			model.Draw(Window{Width: -1, Height: -1})
+			model.Draw(NewWindow(nil, 0, 0, -1, -1))
 			Render()
 			updated = false
 		case msg := <-msgs.ch:
@@ -960,6 +962,9 @@ func queryUnicodeSupport() bool {
 // This is best effort. It will usually be correct, and in the few cases it's
 // wrong will end up wrong in the nicer-rendering way (complex emojis will have
 // extra space after them. This is preferable to messing up the internal model)
+//
+// This call can be expensive, callers should consider caching the result for
+// strings or characters which will need to be measured frequently
 func RenderedWidth(s string) int {
 	if capabilities.unicode {
 		return uniseg.StringWidth(s)
