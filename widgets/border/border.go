@@ -74,3 +74,15 @@ func Right(win vaxis.Window, fg, bg vaxis.Color) vaxis.Window {
 	}
 	return vaxis.NewWindow(&win, 0, 0, w-1, -1)
 }
+
+func Bottom(win vaxis.Window, fg, bg vaxis.Color) vaxis.Window {
+	w, h := win.Size()
+	for i := 0; i < (w - 1); i += 1 {
+		win.SetCell(i, h-1, vaxis.Text{
+			Content:    "─",
+			Foreground: fg,
+			Background: bg,
+		})
+	}
+	return vaxis.NewWindow(&win, 0, 0, -1, h-1)
+}
