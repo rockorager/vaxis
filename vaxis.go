@@ -93,16 +93,21 @@ type cursorState struct {
 	visible bool
 }
 
+type Character struct {
+	Grapheme string
+	Width    int
+}
+
 // Converts a string into a slice of Characters suitable to assign to terminal cells
-func Characters(s string) []string {
-	egcs := make([]string, 0, len(s))
+func Characters(s string) []Character {
+	egcs := make([]Character, 0, len(s))
 	state := -1
 	cluster := ""
 	w := 0
 	for s != "" {
 		cluster, s, w, state = uniseg.FirstGraphemeClusterInString(s, state)
-		egcs = append(egcs, cluster)
-		characterWidthCache[cluster] = w
+
+		egcs = append(egcs, Character{cluster, w})
 	}
 	return egcs
 }
@@ -357,7 +362,8 @@ func render() {
 				reposition = true
 				// Advance the column by the width of this
 				// character
-				skip := advance(next.Content)
+				skip := advance(next)
+				// skip := advance(next.Content)
 				for i := 1; i < skip+1; i += 1 {
 					if col+i >= len(stdScreen.buf[row]) {
 						break
@@ -552,7 +558,7 @@ func render() {
 			}
 			// Advance the column by the width of this
 			// character
-			skip := advance(next.Content)
+			skip := advance(next)
 			for i := 1; i < skip+1; i += 1 {
 				if col+i >= len(stdScreen.buf[row]) {
 					break
@@ -926,8 +932,11 @@ func Bell() {
 }
 
 // advance returns the extra amount to advance the column by when rendering
-func advance(ch string) int {
-	w := characterWidth(ch) - 1
+func advance(cell Text) int {
+	w := cell.WidthHint - 1
+	if w < 0 {
+		w = characterWidth(cell.Content) - 1
+	}
 	if w < 0 {
 		return 0
 	}

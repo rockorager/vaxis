@@ -22,7 +22,7 @@ func Clear(win Window) {
 	// We fill with a \x00 cell to differentiate between eg a text input
 	// space and a cleared cell. \x00 is rendered as a space, but the
 	// internal model will differentiate
-	Fill(win, Text{Content: "\x00"})
+	Fill(win, Text{Content: "\x00", WidthHint: 1})
 	for k := range nextGraphicPlacements {
 		delete(nextGraphicPlacements, k)
 	}
@@ -83,7 +83,7 @@ func PrintOffset(win Window, offset int, segs ...Text) (col int, row int) {
 	row = -offset
 	for _, seg := range segs {
 		for _, char := range Characters(seg.Content) {
-			if strings.ContainsRune(char, '\n') {
+			if strings.ContainsRune(char.Grapheme, '\n') {
 				col = 0
 				row += 1
 				continue
@@ -93,12 +93,13 @@ func PrintOffset(win Window, offset int, segs ...Text) (col int, row int) {
 			}
 			switch {
 			case row < 0:
-				col += characterWidth(char)
+				col += char.Width
 			default:
 				chText := seg
-				chText.Content = char
+				chText.Content = char.Grapheme
+				chText.WidthHint = char.Width
 				win.SetCell(col, row, chText)
-				col += characterWidth(char)
+				col += char.Width
 			}
 			if col >= cols {
 				row += 1
@@ -122,14 +123,15 @@ func PrintLine(win Window, row int, trunc string, segs ...Text) {
 	truncWidth := characterWidth(trunc)
 	for _, seg := range segs {
 		for _, char := range Characters(seg.Content) {
-			w := characterWidth(char)
+			w := char.Width
 			chText := seg
 			if col+truncWidth+w > cols {
 				chText.Content = trunc
 				win.SetCell(col, row, chText)
 				return
 			}
-			chText.Content = char
+			chText.Content = char.Grapheme
+			chText.WidthHint = w
 			win.SetCell(col, row, chText)
 			col += w
 		}

@@ -4,6 +4,7 @@ type Text struct {
 	Content        string
 	Hyperlink      string
 	HyperlinkID    string
+	WidthHint      int
 	Foreground     Color
 	Background     Color
 	UnderlineColor Color
