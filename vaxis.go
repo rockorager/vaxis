@@ -974,7 +974,7 @@ func RenderedWidth(s string) int {
 	return w
 }
 
-var characterWidthCache = make(map[string]int, 512)
+var characterWidthCache = make(map[string]int, 256)
 
 // characterWidth measures the width of a grapheme cluster, caching the result .
 // We only ever call this with characters, making it highly cacheable since
