@@ -1,6 +1,8 @@
 package vaxis
 
 import (
+	"strings"
+
 	"github.com/rivo/uniseg"
 )
 
@@ -30,7 +32,16 @@ func Clear(win Window) {
 // Text will be wrapped, line breaks will begin a new line at the first column
 // of the surface. If the text overflows the height of the surface then only the
 // top portion will be shown
-func Print(win Window, segs ...Text) (maxWidth int, col int, row int) {
+func Print(win Window, segs ...Text) (col int, row int) {
+	return PrintOffset(win, 0, segs...)
+}
+
+// printWrap uses unicode line break logic to wrap text. this is expensive, but
+// has good results
+// TODO make this into a widget, it's too expensive to do every Draw call...we
+// need to have a Reflow widget or something that cache's the line results and
+// only reflows if the window is a different width
+func printWrap(win Window, segs ...Text) (col int, row int) {
 	cols, rows := win.Size()
 	for _, seg := range segs {
 		var (
@@ -44,9 +55,9 @@ func Print(win Window, segs ...Text) (maxWidth int, col int, row int) {
 				break
 			}
 			if uniseg.HasTrailingLineBreak(cluster) {
-				if col > maxWidth {
-					maxWidth = col
-				}
+				// if col > maxWidth {
+				// 	maxWidth = col
+				// }
 				col = 0
 				row += 1
 				continue
@@ -55,15 +66,45 @@ func Print(win Window, segs ...Text) (maxWidth int, col int, row int) {
 			cSeg.Content = string(cluster)
 			col += win.SetCell(col, row, cSeg)
 			if col+nextBreak(b) > cols {
-				if col > maxWidth {
-					maxWidth = col
-				}
+				// if col > maxWidth {
+				// 	maxWidth = col
+				// }
 				col = 0
 				row += 1
 			}
 		}
 	}
-	return maxWidth, col, row
+	return col, row
+}
+
+func PrintOffset(win Window, offset int, segs ...Text) (col int, row int) {
+	cols, rows := win.Size()
+	row = -offset
+	for _, seg := range segs {
+		for _, char := range Characters(seg.Content) {
+			if strings.ContainsRune(char, '\n') {
+				col = 0
+				row += 1
+				continue
+			}
+			if row > rows {
+				return col, row
+			}
+			switch {
+			case row < 0:
+				col += characterWidth(char)
+			default:
+				chText := seg
+				chText.Content = char
+				col += win.SetCell(col, row, chText)
+			}
+			if col >= cols {
+				row += 1
+				col = 0
+			}
+		}
+	}
+	return col, row
 }
 
 // PrintLine prints a single line of text to the specified row. If the text is
@@ -185,6 +226,12 @@ func (win Window) SetCell(col int, row int, cell Text) int {
 		return 0
 	}
 	if row >= rows {
+		return 0
+	}
+	if row < 0 {
+		return 0
+	}
+	if col < 0 {
 		return 0
 	}
 	switch win.Parent {

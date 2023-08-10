@@ -75,9 +75,9 @@ func (m *Model) Draw(win vaxis.Window) {
 	var row int
 	switch m.Prompt.Content {
 	case "":
-		_, col, row = vaxis.Print(win, m.Content)
+		col, row = vaxis.Print(win, m.Content)
 	default:
-		_, col, row = vaxis.Print(win, m.Prompt, m.Content)
+		col, row = vaxis.Print(win, m.Prompt, m.Content)
 	}
 	win.ShowCursor(col, row, 0)
 	m.cursorCol = col
