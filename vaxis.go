@@ -106,7 +106,12 @@ func Characters(s string) []Character {
 	w := 0
 	for s != "" {
 		cluster, s, w, state = uniseg.FirstGraphemeClusterInString(s, state)
-
+		if cluster == "\t" {
+			for i := 0; i < 8; i += 1 {
+				egcs = append(egcs, Character{" ", 1})
+			}
+			continue
+		}
 		egcs = append(egcs, Character{cluster, w})
 	}
 	return egcs
