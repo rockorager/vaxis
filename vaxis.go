@@ -54,10 +54,8 @@ var (
 	// optimize what we update on the next render
 	lastRender *screen
 
-	// stdout is the terminal we are talking with
-	stdout *os.File
-	stdin  *os.File
-	state  *term.State
+	tty   *os.File
+	state *term.State
 
 	capabilities struct {
 		synchronizedUpdate bool
@@ -145,14 +143,16 @@ func Init(opts Options) error {
 	// and that is a problem
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	stdout = os.Stdout
-	stdin = os.Stdin
 	var err error
-	state, err = term.MakeRaw(int(os.Stdout.Fd()))
+	tty, err = os.OpenFile("/dev/tty", os.O_RDWR, 0)
 	if err != nil {
 		return err
 	}
-	parser := ansi.NewParser(stdin)
+	state, err = term.MakeRaw(int(tty.Fd()))
+	if err != nil {
+		return err
+	}
+	parser := ansi.NewParser(tty)
 	if opts.Logger != nil {
 		log = opts.Logger
 	}
@@ -291,7 +291,7 @@ func Close() {
 	_, _ = w.WriteString(decrst(alternateScreen))
 	_, _ = w.Flush()
 
-	_ = term.Restore(int(os.Stdout.Fd()), state)
+	_ = term.Restore(int(tty.Fd()), state)
 
 	log.Info("Renders", "val", renders)
 	if renders != 0 {
@@ -673,7 +673,7 @@ func handleSequence(seq ansi.Sequence) {
 			if len(seq.Intermediate) == 1 && seq.Intermediate[0] == '?' {
 				capabilities.kittyKeyboard = true
 				log.Info("Kitty Keyboard Protocol supported")
-				stdout.WriteString(tparm(kittyKBEnable, kittyKBFlags))
+				tty.WriteString(tparm(kittyKBEnable, kittyKBFlags))
 				return
 			}
 		case '~':
@@ -797,7 +797,7 @@ func sendQueries() {
 
 	// We enter the alt screen without our buffered writer to prevent our
 	// unicode query from bleeding onto the main terminal
-	stdout.WriteString(decset(alternateScreen))
+	tty.WriteString(decset(alternateScreen))
 	_, _ = w.WriteString(decset(sixelScrolling))
 	_, _ = w.WriteString(decrst(cursorVisibility))
 	_, _ = w.WriteString(xtversion)
@@ -862,7 +862,7 @@ func showCursor() string {
 func CursorPosition() (col int, row int) {
 	// DSRCPR - reports cursor position
 	cursorPositionRequested = true
-	stdout.WriteString(dsrcpr)
+	tty.WriteString(dsrcpr)
 	timeout := time.NewTimer(50 * time.Millisecond)
 	select {
 	case <-timeout.C:
@@ -898,7 +898,7 @@ func cursorStyle() string {
 // ClipboardPush copies the provided string to the system clipboard
 func ClipboardPush(s string) {
 	b64 := base64.StdEncoding.EncodeToString([]byte(s))
-	stdout.WriteString(tparm(osc52put, b64))
+	tty.WriteString(tparm(osc52put, b64))
 }
 
 // ClipboardPop requests the content from the system clipboard. ClipboardPop works by
@@ -907,7 +907,7 @@ func ClipboardPush(s string) {
 // a context to set a deadline for this function to return. An error will be
 // returned if the context is cancelled.
 func ClipboardPop(ctx context.Context) (string, error) {
-	stdout.WriteString(osc52pop)
+	tty.WriteString(osc52pop)
 	select {
 	case str := <-osc52Paste:
 		return str, nil
@@ -920,20 +920,20 @@ func ClipboardPop(ctx context.Context) (string, error) {
 // string, OSC9 will be used - otherwise osc777 is used
 func Notify(title string, body string) {
 	if title == "" {
-		stdout.WriteString(tparm(osc9notify, body))
+		tty.WriteString(tparm(osc9notify, body))
 		return
 	}
-	stdout.WriteString(tparm(osc777notify, title, body))
+	tty.WriteString(tparm(osc777notify, title, body))
 }
 
 // SetTitle sets the terminal's title via OSC 2
 func SetTitle(s string) {
-	stdout.WriteString(tparm(setTitle, s))
+	tty.WriteString(tparm(setTitle, s))
 }
 
 // Bell sends a BEL control signal to the terminal
 func Bell() {
-	stdout.WriteString("\a")
+	tty.WriteString("\a")
 }
 
 // advance returns the extra amount to advance the column by when rendering
@@ -954,13 +954,13 @@ func advance(cell Text) int {
 // that don't render this properly will report (probably) 4 cells of movement
 // (one for each emoji in the ZWJ sequence)
 func queryUnicodeSupport() bool {
-	stdout.WriteString(tparm(cup, 1, 1))
+	tty.WriteString(tparm(cup, 1, 1))
 	test := "👩‍🚀"
 	originX, _ := CursorPosition()
 	if originX < 0 {
 		return false
 	}
-	stdout.WriteString(test)
+	tty.WriteString(test)
 	newX, _ := CursorPosition()
 	if newX-originX > 2 {
 		return false
@@ -1015,7 +1015,7 @@ func SetMouseShape(shape MouseShape) {
 
 // reportWinsize posts a Resize Msg
 func reportWinsize() {
-	ws, err := unix.IoctlGetWinsize(int(stdout.Fd()), unix.TIOCGWINSZ)
+	ws, err := unix.IoctlGetWinsize(int(tty.Fd()), unix.TIOCGWINSZ)
 	if err != nil {
 		log.Error("couldn't get winsize", "error", err)
 		return

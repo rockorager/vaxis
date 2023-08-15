@@ -70,7 +70,7 @@ func NewGraphic(img image.Image) (*Graphic, error) {
 			if buf.Len() == 0 {
 				m = 0
 			}
-			fmt.Fprintf(stdout, "\x1B_Gf=100,i=%d,m=%d;%s\x1B\\", g.id, m, string(b[:n]))
+			fmt.Fprintf(tty, "\x1B_Gf=100,i=%d,m=%d;%s\x1B\\", g.id, m, string(b[:n]))
 		}
 		g.placement = fmt.Sprintf("\x1B_GC=1,a=p,i=%d\x1B\\", g.id)
 	default:
@@ -120,7 +120,7 @@ func (g *Graphic) Delete() {
 	case sixelGraphics:
 		g.placement = ""
 	case kittyGraphics:
-		fmt.Fprintf(stdout, "\x1B_Ga=d,d=I,i=%d\x1B\\", g.id)
+		fmt.Fprintf(tty, "\x1B_Ga=d,d=I,i=%d\x1B\\", g.id)
 	}
 }
 

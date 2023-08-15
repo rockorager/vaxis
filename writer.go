@@ -64,17 +64,17 @@ func (w *writer) Len() int {
 func (w *writer) Flush() (n int, err error) {
 	if w.buf.Len() == 0 {
 		// If we didn't write any visual changes, make sure we make any
-		// cursor changes here. Write directly to stdout for these as
+		// cursor changes here. Write directly to tty for these as
 		// they are short and don't require synchronization
 		switch {
 		case !nextCursor.visible && lastCursor.visible:
-			return stdout.WriteString(decrst(cursorVisibility))
+			return tty.WriteString(decrst(cursorVisibility))
 		case nextCursor.row != lastCursor.row:
-			return stdout.WriteString(showCursor())
+			return tty.WriteString(showCursor())
 		case nextCursor.col != lastCursor.col:
-			return stdout.WriteString(showCursor())
+			return tty.WriteString(showCursor())
 		case nextCursor.style != lastCursor.style:
-			return stdout.WriteString(showCursor())
+			return tty.WriteString(showCursor())
 		default:
 			return 0, nil
 		}
@@ -90,5 +90,5 @@ func (w *writer) Flush() (n int, err error) {
 	if capabilities.synchronizedUpdate {
 		w.buf.WriteString(decrst(synchronizedUpdate))
 	}
-	return stdout.Write(w.buf.Bytes())
+	return tty.Write(w.buf.Bytes())
 }
