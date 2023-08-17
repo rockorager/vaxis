@@ -60,7 +60,7 @@ most dank TUI library
 | System Notifications (OSC 9)   |  ✅   |  ❌   |    ❌     |    ❌     |
 | System Notifications (OSC 777) |  ✅   |  ❌   |    ❌     |    ❌     |
 | Synchronized Output            |  ✅   |  ❌   |    ❌     |    ✅     |
-| Images (sixel)                 |  ✅   |  ❌   |    ❌     |    ✅     |
+| Images (sixel)                 |  ✅   |  ✅   |    ❌     |    ✅     |
 | Images (kitty)                 |  ✅   |  ❌   |    ❌     |    ✅     |
 | Images (iterm2)                |  ❌   |  ❌   |    ❌     |    ✅     |
 | Video                          |  ❌   |  ❌   |    ❌     |    ✅     |
