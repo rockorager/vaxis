@@ -766,7 +766,7 @@ func (vx *Vaxis) sendQueries() {
 
 	// We enter the alt screen without our buffered writer to prevent our
 	// unicode query from bleeding onto the main terminal
-	vx.tty.WriteString(decset(alternateScreen))
+	_, _ = vx.tty.WriteString(decset(alternateScreen))
 	_, _ = vx.tw.WriteString(decset(sixelScrolling))
 	_, _ = vx.tw.WriteString(decrst(cursorVisibility))
 	_, _ = vx.tw.WriteString(xtversion)
@@ -825,25 +825,6 @@ func (vx *Vaxis) showCursor() string {
 	buf.WriteString(decset(cursorVisibility))
 	return buf.String()
 }
-
-// // Reports the current cursor position. 0,0 is the upper left corner. Reports
-// // -1,-1 if the query times out or fails
-// func CursorPosition() (col int, row int) {
-// 	// DSRCPR - reports cursor position
-// 	cursorPositionRequested = true
-// 	tty.WriteString(dsrcpr)
-// 	timeout := time.NewTimer(50 * time.Millisecond)
-// 	select {
-// 	case <-timeout.C:
-// 		log.Warn("CursorPosition timed out")
-// 		cursorPositionRequested = false
-// 		return -1, -1
-// 	case row = <-chCursorPositionReport:
-// 		// if we get one, we'll get another
-// 		col = <-chCursorPositionReport
-// 		return col - 1, row - 1
-// 	}
-// }
 
 // Reports the current cursor position. 0,0 is the upper left corner. Reports
 // -1,-1 if the query times out or fails
