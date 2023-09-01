@@ -14,11 +14,6 @@ import (
 	"golang.org/x/image/draw"
 )
 
-var (
-	nextID           uint64 = 0
-	graphicsProtocol        = noGraphics
-)
-
 const (
 	noGraphics = iota
 	sixelGraphics
@@ -37,16 +32,16 @@ type Graphic struct {
 // capabilities, this can mean that vaxis will retain a sixel-encoded string or
 // it could mean that vaxis loads the graphic into the terminals memory (kitty)
 func (vx *Vaxis) NewGraphic(img image.Image) (*Graphic, error) {
-	nextID += 1
+	vx.graphicsIDNext += 1
 
 	g := &Graphic{
-		id:          nextID,
+		id:          vx.graphicsIDNext,
 		pixelWidth:  img.Bounds().Max.X,
 		pixelHeight: img.Bounds().Max.Y,
 		vx:          vx,
 	}
 
-	switch graphicsProtocol {
+	switch vx.graphicsProtocol {
 	case sixelGraphics:
 		buf := bytes.NewBuffer(nil)
 		err := sixel.NewEncoder(buf).Encode(img)
@@ -118,7 +113,7 @@ func (g Graphic) Draw(win Window) {
 
 // Delete removes the graphic from memory
 func (g *Graphic) Delete() {
-	switch graphicsProtocol {
+	switch g.vx.graphicsProtocol {
 	case sixelGraphics:
 		g.placement = ""
 	case kitty:
@@ -147,7 +142,7 @@ func (p placement) id() (int, error) {
 // delete clears the sixel flag on cells, or if kitty protocol is
 // supported it deletes via that protocol
 func (p *placement) delete() string {
-	switch graphicsProtocol {
+	switch p.graphic.vx.graphicsProtocol {
 	case kitty:
 		id, err := p.id()
 		if err != nil {
@@ -175,7 +170,7 @@ func (p *placement) delete() string {
 }
 
 func (p *placement) lockRegion() {
-	switch graphicsProtocol {
+	switch p.graphic.vx.graphicsProtocol {
 	case sixelGraphics:
 		w, h := p.graphic.CellSize()
 		for row := p.row; row < (p.row + h); row += 1 {
@@ -194,7 +189,7 @@ func (p *placement) lockRegion() {
 
 // draw
 func (p *placement) draw() string {
-	switch graphicsProtocol {
+	switch p.graphic.vx.graphicsProtocol {
 	case kitty:
 		id, err := p.id()
 		if err != nil {

@@ -33,10 +33,8 @@ func ExampleGraphic() {
 	if err != nil {
 		panic(err)
 	}
-	// Create an instance of the fullscreen window
-	fullscreen := vaxis.Window{}
 	// Create a window the proper size
-	win := fullscreen.New(0, 0, w, h)
+	win := vx.Window().New(0, 0, w, h)
 	// Draw the graphic in the window
 	g.Draw(win)
 }

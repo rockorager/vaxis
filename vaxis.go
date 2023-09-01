@@ -79,6 +79,7 @@ type Vaxis struct {
 	winSize          Resize
 	caps             Capabilities
 	graphicsProtocol int
+	graphicsIDNext   uint64
 	reqCursorPos     atomic.Bool
 	charCache        map[string]int
 	cursorNext       cursorState
@@ -196,8 +197,8 @@ outer:
 			case kittyGraphics:
 				log.Info("Capability: Kitty graphics supported")
 				vx.caps.kittyGraphics = true
-				if graphicsProtocol < kitty {
-					graphicsProtocol = kitty
+				if vx.graphicsProtocol < kitty {
+					vx.graphicsProtocol = kitty
 				}
 			case unicodeSupport:
 				log.Info("Capability: Unicode")

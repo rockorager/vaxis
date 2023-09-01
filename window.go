@@ -164,49 +164,43 @@ type Window struct {
 // Window returns a window the full size of the screen. Child windows can be
 // created from the returned Window
 func (vx *Vaxis) Window() Window {
-	return vx.newWindow(nil, 0, 0, -1, -1)
-}
-
-func (vx *Vaxis) newWindow(parent *Window, col, row, cols, rows int) Window {
-	win := Window{
-		Row:    row,
-		Column: col,
-		Width:  cols,
-		Height: rows,
-		Parent: parent,
-
-		vx: vx,
+	w, h := vx.screenNext.size()
+	return Window{
+		Row:    0,
+		Column: 0,
+		Width:  w,
+		Height: h,
+		vx:     vx,
 	}
-	var (
-		w int
-		h int
-	)
-	switch win.Parent {
-	case nil:
-		w, h = vx.screenNext.size()
-	default:
-		w, h = parent.Size()
-	}
-
-	switch {
-	case cols < 0:
-		win.Width = w - col
-	case cols+col > w:
-		win.Width = w - col
-	}
-
-	switch {
-	case rows < 0:
-		win.Height = h - row
-	case rows+row > w:
-		win.Height = h - row
-	}
-	return win
 }
 
 // New creates a new child Window with an offset relative to the parent window
 func (win Window) New(col, row, cols, rows int) Window {
-	return win.vx.newWindow(&win, col, row, cols, rows)
+	newWin := Window{
+		Row:    row,
+		Column: col,
+		Width:  cols,
+		Height: rows,
+		Parent: &win,
+
+		vx: win.vx,
+	}
+	w, h := win.Size()
+
+	switch {
+	case cols < 0:
+		newWin.Width = w - col
+	case cols+col > w:
+		newWin.Width = w - col
+	}
+
+	switch {
+	case rows < 0:
+		newWin.Height = h - row
+	case rows+row > w:
+		newWin.Height = h - row
+	}
+	return newWin
 }
 
 // Size returns the visible size of the Window in character cells.
