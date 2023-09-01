@@ -23,7 +23,8 @@ func main() {
 		case vaxis.Resize:
 			win := vx.Window()
 			vaxis.Clear(win)
-			img.Draw(win)
+			w, h := img.CellSize()
+			img.Draw(align.Center(win, w, h))
 			vx.Render()
 		case vaxis.Key:
 			switch ev.String() {
@@ -34,16 +35,7 @@ func main() {
 	}
 }
 
-type img struct {
-	g *vaxis.Graphic
-}
-
-func (i *img) Draw(win vaxis.Window) {
-	cols, rows := i.g.CellSize()
-	i.g.Draw(align.Center(win, cols, rows))
-}
-
-func newImage(vx *vaxis.Vaxis) (*img, error) {
+func newImage(vx *vaxis.Vaxis) (*vaxis.Graphic, error) {
 	f, err := os.Open("./_examples/graphics/vaxis.png")
 	if err != nil {
 		return nil, err
@@ -52,10 +44,5 @@ func newImage(vx *vaxis.Vaxis) (*img, error) {
 	if err != nil {
 		return nil, err
 	}
-	g, err := vx.NewGraphic(graphic)
-	if err != nil {
-		return nil, err
-	}
-	i := &img{g}
-	return i, nil
+	return vx.NewGraphic(graphic)
 }

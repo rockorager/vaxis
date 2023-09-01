@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"git.sr.ht/~rockorager/vaxis"
 	"git.sr.ht/~rockorager/vaxis/ansi"
@@ -157,19 +158,27 @@ func (vt *Model) Start(cmd *exec.Cmd) error {
 
 	vt.Resize(int(winsize.Cols), int(winsize.Rows))
 	vt.parser = ansi.NewParser(vt.pty)
+	tick := time.NewTicker(8 * time.Millisecond)
 	go func() {
 		defer vt.recover()
-		for seq := range vt.parser.Next() {
-			switch seq := seq.(type) {
-			case ansi.EOF:
-				err := cmd.Wait()
-				vt.vx.PostEvent(ClosedMsg{
-					Term:  vt,
-					Error: err,
-				})
-				return
-			default:
-				vt.update(seq)
+		for {
+			select {
+			case seq := <-vt.parser.Next():
+				switch seq := seq.(type) {
+				case ansi.EOF:
+					err := cmd.Wait()
+					vt.vx.PostEvent(EventClosed{
+						Term:  vt,
+						Error: err,
+					})
+					return
+				default:
+					vt.update(seq)
+				}
+			case <-tick.C:
+				if vt.dirty {
+					vt.vx.PostEvent(vaxis.Redraw{})
+				}
 			}
 		}
 	}()
@@ -212,7 +221,6 @@ func (vt *Model) update(seq ansi.Sequence) {
 	}
 	// TODO optimize when we post EventRedraw
 	vt.dirty = true
-	vt.vx.PostEvent(vaxis.Redraw{})
 }
 
 func (vt *Model) String() string {

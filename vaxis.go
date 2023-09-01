@@ -2,6 +2,7 @@
 package vaxis
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/base64"
@@ -262,23 +263,26 @@ func (vx *Vaxis) Close() {
 		return
 	}
 	close(vx.chQuit)
-	_, _ = vx.tw.WriteString(decset(cursorVisibility)) // show the cursor
-	_, _ = vx.tw.WriteString(sgrReset)                 // reset fg, bg, attrs
-	_, _ = vx.tw.WriteString(clear)
+	signal.Stop(vx.chSignal)
+	buf := bufio.NewWriter(vx.tty)
+	_, _ = buf.WriteString(decset(cursorVisibility)) // show the cursor
+	_, _ = buf.WriteString(sgrReset)                 // reset fg, bg, attrs
+	_, _ = buf.WriteString(clear)
 
 	// Disable any modes we enabled
-	_, _ = vx.tw.WriteString(decrst(bracketedPaste)) // bracketed paste
-	_, _ = vx.tw.WriteString(kittyKBPop)             // kitty keyboard
-	_, _ = vx.tw.WriteString(decrst(cursorKeys))
-	_, _ = vx.tw.WriteString(numericMode)
-	_, _ = vx.tw.WriteString(decrst(mouseAllEvents))
-	_, _ = vx.tw.WriteString(decrst(mouseFocusEvents))
-	_, _ = vx.tw.WriteString(decrst(mouseSGR))
-	_, _ = vx.tw.WriteString(decrst(sixelScrolling))
-	_, _ = vx.tw.WriteString(tparm(mouseShape, MouseShapeDefault))
+	_, _ = buf.WriteString(decrst(bracketedPaste)) // bracketed paste
+	_, _ = buf.WriteString(kittyKBPop)             // kitty keyboard
+	_, _ = buf.WriteString(decrst(cursorKeys))
+	_, _ = buf.WriteString(numericMode)
+	_, _ = buf.WriteString(decrst(mouseAllEvents))
+	_, _ = buf.WriteString(decrst(mouseFocusEvents))
+	_, _ = buf.WriteString(decrst(mouseSGR))
+	_, _ = buf.WriteString(decrst(sixelScrolling))
+	_, _ = buf.WriteString(tparm(mouseShape, MouseShapeDefault))
 
-	_, _ = vx.tw.WriteString(decrst(alternateScreen))
-	_, _ = vx.tw.Flush()
+	_, _ = buf.WriteString(decrst(alternateScreen))
+
+	_ = buf.Flush()
 
 	_ = term.Restore(int(vx.tty.Fd()), vx.state)
 
