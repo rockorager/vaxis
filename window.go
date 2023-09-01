@@ -23,8 +23,8 @@ func Clear(win Window) {
 	// space and a cleared cell. \x00 is rendered as a space, but the
 	// internal model will differentiate
 	Fill(win, Text{Content: "\x00", WidthHint: 1})
-	for k := range nextGraphicPlacements {
-		delete(nextGraphicPlacements, k)
+	for k := range win.vx.graphicsNext {
+		delete(win.vx.graphicsNext, k)
 	}
 }
 
@@ -34,6 +34,7 @@ func Clear(win Window) {
 // top portion will be shown
 func Print(win Window, segs ...Text) (col int, row int) {
 	cols, rows := win.Size()
+	log.Info("win", "cols", cols, "rows", rows)
 	for _, seg := range segs {
 		for _, char := range Characters(seg.Content) {
 			if strings.ContainsRune(char.Grapheme, '\n') {
@@ -63,42 +64,42 @@ func Print(win Window, segs ...Text) (col int, row int) {
 // TODO make this into a widget, it's too expensive to do every Draw call...we
 // need to have a Reflow widget or something that cache's the line results and
 // only reflows if the window is a different width
-func printWrap(win Window, segs ...Text) (col int, row int) {
-	cols, rows := win.Size()
-	for _, seg := range segs {
-		var (
-			b       = []byte(seg.Content)
-			state   = -1
-			cluster []byte
-		)
-		for len(b) > 0 {
-			cluster, b, _, state = uniseg.Step(b, state)
-			if row > rows {
-				break
-			}
-			if uniseg.HasTrailingLineBreak(cluster) {
-				// if col > maxWidth {
-				// 	maxWidth = col
-				// }
-				col = 0
-				row += 1
-				continue
-			}
-			cSeg := seg
-			cSeg.Content = string(cluster)
-			win.SetCell(col, row, cSeg)
-			col += characterWidth(string(cluster))
-			if col+nextBreak(b) > cols {
-				// if col > maxWidth {
-				// 	maxWidth = col
-				// }
-				col = 0
-				row += 1
-			}
-		}
-	}
-	return col, row
-}
+// func printWrap(win Window, segs ...Text) (col int, row int) {
+// 	cols, rows := win.Size()
+// 	for _, seg := range segs {
+// 		var (
+// 			b       = []byte(seg.Content)
+// 			state   = -1
+// 			cluster []byte
+// 		)
+// 		for len(b) > 0 {
+// 			cluster, b, _, state = uniseg.Step(b, state)
+// 			if row > rows {
+// 				break
+// 			}
+// 			if uniseg.HasTrailingLineBreak(cluster) {
+// 				// if col > maxWidth {
+// 				// 	maxWidth = col
+// 				// }
+// 				col = 0
+// 				row += 1
+// 				continue
+// 			}
+// 			cSeg := seg
+// 			cSeg.Content = string(cluster)
+// 			win.SetCell(col, row, cSeg)
+// 			col += characterWidth(string(cluster))
+// 			if col+nextBreak(b) > cols {
+// 				// if col > maxWidth {
+// 				// 	maxWidth = col
+// 				// }
+// 				col = 0
+// 				row += 1
+// 			}
+// 		}
+// 	}
+// 	return col, row
+// }
 
 // PrintLine prints a single line of text to the specified row. If the text is
 // wider than the width of the window, trunc will be used as a truncating
@@ -110,7 +111,7 @@ func PrintLine(win Window, row int, trunc string, segs ...Text) {
 		return
 	}
 	col := 0
-	truncWidth := characterWidth(trunc)
+	truncWidth := win.vx.characterWidth(trunc)
 	for _, seg := range segs {
 		for _, char := range Characters(seg.Content) {
 			w := char.Width
@@ -152,6 +153,7 @@ func nextBreak(b []byte) int {
 // If parent is nil, the underlying screen will be the parent and offsets will
 // be relative to that.
 type Window struct {
+	vx     *Vaxis
 	Parent *Window
 	Column int // col offset from parent
 	Row    int // row offset from parent
@@ -159,25 +161,29 @@ type Window struct {
 	Height int // height of the surface, in rows
 }
 
-// NewWindow returns a new Window. The x and y coordinates are an offset
-// relative to the parent. The origin 0,0 represents the upper left.  The width
-// and height can be set to -1 to have the window expand to fill it's parent. The
-// Window cannot exist outside of it's parent's Window.
-func NewWindow(parent *Window, col, row, cols, rows int) Window {
+// Window returns a window the full size of the screen. Child windows can be
+// created from the returned Window
+func (vx *Vaxis) Window() Window {
+	return vx.newWindow(nil, 0, 0, -1, -1)
+}
+
+func (vx *Vaxis) newWindow(parent *Window, col, row, cols, rows int) Window {
 	win := Window{
 		Row:    row,
 		Column: col,
 		Width:  cols,
 		Height: rows,
 		Parent: parent,
+
+		vx: vx,
 	}
 	var (
 		w int
 		h int
 	)
-	switch parent {
+	switch win.Parent {
 	case nil:
-		w, h = stdScreen.size()
+		w, h = vx.screenNext.size()
 	default:
 		w, h = parent.Size()
 	}
@@ -198,6 +204,11 @@ func NewWindow(parent *Window, col, row, cols, rows int) Window {
 	return win
 }
 
+// New creates a new child Window with an offset relative to the parent window
+func (win Window) New(col, row, cols, rows int) Window {
+	return win.vx.newWindow(&win, col, row, cols, rows)
+}
+
 // Size returns the visible size of the Window in character cells.
 func (win Window) Size() (width int, height int) {
 	return win.Width, win.Height
@@ -215,7 +226,7 @@ func (win Window) SetCell(col int, row int, cell Text) {
 	}
 	switch win.Parent {
 	case nil:
-		stdScreen.setCell(col+win.Column, row+win.Row, cell)
+		win.vx.screenNext.setCell(col+win.Column, row+win.Row, cell)
 	default:
 		win.Parent.SetCell(col+win.Column, row+win.Row, cell)
 	}
@@ -225,7 +236,7 @@ func (win Window) ShowCursor(col int, row int, style CursorStyle) {
 	col += win.Column
 	row += win.Row
 	if win.Parent == nil {
-		ShowCursor(col, row, style)
+		win.vx.ShowCursor(col, row, style)
 		return
 	}
 	win.Parent.ShowCursor(col, row, style)

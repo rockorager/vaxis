@@ -59,14 +59,15 @@ func TestKey(t *testing.T) {
 }
 
 func ExampleKey() {
-	msg := vaxis.PollMsg()
+	vx, _ := vaxis.New(vaxis.Options{})
+	msg := vx.PollEvent()
 	switch msg := msg.(type) {
 	case vaxis.Key:
 		switch msg.String() {
 		case "Ctrl+c":
-			vaxis.Close()
+			vx.Close()
 		case "Ctrl+l":
-			vaxis.Refresh()
+			vx.Refresh()
 		case "j":
 			// Down?
 		default:

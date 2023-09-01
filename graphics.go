@@ -22,7 +22,7 @@ var (
 const (
 	noGraphics = iota
 	sixelGraphics
-	kittyGraphics
+	kitty
 )
 
 type Graphic struct {
@@ -30,18 +30,20 @@ type Graphic struct {
 	pixelWidth  int
 	pixelHeight int
 	id          uint64
+	vx          *Vaxis
 }
 
 // NewGraphic loads a graphic into memory. Depending on the terminal
 // capabilities, this can mean that vaxis will retain a sixel-encoded string or
 // it could mean that vaxis loads the graphic into the terminals memory (kitty)
-func NewGraphic(img image.Image) (*Graphic, error) {
+func (vx *Vaxis) NewGraphic(img image.Image) (*Graphic, error) {
 	nextID += 1
 
 	g := &Graphic{
 		id:          nextID,
 		pixelWidth:  img.Bounds().Max.X,
 		pixelHeight: img.Bounds().Max.Y,
+		vx:          vx,
 	}
 
 	switch graphicsProtocol {
@@ -52,7 +54,7 @@ func NewGraphic(img image.Image) (*Graphic, error) {
 			return nil, err
 		}
 		g.placement = buf.String()
-	case kittyGraphics:
+	case kitty:
 		buf := bytes.NewBuffer(nil)
 		wc := base64.NewEncoder(base64.StdEncoding, buf)
 		err := png.Encode(wc, img)
@@ -70,7 +72,7 @@ func NewGraphic(img image.Image) (*Graphic, error) {
 			if buf.Len() == 0 {
 				m = 0
 			}
-			fmt.Fprintf(tty, "\x1B_Gf=100,i=%d,m=%d;%s\x1B\\", g.id, m, string(b[:n]))
+			fmt.Fprintf(vx.tty, "\x1B_Gf=100,i=%d,m=%d;%s\x1B\\", g.id, m, string(b[:n]))
 		}
 		g.placement = fmt.Sprintf("\x1B_GC=1,a=p,i=%d\x1B\\", g.id)
 	default:
@@ -84,8 +86,8 @@ func (g Graphic) CellSize() (columns int, lines int) {
 	// Looks complicated but we're just calculating the size of the
 	// image in cells, and rounding up since we will always take
 	// over any cell we bleed into.
-	columns = int(math.Ceil(float64(g.pixelWidth) * float64(winsize.Cols) / float64(winsize.XPixel)))
-	lines = int(math.Ceil(float64(g.pixelHeight) * float64(winsize.Rows) / float64(winsize.YPixel)))
+	columns = int(math.Ceil(float64(g.pixelWidth) * float64(g.vx.winSize.Cols) / float64(g.vx.winSize.XPixel)))
+	lines = int(math.Ceil(float64(g.pixelHeight) * float64(g.vx.winSize.Rows) / float64(g.vx.winSize.YPixel)))
 	return columns, lines
 }
 
@@ -111,7 +113,7 @@ func (g Graphic) Draw(win Window) {
 	if err != nil {
 		return
 	}
-	nextGraphicPlacements[id] = placement
+	g.vx.graphicsNext[id] = placement
 }
 
 // Delete removes the graphic from memory
@@ -119,8 +121,8 @@ func (g *Graphic) Delete() {
 	switch graphicsProtocol {
 	case sixelGraphics:
 		g.placement = ""
-	case kittyGraphics:
-		fmt.Fprintf(tty, "\x1B_Ga=d,d=I,i=%d\x1B\\", g.id)
+	case kitty:
+		fmt.Fprintf(g.vx.tty, "\x1B_Ga=d,d=I,i=%d\x1B\\", g.id)
 	}
 }
 
@@ -146,7 +148,7 @@ func (p placement) id() (int, error) {
 // supported it deletes via that protocol
 func (p *placement) delete() string {
 	switch graphicsProtocol {
-	case kittyGraphics:
+	case kitty:
 		id, err := p.id()
 		if err != nil {
 			// fallback to deleting all placements for this graphic
@@ -158,14 +160,14 @@ func (p *placement) delete() string {
 		// sixel lock
 		w, h := p.graphic.CellSize()
 		for row := p.row; row < (p.row + h); row += 1 {
-			if row >= len(stdScreen.buf) {
+			if row >= len(p.graphic.vx.screenNext.buf) {
 				continue
 			}
 			for col := p.col; col < (p.col + w); col += 1 {
-				if col >= len(stdScreen.buf[0]) {
+				if col >= len(p.graphic.vx.screenNext.buf[0]) {
 					continue
 				}
-				stdScreen.buf[row][col].sixel = false
+				p.graphic.vx.screenNext.buf[row][col].sixel = false
 			}
 		}
 	}
@@ -177,14 +179,14 @@ func (p *placement) lockRegion() {
 	case sixelGraphics:
 		w, h := p.graphic.CellSize()
 		for row := p.row; row < (p.row + h); row += 1 {
-			if row >= len(stdScreen.buf) {
+			if row >= len(p.graphic.vx.screenNext.buf) {
 				continue
 			}
 			for col := p.col; col < (p.col + w); col += 1 {
-				if col >= len(stdScreen.buf[0]) {
+				if col >= len(p.graphic.vx.screenNext.buf[0]) {
 					continue
 				}
-				stdScreen.buf[row][col].sixel = true
+				p.graphic.vx.screenNext.buf[row][col].sixel = true
 			}
 		}
 	}
@@ -193,7 +195,7 @@ func (p *placement) lockRegion() {
 // draw
 func (p *placement) draw() string {
 	switch graphicsProtocol {
-	case kittyGraphics:
+	case kitty:
 		id, err := p.id()
 		if err != nil {
 			return p.graphic.placement
@@ -205,14 +207,14 @@ func (p *placement) draw() string {
 
 // Resizes an image to fit within the provided rectangle (as cells). If the
 // image already fits, it won't be resized
-func ResizeGraphic(img image.Image, w int, h int) image.Image {
+func (vx *Vaxis) ResizeGraphic(img image.Image, w int, h int) image.Image {
 	pixelWidth := img.Bounds().Max.X
 	pixelHeight := img.Bounds().Max.Y
 	// Looks complicated but we're just calculating the size of the
 	// image in cells, and rounding up since we will always take
 	// over any cell we bleed into.
-	columns := float64(pixelWidth) * float64(winsize.Cols) / float64(winsize.XPixel)
-	lines := float64(pixelHeight) * float64(winsize.Rows) / float64(winsize.YPixel)
+	columns := float64(pixelWidth) * float64(vx.winSize.Cols) / float64(vx.winSize.XPixel)
+	lines := float64(pixelHeight) * float64(vx.winSize.Rows) / float64(vx.winSize.YPixel)
 	if columns <= float64(w) && lines <= float64(h) {
 		return img
 	}

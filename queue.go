@@ -7,10 +7,11 @@ import (
 
 // Queue provides an infinitely buffered channel
 type Queue[T any] struct {
-	ch    chan T
-	items []T
-	mu    sync.Mutex
-	busy  atomic.Bool
+	ch     chan T
+	items  []T
+	mu     sync.Mutex
+	busy   atomic.Bool
+	closed bool
 }
 
 func NewQueue[T any]() *Queue[T] {
@@ -27,6 +28,9 @@ func (q *Queue[T]) Chan() chan T {
 func (q *Queue[T]) Push(item T) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
+	if q.closed {
+		return
+	}
 
 	q.items = append(q.items, item)
 	if !q.busy.Load() {

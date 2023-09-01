@@ -15,7 +15,7 @@ type Model struct {
 	cursorRow int
 }
 
-func (m *Model) Update(msg vaxis.Msg) {
+func (m *Model) Update(msg vaxis.Event) {
 	switch msg := msg.(type) {
 	case vaxis.Key:
 		if m.cursor > len(m.Content.Content) {

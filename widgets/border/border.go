@@ -48,7 +48,7 @@ func All(win vaxis.Window, fg, bg vaxis.Color) vaxis.Window {
 			Background: bg,
 		})
 	}
-	return vaxis.NewWindow(&win, 1, 1, w-2, h-2)
+	return win.New(1, 1, w-2, h-2)
 }
 
 func Left(win vaxis.Window, fg, bg vaxis.Color) vaxis.Window {
@@ -60,7 +60,7 @@ func Left(win vaxis.Window, fg, bg vaxis.Color) vaxis.Window {
 			Background: bg,
 		})
 	}
-	return vaxis.NewWindow(&win, 1, 0, -1, -1)
+	return win.New(1, 0, -1, -1)
 }
 
 func Right(win vaxis.Window, fg, bg vaxis.Color) vaxis.Window {
@@ -72,7 +72,7 @@ func Right(win vaxis.Window, fg, bg vaxis.Color) vaxis.Window {
 			Background: bg,
 		})
 	}
-	return vaxis.NewWindow(&win, 0, 0, w-1, -1)
+	return win.New(0, 0, w-1, -1)
 }
 
 func Bottom(win vaxis.Window, fg, bg vaxis.Color) vaxis.Window {
@@ -84,5 +84,5 @@ func Bottom(win vaxis.Window, fg, bg vaxis.Color) vaxis.Window {
 			Background: bg,
 		})
 	}
-	return vaxis.NewWindow(&win, 0, 0, -1, h-1)
+	return win.New(0, 0, -1, h-1)
 }

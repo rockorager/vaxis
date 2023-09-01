@@ -16,28 +16,21 @@ type Model struct {
 	Reader     io.Reader
 	Writer     io.Writer
 
-	progress float64
-	total    float64
+	Progress float64
+	Total    float64
+	vx       *vaxis.Vaxis
 }
 
-func New() *Model {
-	return &Model{}
-}
-
-func (m *Model) Update(msg vaxis.Msg) {
-	switch msg := msg.(type) {
-	case DataMsg:
-		m.total = msg.Total
-		m.progress = msg.Progress
-	}
+func New(vx *vaxis.Vaxis) *Model {
+	return &Model{vx: vx}
 }
 
 func (m *Model) Draw(win vaxis.Window) {
-	if m.total == 0 {
+	if m.Total == 0 {
 		return
 	}
 	_, w := win.Size()
-	fracBlocks := (m.progress / m.total) * float64(w)
+	fracBlocks := (m.Progress / m.Total) * float64(w)
 	fullBlocks := math.Floor(fracBlocks)
 	remainder := fracBlocks - fullBlocks
 
@@ -95,34 +88,25 @@ func (m *Model) Draw(win vaxis.Window) {
 }
 
 // Read counts the bytes read from Reader and sends the Model an updated
-// progress message
+// progress message. The Total field should be set to an expected value for this
+// to work properly
 func (m *Model) Read(p []byte) (int, error) {
 	n, err := m.Reader.Read(p)
-	vaxis.PostMsg(vaxis.SendMsg{
-		Msg: DataMsg{
-			Progress: m.progress + float64(n),
-			Total:    m.total,
-		},
-		Model: m,
-	})
+	fn := func() {
+		m.Progress = m.Progress + float64(n)
+	}
+	m.vx.PostEvent(fn)
 	return n, err
 }
 
 // Write counts the bytes written to Writer and sends the Model an updated
-// progress message
+// progress message. The Total field should be set to an expected value for this
+// to work properly
 func (m *Model) Write(p []byte) (int, error) {
 	n, err := m.Writer.Write(p)
-	vaxis.PostMsg(vaxis.SendMsg{
-		Msg: DataMsg{
-			Progress: m.progress + float64(n),
-			Total:    m.total,
-		},
-		Model: m,
-	})
+	fn := func() {
+		m.Progress = m.Progress + float64(n)
+	}
+	m.vx.PostEvent(fn)
 	return n, err
-}
-
-type DataMsg struct {
-	Progress float64
-	Total    float64
 }

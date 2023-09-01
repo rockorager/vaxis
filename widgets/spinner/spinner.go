@@ -21,32 +21,21 @@ type Model struct {
 	mu       sync.Mutex
 	spinning bool
 	cancel   context.CancelFunc
-	win      vaxis.Window
+	vx       *vaxis.Vaxis
 }
 
 // New creates a new spinner
-func New(dur time.Duration) *Model {
+func New(vx *vaxis.Vaxis, dur time.Duration) *Model {
 	return &Model{
 		Frames:   []rune{'-', '\\', '|', '/'},
 		Duration: dur,
-	}
-}
-
-func (m *Model) Update(msg vaxis.Msg) {
-	switch msg.(type) {
-	case startMsg:
-		m.start()
-	case toggleMsg:
-		m.toggle()
-	case stopMsg:
-		m.stop()
+		vx:       vx,
 	}
 }
 
 func (m *Model) Draw(w vaxis.Window) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.win = w
 	if m.spinning {
 		w.SetCell(0, 0, vaxis.Text{
 			Content:    string(m.Frames[m.frame]),
@@ -59,13 +48,11 @@ func (m *Model) Draw(w vaxis.Window) {
 
 // Start the spinner. Start is thread safe and non-blocking
 func (m *Model) Start() {
-	vaxis.PostMsg(vaxis.SendMsg{
-		Msg:   startMsg{},
-		Model: m,
+	m.vx.SyncFunc(func() {
+		m.start()
 	})
 }
 
-// Start should only be called from the Update loop
 func (m *Model) start() {
 	if m.spinning {
 		return
@@ -87,10 +74,7 @@ func (m *Model) start() {
 			case <-ticker.C:
 				m.mu.Lock()
 				m.frame = (m.frame + 1) % len(m.Frames)
-				vaxis.PostMsg(vaxis.DrawModelMsg{
-					Model:  m,
-					Window: m.win,
-				})
+				m.vx.PostEvent(vaxis.Redraw{})
 				m.mu.Unlock()
 			}
 		}
@@ -99,9 +83,8 @@ func (m *Model) start() {
 
 // Stop the spinner. Stop is thread safe and non-blocking
 func (m *Model) Stop() {
-	vaxis.PostMsg(vaxis.SendMsg{
-		Msg:   stopMsg{},
-		Model: m,
+	m.vx.SyncFunc(func() {
+		m.stop()
 	})
 }
 
@@ -114,9 +97,8 @@ func (m *Model) stop() {
 
 // Toggle the spinner. Stop is thread safe and non-blocking
 func (m *Model) Toggle() {
-	vaxis.PostMsg(vaxis.SendMsg{
-		Msg:   toggleMsg{},
-		Model: m,
+	m.vx.SyncFunc(func() {
+		m.toggle()
 	})
 }
 
@@ -128,9 +110,3 @@ func (m *Model) toggle() {
 	}
 	m.start()
 }
-
-type startMsg struct{}
-
-type stopMsg struct{}
-
-type toggleMsg struct{}

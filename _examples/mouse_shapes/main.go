@@ -9,17 +9,18 @@ type model struct {
 	horizontal       int
 	resizeVertical   bool
 	resizeHorizontal bool
+	vx               *vaxis.Vaxis
 }
 
-func (m *model) Update(msg vaxis.Msg) {
+func (m *model) Update(msg vaxis.Event) {
 	switch msg := msg.(type) {
 	case vaxis.Key:
 		switch msg.String() {
 		case "Ctrl+c", "q":
-			vaxis.Close()
+			m.vx.Close()
 		}
 	case vaxis.Mouse:
-		vaxis.SetMouseShape(vaxis.MouseShapeDefault)
+		m.vx.SetMouseShape(vaxis.MouseShapeDefault)
 		if msg.EventType == vaxis.EventRelease {
 			m.resizeHorizontal = false
 			m.resizeVertical = false
@@ -31,13 +32,13 @@ func (m *model) Update(msg vaxis.Msg) {
 			m.vertical = msg.Col
 		}
 		if msg.Row == m.horizontal {
-			vaxis.SetMouseShape(vaxis.MouseShapeResizeVertical)
+			m.vx.SetMouseShape(vaxis.MouseShapeResizeVertical)
 			if msg.EventType == vaxis.EventPress {
 				m.resizeVertical = true
 			}
 		}
 		if msg.Col == m.vertical {
-			vaxis.SetMouseShape(vaxis.MouseShapeResizeHorizontal)
+			m.vx.SetMouseShape(vaxis.MouseShapeResizeHorizontal)
 			if msg.EventType == vaxis.EventPress {
 				m.resizeHorizontal = true
 			}
@@ -54,10 +55,10 @@ func (m *model) Draw(win vaxis.Window) {
 	if m.horizontal == 0 {
 		m.horizontal = h / 2
 	}
-	nw := vaxis.NewWindow(&win, 0, 0, m.vertical, m.horizontal)
-	ne := vaxis.NewWindow(&win, m.vertical, 0, -1, m.horizontal)
-	se := vaxis.NewWindow(&win, m.vertical, m.horizontal, -1, -1)
-	sw := vaxis.NewWindow(&win, 0, m.horizontal, m.vertical, -1)
+	nw := win.New(0, 0, m.vertical, m.horizontal)
+	ne := win.New(m.vertical, 0, -1, m.horizontal)
+	se := win.New(m.vertical, m.horizontal, -1, -1)
+	sw := win.New(0, m.horizontal, m.vertical, -1)
 	vaxis.Fill(nw, vaxis.Text{
 		Content:    " ",
 		Background: vaxis.IndexColor(1),
@@ -77,10 +78,15 @@ func (m *model) Draw(win vaxis.Window) {
 }
 
 func main() {
-	err := vaxis.Init(vaxis.Options{})
+	vx, err := vaxis.New(vaxis.Options{})
 	if err != nil {
 		panic(err)
 	}
-	model := &model{}
-	vaxis.Run(model)
+	defer vx.Close()
+	model := &model{vx: vx}
+	for ev := range vx.Events() {
+		model.Update(ev)
+		model.Draw(vx.Window())
+		vx.Render()
+	}
 }

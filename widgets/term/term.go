@@ -8,7 +8,6 @@ import (
 	"runtime/debug"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"syscall"
 
 	"git.sr.ht/~rockorager/vaxis"
@@ -33,8 +32,8 @@ type Model struct {
 	// environment. If not set, xterm-256color will be used
 	TERM string
 
-	mu     sync.Mutex
-	parent vaxis.Model
+	mu sync.Mutex
+	vx *vaxis.Vaxis
 
 	activeScreen  [][]cell
 	altScreen     [][]cell
@@ -52,8 +51,7 @@ type Model struct {
 	primaryState cursorState
 	altState     cursorState
 
-	window  *vaxis.Window
-	visible atomic.Bool
+	window *vaxis.Window
 
 	cmd    *exec.Cmd
 	dirty  bool
@@ -77,7 +75,7 @@ type margin struct {
 	right  column
 }
 
-func New(parent vaxis.Model) *Model {
+func New(vx *vaxis.Vaxis) *Model {
 	tabs := []column{}
 	for i := 7; i < (50 * 7); i += 8 {
 		tabs = append(tabs, column(i))
@@ -85,7 +83,7 @@ func New(parent vaxis.Model) *Model {
 	m := &Model{
 		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 		OSC8:   true,
-		parent: parent,
+		vx:     vx,
 		charsets: charsets{
 			designations: map[charsetDesignator]charset{
 				g0: ascii,
@@ -123,7 +121,6 @@ func New(parent vaxis.Model) *Model {
 		// sequence can trigger two events, this should be increased
 		// events: make(chan tcell.Event, 2),
 	}
-	m.visible.Store(true)
 	return m
 }
 
@@ -166,12 +163,9 @@ func (vt *Model) Start(cmd *exec.Cmd) error {
 			switch seq := seq.(type) {
 			case ansi.EOF:
 				err := cmd.Wait()
-				vaxis.PostMsg(vaxis.SendMsg{
-					Msg: ClosedMsg{
-						Term:  vt,
-						Error: err,
-					},
-					Model: vt.parent,
+				vt.vx.PostEvent(ClosedMsg{
+					Term:  vt,
+					Error: err,
 				})
 				return
 			default:
@@ -182,12 +176,12 @@ func (vt *Model) Start(cmd *exec.Cmd) error {
 	return nil
 }
 
-func (vt *Model) Update(msg vaxis.Msg) {
+func (vt *Model) Update(msg vaxis.Event) {
 	switch msg := msg.(type) {
 	case vaxis.Key:
 		str := encodeXterm(msg, vt.mode&deckpam != 0, vt.mode&decckm != 0)
 		vt.pty.WriteString(str)
-	case vaxis.PasteMsg:
+	case vaxis.PasteEvent:
 		if vt.mode&paste != 0 {
 			vt.pty.WriteString("\x1B[200~")
 			vt.pty.WriteString(string(msg))
@@ -195,8 +189,6 @@ func (vt *Model) Update(msg vaxis.Msg) {
 			return
 		}
 		vt.pty.WriteString(string(msg))
-	case vaxis.Visible:
-		vt.visible.Store(bool(msg))
 	}
 }
 
@@ -220,14 +212,7 @@ func (vt *Model) update(seq ansi.Sequence) {
 	}
 	// TODO optimize when we post EventRedraw
 	vt.dirty = true
-	vaxis.PostMsg(vaxis.SendMsg{
-		Msg:   RedrawMsg{vt},
-		Model: vt.parent,
-	})
-}
-
-func (vt *Model) SetParent(m vaxis.Model) {
-	vt.parent = m
+	vt.vx.PostEvent(vaxis.Redraw{})
 }
 
 func (vt *Model) String() string {

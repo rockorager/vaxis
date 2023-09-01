@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -21,98 +22,25 @@ import (
 	"git.sr.ht/~rockorager/vaxis/ansi"
 )
 
-var (
-	log = slog.New(slog.NewTextHandler(io.Discard, nil))
+var log = slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	// msgs is the main event loop Msg queue
-	msgs *Queue[Msg]
-	// chQuit is a channel to signal to running goroutines that we are
-	// quitting
-	chQuit chan struct{}
-	closed bool
-	// inPaste signals that we are within a bracketed paste
-	inPaste    bool
-	osc52Paste chan string
-	// pasteBuf buffers bracketed paste text
-	pasteBuf *bytes.Buffer
-	// Have we requested a cursor position?
-	cursorPositionRequested  bool
-	chCursorPositionReport   chan int
-	deviceAttributesReceived chan struct{}
-	initialized              bool
-	// Disambiguate, report all keys as escapes, report associated text
-	kittyKBFlags = 25
-
-	// Rendering variables
-	// w is our buffered, synchronized-update writer
-	w *writer
-	// refresh signals if we should do a delta render or full render
-	refresh bool
-	// stdScreen is the stdScreen Surface
-	stdScreen *screen
-	// lastRender stores the state of our last render. This is used to
-	// optimize what we update on the next render
-	lastRender *screen
-
-	tty   *os.File
-	state *term.State
-
-	capabilities struct {
-		synchronizedUpdate bool
-		rgb                bool
-		kittyGraphics      bool
-		kittyKeyboard      bool
-		styledUnderlines   bool
-		sixels             bool
-		// unicode refers to rendering complex unicode graphemes
-		// properly.
-		unicode bool
-	}
-	winsize Resize
-
-	lastGraphicPlacements map[int]*placement
-	nextGraphicPlacements map[int]*placement
-	lastMouseShape        MouseShape
-	nextMouseShape        MouseShape
-
-	nextCursor cursorState
-	lastCursor cursorState
-	// Statistics
-	renders int
-	elapsed time.Duration
-
-	framerate uint
-)
+type Capabilities struct {
+	synchronizedUpdate bool
+	rgb                bool
+	kittyGraphics      bool
+	kittyKeyboard      bool
+	styledUnderlines   bool
+	sixels             bool
+	// unicode refers to rendering complex unicode graphemes
+	// properly.
+	unicode bool
+}
 
 type cursorState struct {
 	row     int
 	col     int
 	style   CursorStyle
 	visible bool
-}
-
-type Character struct {
-	Grapheme string
-	Width    int
-}
-
-// Converts a string into a slice of Characters suitable to assign to terminal cells
-func Characters(s string) []Character {
-	egcs := make([]Character, 0, len(s))
-	state := -1
-	cluster := ""
-	w := 0
-	for s != "" {
-		cluster, s, w, state = uniseg.FirstGraphemeClusterInString(s, state)
-		if cluster == "\t" {
-			for i := 0; i < 8; i += 1 {
-				egcs = append(egcs, Character{" ", 1})
-			}
-			continue
-		}
-		egcs = append(egcs, Character{cluster, w})
-	}
-	return egcs
 }
 
 type Options struct {
@@ -131,66 +59,83 @@ type Options struct {
 	Framerate uint
 }
 
-// Init sets up all internal data structures, queries the terminal for feature
-// support, and enters the alternate screen.
-//
-// Terminals *must* respond to Primary Device Attributes queries for this
-// function to return error free. A timeout is implemented, and if a terminal
-// does not respond in less than 3 seconds an error will be returned.
-func Init(opts Options) error {
+type Vaxis struct {
+	queue            *Queue[Event]
+	tty              *os.File
+	state            *term.State
+	tw               *writer
+	screenNext       *screen
+	screenLast       *screen
+	graphicsNext     map[int]*placement
+	graphicsLast     map[int]*placement
+	mouseShapeNext   MouseShape
+	mouseShapeLast   MouseShape
+	pasteBuf         *bytes.Buffer
+	pastePending     bool
+	chClipboard      chan string
+	chSignal         chan os.Signal
+	chCursorPos      chan [2]int
+	chQuit           chan bool
+	winSize          Resize
+	caps             Capabilities
+	graphicsProtocol int
+	reqCursorPos     atomic.Bool
+	charCache        map[string]int
+	cursorNext       cursorState
+	cursorLast       cursorState
+	closed           bool
+	refresh          bool
+
+	renders int
+	elapsed time.Duration
+}
+
+func New(opts Options) (*Vaxis, error) {
+	if opts.Logger != nil {
+		log = opts.Logger
+	}
+
+	// Disambiguate, report all keys as escapes, report associated text
+	kittyKBFlags := 25
+	if opts.ReportKeyboardEvents {
+		kittyKBFlags += 2
+	}
+
 	// Let's give some deadline for our queries responding. If they don't,
 	// it means the terminal doesn't respond to Primary Device Attributes
 	// and that is a problem
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
+
 	var err error
-	tty, err = os.OpenFile("/dev/tty", os.O_RDWR, 0)
+	vx := &Vaxis{}
+
+	vx.tty, err = os.OpenFile("/dev/tty", os.O_RDWR, 0)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	state, err = term.MakeRaw(int(tty.Fd()))
+
+	vx.state, err = term.MakeRaw(int(vx.tty.Fd()))
 	if err != nil {
-		return err
-	}
-	parser := ansi.NewParser(tty)
-	if opts.Logger != nil {
-		log = opts.Logger
-	}
-	if opts.ReportKeyboardEvents {
-		kittyKBFlags += 2
-	}
-	switch opts.Framerate {
-	case 0:
-		framerate = 120
-	default:
-		framerate = opts.Framerate
+		return nil, err
 	}
 
-	// Rendering
-	w = newWriter()
-	lastRender = newScreen()
-	stdScreen = newScreen()
+	vx.queue = NewQueue[Event]()
+	vx.tw = newWriter(vx)
+	vx.screenNext = newScreen()
+	vx.screenLast = newScreen()
+	vx.pasteBuf = bytes.NewBuffer(nil)
+	vx.graphicsNext = make(map[int]*placement)
+	vx.graphicsLast = make(map[int]*placement)
+	vx.chClipboard = make(chan string)
+	vx.chSignal = make(chan os.Signal, 1)
+	vx.chCursorPos = make(chan [2]int)
+	vx.chQuit = make(chan bool)
+	vx.charCache = make(map[string]int, 256)
 
-	// pasteBuf buffers bracketed paste
-	pasteBuf = &bytes.Buffer{}
-	osc52Paste = make(chan string)
-
-	nextGraphicPlacements = make(map[int]*placement)
-	lastGraphicPlacements = make(map[int]*placement)
-
-	// Setup internals and signal handling
-	msgs = NewQueue[Msg]()
-	chQuit = make(chan struct{})
-	chCursorPositionReport = make(chan int)
-	PostMsg(InitMsg{})
-
-	chSIGWINCH := make(chan os.Signal, 1)
-	reportWinsize()
-	stdScreen.resize(winsize.Cols, winsize.Rows)
-	lastRender.resize(winsize.Cols, winsize.Rows)
-	deviceAttributesReceived = make(chan struct{})
-
+	parser := ansi.NewParser(vx.tty)
 	go func() {
+		// TODO panic handling
 		for {
 			select {
 			case seq := <-parser.Next():
@@ -198,131 +143,174 @@ func Init(opts Options) error {
 				case ansi.EOF:
 					return
 				default:
-					handleSequence(seq)
+					vx.handleSequence(seq)
 				}
-			case <-chSIGWINCH:
-				reportWinsize()
-			case <-chQuit:
+			case <-vx.chSignal:
+				vx.winSize, err = vx.reportWinsize()
+				if err != nil {
+					log.Error("reporting window size",
+						"error", err)
+				}
+				vx.PostEvent(vx.winSize)
+			case <-vx.chQuit:
 				return
 			}
 		}
 	}()
-	signal.Notify(chSIGWINCH, syscall.SIGWINCH)
-	sendQueries()
-	select {
-	case <-ctx.Done():
-		close(deviceAttributesReceived)
-		initialized = true
-		return context.Canceled
-	case <-deviceAttributesReceived:
-		close(deviceAttributesReceived)
-		initialized = true
-	}
 
-	// Disable features based on options. We've already received all of our
-	// queries so this still has effect
-	if opts.DisableKittyKeyboard {
-		capabilities.kittyKeyboard = false
-	}
-	return nil
-}
-
-// Run operates an event loop for the provided Model. Users of the Run loop
-// don't need to explicitly render, the loop will render every event
-func Run(model Model) error {
-	dur := time.Duration((float64(1) / float64(framerate)) * float64(time.Second))
-	tick := time.NewTicker(dur)
-	updated := false
+	vx.sendQueries()
+outer:
 	for {
 		select {
-		case <-chQuit:
-			return nil
-		case <-tick.C:
-			if !updated {
-				continue
-			}
-			if closed {
-				return nil
-			}
-			model.Draw(NewWindow(nil, 0, 0, -1, -1))
-			Render()
-			updated = false
-		case msg := <-msgs.ch:
-			updated = true
-			switch msg := msg.(type) {
-			case Resize:
-				stdScreen.resize(msg.Cols, msg.Rows)
-				lastRender.resize(msg.Cols, msg.Rows)
-			case SendMsg:
-				msg.Model.Update(msg.Msg)
-			case FuncMsg:
-				msg.Func()
-			case DrawModelMsg:
-				// msg.Model.Draw(msg.Window)
-			default:
-				model.Update(msg)
+		case <-ctx.Done():
+			return nil, context.Canceled
+		case ev := <-vx.queue.Chan():
+			switch ev.(type) {
+			case primaryDeviceAttribute:
+				break outer
+			case capabilitySixel:
+				log.Info("Capability: Sixel graphics")
+				vx.caps.sixels = true
+				if vx.graphicsProtocol < sixelGraphics {
+					vx.graphicsProtocol = sixelGraphics
+				}
+			case synchronizedUpdates:
+				log.Info("Capability: Synchronized updates")
+				vx.caps.synchronizedUpdate = true
+			case kittyKeyboard:
+				log.Info("Capability: Kitty keyboard")
+				if opts.DisableKittyKeyboard {
+					continue
+				}
+				vx.caps.kittyKeyboard = true
+				_, err := vx.tty.WriteString(tparm(kittyKBEnable, kittyKBFlags))
+				if err != nil {
+					return nil, err
+				}
+			case styledUnderlines:
+				vx.caps.styledUnderlines = true
+				log.Info("Capability: Styled underlines")
+			case truecolor:
+				vx.caps.rgb = true
+				log.Info("Capability: RGB")
+			case kittyGraphics:
+				log.Info("Capability: Kitty graphics supported")
+				vx.caps.kittyGraphics = true
+				if graphicsProtocol < kitty {
+					graphicsProtocol = kitty
+				}
+			case unicodeSupport:
+				log.Info("Capability: Unicode")
+				vx.caps.unicode = true
 			}
 		}
 	}
+
+	signal.Notify(vx.chSignal, syscall.SIGWINCH)
+	// Trigger a Resize event to initialize our view size
+	vx.chSignal <- syscall.SIGWINCH
+	return vx, nil
+}
+
+func (vx *Vaxis) PostEvent(ev Event) {
+	vx.queue.Push(ev)
+}
+
+// SyncFunc queues a function to be called from the main thread. vaxis will call
+// the function when the event is received in the main thread either through
+// PollEvent or Events. A Redraw event will be sent to the host application
+// after the function is completed
+func (vx *Vaxis) SyncFunc(fn func()) {
+	vx.PostEvent(syncFunc(fn))
+}
+
+// PollEvent blocks until there is an Event, and returns that Event
+func (vx *Vaxis) PollEvent() Event {
+	return <-vx.Events()
+}
+
+// Events returns a channel of events
+func (vx *Vaxis) Events() chan Event {
+	ch := make(chan Event)
+	go func() {
+		for {
+			select {
+			case ev := <-vx.queue.Chan():
+				switch e := ev.(type) {
+				case Resize:
+					vx.screenNext.resize(e.Cols, e.Rows)
+					vx.screenLast.resize(e.Cols, e.Rows)
+				case syncFunc:
+					e()
+					ev = Redraw{}
+				}
+				ch <- ev
+			case <-vx.chQuit:
+				close(ch)
+				return
+			}
+		}
+	}()
+	return ch
 }
 
 // Close shuts down the event loops and returns the terminal to it's original
 // state
-func Close() {
-	if closed {
+func (vx *Vaxis) Close() {
+	if vx.closed {
 		return
 	}
-	close(chQuit)
-	_, _ = w.WriteString(decset(cursorVisibility)) // show the cursor
-	_, _ = w.WriteString(sgrReset)                 // reset fg, bg, attrs
-	_, _ = w.WriteString(clear)
+	close(vx.chQuit)
+	_, _ = vx.tw.WriteString(decset(cursorVisibility)) // show the cursor
+	_, _ = vx.tw.WriteString(sgrReset)                 // reset fg, bg, attrs
+	_, _ = vx.tw.WriteString(clear)
 
 	// Disable any modes we enabled
-	_, _ = w.WriteString(decrst(bracketedPaste)) // bracketed paste
-	_, _ = w.WriteString(kittyKBPop)             // kitty keyboard
-	_, _ = w.WriteString(decrst(cursorKeys))
-	_, _ = w.WriteString(numericMode)
-	_, _ = w.WriteString(decrst(mouseAllEvents))
-	_, _ = w.WriteString(decrst(mouseFocusEvents))
-	_, _ = w.WriteString(decrst(mouseSGR))
-	_, _ = w.WriteString(decrst(sixelScrolling))
-	_, _ = w.WriteString(tparm(mouseShape, MouseShapeDefault))
+	_, _ = vx.tw.WriteString(decrst(bracketedPaste)) // bracketed paste
+	_, _ = vx.tw.WriteString(kittyKBPop)             // kitty keyboard
+	_, _ = vx.tw.WriteString(decrst(cursorKeys))
+	_, _ = vx.tw.WriteString(numericMode)
+	_, _ = vx.tw.WriteString(decrst(mouseAllEvents))
+	_, _ = vx.tw.WriteString(decrst(mouseFocusEvents))
+	_, _ = vx.tw.WriteString(decrst(mouseSGR))
+	_, _ = vx.tw.WriteString(decrst(sixelScrolling))
+	_, _ = vx.tw.WriteString(tparm(mouseShape, MouseShapeDefault))
 
-	_, _ = w.WriteString(decrst(alternateScreen))
-	_, _ = w.Flush()
+	_, _ = vx.tw.WriteString(decrst(alternateScreen))
+	_, _ = vx.tw.Flush()
 
-	_ = term.Restore(int(tty.Fd()), state)
+	_ = term.Restore(int(vx.tty.Fd()), vx.state)
 
-	log.Info("Renders", "val", renders)
-	if renders != 0 {
-		log.Info("Time/render", "val", elapsed/time.Duration(renders))
+	log.Info("Renders", "val", vx.renders)
+	if vx.renders != 0 {
+		log.Info("Time/render", "val", vx.elapsed/time.Duration(vx.renders))
 	}
-	log.Info("Cached characters", "val", len(characterWidthCache))
-	closed = true
+	log.Info("Cached characters", "val", len(vx.charCache))
+	vx.closed = true
 }
 
 // Render renders the model's content to the terminal
-func Render() {
+func (vx *Vaxis) Render() {
 	start := time.Now()
 	// defer renderBuf.Reset()
-	render()
-	_, _ = w.Flush()
+	vx.render()
+	_, _ = vx.tw.Flush()
 	// updating cursor state has to be after Flush, we check state change in
 	// flush.
-	lastCursor = nextCursor
-	elapsed += time.Since(start)
-	renders += 1
-	refresh = false
+	vx.cursorLast = vx.cursorNext
+	vx.elapsed += time.Since(start)
+	vx.renders += 1
+	vx.refresh = false
 }
 
 // Refresh forces a full render of the entire screen. Traditionally, this should
 // be bound to Ctrl+l
-func Refresh() {
-	refresh = true
-	Render()
+func (vx *Vaxis) Refresh() {
+	vx.refresh = true
+	vx.Render()
 }
 
-func render() {
+func (vx *Vaxis) render() {
 	var (
 		reposition = true
 		fg         Color
@@ -334,54 +322,54 @@ func render() {
 		linkID     string
 	)
 	// Delete any placements we don't have this round
-	for id, p := range lastGraphicPlacements {
-		if _, ok := nextGraphicPlacements[id]; ok && !refresh {
+	for id, p := range vx.graphicsLast {
+		if _, ok := vx.graphicsNext[id]; ok && !vx.refresh {
 			continue
 		}
-		_, _ = w.WriteString(p.delete())
-		delete(lastGraphicPlacements, id)
+		_, _ = vx.tw.WriteString(p.delete())
+		delete(vx.graphicsLast, id)
 	}
 	// draw new placements
-	for id, p := range nextGraphicPlacements {
+	for id, p := range vx.graphicsNext {
 		p.lockRegion()
-		if _, ok := lastGraphicPlacements[id]; ok {
+		if _, ok := vx.graphicsLast[id]; ok {
 			continue
 		}
-		_, _ = w.WriteString(tparm(cup, p.row+1, p.col+1))
-		_, _ = w.WriteString(p.draw())
-		lastGraphicPlacements[id] = p
+		_, _ = vx.tw.WriteString(tparm(cup, p.row+1, p.col+1))
+		_, _ = vx.tw.WriteString(p.draw())
+		vx.graphicsLast[id] = p
 	}
-	if lastMouseShape != nextMouseShape {
-		_, _ = w.WriteString(tparm(mouseShape, nextMouseShape))
-		lastMouseShape = nextMouseShape
+	if vx.mouseShapeLast != vx.mouseShapeNext {
+		_, _ = vx.tw.WriteString(tparm(mouseShape, vx.mouseShapeNext))
+		vx.mouseShapeLast = vx.mouseShapeNext
 	}
-	for row := range stdScreen.buf {
-		for col := 0; col < len(stdScreen.buf[row]); col += 1 {
-			next := stdScreen.buf[row][col]
+	for row := range vx.screenNext.buf {
+		for col := 0; col < len(vx.screenNext.buf[row]); col += 1 {
+			next := vx.screenNext.buf[row][col]
 			if next.sixel {
-				lastRender.buf[row][col].sixel = true
+				vx.screenLast.buf[row][col].sixel = true
 				reposition = true
 				continue
 			}
-			if next == lastRender.buf[row][col] && !refresh {
+			if next == vx.screenLast.buf[row][col] && !vx.refresh {
 				reposition = true
 				// Advance the column by the width of this
 				// character
-				skip := advance(next)
+				skip := vx.advance(next)
 				// skip := advance(next.Content)
 				for i := 1; i < skip+1; i += 1 {
-					if col+i >= len(stdScreen.buf[row]) {
+					if col+i >= len(vx.screenNext.buf[row]) {
 						break
 					}
 					// null out any cells we end up skipping
-					lastRender.buf[row][col+i] = Text{}
+					vx.screenLast.buf[row][col+i] = Text{}
 				}
 				col += skip
 				continue
 			}
-			lastRender.buf[row][col] = next
+			vx.screenLast.buf[row][col] = next
 			if reposition {
-				_, _ = w.WriteString(tparm(cup, row+1, col+1))
+				_, _ = vx.tw.WriteString(tparm(cup, row+1, col+1))
 				reposition = false
 			}
 			// TODO Optimizations
@@ -396,63 +384,63 @@ func render() {
 			if fg != next.Foreground {
 				fg = next.Foreground
 				ps := fg.Params()
-				if !capabilities.rgb {
+				if !vx.caps.rgb {
 					ps = fg.AsIndex().Params()
 				}
 				switch len(ps) {
 				case 0:
-					_, _ = w.WriteString(fgReset)
+					_, _ = vx.tw.WriteString(fgReset)
 				case 1:
 					switch {
 					case ps[0] < 8:
-						w.Printf(fgSet, ps[0])
+						vx.tw.Printf(fgSet, ps[0])
 					case ps[0] < 16:
-						w.Printf(fgBrightSet, ps[0]-8)
+						vx.tw.Printf(fgBrightSet, ps[0]-8)
 					default:
-						w.Printf(fgIndexSet, ps[0])
+						vx.tw.Printf(fgIndexSet, ps[0])
 					}
 				case 3:
-					w.Printf(fgRGBSet, ps[0], ps[1], ps[2])
+					vx.tw.Printf(fgRGBSet, ps[0], ps[1], ps[2])
 				}
 			}
 
 			if bg != next.Background {
 				bg = next.Background
 				ps := bg.Params()
-				if !capabilities.rgb {
+				if !vx.caps.rgb {
 					ps = bg.AsIndex().Params()
 				}
 				switch len(ps) {
 				case 0:
-					_, _ = w.WriteString(bgReset)
+					_, _ = vx.tw.WriteString(bgReset)
 				case 1:
 					switch {
 					case ps[0] < 8:
-						w.Printf(bgSet, ps[0])
+						vx.tw.Printf(bgSet, ps[0])
 					case ps[0] < 16:
-						w.Printf(bgBrightSet, ps[0]-8)
+						vx.tw.Printf(bgBrightSet, ps[0]-8)
 					default:
-						w.Printf(bgIndexSet, ps[0])
+						vx.tw.Printf(bgIndexSet, ps[0])
 					}
 				case 3:
-					w.Printf(bgRGBSet, ps[0], ps[1], ps[2])
+					vx.tw.Printf(bgRGBSet, ps[0], ps[1], ps[2])
 				}
 			}
 
-			if capabilities.styledUnderlines {
+			if vx.caps.styledUnderlines {
 				if ul != next.UnderlineColor {
 					ul = next.UnderlineColor
 					ps := ul.Params()
-					if !capabilities.rgb {
+					if !vx.caps.rgb {
 						ps = ul.AsIndex().Params()
 					}
 					switch len(ps) {
 					case 0:
-						_, _ = w.WriteString(ulColorReset)
+						_, _ = vx.tw.WriteString(ulColorReset)
 					case 1:
-						_, _ = w.Printf(ulIndexSet, ps[0])
+						_, _ = vx.tw.Printf(ulIndexSet, ps[0])
 					case 3:
-						_, _ = w.Printf(ulRGBSet, ps[0], ps[1], ps[2])
+						_, _ = vx.tw.Printf(ulRGBSet, ps[0], ps[1], ps[2])
 					}
 				}
 			}
@@ -465,25 +453,25 @@ func render() {
 				on := dAttr & next.Attribute
 
 				if on&AttrBold != 0 {
-					_, _ = w.WriteString(boldSet)
+					_, _ = vx.tw.WriteString(boldSet)
 				}
 				if on&AttrDim != 0 {
-					_, _ = w.WriteString(dimSet)
+					_, _ = vx.tw.WriteString(dimSet)
 				}
 				if on&AttrItalic != 0 {
-					_, _ = w.WriteString(italicSet)
+					_, _ = vx.tw.WriteString(italicSet)
 				}
 				if on&AttrBlink != 0 {
-					_, _ = w.WriteString(blinkSet)
+					_, _ = vx.tw.WriteString(blinkSet)
 				}
 				if on&AttrReverse != 0 {
-					_, _ = w.WriteString(reverseSet)
+					_, _ = vx.tw.WriteString(reverseSet)
 				}
 				if on&AttrInvisible != 0 {
-					_, _ = w.WriteString(hiddenSet)
+					_, _ = vx.tw.WriteString(hiddenSet)
 				}
 				if on&AttrStrikethrough != 0 {
-					_, _ = w.WriteString(strikethroughSet)
+					_, _ = vx.tw.WriteString(strikethroughSet)
 				}
 
 				// If the bit is changed and is in previous, it
@@ -491,54 +479,54 @@ func render() {
 				off := dAttr & attr
 				if off&AttrBold != 0 {
 					// Normal intensity isn't in terminfo
-					_, _ = w.WriteString(boldDimReset)
+					_, _ = vx.tw.WriteString(boldDimReset)
 					// Normal intensity turns off dim. If it
 					// should be on, let's turn it back on
 					if next.Attribute&AttrDim != 0 {
-						_, _ = w.WriteString(dimSet)
+						_, _ = vx.tw.WriteString(dimSet)
 					}
 				}
 				if off&AttrDim != 0 {
 					// Normal intensity isn't in terminfo
-					_, _ = w.WriteString(boldDimReset)
+					_, _ = vx.tw.WriteString(boldDimReset)
 					// Normal intensity turns off bold. If it
 					// should be on, let's turn it back on
 					if next.Attribute&AttrBold != 0 {
-						_, _ = w.WriteString(boldSet)
+						_, _ = vx.tw.WriteString(boldSet)
 					}
 				}
 				if off&AttrItalic != 0 {
-					_, _ = w.WriteString(italicReset)
+					_, _ = vx.tw.WriteString(italicReset)
 				}
 				if off&AttrBlink != 0 {
 					// turn off blink isn't in terminfo
-					_, _ = w.WriteString(blinkReset)
+					_, _ = vx.tw.WriteString(blinkReset)
 				}
 				if off&AttrReverse != 0 {
-					_, _ = w.WriteString(reverseReset)
+					_, _ = vx.tw.WriteString(reverseReset)
 				}
 				if off&AttrInvisible != 0 {
 					// turn off invisible isn't in terminfo
-					_, _ = w.WriteString(hiddenReset)
+					_, _ = vx.tw.WriteString(hiddenReset)
 				}
 				if off&AttrStrikethrough != 0 {
-					_, _ = w.WriteString(strikethroughReset)
+					_, _ = vx.tw.WriteString(strikethroughReset)
 				}
 				attr = next.Attribute
 			}
 
 			if ulStyle != next.UnderlineStyle {
 				ulStyle = next.UnderlineStyle
-				switch capabilities.styledUnderlines {
+				switch vx.caps.styledUnderlines {
 				case true:
-					_, _ = w.WriteString(tparm(ulStyleSet, ulStyle))
+					_, _ = vx.tw.WriteString(tparm(ulStyleSet, ulStyle))
 				case false:
 					switch ulStyle {
 					case UnderlineOff:
-						_, _ = w.WriteString(underlineReset)
+						_, _ = vx.tw.WriteString(underlineReset)
 					default:
 						// Fallback to single underlines
-						_, _ = w.WriteString(underlineSet)
+						_, _ = vx.tw.WriteString(underlineSet)
 					}
 				}
 			}
@@ -548,52 +536,52 @@ func render() {
 				linkID = next.HyperlinkID
 				switch {
 				case link == "" && linkID == "":
-					_, _ = w.WriteString(osc8End)
+					_, _ = vx.tw.WriteString(osc8End)
 				case linkID == "":
-					_, _ = w.WriteString(tparm(osc8, link))
+					_, _ = vx.tw.WriteString(tparm(osc8, link))
 				default:
-					_, _ = w.WriteString(tparm(osc8WithID, link, linkID))
+					_, _ = vx.tw.WriteString(tparm(osc8WithID, link, linkID))
 				}
 			}
 			switch next.Content {
 			case "\x00":
-				_, _ = w.WriteString(" ")
+				_, _ = vx.tw.WriteString(" ")
 			default:
-				_, _ = w.WriteString(next.Content)
+				_, _ = vx.tw.WriteString(next.Content)
 			}
 			// Advance the column by the width of this
 			// character
-			skip := advance(next)
+			skip := vx.advance(next)
 			for i := 1; i < skip+1; i += 1 {
-				if col+i >= len(stdScreen.buf[row]) {
+				if col+i >= len(vx.screenNext.buf[row]) {
 					break
 				}
 				// null out any cells we end up skipping
-				lastRender.buf[row][col+i] = Text{}
+				vx.screenLast.buf[row][col+i] = Text{}
 			}
 			col += skip
 		}
 	}
-	if nextCursor.visible && !lastCursor.visible {
-		_, _ = w.WriteString(showCursor())
+	if vx.cursorNext.visible && !vx.cursorLast.visible {
+		_, _ = vx.tw.WriteString(vx.showCursor())
 	}
 }
 
-func handleSequence(seq ansi.Sequence) {
+func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 	log.Debug("[stdin]", "sequence", seq)
 	switch seq := seq.(type) {
 	case ansi.Print:
-		if inPaste {
-			pasteBuf.WriteRune(rune(seq))
+		if vx.pastePending {
+			vx.pasteBuf.WriteRune(rune(seq))
 			return
 		}
-		PostMsg(decodeXterm(seq))
+		vx.PostEvent(decodeXterm(seq))
 	case ansi.C0:
-		PostMsg(decodeXterm(seq))
+		vx.PostEvent(decodeXterm(seq))
 	case ansi.ESC:
-		PostMsg(decodeXterm(seq))
+		vx.PostEvent(decodeXterm(seq))
 	case ansi.SS3:
-		PostMsg(decodeXterm(seq))
+		vx.PostEvent(decodeXterm(seq))
 	case ansi.CSI:
 		switch seq.Final {
 		case 'c':
@@ -601,21 +589,15 @@ func handleSequence(seq ansi.Sequence) {
 				for _, ps := range seq.Parameters {
 					switch ps[0] {
 					case 4:
-						capabilities.sixels = true
-						if graphicsProtocol < sixelGraphics {
-							graphicsProtocol = sixelGraphics
-						}
-						log.Info("Sixels supported")
+						vx.PostEvent(capabilitySixel{})
 					}
 				}
-				if !initialized {
-					deviceAttributesReceived <- struct{}{}
-				}
+				vx.PostEvent(primaryDeviceAttribute{})
 			}
 		case 'I':
-			PostMsg(FocusIn{})
+			vx.PostEvent(FocusIn{})
 		case 'O':
-			PostMsg(FocusOut{})
+			vx.PostEvent(FocusOut{})
 		case 'R':
 			// KeyF1 or DSRCPR
 			// This could be an F1 key, we need to buffer if we have
@@ -623,14 +605,16 @@ func handleSequence(seq ansi.Sequence) {
 			//
 			// Kitty keyboard protocol disambiguates this scenario,
 			// hopefully people are using that
-			if cursorPositionRequested {
-				cursorPositionRequested = false
+			if vx.reqCursorPos.Load() {
+				vx.reqCursorPos.Store(false)
 				if len(seq.Parameters) != 2 {
 					log.Error("not enough DSRCPR params")
 					return
 				}
-				chCursorPositionReport <- seq.Parameters[0][0]
-				chCursorPositionReport <- seq.Parameters[1][0]
+				vx.chCursorPos <- [2]int{
+					seq.Parameters[0][0],
+					seq.Parameters[1][0],
+				}
 				return
 			}
 		case 'S':
@@ -641,11 +625,7 @@ func handleSequence(seq ansi.Sequence) {
 				switch seq.Parameters[0][0] {
 				case 2:
 					if seq.Parameters[1][0] == 0 {
-						capabilities.sixels = true
-						if graphicsProtocol < sixelGraphics {
-							graphicsProtocol = sixelGraphics
-						}
-						log.Info("Sixels supported")
+						vx.PostEvent(capabilitySixel{})
 					}
 				}
 				return
@@ -664,16 +644,13 @@ func handleSequence(seq ansi.Sequence) {
 				}
 				switch seq.Parameters[1][0] {
 				case 1, 2:
-					log.Info("Synchronized Update Mode supported")
-					capabilities.synchronizedUpdate = true
+					vx.PostEvent(synchronizedUpdates{})
 				}
 			}
 			return
 		case 'u':
 			if len(seq.Intermediate) == 1 && seq.Intermediate[0] == '?' {
-				capabilities.kittyKeyboard = true
-				log.Info("Kitty Keyboard Protocol supported")
-				tty.WriteString(tparm(kittyKBEnable, kittyKBFlags))
+				vx.PostEvent(kittyKeyboard{})
 				return
 			}
 		case '~':
@@ -684,31 +661,31 @@ func handleSequence(seq ansi.Sequence) {
 				}
 				switch seq.Parameters[0][0] {
 				case 200:
-					inPaste = true
+					vx.pastePending = true
 					return
 				case 201:
-					inPaste = false
-					PostMsg(PasteMsg(pasteBuf.String()))
-					pasteBuf.Reset()
+					vx.pastePending = false
+					vx.PostEvent(PasteEvent(vx.pasteBuf.String()))
+					vx.pasteBuf.Reset()
 					return
 				}
 			}
 		case 'M', 'm':
 			mouse, ok := parseMouseEvent(seq)
 			if ok {
-				PostMsg(mouse)
+				vx.PostEvent(mouse)
 			}
 			return
 		}
 
-		switch capabilities.kittyKeyboard {
+		switch vx.caps.kittyKeyboard {
 		case true:
 			key := parseKittyKbp(seq)
 			if key.Codepoint != 0 {
-				PostMsg(key)
+				vx.PostEvent(key)
 			}
 		default:
-			PostMsg(decodeXterm(seq))
+			vx.PostEvent(decodeXterm(seq))
 		}
 	case ansi.DCS:
 		switch seq.Final {
@@ -731,13 +708,9 @@ func handleSequence(seq ansi.Sequence) {
 				}
 				switch vals[0] {
 				case hexEncode("Smulx"):
-					capabilities.styledUnderlines = true
-					log.Info("Styled underlines supported")
+					vx.PostEvent(styledUnderlines{})
 				case hexEncode("RGB"):
-					if !capabilities.rgb {
-						capabilities.rgb = true
-						log.Info("RGB Color supported")
-					}
+					vx.PostEvent(truecolor{})
 				}
 			}
 		case '|':
@@ -747,8 +720,7 @@ func handleSequence(seq ansi.Sequence) {
 			switch seq.Intermediate[0] {
 			case '!':
 				if string(seq.Data) == hexEncode("~VTE") {
-					log.Info("Styled underlines supported")
-					capabilities.styledUnderlines = true
+					vx.PostEvent(styledUnderlines{})
 				}
 			}
 		}
@@ -757,14 +729,7 @@ func handleSequence(seq ansi.Sequence) {
 			return
 		}
 		if strings.HasPrefix(seq.Data, "G") {
-			if capabilities.kittyGraphics {
-				return
-			}
-			log.Info("Kitty graphics supported")
-			capabilities.kittyGraphics = true
-			if graphicsProtocol < kittyGraphics {
-				graphicsProtocol = kittyGraphics
-			}
+			vx.PostEvent(kittyGraphics{})
 		}
 	case ansi.OSC:
 		if strings.HasPrefix(string(seq.Payload), "52") {
@@ -781,98 +746,114 @@ func handleSequence(seq ansi.Sequence) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 			defer cancel()
 			select {
-			case osc52Paste <- string(b):
+			case vx.chClipboard <- string(b):
 			case <-ctx.Done():
 			}
 		}
 	}
 }
 
-func sendQueries() {
+func (vx *Vaxis) sendQueries() {
 	switch os.Getenv("COLORTERM") {
 	case "truecolor", "24bit":
-		log.Info("RGB color supported")
-		capabilities.rgb = true
+		vx.PostEvent(truecolor{})
 	}
 
 	// We enter the alt screen without our buffered writer to prevent our
 	// unicode query from bleeding onto the main terminal
-	tty.WriteString(decset(alternateScreen))
-	_, _ = w.WriteString(decset(sixelScrolling))
-	_, _ = w.WriteString(decrst(cursorVisibility))
-	_, _ = w.WriteString(xtversion)
-	_, _ = w.WriteString(kittyKBQuery)
-	_, _ = w.WriteString(kittyGquery)
-	_, _ = w.WriteString(sumQuery)
+	vx.tty.WriteString(decset(alternateScreen))
+	_, _ = vx.tw.WriteString(decset(sixelScrolling))
+	_, _ = vx.tw.WriteString(decrst(cursorVisibility))
+	_, _ = vx.tw.WriteString(xtversion)
+	_, _ = vx.tw.WriteString(kittyKBQuery)
+	_, _ = vx.tw.WriteString(kittyGquery)
+	_, _ = vx.tw.WriteString(sumQuery)
 
-	_, _ = w.WriteString(xtsmSixelGeom)
+	_, _ = vx.tw.WriteString(xtsmSixelGeom)
 
-	capabilities.unicode = queryUnicodeSupport()
+	vx.queryUnicodeSupport()
 
 	// Enable some modes
-	_, _ = w.WriteString(decset(bracketedPaste)) // bracketed paste
-	_, _ = w.WriteString(decset(cursorKeys))     // application cursor keys
-	_, _ = w.WriteString(applicationMode)        // application cursor keys mode
-	_, _ = w.WriteString(decset(mouseAllEvents))
-	_, _ = w.WriteString(decset(mouseFocusEvents))
-	_, _ = w.WriteString(decset(mouseSGR))
-	_, _ = w.WriteString(clear)
+	_, _ = vx.tw.WriteString(decset(bracketedPaste)) // bracketed paste
+	_, _ = vx.tw.WriteString(decset(cursorKeys))     // application cursor keys
+	_, _ = vx.tw.WriteString(applicationMode)        // application cursor keys mode
+	_, _ = vx.tw.WriteString(decset(mouseAllEvents))
+	_, _ = vx.tw.WriteString(decset(mouseFocusEvents))
+	_, _ = vx.tw.WriteString(decset(mouseSGR))
+	_, _ = vx.tw.WriteString(clear)
 
 	// Query some terminfo capabilities
 	// Just another way to see if we have RGB support
-	_, _ = w.WriteString(xtgettcap("RGB"))
+	_, _ = vx.tw.WriteString(xtgettcap("RGB"))
 	// We request Smulx to check for styled underlines. Technically, Smulx
 	// only means the terminal supports different underline types (curly,
 	// dashed, etc), but we'll assume the terminal also suppports underline
 	// colors (CSI 58 : ...)
-	_, _ = w.WriteString(xtgettcap("Smulx"))
+	_, _ = vx.tw.WriteString(xtgettcap("Smulx"))
 	// Need to send tertiary for VTE based terminals. These don't respond to
 	// XTGETTCAP
-	_, _ = w.WriteString(tertiaryAttributes)
+	_, _ = vx.tw.WriteString(tertiaryAttributes)
 	// Send Device Attributes is last. Everything responds, and when we get
 	// a response we'll return from init
-	_, _ = w.WriteString(primaryAttributes)
-	_, _ = w.Flush()
+	_, _ = vx.tw.WriteString(primaryAttributes)
+	_, _ = vx.tw.Flush()
 }
 
 // HideCursor hides the hardware cursor
-func HideCursor() {
-	nextCursor.visible = false
+func (vx *Vaxis) HideCursor() {
+	vx.cursorNext.visible = false
 }
 
 // ShowCursor shows the cursor at the given colxrow, with the given style. The
 // passed column and row are 0-indexed and global
-func ShowCursor(col int, row int, style CursorStyle) {
-	nextCursor.style = style
-	nextCursor.col = col
-	nextCursor.row = row
-	nextCursor.visible = true
+func (vx *Vaxis) ShowCursor(col int, row int, style CursorStyle) {
+	vx.cursorNext.style = style
+	vx.cursorNext.col = col
+	vx.cursorNext.row = row
+	vx.cursorNext.visible = true
 }
 
-func showCursor() string {
+func (vx *Vaxis) showCursor() string {
 	buf := bytes.NewBuffer(nil)
-	buf.WriteString(cursorStyle())
-	buf.WriteString(tparm(cup, nextCursor.row+1, nextCursor.col+1))
+	buf.WriteString(vx.cursorStyle())
+	buf.WriteString(tparm(cup, vx.cursorNext.row+1, vx.cursorNext.col+1))
 	buf.WriteString(decset(cursorVisibility))
 	return buf.String()
 }
 
+// // Reports the current cursor position. 0,0 is the upper left corner. Reports
+// // -1,-1 if the query times out or fails
+// func CursorPosition() (col int, row int) {
+// 	// DSRCPR - reports cursor position
+// 	cursorPositionRequested = true
+// 	tty.WriteString(dsrcpr)
+// 	timeout := time.NewTimer(50 * time.Millisecond)
+// 	select {
+// 	case <-timeout.C:
+// 		log.Warn("CursorPosition timed out")
+// 		cursorPositionRequested = false
+// 		return -1, -1
+// 	case row = <-chCursorPositionReport:
+// 		// if we get one, we'll get another
+// 		col = <-chCursorPositionReport
+// 		return col - 1, row - 1
+// 	}
+// }
+
 // Reports the current cursor position. 0,0 is the upper left corner. Reports
 // -1,-1 if the query times out or fails
-func CursorPosition() (col int, row int) {
+func (vx *Vaxis) CursorPosition() (col int, row int) {
 	// DSRCPR - reports cursor position
-	cursorPositionRequested = true
-	tty.WriteString(dsrcpr)
+	vx.reqCursorPos.Store(true)
+	vx.tty.WriteString(dsrcpr)
 	timeout := time.NewTimer(50 * time.Millisecond)
 	select {
 	case <-timeout.C:
 		log.Warn("CursorPosition timed out")
-		cursorPositionRequested = false
+		vx.reqCursorPos.Store(false)
 		return -1, -1
-	case row = <-chCursorPositionReport:
-		// if we get one, we'll get another
-		col = <-chCursorPositionReport
-		return col - 1, row - 1
+	case pos := <-vx.chCursorPos:
+		return pos[0] - 1, pos[1] - 1
 	}
 }
 
@@ -888,17 +869,17 @@ const (
 	CursorBeam
 )
 
-func cursorStyle() string {
-	if nextCursor.style == CursorDefault {
+func (vx *Vaxis) cursorStyle() string {
+	if vx.cursorNext.style == CursorDefault {
 		return cursorStyleReset
 	}
-	return tparm(cursorStyleSet, int(nextCursor.style))
+	return tparm(cursorStyleSet, int(vx.cursorNext.style))
 }
 
 // ClipboardPush copies the provided string to the system clipboard
-func ClipboardPush(s string) {
+func (vx *Vaxis) ClipboardPush(s string) {
 	b64 := base64.StdEncoding.EncodeToString([]byte(s))
-	tty.WriteString(tparm(osc52put, b64))
+	vx.tty.WriteString(tparm(osc52put, b64))
 }
 
 // ClipboardPop requests the content from the system clipboard. ClipboardPop works by
@@ -906,10 +887,10 @@ func ClipboardPush(s string) {
 // the data. Depending on usage, this could take some time. Callers can provide
 // a context to set a deadline for this function to return. An error will be
 // returned if the context is cancelled.
-func ClipboardPop(ctx context.Context) (string, error) {
-	tty.WriteString(osc52pop)
+func (vx *Vaxis) ClipboardPop(ctx context.Context) (string, error) {
+	vx.tty.WriteString(osc52pop)
 	select {
-	case str := <-osc52Paste:
+	case str := <-vx.chClipboard:
 		return str, nil
 	case <-ctx.Done():
 		return "", ctx.Err()
@@ -918,29 +899,29 @@ func ClipboardPop(ctx context.Context) (string, error) {
 
 // Notify (attempts) to send a system notification. If title is the empty
 // string, OSC9 will be used - otherwise osc777 is used
-func Notify(title string, body string) {
+func (vx *Vaxis) Notify(title string, body string) {
 	if title == "" {
-		tty.WriteString(tparm(osc9notify, body))
+		vx.tty.WriteString(tparm(osc9notify, body))
 		return
 	}
-	tty.WriteString(tparm(osc777notify, title, body))
+	vx.tty.WriteString(tparm(osc777notify, title, body))
 }
 
 // SetTitle sets the terminal's title via OSC 2
-func SetTitle(s string) {
-	tty.WriteString(tparm(setTitle, s))
+func (vx *Vaxis) SetTitle(s string) {
+	vx.tty.WriteString(tparm(setTitle, s))
 }
 
 // Bell sends a BEL control signal to the terminal
-func Bell() {
-	tty.WriteString("\a")
+func (vx *Vaxis) Bell() {
+	vx.tty.WriteString("\a")
 }
 
 // advance returns the extra amount to advance the column by when rendering
-func advance(cell Text) int {
+func (vx *Vaxis) advance(cell Text) int {
 	w := cell.WidthHint - 1
 	if w < 0 {
-		w = characterWidth(cell.Content) - 1
+		w = vx.characterWidth(cell.Content) - 1
 	}
 	if w < 0 {
 		return 0
@@ -953,20 +934,19 @@ func advance(cell Text) int {
 // will report that their cursor has moved forward by 2 total cells. Terminals
 // that don't render this properly will report (probably) 4 cells of movement
 // (one for each emoji in the ZWJ sequence)
-func queryUnicodeSupport() bool {
-	tty.WriteString(tparm(cup, 1, 1))
+func (vx *Vaxis) queryUnicodeSupport() {
+	vx.tty.WriteString(tparm(cup, 1, 1))
 	test := "👩‍🚀"
-	originX, _ := CursorPosition()
+	originX, _ := vx.CursorPosition()
 	if originX < 0 {
-		return false
+		return
 	}
-	tty.WriteString(test)
-	newX, _ := CursorPosition()
+	vx.tty.WriteString(test)
+	newX, _ := vx.CursorPosition()
 	if newX-originX > 2 {
-		return false
+		return
 	}
-	log.Info("Unicode supported")
-	return true
+	vx.PostEvent(unicodeSupport{})
 }
 
 // RenderedWidth returns the rendered width of the provided string. The result
@@ -979,8 +959,8 @@ func queryUnicodeSupport() bool {
 //
 // This call can be expensive, callers should consider caching the result for
 // strings or characters which will need to be measured frequently
-func RenderedWidth(s string) int {
-	if capabilities.unicode {
+func (vx *Vaxis) RenderedWidth(s string) int {
+	if vx.caps.unicode {
 		return uniseg.StringWidth(s)
 	}
 	w := 0
@@ -993,38 +973,34 @@ func RenderedWidth(s string) int {
 	return w
 }
 
-var characterWidthCache = make(map[string]int, 256)
-
 // characterWidth measures the width of a grapheme cluster, caching the result .
 // We only ever call this with characters, making it highly cacheable since
 // there is likely to only ever be a finite set of characters in the lifetime of
 // an application
-func characterWidth(s string) int {
-	w, ok := characterWidthCache[s]
+func (vx *Vaxis) characterWidth(s string) int {
+	w, ok := vx.charCache[s]
 	if ok {
 		return w
 	}
-	w = RenderedWidth(s)
-	characterWidthCache[s] = w
+	w = vx.RenderedWidth(s)
+	vx.charCache[s] = w
 	return w
 }
 
-func SetMouseShape(shape MouseShape) {
-	nextMouseShape = shape
+func (vx *Vaxis) SetMouseShape(shape MouseShape) {
+	vx.mouseShapeNext = shape
 }
 
-// reportWinsize posts a Resize Msg
-func reportWinsize() {
-	ws, err := unix.IoctlGetWinsize(int(tty.Fd()), unix.TIOCGWINSZ)
+// reportWinsize
+func (vx *Vaxis) reportWinsize() (Resize, error) {
+	ws, err := unix.IoctlGetWinsize(int(vx.tty.Fd()), unix.TIOCGWINSZ)
 	if err != nil {
-		log.Error("couldn't get winsize", "error", err)
-		return
+		return Resize{}, err
 	}
-	winsize = Resize{
+	return Resize{
 		Cols:   int(ws.Col),
 		Rows:   int(ws.Row),
 		XPixel: int(ws.Xpixel),
 		YPixel: int(ws.Ypixel),
-	}
-	PostMsg(winsize)
+	}, nil
 }

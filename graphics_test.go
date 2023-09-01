@@ -18,21 +18,25 @@ func ExampleGraphic() {
 	if err != nil {
 		panic(err)
 	}
+	vx, err := vaxis.New(vaxis.Options{})
+	if err != nil {
+		panic(err)
+	}
 	// Resize to whatever size we want, in cell values
 	w := 20
 	h := 10
-	resized := vaxis.ResizeGraphic(img, w, h)
+	resized := vx.ResizeGraphic(img, w, h)
 	// Create a graphic with Vaxis. Depending on the terminal, this will
 	// either send the graphic to the terminal or create a sixel encoded
 	// version of the image
-	g, err := vaxis.NewGraphic(resized)
+	g, err := vx.NewGraphic(resized)
 	if err != nil {
 		panic(err)
 	}
 	// Create an instance of the fullscreen window
 	fullscreen := vaxis.Window{}
 	// Create a window the proper size
-	win := vaxis.NewWindow(&fullscreen, 0, 0, w, h)
+	win := fullscreen.New(0, 0, w, h)
 	// Draw the graphic in the window
 	g.Draw(win)
 }
