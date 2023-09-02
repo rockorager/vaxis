@@ -5,18 +5,17 @@ import (
 )
 
 type cell struct {
-	combining []rune
-	width     int
-	content   rune
-	fg        vaxis.Color
-	bg        vaxis.Color
-	attrs     vaxis.AttributeMask
-	wrapped   bool
+	width   int
+	content string
+	fg      vaxis.Color
+	bg      vaxis.Color
+	attrs   vaxis.AttributeMask
+	wrapped bool
 }
 
-func (c *cell) rune() rune {
-	if c.content == rune(0) {
-		return ' '
+func (c *cell) rune() string {
+	if c.content == "" {
+		return " "
 	}
 	return c.content
 }
@@ -26,12 +25,12 @@ func (c *cell) rune() rune {
 // change when erasing characters or lines. Erasing resets the attributes, but
 // applies the background color of the passed style
 func (c *cell) erase(bg vaxis.Color) {
-	c.content = 0
+	c.content = ""
 	c.attrs = 0
 	c.bg = bg
 }
 
 // selectiveErase removes the cell content, but keeps the attributes
 func (c *cell) selectiveErase() {
-	c.content = 0
+	c.content = " "
 }

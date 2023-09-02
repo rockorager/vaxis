@@ -155,7 +155,7 @@ func (vt *Model) ich(ps int) {
 			break
 		}
 		line[col+column(i)] = cell{
-			content: ' ',
+			content: " ",
 			width:   1,
 		}
 	}

@@ -206,7 +206,7 @@ func (vt *Model) update(seq ansi.Sequence) {
 	defer vt.mu.Unlock()
 	switch seq := seq.(type) {
 	case ansi.Print:
-		vt.print(rune(seq))
+		vt.print(string(seq))
 	case ansi.C0:
 		vt.c0(rune(seq))
 	case ansi.ESC:
@@ -229,10 +229,7 @@ func (vt *Model) String() string {
 	str := strings.Builder{}
 	for row := range vt.activeScreen {
 		for col := range vt.activeScreen[row] {
-			_, _ = str.WriteRune(vt.activeScreen[row][col].rune())
-			for _, comb := range vt.activeScreen[row][col].combining {
-				_, _ = str.WriteRune(comb)
-			}
+			_, _ = str.WriteString(vt.activeScreen[row][col].rune())
 		}
 		if row < vt.height()-1 {
 			str.WriteRune('\n')
@@ -317,13 +314,14 @@ func (vt *Model) height() int {
 
 // print sets the current cell contents to the given rune. The attributes will
 // be copied from the current cursor attributes
-func (vt *Model) print(r rune) {
-	if vt.charsets.designations[vt.charsets.selected] == decSpecialAndLineDrawing {
-		shifted, ok := decSpecial[r]
-		if ok {
-			r = shifted
-		}
-	}
+func (vt *Model) print(r string) {
+	// TODO fix this for change to string
+	// if vt.charsets.designations[vt.charsets.selected] == decSpecialAndLineDrawing {
+	// 	shifted, ok := decSpecial[r]
+	// 	if ok {
+	// 		r = shifted
+	// 	}
+	// }
 
 	// If we are single-shifted, move the previous charset into the current
 	if vt.charsets.singleShift {
@@ -339,7 +337,7 @@ func (vt *Model) print(r rune) {
 
 	col := vt.cursor.col
 	rw := vt.cursor.row
-	w := uniseg.StringWidth(string(r))
+	w := uniseg.StringWidth(r)
 
 	if vt.mode&irm != 0 {
 		line := vt.activeScreen[rw]
@@ -358,7 +356,7 @@ func (vt *Model) print(r rune) {
 		if col-1 < 0 {
 			return
 		}
-		vt.activeScreen[rw][col-1].combining = append(vt.activeScreen[rw][col-1].combining, r)
+		// vt.activeScreen[rw][col-1].combining = append(vt.activeScreen[rw][col-1].combining, r)
 		return
 	}
 	cell := cell{
@@ -376,7 +374,7 @@ func (vt *Model) print(r rune) {
 		if col+i > vt.margin.right {
 			break
 		}
-		vt.activeScreen[rw][col+i].content = ' '
+		vt.activeScreen[rw][col+i].content = " "
 		vt.activeScreen[rw][col+i].attrs = vt.cursor.attrs
 	}
 
@@ -449,13 +447,12 @@ func (vt *Model) Draw(win vaxis.Window) {
 			cell := vt.activeScreen[row][col]
 			w := cell.width
 
-			if cell.content == 0 {
-				cell.content = ' '
+			if cell.content == "" {
+				cell.content = " "
 			}
 
-			egc := fmt.Sprintf("%c%s", cell.content, string(cell.combining))
 			win.SetCell(col, row, vaxis.Text{
-				Content:    egc,
+				Content:    cell.content,
 				Foreground: cell.fg,
 				Background: cell.bg,
 				Attribute:  cell.attrs,
