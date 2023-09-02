@@ -1,5 +1,8 @@
 package vaxis
 
+// Event is an empty interface used to pass data within a Vaxis application.
+// Vaxis will emit user input events as well as other input-related events.
+// Users can use PostEvent to post their own events into the loop
 type Event interface{}
 
 type (

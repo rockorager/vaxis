@@ -68,11 +68,14 @@ func nextBreak(b []byte) int {
 	return w
 }
 
-// Window is a Window with an offset from an optional parent and a specified size.
-// If parent is nil, the underlying screen will be the parent and offsets will
-// be relative to that.
+// Window is a Window with an offset from an optional parent and a specified
+// size. A Window can be instantiated directly, however the provided constructor
+// methods are recommended as they will enforce size constraints
 type Window struct {
-	vx     *Vaxis
+	// Vx is a reference to the [Vx] instance
+	Vx *Vaxis
+	// Parent is a reference to a parent [Window], if nil then the offsets
+	// and size will be relative to the underlying terminal window
 	Parent *Window
 	Column int // col offset from parent
 	Row    int // row offset from parent
@@ -89,7 +92,7 @@ func (vx *Vaxis) Window() Window {
 		Column: 0,
 		Width:  w,
 		Height: h,
-		vx:     vx,
+		Vx:     vx,
 	}
 }
 
@@ -102,7 +105,7 @@ func (win Window) New(col, row, cols, rows int) Window {
 		Height: rows,
 		Parent: &win,
 
-		vx: win.vx,
+		Vx: win.Vx,
 	}
 	w, h := win.Size()
 
@@ -139,17 +142,18 @@ func (win Window) SetCell(col int, row int, cell Text) {
 	}
 	switch win.Parent {
 	case nil:
-		win.vx.screenNext.setCell(col+win.Column, row+win.Row, cell)
+		win.Vx.screenNext.setCell(col+win.Column, row+win.Row, cell)
 	default:
 		win.Parent.SetCell(col+win.Column, row+win.Row, cell)
 	}
 }
 
+// ShowCursor shows the cursor at colxrow, relative to this Window's location
 func (win Window) ShowCursor(col int, row int, style CursorStyle) {
 	col += win.Column
 	row += win.Row
 	if win.Parent == nil {
-		win.vx.ShowCursor(col, row, style)
+		win.Vx.ShowCursor(col, row, style)
 		return
 	}
 	win.Parent.ShowCursor(col, row, style)
@@ -187,8 +191,8 @@ func (win Window) Clear() {
 	// space and a cleared cell. \x00 is rendered as a space, but the
 	// internal model will differentiate
 	win.Fill(Text{Content: "\x00", WidthHint: 1})
-	for k := range win.vx.graphicsNext {
-		delete(win.vx.graphicsNext, k)
+	for k := range win.Vx.graphicsNext {
+		delete(win.Vx.graphicsNext, k)
 	}
 }
 

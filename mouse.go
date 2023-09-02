@@ -31,6 +31,7 @@ const (
 	MouseButton11 MouseButton = 131
 )
 
+// MouseShape is used with OSC 22 to change the shape of the mouse cursor
 type MouseShape string
 
 const (

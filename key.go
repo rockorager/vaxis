@@ -8,12 +8,17 @@ import (
 	"git.sr.ht/~rockorager/vaxis/ansi"
 )
 
+// Key is a key event. Codepoint can be either the literal codepoint of the
+// keypress, or a value set by Vaxis to indicate special keys. Special keys have
+// their codepoints outside of the valid unicode range
 type Key struct {
 	Codepoint rune
 	Modifiers ModifierMask
 	EventType EventType
 }
 
+// ModifierMask is a bitmask for which modifier keys were held when a key was
+// pressed
 type ModifierMask int
 
 const (
@@ -44,6 +49,8 @@ const (
 	EventMotion
 )
 
+// String returns a human-readable description of the keypress, suitable for use
+// in matching ("Ctrl+c")
 func (k Key) String() string {
 	buf := &bytes.Buffer{}
 

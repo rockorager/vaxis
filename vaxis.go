@@ -44,6 +44,8 @@ type cursorState struct {
 	visible bool
 }
 
+// Options are the runtime options which must be supplied to a new [Vaxis]
+// object at instantiation
 type Options struct {
 	// Logger is an optional slog.Logger that vaxis will log to. vaxis uses
 	// stdlib levels for logging
@@ -54,10 +56,6 @@ type Options struct {
 	// ReportKeyboardEvents will report key release and key repeat events if
 	// KittyKeyboardProtocol is enabled and supported by the terminal
 	ReportKeyboardEvents bool
-	// Framerate is the framerate (in frames per second) to render at in the
-	// event loop. Default is 120 FPS. If using the PollMsg for a custom
-	// event loop, this value is unused
-	Framerate uint
 }
 
 type Vaxis struct {
@@ -92,6 +90,8 @@ type Vaxis struct {
 	elapsed time.Duration
 }
 
+// New creates a new [Vaxis] instance. Calling New will query the underlying
+// terminal for supported features and enter the alternate screen
 func New(opts Options) (*Vaxis, error) {
 	if opts.Logger != nil {
 		log = opts.Logger
@@ -218,6 +218,7 @@ outer:
 	return vx, nil
 }
 
+// PostEvent inserts an event into the [Vaxis] event loop
 func (vx *Vaxis) PostEvent(ev Event) {
 	vx.queue.Push(ev)
 }
@@ -821,7 +822,8 @@ func (vx *Vaxis) HideCursor() {
 }
 
 // ShowCursor shows the cursor at the given colxrow, with the given style. The
-// passed column and row are 0-indexed and global
+// passed column and row are 0-indexed and global. To show the cursor relative
+// to a window, use [Window.ShowCursor]
 func (vx *Vaxis) ShowCursor(col int, row int, style CursorStyle) {
 	vx.cursorNext.style = style
 	vx.cursorNext.col = col
@@ -854,6 +856,7 @@ func (vx *Vaxis) CursorPosition() (col int, row int) {
 	}
 }
 
+// CursorStyle is the style to display the hardware cursor
 type CursorStyle int
 
 const (
@@ -983,6 +986,7 @@ func (vx *Vaxis) characterWidth(s string) int {
 	return w
 }
 
+// SetMouseShape sets the shape of the mouse
 func (vx *Vaxis) SetMouseShape(shape MouseShape) {
 	vx.mouseShapeNext = shape
 }

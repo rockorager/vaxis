@@ -14,6 +14,9 @@ type Queue[T any] struct {
 	closed bool
 }
 
+// NewQueue creates a new Queue, with items T. Queue is essentially an
+// infinitely buffered channel. Items can be accessed via Chan, and inserted via
+// Push
 func NewQueue[T any]() *Queue[T] {
 	q := &Queue[T]{
 		ch: make(chan T),
@@ -21,10 +24,12 @@ func NewQueue[T any]() *Queue[T] {
 	return q
 }
 
+// Access the items in the Queue
 func (q *Queue[T]) Chan() chan T {
 	return q.ch
 }
 
+// Push adds an item to the Queue
 func (q *Queue[T]) Push(item T) {
 	q.mu.Lock()
 	defer q.mu.Unlock()

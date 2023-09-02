@@ -20,6 +20,7 @@ const (
 	kitty
 )
 
+// Graphic is an image which will be displayed in the terminal
 type Graphic struct {
 	vx          *Vaxis
 	placement   string
