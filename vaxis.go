@@ -29,7 +29,7 @@ type capabilities struct {
 	synchronizedUpdate bool
 	rgb                bool
 	kittyGraphics      bool
-	kittyKeyboard      bool
+	kittyKeyboard      atomic.Bool
 	styledUnderlines   bool
 	sixels             bool
 	// unicode refers to rendering complex unicode graphemes
@@ -188,7 +188,7 @@ outer:
 				if opts.DisableKittyKeyboard {
 					continue
 				}
-				vx.caps.kittyKeyboard = true
+				vx.caps.kittyKeyboard.Store(true)
 				_, err := vx.tty.WriteString(tparm(kittyKBEnable, kittyKBFlags))
 				if err != nil {
 					return nil, err
@@ -692,7 +692,7 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 			return
 		}
 
-		switch vx.caps.kittyKeyboard {
+		switch vx.caps.kittyKeyboard.Load() {
 		case true:
 			key := parseKittyKbp(seq)
 			if key.Codepoint != 0 {
