@@ -66,6 +66,11 @@ func (m *Model) start() {
 	m.spinning = true
 	ticker := time.NewTicker(m.Duration)
 	go func() {
+		defer func() {
+			if err := recover(); err != nil {
+				m.vx.Close()
+			}
+		}()
 		for {
 			select {
 			case <-ctx.Done():

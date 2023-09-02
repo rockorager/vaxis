@@ -137,7 +137,11 @@ func New(opts Options) (*Vaxis, error) {
 
 	parser := ansi.NewParser(vx.tty)
 	go func() {
-		// TODO panic handling
+		defer func() {
+			if err := recover(); err != nil {
+				vx.Close()
+			}
+		}()
 		for {
 			select {
 			case seq := <-parser.Next():
@@ -235,6 +239,11 @@ func (vx *Vaxis) PollEvent() Event {
 func (vx *Vaxis) Events() chan Event {
 	ch := make(chan Event)
 	go func() {
+		defer func() {
+			if err := recover(); err != nil {
+				vx.Close()
+			}
+		}()
 		for {
 			select {
 			case ev := <-vx.queue.Chan():
