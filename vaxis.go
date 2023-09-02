@@ -25,7 +25,7 @@ import (
 
 var log = slog.New(slog.NewTextHandler(io.Discard, nil))
 
-type Capabilities struct {
+type capabilities struct {
 	synchronizedUpdate bool
 	rgb                bool
 	kittyGraphics      bool
@@ -78,7 +78,7 @@ type Vaxis struct {
 	chCursorPos      chan [2]int
 	chQuit           chan bool
 	winSize          Resize
-	caps             Capabilities
+	caps             capabilities
 	graphicsProtocol int
 	graphicsIDNext   uint64
 	reqCursorPos     atomic.Bool
@@ -725,6 +725,8 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 			switch seq.Intermediate[0] {
 			case '!':
 				if string(seq.Data) == hexEncode("~VTE") {
+					// VTE supports styled underlines but
+					// doesn't respond to XTGETTCAP
 					vx.PostEvent(styledUnderlines{})
 				}
 			}
@@ -831,7 +833,7 @@ func (vx *Vaxis) showCursor() string {
 func (vx *Vaxis) CursorPosition() (col int, row int) {
 	// DSRCPR - reports cursor position
 	vx.reqCursorPos.Store(true)
-	vx.tty.WriteString(dsrcpr)
+	_, _ = vx.tty.WriteString(dsrcpr)
 	timeout := time.NewTimer(50 * time.Millisecond)
 	select {
 	case <-timeout.C:
@@ -865,7 +867,7 @@ func (vx *Vaxis) cursorStyle() string {
 // ClipboardPush copies the provided string to the system clipboard
 func (vx *Vaxis) ClipboardPush(s string) {
 	b64 := base64.StdEncoding.EncodeToString([]byte(s))
-	vx.tty.WriteString(tparm(osc52put, b64))
+	_, _ = vx.tty.WriteString(tparm(osc52put, b64))
 }
 
 // ClipboardPop requests the content from the system clipboard. ClipboardPop works by
@@ -874,7 +876,7 @@ func (vx *Vaxis) ClipboardPush(s string) {
 // a context to set a deadline for this function to return. An error will be
 // returned if the context is cancelled.
 func (vx *Vaxis) ClipboardPop(ctx context.Context) (string, error) {
-	vx.tty.WriteString(osc52pop)
+	_, _ = vx.tty.WriteString(osc52pop)
 	select {
 	case str := <-vx.chClipboard:
 		return str, nil
@@ -887,20 +889,20 @@ func (vx *Vaxis) ClipboardPop(ctx context.Context) (string, error) {
 // string, OSC9 will be used - otherwise osc777 is used
 func (vx *Vaxis) Notify(title string, body string) {
 	if title == "" {
-		vx.tty.WriteString(tparm(osc9notify, body))
+		_, _ = vx.tty.WriteString(tparm(osc9notify, body))
 		return
 	}
-	vx.tty.WriteString(tparm(osc777notify, title, body))
+	_, _ = vx.tty.WriteString(tparm(osc777notify, title, body))
 }
 
 // SetTitle sets the terminal's title via OSC 2
 func (vx *Vaxis) SetTitle(s string) {
-	vx.tty.WriteString(tparm(setTitle, s))
+	_, _ = vx.tty.WriteString(tparm(setTitle, s))
 }
 
 // Bell sends a BEL control signal to the terminal
 func (vx *Vaxis) Bell() {
-	vx.tty.WriteString("\a")
+	_, _ = vx.tty.WriteString("\a")
 }
 
 // advance returns the extra amount to advance the column by when rendering
@@ -921,13 +923,13 @@ func (vx *Vaxis) advance(cell Text) int {
 // that don't render this properly will report (probably) 4 cells of movement
 // (one for each emoji in the ZWJ sequence)
 func (vx *Vaxis) queryUnicodeSupport() {
-	vx.tty.WriteString(tparm(cup, 1, 1))
+	_, _ = vx.tty.WriteString(tparm(cup, 1, 1))
 	test := "👩‍🚀"
 	originX, _ := vx.CursorPosition()
 	if originX < 0 {
 		return
 	}
-	vx.tty.WriteString(test)
+	_, _ = vx.tty.WriteString(test)
 	newX, _ := vx.CursorPosition()
 	if newX-originX > 2 {
 		return
@@ -936,8 +938,7 @@ func (vx *Vaxis) queryUnicodeSupport() {
 }
 
 // RenderedWidth returns the rendered width of the provided string. The result
-// is dependent on if your terminal can support unicode properly. RenderedWidth
-// must be called after Init to ensure Unicode support has been detected.
+// is dependent on if your terminal can support unicode properly.
 //
 // This is best effort. It will usually be correct, and in the few cases it's
 // wrong will end up wrong in the nicer-rendering way (complex emojis will have

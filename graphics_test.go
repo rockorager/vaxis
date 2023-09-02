@@ -37,4 +37,5 @@ func ExampleGraphic() {
 	win := vx.Window().New(0, 0, w, h)
 	// Draw the graphic in the window
 	g.Draw(win)
+	vx.Render()
 }

@@ -42,5 +42,3 @@ type Redraw struct{}
 // signal that something has been updated (probably the application needs to
 // redraw itself)
 type syncFunc func()
-
-type CloseEvent struct{}

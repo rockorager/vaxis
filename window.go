@@ -101,17 +101,20 @@ func Print(win Window, segs ...Text) (col int, row int) {
 // 	return col, row
 // }
 
-// PrintLine prints a single line of text to the specified row. If the text is
-// wider than the width of the window, trunc will be used as a truncating
-// indicator (eg "This line has mo…"). If the row is outside the bounds of the
-// window, nothing will be printed
-func PrintLine(win Window, row int, trunc string, segs ...Text) {
+// Println prints a single line of text to the specified row. If the text is
+// wider than the width of the window, the line will be truncated with "…":
+//
+//	"This line has mo…"
+//
+// If the row is outside the bounds of the window, nothing will be printed
+func Println(win Window, row int, segs ...Text) {
 	cols, rows := win.Size()
 	if row >= rows {
 		return
 	}
 	col := 0
-	truncWidth := win.vx.characterWidth(trunc)
+	trunc := "…"
+	truncWidth := 1
 	for _, seg := range segs {
 		for _, char := range Characters(seg.Content) {
 			w := char.Width
@@ -212,7 +215,7 @@ func (win Window) Size() (width int, height int) {
 // the Window doesn't retain this data, if the location is outside of the
 // visible area, it is simply discarded.
 func (win Window) SetCell(col int, row int, cell Text) {
-	if row >= win.Height || col > win.Width {
+	if row >= win.Height || col >= win.Width {
 		return
 	}
 	if row < 0 || col < 0 {

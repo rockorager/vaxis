@@ -21,11 +21,11 @@ const (
 )
 
 type Graphic struct {
+	vx          *Vaxis
 	placement   string
 	pixelWidth  int
 	pixelHeight int
 	id          uint64
-	vx          *Vaxis
 }
 
 // NewGraphic loads a graphic into memory. Depending on the terminal
