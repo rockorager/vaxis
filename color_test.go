@@ -3,26 +3,29 @@ package vaxis_test
 import "git.sr.ht/~rockorager/vaxis"
 
 func ExampleRGBColor() {
+	vx, _ := vaxis.New(vaxis.Options{})
 	color := vaxis.RGBColor(1, 2, 3)
-	vaxis.Fill(vaxis.Window{}, vaxis.Text{
+	vx.Window().Fill(vaxis.Text{
 		Content:    " ",
 		Background: color,
 	})
 }
 
 func ExampleIndexColor() {
+	vx, _ := vaxis.New(vaxis.Options{})
 	// Index 1 is usually a red
 	color := vaxis.IndexColor(1)
-	vaxis.Fill(vaxis.Window{}, vaxis.Text{
+	vx.Window().Fill(vaxis.Text{
 		Content:    " ",
 		Background: color,
 	})
 }
 
 func ExampleHexColor() {
+	vx, _ := vaxis.New(vaxis.Options{})
 	// Creates an RGB color from a hex value
 	color := vaxis.HexColor(0x00AABB)
-	vaxis.Fill(vaxis.Window{}, vaxis.Text{
+	vx.Window().Fill(vaxis.Text{
 		Content:    " ",
 		Background: color,
 	})

@@ -42,7 +42,7 @@ func (m *Model) Draw(win vaxis.Window) {
 	if m.Fill.Content == "" {
 		m.Fill.Content = " "
 	}
-	vaxis.Fill(win, m.Fill)
+	win.Fill(m.Fill)
 	for row, l := range m.lines {
 		if row < m.Offset {
 			continue

@@ -14,10 +14,10 @@ func main() {
 		switch ev := ev.(type) {
 		case vaxis.Resize:
 			win := vx.Window()
-			vaxis.Clear(win)
-			vaxis.Print(win, vaxis.Text{Content: "Hello, World!"})
+			win.Clear()
+			win.Print(vaxis.Text{Content: "Hello, World!"})
 			truncWin := win.New(0, 1, 10, -1)
-			vaxis.PrintLine(truncWin, 0, "…", vaxis.Text{Content: "This line should be truncated at 6 characters"})
+			truncWin.Println(0, vaxis.Text{Content: "This line should be truncated at 6 characters"})
 			vx.Render()
 		case vaxis.Key:
 			switch ev.String() {

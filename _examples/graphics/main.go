@@ -22,7 +22,7 @@ func main() {
 		switch ev := ev.(type) {
 		case vaxis.Resize:
 			win := vx.Window()
-			vaxis.Clear(win)
+			win.Clear()
 			w, h := img.CellSize()
 			img.Draw(align.Center(win, w, h))
 			vx.Render()

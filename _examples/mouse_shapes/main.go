@@ -59,19 +59,19 @@ func (m *model) Draw(win vaxis.Window) {
 	ne := win.New(m.vertical, 0, -1, m.horizontal)
 	se := win.New(m.vertical, m.horizontal, -1, -1)
 	sw := win.New(0, m.horizontal, m.vertical, -1)
-	vaxis.Fill(nw, vaxis.Text{
+	nw.Fill(vaxis.Text{
 		Content:    " ",
 		Background: vaxis.IndexColor(1),
 	})
-	vaxis.Fill(ne, vaxis.Text{
+	ne.Fill(vaxis.Text{
 		Content:    " ",
 		Background: vaxis.IndexColor(2),
 	})
-	vaxis.Fill(se, vaxis.Text{
+	se.Fill(vaxis.Text{
 		Content:    " ",
 		Background: vaxis.IndexColor(3),
 	})
-	vaxis.Fill(sw, vaxis.Text{
+	sw.Fill(vaxis.Text{
 		Content:    " ",
 		Background: vaxis.IndexColor(4),
 	})
