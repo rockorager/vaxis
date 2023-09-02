@@ -1,13 +1,6 @@
 # Vaxis
 
 ```
-Know now there is no time, space between the Well & Unknowing.
-Our story starts there.
-Well into our future, yet far beyond our past.
-In a romance between a pair of Unheavenly Creatures.
-
-[...]
-
 It begins with them, but ends with me. Their son, Vaxis
 ```
 
@@ -34,7 +27,7 @@ func main() {
 			vaxis.Print(win, vaxis.Text{Content: "Hello, World!"})
 			vx.Render()
 		case vaxis.Key:
-			switch event.String() {
+			switch ev.String() {
 			case "Ctrl+c":
 				return
 			}
