@@ -11,5 +11,5 @@ func ExampleText() {
 	win := vaxis.Window{}
 
 	// Fills the entire window with blinking, bold, red "a"s
-	vaxis.Fill(win, c)
+	win.Fill(c)
 }
