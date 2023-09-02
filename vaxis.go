@@ -397,9 +397,9 @@ func (vx *Vaxis) render() {
 
 			if fg != next.Foreground {
 				fg = next.Foreground
-				ps := fg.Params()
+				ps := fg.params()
 				if !vx.caps.rgb {
-					ps = fg.AsIndex().Params()
+					ps = fg.asIndex().params()
 				}
 				switch len(ps) {
 				case 0:
@@ -420,9 +420,9 @@ func (vx *Vaxis) render() {
 
 			if bg != next.Background {
 				bg = next.Background
-				ps := bg.Params()
+				ps := bg.params()
 				if !vx.caps.rgb {
-					ps = bg.AsIndex().Params()
+					ps = bg.asIndex().params()
 				}
 				switch len(ps) {
 				case 0:
@@ -444,9 +444,9 @@ func (vx *Vaxis) render() {
 			if vx.caps.styledUnderlines {
 				if ul != next.UnderlineColor {
 					ul = next.UnderlineColor
-					ps := ul.Params()
+					ps := ul.params()
 					if !vx.caps.rgb {
-						ps = ul.AsIndex().Params()
+						ps = ul.asIndex().params()
 					}
 					switch len(ps) {
 					case 0:

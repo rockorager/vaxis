@@ -11,9 +11,9 @@ const (
 	rgb     Color = 1 << 25
 )
 
-// Params returns the TParm parameters for the color, or an empty slice if the
+// params returns the TParm parameters for the color, or an empty slice if the
 // color is the default color
-func (c Color) Params() []uint8 {
+func (c Color) params() []uint8 {
 	switch {
 	case c&indexed != 0:
 		return []uint8{uint8(c)}
@@ -26,11 +26,11 @@ func (c Color) Params() []uint8 {
 	return []uint8{}
 }
 
-// AsIndex returns an 8bit color index for a given color. If the color is the
+// asIndex returns an 8bit color index for a given color. If the color is the
 // default color or already an index color, this returns itself. RGB colors will
 // be converted to their closest 256-index match, excluding indexes 0-15 as
 // these are typically user altered
-func (c Color) AsIndex() Color {
+func (c Color) asIndex() Color {
 	if c&rgb == 0 {
 		return c
 	}
@@ -67,15 +67,19 @@ func sq(v float64) float64 {
 	return v * v
 }
 
+// RGBColor creates a new Color based on the supplied RGB values
 func RGBColor(r uint8, g uint8, b uint8) Color {
 	color := Color(int(r)<<16 | int(g)<<8 | int(b))
 	return color | rgb
 }
 
+// HexColor creates a new Color based on the supplied 24-bit hex value
 func HexColor(v uint32) Color {
 	return Color(v) | rgb
 }
 
+// IndexColor creates a new Color from the supplied 8 bit value. Values 0-255
+// are valid
 func IndexColor(index uint8) Color {
 	color := Color(index)
 	return color | indexed
