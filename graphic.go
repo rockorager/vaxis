@@ -91,13 +91,10 @@ func (g Graphic) PixelSize(id uint64) (x int, y int) {
 	return g.pixelWidth, g.pixelHeight
 }
 
-// Draw creates a new image placement. The image will fill the
-// entire window, scaling as necessary. If the underlying graphic does
-// not match the dimensions of the provided window, it will be resized
-// in this call. Calling draw is a fast operation: it only queues the
-// image to be drawn. Any new image to be drawn will be done so in the
-// Render call. If the image doesn't require redrawing (the ID and
-// geometry haven't changed), it will persist between renders
+// Draw creates a new image placement.Calling draw is a fast operation: it only
+// queues the image to be drawn. Any new image to be drawn will be done so in the
+// Render call. If the image doesn't require redrawing (the ID, geometry, and
+// location haven't changed), it will persist between renders
 func (g Graphic) Draw(win Window) {
 	col, row := win.origin()
 	placement := &placement{
