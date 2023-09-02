@@ -17,6 +17,9 @@ state machine by [Paul Flo Williams](https://vt100.net/emu/dec_ansi_parser).
 Some modifications have been made to allow for proper SGR parsing (':' separated
 sub-parameters)
 
+Vaxis **does not use terminfo**. Support for features is detected through
+terminal queries. Vaxis assumes xterm-style escape codes everywhere else.
+
 Contributions are welcome.
 
 ## Usage
