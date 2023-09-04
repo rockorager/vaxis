@@ -26,6 +26,9 @@ func (m *Model) Update(msg vaxis.Event) {
 		chars = slices.Insert(chars, m.cursor, pChars...)
 		m.cursor += len(pChars)
 	case vaxis.Key:
+		if msg.EventType == vaxis.EventRelease {
+			return
+		}
 		switch msg.String() {
 		case "Ctrl+a":
 			// Beginning of line
@@ -39,7 +42,7 @@ func (m *Model) Update(msg vaxis.Event) {
 		case "Ctrl+b", "Left":
 			// backward one character
 			m.cursor -= 1
-		case "Alt+f":
+		case "Alt+f", "Ctrl+Right":
 			// Forward one word
 			// skip non-alphanumerics
 			for i := m.cursor; i < len(chars); i += 1 {
@@ -56,7 +59,7 @@ func (m *Model) Update(msg vaxis.Event) {
 				}
 				break
 			}
-		case "Alt+b":
+		case "Alt+b", "Ctrl+Left":
 			// backward one word
 			// skip non-alphanumerics
 			m.cursor -= 1
@@ -103,9 +106,6 @@ func (m *Model) Update(msg vaxis.Event) {
 			}
 			m.cursor -= 1
 		default:
-			if msg.EventType == vaxis.EventRelease {
-				return
-			}
 			if msg.Modifiers&vaxis.ModCtrl != 0 {
 				return
 			}
