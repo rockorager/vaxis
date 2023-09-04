@@ -227,13 +227,13 @@ func (win Window) Print(segs ...Text) (col int, row int) {
 	return col, row
 }
 
-// Println prints a single line of text to the specified row. If the text is
+// PrintTruncate prints a single line of text to the specified row. If the text is
 // wider than the width of the window, the line will be truncated with "…":
 //
 //	"This line has mo…"
 //
 // If the row is outside the bounds of the window, nothing will be printed
-func (win Window) Println(row int, segs ...Text) {
+func (win Window) PrintTruncate(row int, segs ...Text) {
 	cols, rows := win.Size()
 	if row >= rows {
 		return
@@ -248,6 +248,33 @@ func (win Window) Println(row int, segs ...Text) {
 			if col+truncWidth+w > cols {
 				chText.Content = trunc
 				win.SetCell(col, row, chText)
+				return
+			}
+			chText.Content = char.Grapheme
+			chText.WidthHint = w
+			win.SetCell(col, row, chText)
+			col += w
+		}
+	}
+}
+
+// Println prints a single line of text to the specified row. If the text is
+// wider than the width of the window, the line will be truncated with "…":
+//
+//	"This line has mo…"
+//
+// If the row is outside the bounds of the window, nothing will be printed
+func (win Window) Println(row int, segs ...Text) {
+	cols, rows := win.Size()
+	if row >= rows {
+		return
+	}
+	col := 0
+	for _, seg := range segs {
+		for _, char := range Characters(seg.Content) {
+			w := char.Width
+			chText := seg
+			if col+w > cols {
 				return
 			}
 			chText.Content = char.Grapheme

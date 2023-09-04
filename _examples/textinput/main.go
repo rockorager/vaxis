@@ -11,7 +11,12 @@ func main() {
 		panic(err)
 	}
 	defer vx.Close()
-	ti := &textinput.Model{}
+	ti := &textinput.Model{
+		Prompt: vaxis.Text{
+			Content:    "> ",
+			Foreground: vaxis.IndexColor(7),
+		},
+	}
 	for ev := range vx.Events() {
 		switch ev := ev.(type) {
 		case vaxis.Key:
@@ -20,6 +25,7 @@ func main() {
 				return
 			}
 		}
+		vx.Window().Clear()
 		ti.Update(ev)
 		ti.Draw(vx.Window())
 		vx.Render()
