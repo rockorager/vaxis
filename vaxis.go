@@ -377,7 +377,7 @@ func (vx *Vaxis) render() {
 						break
 					}
 					// null out any cells we end up skipping
-					vx.screenLast.buf[row][col+i] = Text{}
+					vx.screenLast.buf[row][col+i] = Cell{}
 				}
 				col += skip
 				continue
@@ -558,11 +558,11 @@ func (vx *Vaxis) render() {
 					_, _ = vx.tw.WriteString(tparm(osc8WithID, link, linkID))
 				}
 			}
-			switch next.Content {
+			switch next.Character.Grapheme {
 			case "\x00":
 				_, _ = vx.tw.WriteString(" ")
 			default:
-				_, _ = vx.tw.WriteString(next.Content)
+				_, _ = vx.tw.WriteString(next.Character.Grapheme)
 			}
 			// Advance the column by the width of this
 			// character
@@ -572,7 +572,7 @@ func (vx *Vaxis) render() {
 					break
 				}
 				// null out any cells we end up skipping
-				vx.screenLast.buf[row][col+i] = Text{}
+				vx.screenLast.buf[row][col+i] = Cell{}
 			}
 			col += skip
 		}
@@ -918,10 +918,10 @@ func (vx *Vaxis) Bell() {
 }
 
 // advance returns the extra amount to advance the column by when rendering
-func (vx *Vaxis) advance(cell Text) int {
-	w := cell.WidthHint - 1
+func (vx *Vaxis) advance(cell Cell) int {
+	w := cell.Character.Width - 1
 	if w < 0 {
-		w = vx.characterWidth(cell.Content) - 1
+		w = vx.characterWidth(cell.Character.Grapheme) - 1
 	}
 	if w < 0 {
 		return 0

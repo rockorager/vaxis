@@ -450,13 +450,19 @@ func (vt *Model) Draw(win vaxis.Window) {
 			if cell.content == "" {
 				cell.content = " "
 			}
+			vcell := vaxis.Cell{
+				Character: vaxis.Character{
+					Grapheme: cell.content,
+					Width:    cell.width,
+				},
+				Style: vaxis.Style{
+					Foreground: cell.fg,
+					Background: cell.bg,
+					Attribute:  cell.attrs,
+				},
+			}
 
-			win.SetCell(col, row, vaxis.Text{
-				Content:    cell.content,
-				Foreground: cell.fg,
-				Background: cell.bg,
-				Attribute:  cell.attrs,
-			})
+			win.SetCell(col, row, vcell)
 			if w == 0 {
 				w = 1
 			}

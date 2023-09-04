@@ -11,11 +11,9 @@ import (
 // Model is a spinner. It has a duration and a set of frames. It will request
 // partial-draws using the last provided Surface at the duration specified
 type Model struct {
-	Duration   time.Duration
-	Foreground vaxis.Color
-	Background vaxis.Color
-	Attribute  vaxis.AttributeMask
-	Frames     []rune
+	Duration time.Duration
+	Frames   []rune
+	Style    vaxis.Style
 
 	frame    int
 	mu       sync.Mutex
@@ -37,11 +35,12 @@ func (m *Model) Draw(w vaxis.Window) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.spinning {
-		w.SetCell(0, 0, vaxis.Text{
-			Content:    string(m.Frames[m.frame]),
-			Foreground: m.Foreground,
-			Background: m.Background,
-			Attribute:  m.Attribute,
+		w.SetCell(0, 0, vaxis.Cell{
+			Character: vaxis.Character{
+				Grapheme: string(m.Frames),
+				Width:    1,
+			},
+			Style: m.Style,
 		})
 	}
 }

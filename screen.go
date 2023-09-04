@@ -1,7 +1,7 @@
 package vaxis
 
 type screen struct {
-	buf  [][]Text
+	buf  [][]Cell
 	rows int
 	cols int
 }
@@ -17,16 +17,16 @@ func (s *screen) size() (cols int, rows int) {
 
 // resize resizes the stdsurface based on a SIGWINCH
 func (s *screen) resize(cols int, rows int) {
-	s.buf = make([][]Text, rows)
+	s.buf = make([][]Cell, rows)
 	for row := range s.buf {
-		s.buf[row] = make([]Text, cols)
+		s.buf[row] = make([]Cell, cols)
 	}
 	s.rows = rows
 	s.cols = cols
 }
 
 // Set a cell at col, row
-func (s *screen) setCell(col int, row int, text Text) {
+func (s *screen) setCell(col int, row int, text Cell) {
 	if col < 0 || row < 0 {
 		return
 	}

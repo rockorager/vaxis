@@ -10,20 +10,22 @@ const (
 	WrapFast = iota
 )
 
+var defaultFill = vaxis.Character{Grapheme: " "}
+
 type Model struct {
-	Segments []vaxis.Text
+	Segments []vaxis.Segment
 	lines    []*line
-	Fill     vaxis.Text
+	Fill     vaxis.Cell
 	Offset   int
 	WrapMode int
 	width    int
 }
 
 type line struct {
-	characters []vaxis.Text
+	characters []vaxis.Cell
 }
 
-func (l *line) append(t vaxis.Text) {
+func (l *line) append(t vaxis.Cell) {
 	l.characters = append(l.characters, t)
 }
 
@@ -39,8 +41,8 @@ func (m *Model) Draw(win vaxis.Window) {
 	if m.Offset < 0 {
 		m.Offset = 0
 	}
-	if m.Fill.Content == "" {
-		m.Fill.Content = " "
+	if m.Fill.Grapheme == "" {
+		m.Fill.Character = defaultFill
 	}
 	win.Fill(m.Fill)
 	for row, l := range m.lines {
@@ -63,17 +65,18 @@ func (m *Model) Layout() {
 	l := &line{}
 	col := 0
 	for _, seg := range m.Segments {
-		for _, char := range vaxis.Characters(seg.Content) {
+		for _, char := range vaxis.Characters(seg.Text) {
 			if strings.ContainsRune(char.Grapheme, '\n') {
 				m.lines = append(m.lines, l)
 				l = &line{}
 				col = 0
 				continue
 			}
-			chText := seg
-			chText.Content = char.Grapheme
-			chText.WidthHint = char.Width
-			l.append(chText)
+			cell := vaxis.Cell{
+				Character: char,
+				Style:     seg.Style,
+			}
+			l.append(cell)
 			col += char.Width
 			if col >= m.width {
 				m.lines = append(m.lines, l)

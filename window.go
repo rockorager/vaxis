@@ -133,7 +133,7 @@ func (win Window) Size() (width int, height int) {
 // SetCell is used to place data at the given cell location.  Note that since
 // the Window doesn't retain this data, if the location is outside of the
 // visible area, it is simply discarded.
-func (win Window) SetCell(col int, row int, cell Text) {
+func (win Window) SetCell(col int, row int, cell Cell) {
 	if row >= win.Height || col >= win.Width {
 		return
 	}
@@ -160,7 +160,7 @@ func (win Window) ShowCursor(col int, row int, style CursorStyle) {
 }
 
 // Fill completely fills the Window with the provided cell
-func (win Window) Fill(cell Text) {
+func (win Window) Fill(cell Cell) {
 	cols, rows := win.Size()
 	for row := 0; row < rows; row += 1 {
 		for col := 0; col < cols; col += 1 {
@@ -190,21 +190,21 @@ func (win Window) Clear() {
 	// We fill with a \x00 cell to differentiate between eg a text input
 	// space and a cleared cell. \x00 is rendered as a space, but the
 	// internal model will differentiate
-	win.Fill(Text{Content: "\x00", WidthHint: 1})
+	win.Fill(Cell{Character: Character{"\x00", 1}, Style: Style{}})
 	for k := range win.Vx.graphicsNext {
 		delete(win.Vx.graphicsNext, k)
 	}
 }
 
-// Print prints segments of Text, with each block having a given style.
-// Text will be wrapped, line breaks will begin a new line at the first column
-// of the surface. If the text overflows the height of the surface then only the
-// top portion will be shown
-func (win Window) Print(segs ...Text) (col int, row int) {
+// Print prints [Segment]s, with each block having a given style. Text will be
+// wrapped, line breaks will begin a new line at the first column of the surface.
+// If the text overflows the height of the surface then only the top portion
+// will be shown
+func (win Window) Print(segs ...Segment) (col int, row int) {
 	cols, rows := win.Size()
 	log.Info("win", "cols", cols, "rows", rows)
 	for _, seg := range segs {
-		for _, char := range Characters(seg.Content) {
+		for _, char := range Characters(seg.Text) {
 			if strings.ContainsRune(char.Grapheme, '\n') {
 				col = 0
 				row += 1
@@ -213,10 +213,11 @@ func (win Window) Print(segs ...Text) (col int, row int) {
 			if row > rows {
 				return col, row
 			}
-			chText := seg
-			chText.Content = char.Grapheme
-			chText.WidthHint = char.Width
-			win.SetCell(col, row, chText)
+			cell := Cell{
+				Character: char,
+				Style:     seg.Style,
+			}
+			win.SetCell(col, row, cell)
 			col += char.Width
 			if col >= cols {
 				row += 1
@@ -233,26 +234,29 @@ func (win Window) Print(segs ...Text) (col int, row int) {
 //	"This line has mo…"
 //
 // If the row is outside the bounds of the window, nothing will be printed
-func (win Window) PrintTruncate(row int, segs ...Text) {
+func (win Window) PrintTruncate(row int, segs ...Segment) {
 	cols, rows := win.Size()
 	if row >= rows {
 		return
 	}
 	col := 0
-	trunc := "…"
-	truncWidth := 1
+	truncator := Character{
+		Grapheme: "…",
+		Width:    1,
+	}
 	for _, seg := range segs {
-		for _, char := range Characters(seg.Content) {
+		for _, char := range Characters(seg.Text) {
 			w := char.Width
-			chText := seg
-			if col+truncWidth+w > cols {
-				chText.Content = trunc
-				win.SetCell(col, row, chText)
+			cell := Cell{
+				Character: char,
+				Style:     seg.Style,
+			}
+			if col+truncator.Width+w > cols {
+				cell.Character = truncator
+				win.SetCell(col, row, cell)
 				return
 			}
-			chText.Content = char.Grapheme
-			chText.WidthHint = w
-			win.SetCell(col, row, chText)
+			win.SetCell(col, row, cell)
 			col += w
 		}
 	}
@@ -264,22 +268,23 @@ func (win Window) PrintTruncate(row int, segs ...Text) {
 //	"This line has mo…"
 //
 // If the row is outside the bounds of the window, nothing will be printed
-func (win Window) Println(row int, segs ...Text) {
+func (win Window) Println(row int, segs ...Segment) {
 	cols, rows := win.Size()
 	if row >= rows {
 		return
 	}
 	col := 0
 	for _, seg := range segs {
-		for _, char := range Characters(seg.Content) {
+		for _, char := range Characters(seg.Text) {
 			w := char.Width
-			chText := seg
 			if col+w > cols {
 				return
 			}
-			chText.Content = char.Grapheme
-			chText.WidthHint = w
-			win.SetCell(col, row, chText)
+			cell := Cell{
+				Character: char,
+				Style:     seg.Style,
+			}
+			win.SetCell(col, row, cell)
 			col += w
 		}
 	}

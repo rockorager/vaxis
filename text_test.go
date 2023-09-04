@@ -4,10 +4,15 @@ import "git.sr.ht/~rockorager/vaxis"
 
 func ExampleText() {
 	vx, _ := vaxis.New(vaxis.Options{})
-	c := vaxis.Text{
-		Content:    "a",
-		Foreground: vaxis.IndexColor(1),
-		Attribute:  vaxis.AttrBold | vaxis.AttrBlink,
+	c := vaxis.Cell{
+		Character: vaxis.Character{
+			Grapheme: "a",
+			Width:    1,
+		},
+		Style: vaxis.Style{
+			Foreground: vaxis.IndexColor(1),
+			Attribute:  vaxis.AttrBold | vaxis.AttrBlink,
+		},
 	}
 
 	// Fills the entire window with blinking, bold, red "a"s

@@ -4,8 +4,8 @@ import "git.sr.ht/~rockorager/vaxis"
 
 type Model struct {
 	// The character to display for the bar, defaults to '▐'
-	Character  string
-	Foreground vaxis.Color
+	Character vaxis.Character
+	Style     vaxis.Style
 
 	// Number of items in the scrolling area
 	TotalHeight int
@@ -13,6 +13,11 @@ type Model struct {
 	ViewHeight int
 	// Index of the item at the top of the visible area
 	Top int
+}
+
+var defaultChar = vaxis.Character{
+	Grapheme: "▐",
+	Width:    1,
 }
 
 func (m *Model) Draw(win vaxis.Window) {
@@ -31,13 +36,13 @@ func (m *Model) Draw(win vaxis.Window) {
 	}
 	barTop := (m.Top * h) / m.TotalHeight
 
-	if m.Character == "" {
-		m.Character = "▐"
+	if m.Character.Grapheme == "" {
+		m.Character = defaultChar
 	}
 	for i := 0; i < barH; i += 1 {
-		cell := vaxis.Text{
-			Content:    m.Character,
-			Foreground: m.Foreground,
+		cell := vaxis.Cell{
+			Character: m.Character,
+			Style:     m.Style,
 		}
 		win.SetCell(0, barTop+i, cell)
 	}

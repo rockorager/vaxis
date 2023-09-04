@@ -42,7 +42,7 @@ func main() {
 		case vaxis.Resize:
 			win := vx.Window()
 			vaxis.Clear(win)
-			vaxis.Print(win, vaxis.Text{Content: "Hello, World!"})
+			vaxis.Print(win, vaxis.Segment{Text: "Hello, World!"})
 			vx.Render()
 		case vaxis.Key:
 			switch ev.String() {
