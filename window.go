@@ -86,7 +86,9 @@ type Window struct {
 // Window returns a window the full size of the screen. Child windows can be
 // created from the returned Window
 func (vx *Vaxis) Window() Window {
+	vx.mu.Lock()
 	w, h := vx.screenNext.size()
+	vx.mu.Unlock()
 	return Window{
 		Row:    0,
 		Column: 0,

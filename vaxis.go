@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -88,6 +89,8 @@ type Vaxis struct {
 
 	renders int
 	elapsed time.Duration
+
+	mu sync.Mutex
 }
 
 // New creates a new [Vaxis] instance. Calling New will query the underlying
@@ -238,8 +241,10 @@ func (vx *Vaxis) PollEvent() Event {
 		case ev := <-vx.queue.Chan():
 			switch e := ev.(type) {
 			case Resize:
+				vx.mu.Lock()
 				vx.screenNext.resize(e.Cols, e.Rows)
 				vx.screenLast.resize(e.Cols, e.Rows)
+				vx.mu.Unlock()
 			case syncFunc:
 				e()
 				ev = Redraw{}
@@ -327,6 +332,8 @@ func (vx *Vaxis) Refresh() {
 }
 
 func (vx *Vaxis) render() {
+	vx.mu.Lock()
+	defer vx.mu.Unlock()
 	var (
 		reposition = true
 		fg         Color
