@@ -233,7 +233,22 @@ func (vx *Vaxis) SyncFunc(fn func()) {
 
 // PollEvent blocks until there is an Event, and returns that Event
 func (vx *Vaxis) PollEvent() Event {
-	return <-vx.Events()
+	for {
+		select {
+		case ev := <-vx.queue.Chan():
+			switch e := ev.(type) {
+			case Resize:
+				vx.screenNext.resize(e.Cols, e.Rows)
+				vx.screenLast.resize(e.Cols, e.Rows)
+			case syncFunc:
+				e()
+				ev = Redraw{}
+			}
+			return ev
+		case <-vx.chQuit:
+			return nil
+		}
+	}
 }
 
 // Events returns a channel of events
@@ -246,21 +261,7 @@ func (vx *Vaxis) Events() chan Event {
 			}
 		}()
 		for {
-			select {
-			case ev := <-vx.queue.Chan():
-				switch e := ev.(type) {
-				case Resize:
-					vx.screenNext.resize(e.Cols, e.Rows)
-					vx.screenLast.resize(e.Cols, e.Rows)
-				case syncFunc:
-					e()
-					ev = Redraw{}
-				}
-				ch <- ev
-			case <-vx.chQuit:
-				close(ch)
-				return
-			}
+			ch <- vx.PollEvent()
 		}
 	}()
 	return ch
