@@ -55,7 +55,7 @@ func (m *Model) Draw(win vaxis.Window) {
 		col := 0
 		for _, cell := range l.characters {
 			win.SetCell(col, row-m.Offset, cell)
-			col += cell.WidthHint
+			col += cell.Width
 		}
 	}
 }

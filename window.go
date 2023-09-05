@@ -169,8 +169,8 @@ func (win Window) Fill(cell Cell) {
 	}
 }
 
-// returns the origin of the window, column x row, 0-indexed
-func (win Window) origin() (int, int) {
+// returns the Origin of the window, column x row, 0-indexed
+func (win Window) Origin() (int, int) {
 	w := win
 	col := 0
 	row := 0

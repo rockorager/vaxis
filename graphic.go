@@ -96,7 +96,7 @@ func (g Graphic) PixelSize(id uint64) (x int, y int) {
 // Render call. If the image doesn't require redrawing (the ID, geometry, and
 // location haven't changed), it will persist between renders
 func (g Graphic) Draw(win Window) {
-	col, row := win.origin()
+	col, row := win.Origin()
 	placement := &placement{
 		graphic: &g,
 		col:     col,

@@ -9,10 +9,6 @@ type Style struct {
 	// hyperlinks are part of the same link, and any hints the terminal may
 	// show should apply to all cells with the same HyperlinkID
 	HyperlinkID string
-	// WidthHint is used to signal to the renderer how wide this cell is.
-	// This value is only used as an optimization, the renderer will
-	// calculate if the value is 0
-	WidthHint int
 	// Foreground is the color to apply to the foreground of this cell
 	Foreground Color
 	// Background is the color to apply to the background of this cell
