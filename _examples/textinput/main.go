@@ -11,7 +11,15 @@ func main() {
 		panic(err)
 	}
 	defer vx.Close()
-	ti := textinput.New().SetPrompt("> ")
+
+	complete := func(string) []string {
+		return []string{
+			"abc",
+			"def",
+			"ghi",
+		}
+	}
+	ti := textinput.NewMenuComplete(complete)
 	for ev := range vx.Events() {
 		switch ev := ev.(type) {
 		case vaxis.Key:

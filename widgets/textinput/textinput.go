@@ -1,6 +1,7 @@
 package textinput
 
 import (
+	"strings"
 	"unicode"
 
 	"git.sr.ht/~rockorager/vaxis"
@@ -36,7 +37,16 @@ func (m *Model) SetPrompt(s string) *Model {
 
 func (m *Model) SetContent(s string) *Model {
 	m.content = vaxis.Characters(s)
+	m.cursor = len(m.content)
 	return m
+}
+
+func (m *Model) String() string {
+	buf := strings.Builder{}
+	for _, ch := range m.content {
+		buf.WriteString(ch.Grapheme)
+	}
+	return buf.String()
 }
 
 func (m *Model) Update(msg vaxis.Event) {
