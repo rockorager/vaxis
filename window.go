@@ -192,7 +192,7 @@ func (win Window) Clear() {
 	// We fill with a \x00 cell to differentiate between eg a text input
 	// space and a cleared cell. \x00 is rendered as a space, but the
 	// internal model will differentiate
-	win.Fill(Cell{Character: Character{"\x00", 1}, Style: Style{}})
+	win.Fill(Cell{Character: Character{" ", 1}, Style: Style{}})
 	for k := range win.Vx.graphicsNext {
 		delete(win.Vx.graphicsNext, k)
 	}
