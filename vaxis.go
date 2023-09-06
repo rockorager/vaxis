@@ -251,7 +251,7 @@ func (vx *Vaxis) PollEvent() Event {
 			}
 			return ev
 		case <-vx.chQuit:
-			return nil
+			return QuitEvent{}
 		}
 	}
 }
@@ -266,7 +266,14 @@ func (vx *Vaxis) Events() chan Event {
 			}
 		}()
 		for {
-			ch <- vx.PollEvent()
+			ev := vx.PollEvent()
+			switch ev.(type) {
+			case QuitEvent:
+				close(ch)
+				return
+			default:
+				ch <- ev
+			}
 		}
 	}()
 	return ch
@@ -279,6 +286,7 @@ func (vx *Vaxis) Close() {
 		return
 	}
 	close(vx.chQuit)
+
 	signal.Stop(vx.chSignal)
 	buf := bufio.NewWriter(vx.tty)
 	_, _ = buf.WriteString(decset(cursorVisibility)) // show the cursor
