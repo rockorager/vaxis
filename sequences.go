@@ -28,9 +28,7 @@ const (
 	// Misc
 	clear        = "\x1b[H\x1b[2J"
 	cup          = "\x1B[%d;%dH"
-	osc8WithID   = "\x1b]8;id=%s;%s\x1b\\"
-	osc8         = "\x1b]8;;%s\x1b\\"
-	osc8End      = "\x1b]8;;\x1b\\"
+	osc8         = "\x1b]8;%s;%s\x1b\\"
 	osc52put     = "\x1b]52;c;%s\x1b\\"
 	osc52pop     = "\x1b]52;c;?\x1b\\"
 	osc9notify   = "\x1b]9;%s\x1b\\"

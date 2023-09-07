@@ -5,10 +5,11 @@ type Style struct {
 	// Hyperlink is used for adding OSC 8 information to the cell or
 	// segment.
 	Hyperlink string
-	// HyperlinkID is used to signal to the terminal that non-contiguous
-	// hyperlinks are part of the same link, and any hints the terminal may
-	// show should apply to all cells with the same HyperlinkID
-	HyperlinkID string
+	// HyperlinkParams is passed as the param string for OSC 8 sequences.
+	// Typically this will be something like "id=<some-id>" to signal
+	// non-contiguous links which are the same (IE when a link may be
+	// wrapped on lines)
+	HyperlinkParams string
 	// Foreground is the color to apply to the foreground of this cell
 	Foreground Color
 	// Background is the color to apply to the background of this cell

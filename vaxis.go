@@ -344,13 +344,7 @@ func (vx *Vaxis) render() {
 	defer vx.mu.Unlock()
 	var (
 		reposition = true
-		fg         Color
-		bg         Color
-		ul         Color
-		ulStyle    UnderlineStyle
-		attr       AttributeMask
-		link       string
-		linkID     string
+		cursor     Style
 	)
 	// Delete any placements we don't have this round
 	for id, p := range vx.graphicsLast {
@@ -412,8 +406,8 @@ func (vx *Vaxis) render() {
 			// 2. We could save some more bytes when FG, BG, and Attr
 			// all change. Lots of complexity to add this
 
-			if fg != next.Foreground {
-				fg = next.Foreground
+			if cursor.Foreground != next.Foreground {
+				fg := next.Foreground
 				ps := fg.params()
 				if !vx.caps.rgb {
 					ps = fg.asIndex().params()
@@ -435,8 +429,8 @@ func (vx *Vaxis) render() {
 				}
 			}
 
-			if bg != next.Background {
-				bg = next.Background
+			if cursor.Background != next.Background {
+				bg := next.Background
 				ps := bg.params()
 				if !vx.caps.rgb {
 					ps = bg.asIndex().params()
@@ -459,8 +453,8 @@ func (vx *Vaxis) render() {
 			}
 
 			if vx.caps.styledUnderlines {
-				if ul != next.UnderlineColor {
-					ul = next.UnderlineColor
+				if cursor.UnderlineColor != next.UnderlineColor {
+					ul := next.UnderlineColor
 					ps := ul.params()
 					if !vx.caps.rgb {
 						ps = ul.asIndex().params()
@@ -476,7 +470,8 @@ func (vx *Vaxis) render() {
 				}
 			}
 
-			if attr != next.Attribute {
+			if cursor.Attribute != next.Attribute {
+				attr := cursor.Attribute
 				// find the ones that have changed
 				dAttr := attr ^ next.Attribute
 				// If the bit is changed and in next, it was
@@ -543,11 +538,10 @@ func (vx *Vaxis) render() {
 				if off&AttrStrikethrough != 0 {
 					_, _ = vx.tw.WriteString(strikethroughReset)
 				}
-				attr = next.Attribute
 			}
 
-			if ulStyle != next.UnderlineStyle {
-				ulStyle = next.UnderlineStyle
+			if cursor.UnderlineStyle != next.UnderlineStyle {
+				ulStyle := next.UnderlineStyle
 				switch vx.caps.styledUnderlines {
 				case true:
 					_, _ = vx.tw.WriteString(tparm(ulStyleSet, ulStyle))
@@ -562,18 +556,13 @@ func (vx *Vaxis) render() {
 				}
 			}
 
-			if link != next.Hyperlink || linkID != next.HyperlinkID {
-				link = next.Hyperlink
-				linkID = next.HyperlinkID
-				switch {
-				case link == "" && linkID == "":
-					_, _ = vx.tw.WriteString(osc8End)
-				case linkID == "":
-					_, _ = vx.tw.WriteString(tparm(osc8, link))
-				default:
-					_, _ = vx.tw.WriteString(tparm(osc8WithID, link, linkID))
-				}
+			if cursor.Hyperlink != next.Hyperlink {
+				link := next.Hyperlink
+				linkPs := next.HyperlinkParams
+				_, _ = vx.tw.WriteString(tparm(osc8, linkPs, link))
 			}
+
+			cursor = next.Style
 
 			if next.Width == 0 {
 				next.Width = vx.characterWidth(next.Grapheme)
@@ -583,7 +572,7 @@ func (vx *Vaxis) render() {
 			case 0:
 				_, _ = vx.tw.WriteString(" ")
 			default:
-				_, _ = vx.tw.WriteString(next.Character.Grapheme)
+				_, _ = vx.tw.WriteString(next.Grapheme)
 			}
 			skip := vx.advance(next)
 			for i := 1; i < skip+1; i += 1 {
