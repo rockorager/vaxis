@@ -165,6 +165,9 @@ func (m *Model) Update(msg vaxis.Event) {
 
 func (m *Model) Draw(win vaxis.Window) {
 	winW, _ := win.Size()
+	if winW == 0 {
+		return
+	}
 	col := 0
 	for _, char := range m.prompt {
 		cell := vaxis.Cell{

@@ -216,8 +216,11 @@ outer:
 	}
 
 	signal.Notify(vx.chSignal, syscall.SIGWINCH)
-	// Trigger a Resize event to initialize our view size
-	vx.chSignal <- syscall.SIGWINCH
+	vx.winSize, err = vx.reportWinsize()
+	if err != nil {
+		return nil, err
+	}
+	vx.PostEvent(vx.winSize)
 	return vx, nil
 }
 
@@ -613,14 +616,18 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 					switch ps[0] {
 					case 4:
 						vx.PostEvent(capabilitySixel{})
+						return
 					}
 				}
 				vx.PostEvent(primaryDeviceAttribute{})
+				return
 			}
 		case 'I':
 			vx.PostEvent(FocusIn{})
+			return
 		case 'O':
 			vx.PostEvent(FocusOut{})
+			return
 		case 'R':
 			// KeyF1 or DSRCPR
 			// This could be an F1 key, we need to buffer if we have
@@ -628,8 +635,7 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 			//
 			// Kitty keyboard protocol disambiguates this scenario,
 			// hopefully people are using that
-			if vx.reqCursorPos.Load() {
-				vx.reqCursorPos.Store(false)
+			if vx.reqCursorPos.Swap(false) {
 				if len(seq.Parameters) != 2 {
 					log.Error("not enough DSRCPR params")
 					return

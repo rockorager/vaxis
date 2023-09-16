@@ -204,7 +204,6 @@ func (win Window) Clear() {
 // will be shown
 func (win Window) Print(segs ...Segment) (col int, row int) {
 	cols, rows := win.Size()
-	log.Info("win", "cols", cols, "rows", rows)
 	for _, seg := range segs {
 		for _, char := range Characters(seg.Text) {
 			if strings.ContainsRune(char.Grapheme, '\n') {
