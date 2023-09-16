@@ -172,7 +172,8 @@ outer:
 	for {
 		select {
 		case <-ctx.Done():
-			return nil, context.Canceled
+			log.Warn("terminal did not respond to DA1 query")
+			break outer
 		case ev := <-vx.queue.Chan():
 			switch ev.(type) {
 			case primaryDeviceAttribute:
