@@ -617,7 +617,6 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 					switch ps[0] {
 					case 4:
 						vx.PostEvent(capabilitySixel{})
-						return
 					}
 				}
 				vx.PostEvent(primaryDeviceAttribute{})
