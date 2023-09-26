@@ -1,6 +1,6 @@
 module git.sr.ht/~rockorager/vaxis
 
-go 1.20
+go 1.18
 
 require (
 	github.com/creack/pty v1.1.18
