@@ -25,9 +25,13 @@ type Resize struct {
 	YPixel int
 }
 
-// PasteEvent is delivered when a bracketed paste was detected. The value of
-// PasteEvent if the pasted content
-type PasteEvent string
+// PasteStartEvent is sent at the beginning of a bracketed paste. Each [Key]
+// within the paste will also have the EventPaste set as the EventType
+type PasteStartEvent struct{}
+
+// PasteEndEvent is sent at the end of a bracketed paste. Each [Key]
+// within the paste will also have the EventPaste set as the EventType
+type PasteEndEvent struct{}
 
 // FocusIn is sent when the terminal has gained focus
 type FocusIn struct{}

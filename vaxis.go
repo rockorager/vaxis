@@ -70,7 +70,6 @@ type Vaxis struct {
 	graphicsLast     map[int]*placement
 	mouseShapeNext   MouseShape
 	mouseShapeLast   MouseShape
-	pasteBuf         *bytes.Buffer
 	pastePending     bool
 	chClipboard      chan string
 	chSignal         chan os.Signal
@@ -129,7 +128,6 @@ func New(opts Options) (*Vaxis, error) {
 	vx.tw = newWriter(vx)
 	vx.screenNext = newScreen()
 	vx.screenLast = newScreen()
-	vx.pasteBuf = bytes.NewBuffer(nil)
 	vx.graphicsNext = make(map[int]*placement)
 	vx.graphicsLast = make(map[int]*placement)
 	vx.chClipboard = make(chan string)
@@ -605,17 +603,29 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 	log.Debug("[stdin]", "sequence", seq)
 	switch seq := seq.(type) {
 	case ansi.Print:
+		key := decodeXterm(seq)
 		if vx.pastePending {
-			vx.pasteBuf.WriteRune(rune(seq))
-			return
+			key.EventType = EventPaste
 		}
-		vx.PostEvent(decodeXterm(seq))
+		vx.PostEvent(key)
 	case ansi.C0:
-		vx.PostEvent(decodeXterm(seq))
+		key := decodeXterm(seq)
+		if vx.pastePending {
+			key.EventType = EventPaste
+		}
+		vx.PostEvent(key)
 	case ansi.ESC:
-		vx.PostEvent(decodeXterm(seq))
+		key := decodeXterm(seq)
+		if vx.pastePending {
+			key.EventType = EventPaste
+		}
+		vx.PostEvent(key)
 	case ansi.SS3:
-		vx.PostEvent(decodeXterm(seq))
+		key := decodeXterm(seq)
+		if vx.pastePending {
+			key.EventType = EventPaste
+		}
+		vx.PostEvent(key)
 	case ansi.CSI:
 		switch seq.Final {
 		case 'c':
@@ -698,11 +708,11 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 				switch seq.Parameters[0][0] {
 				case 200:
 					vx.pastePending = true
+					vx.PostEvent(PasteStartEvent{})
 					return
 				case 201:
 					vx.pastePending = false
-					vx.PostEvent(PasteEvent(vx.pasteBuf.String()))
-					vx.pasteBuf.Reset()
+					vx.PostEvent(PasteEndEvent{})
 					return
 				}
 			}
@@ -721,7 +731,11 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 				vx.PostEvent(key)
 			}
 		default:
-			vx.PostEvent(decodeXterm(seq))
+			key := decodeXterm(seq)
+			if vx.pastePending {
+				key.EventType = EventPaste
+			}
+			vx.PostEvent(key)
 		}
 	case ansi.DCS:
 		switch seq.Final {

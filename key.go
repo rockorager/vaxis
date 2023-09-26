@@ -47,6 +47,8 @@ const (
 	EventRelease
 	// A mouse motion event (with no button pressed)
 	EventMotion
+	// The key resulted from a paste
+	EventPaste
 )
 
 // String returns a human-readable description of the keypress, suitable for use

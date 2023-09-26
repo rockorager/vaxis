@@ -51,10 +51,6 @@ func (m *Model) String() string {
 
 func (m *Model) Update(msg vaxis.Event) {
 	switch msg := msg.(type) {
-	case vaxis.PasteEvent:
-		pChars := vaxis.Characters(string(msg))
-		m.content = slices.Insert(m.content, m.cursor, pChars...)
-		m.cursor += len(pChars)
 	case vaxis.Key:
 		if msg.EventType == vaxis.EventRelease {
 			return
