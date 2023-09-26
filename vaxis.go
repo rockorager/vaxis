@@ -260,7 +260,14 @@ func (vx *Vaxis) PollEvent() Event {
 	}
 }
 
-// Events returns a channel of events
+// Events returns a channel of events. This should only be called once: it will
+// create a channel for you to listen on. Multiple calls will kick off multiple
+// goroutines.
+//
+//	ch := Events()
+//	for ev := range ch {
+//		// do something
+//	}
 func (vx *Vaxis) Events() chan Event {
 	ch := make(chan Event)
 	go func() {
