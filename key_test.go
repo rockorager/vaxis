@@ -138,6 +138,21 @@ func TestKeyDecode(t *testing.T) {
 				Text:           "ф",
 			},
 		},
+		{
+			name: "kitty: multiple codepoints",
+			sequence: ansi.CSI{
+				Final: 'u',
+				Parameters: [][]int{
+					{106},
+					{},
+					{127482, 127480},
+				},
+			},
+			expected: Key{
+				Keycode: 'j',
+				Text:    "🇺🇸",
+			},
+		},
 	}
 
 	for _, test := range tests {
