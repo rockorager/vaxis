@@ -12,9 +12,21 @@ import (
 // keypress, or a value set by Vaxis to indicate special keys. Special keys have
 // their codepoints outside of the valid unicode range
 type Key struct {
-	Text      string
-	Keycode   rune
+	// Text is text that the keypress generated
+	Text string
+	// Keycode is our primary key press. In alternate layouts, this will be
+	// the lowercase value of the unicode point
+	Keycode rune
+	// The shifted keycode of this key event. This will only be non-zero if
+	// the shift-modifier was used to generate the event
+	ShiftedCode rune
+	// BaseLayoutCode is the keycode that would have been generated on a
+	// standard PC-101 layout
+	BaseLayoutCode rune
+	// Modifiers are any key modifier used to generate the event
 	Modifiers ModifierMask
+	// EventType is the type of key event this was (press, release, repeat,
+	// or paste)
 	EventType EventType
 }
 
@@ -38,10 +50,8 @@ const (
 type EventType int
 
 const (
-	// The event type could not be determined
-	EventUnknown EventType = iota
 	// The key / button was pressed
-	EventPress
+	EventPress EventType = iota
 	// The key / button was repeated
 	EventRepeat
 	// The key / button was released
@@ -372,11 +382,22 @@ func (k Key) String() string {
 	return buf.String()
 }
 
-func decodeXterm(seq ansi.Sequence) Key {
+func decodeKey(seq ansi.Sequence) Key {
 	key := Key{}
 	switch seq := seq.(type) {
 	case ansi.Print:
-		key.Keycode = rune(seq)
+		raw := rune(seq)
+		key.Keycode = raw
+		if unicode.IsUpper(raw) {
+			key.Keycode = unicode.ToLower(rune(seq))
+			key.ShiftedCode = raw
+			// It's a shifted character
+			key.Modifiers = ModShift
+		}
+		key.Text = string(raw)
+		// NOTE: we don't set baselayout code on printed keys. In legacy
+		// encodings, this is meaningless. In kitty, this is best used to map
+		// keybinds and we should only get ansi.Print types when a paste occurs
 	case ansi.C0:
 		switch rune(seq) {
 		case 0x08:
@@ -427,94 +448,82 @@ func decodeXterm(seq ansi.Sequence) Key {
 			key.Keycode = KeyF04
 		}
 	case ansi.CSI:
-		if len(seq.Parameters) < 1 {
-			return key
+		if len(seq.Parameters) == 0 {
+			seq.Parameters = [][]int{
+				{1},
+			}
 		}
-		switch seq.Final {
-		case 'A':
-			key.Keycode = KeyUp
-		case 'B':
-			key.Keycode = KeyDown
-		case 'C':
-			key.Keycode = KeyRight
-		case 'D':
-			key.Keycode = KeyLeft
-		case 'F':
-			key.Keycode = KeyEnd
-		case 'H':
-			key.Keycode = KeyHome
-		case 'P':
-			key.Keycode = KeyF01
-		case 'Q':
-			key.Keycode = KeyF02
-		case 'R':
-			key.Keycode = KeyF03
-		case 'S':
-			key.Keycode = KeyF04
-		case '~':
-			id := seq.Parameters[0][0]
-			switch id {
+		for i, pm := range seq.Parameters {
+			switch i {
+			case 0:
+				for j, ps := range pm {
+					switch j {
+					case 0:
+						// our keycode
+						// unicode-key-code
+						// This will always be length of at least 1
+						sk := specialKey{rune(ps), seq.Final}
+						var ok bool
+						key.Keycode, ok = specialsKeys[sk]
+						if !ok {
+							key.Keycode = rune(ps)
+						}
+					case 1:
+						// Shifted keycode
+						key.ShiftedCode = rune(ps)
+					case 2:
+						// Base layout code
+						key.BaseLayoutCode = rune(ps)
+					}
+				}
+			case 1:
+				// Kitty keyboard protocol reports these as their
+				// bitmask + 1, so that an unmodified key has a value of
+				// 1. We subtract one to normalize to our internal
+				// representation
+				for j, ps := range pm {
+					switch j {
+					case 0:
+						// Modifiers
+						key.Modifiers = ModifierMask(pm[0] - 1)
+						if key.Modifiers < 0 {
+							key.Modifiers = 0
+						}
+						if key.Keycode <= KeyF12 && key.Keycode >= KeyF01 {
+							switch key.Modifiers {
+							case 1:
+								key.Keycode += 12
+							case 2:
+								key.Keycode += 48
+							case 3:
+								key.Keycode += 60
+							case 4:
+								key.Keycode += 24
+							case 5:
+								key.Keycode += 36
+							}
+							key.Modifiers = 0
+						}
+					case 1:
+						// event type
+						//
+						key.EventType = EventType(ps) - 1
+					}
+				}
 			case 2:
-				key.Keycode = KeyInsert
-			case 3:
-				key.Keycode = KeyDelete
-			case 5:
-				key.Keycode = KeyPgUp
-			case 6:
-				key.Keycode = KeyPgDown
-			case 15:
-				key.Keycode = KeyF05
-			case 17:
-				key.Keycode = KeyF06
-			case 18:
-				key.Keycode = KeyF07
-			case 19:
-				key.Keycode = KeyF08
-			case 20:
-				key.Keycode = KeyF09
-			case 21:
-				key.Keycode = KeyF10
-			case 23:
-				key.Keycode = KeyF11
-			case 24:
-				key.Keycode = KeyF12
-			}
-		}
-		if len(seq.Parameters) < 2 {
-			// No modifiers, we're done
-			return key
-		}
-		mods := seq.Parameters[1][0]
-		switch {
-		case key.Keycode <= KeyF12 && key.Keycode >= KeyF01:
-			// function keys don't have modifiers, instead are
-			// shifted up in name
-			switch mods {
-			case 2:
-				key.Keycode += 12
-			case 3:
-				key.Keycode += 48
-			case 4:
-				key.Keycode += 60
-			case 5:
-				key.Keycode += 24
-			case 6:
-				key.Keycode += 36
-			}
-		default:
-			modVal := ModifierMask(mods - 1)
-			if modVal&ModShift != 0 {
-				key.Modifiers |= ModShift
-			}
-			if modVal&ModAlt != 0 {
-				key.Modifiers |= ModAlt
-			}
-			if modVal&ModCtrl != 0 {
-				key.Modifiers |= ModCtrl
+				// text-as-codepoint
+				for _, p := range pm {
+					key.Text += string(rune(p))
+				}
 			}
 		}
 	}
 	return key
+}
+
+type specialKey struct {
+	keycode rune
+	final   rune
 }
 
 const (
@@ -656,149 +665,94 @@ const (
 	KeyBackspace = 0x7F
 )
 
-var kittyKeyMap = map[string]rune{
-	"27u":    KeyEsc,
-	"13u":    KeyEnter,
-	"9u":     KeyTab,
-	"127u":   KeyBackspace,
-	"2~":     KeyInsert,
-	"3~":     KeyDelete,
-	"1D":     KeyLeft,
-	"1C":     KeyRight,
-	"1B":     KeyDown,
-	"1A":     KeyUp,
-	"5~":     KeyPgUp,
-	"6~":     KeyPgDown,
-	"1F":     KeyEnd,
-	"8~":     KeyEnd,
-	"1H":     KeyHome,
-	"7~":     KeyHome,
-	"57358u": KeyCapsLock,
-	"57359u": KeyScrollLock,
-	"57360u": KeyNumlock,
-	"57361u": KeyPrintScreen,
-	"57362u": KeyPause,
-	"57363u": KeyMenu,
-	"1P":     KeyF01,
-	"11~":    KeyF01,
-	"1Q":     KeyF02,
-	"12~":    KeyF02,
-	"1R":     KeyF03,
-	"13~":    KeyF03,
-	"1S":     KeyF04,
-	"14~":    KeyF04,
-	"15~":    KeyF05,
-	"17~":    KeyF06,
-	"18~":    KeyF07,
-	"19~":    KeyF08,
-	"20~":    KeyF09,
-	"21~":    KeyF10,
-	"23~":    KeyF11,
-	"24~":    KeyF12,
-	"57376u": KeyF13,
-	"57377u": KeyF14,
-	"57378u": KeyF15,
-	"57379u": KeyF16,
-	"57380u": KeyF17,
-	"57381u": KeyF18,
-	"57382u": KeyF19,
-	"57383u": KeyF20,
-	"57384u": KeyF21,
-	"57385u": KeyF22,
-	"57386u": KeyF23,
-	"57387u": KeyF24,
-	"57388u": KeyF25,
-	"57389u": KeyF26,
-	"57390u": KeyF27,
-	"57391u": KeyF28,
-	"57392u": KeyF29,
-	"57393u": KeyF30,
-	"57394u": KeyF31,
-	"57395u": KeyF32,
-	"57396u": KeyF33,
-	"57397u": KeyF34,
-	"57398u": KeyF35,
+var specialsKeys = map[specialKey]rune{
+	{27, 'u'}:    KeyEsc,
+	{13, 'u'}:    KeyEnter,
+	{9, 'u'}:     KeyTab,
+	{127, 'u'}:   KeyBackspace,
+	{2, '~'}:     KeyInsert,
+	{3, '~'}:     KeyDelete,
+	{1, 'D'}:     KeyLeft,
+	{1, 'C'}:     KeyRight,
+	{1, 'B'}:     KeyDown,
+	{1, 'A'}:     KeyUp,
+	{5, '~'}:     KeyPgUp,
+	{6, '~'}:     KeyPgDown,
+	{1, 'F'}:     KeyEnd,
+	{8, '~'}:     KeyEnd,
+	{1, 'H'}:     KeyHome,
+	{7, '~'}:     KeyHome,
+	{57358, 'u'}: KeyCapsLock,
+	{57359, 'u'}: KeyScrollLock,
+	{57360, 'u'}: KeyNumlock,
+	{57361, 'u'}: KeyPrintScreen,
+	{57362, 'u'}: KeyPause,
+	{57363, 'u'}: KeyMenu,
+	{1, 'P'}:     KeyF01,
+	{11, '~'}:    KeyF01,
+	{1, 'Q'}:     KeyF02,
+	{12, '~'}:    KeyF02,
+	{1, 'R'}:     KeyF03,
+	{13, '~'}:    KeyF03,
+	{1, 'S'}:     KeyF04,
+	{14, '~'}:    KeyF04,
+	{15, '~'}:    KeyF05,
+	{17, '~'}:    KeyF06,
+	{18, '~'}:    KeyF07,
+	{19, '~'}:    KeyF08,
+	{20, '~'}:    KeyF09,
+	{21, '~'}:    KeyF10,
+	{23, '~'}:    KeyF11,
+	{24, '~'}:    KeyF12,
+	{57376, 'u'}: KeyF13,
+	{57377, 'u'}: KeyF14,
+	{57378, 'u'}: KeyF15,
+	{57379, 'u'}: KeyF16,
+	{57380, 'u'}: KeyF17,
+	{57381, 'u'}: KeyF18,
+	{57382, 'u'}: KeyF19,
+	{57383, 'u'}: KeyF20,
+	{57384, 'u'}: KeyF21,
+	{57385, 'u'}: KeyF22,
+	{57386, 'u'}: KeyF23,
+	{57387, 'u'}: KeyF24,
+	{57388, 'u'}: KeyF25,
+	{57389, 'u'}: KeyF26,
+	{57390, 'u'}: KeyF27,
+	{57391, 'u'}: KeyF28,
+	{57392, 'u'}: KeyF29,
+	{57393, 'u'}: KeyF30,
+	{57394, 'u'}: KeyF31,
+	{57395, 'u'}: KeyF32,
+	{57396, 'u'}: KeyF33,
+	{57397, 'u'}: KeyF34,
+	{57398, 'u'}: KeyF35,
 	// Skip the keypad keys
-	"57428u": KeyMediaPlay,
-	"57429u": KeyMediaPause,
-	"57430u": KeyMediaPlayPause,
-	"57431u": KeyMediaRev,
-	"57432u": KeyMediaStop,
-	"57433u": KeyMediaFF,
-	"57434u": KeyMediaRewind,
-	"57435u": KeyMediaNext,
-	"57436u": KeyMediaPrev,
-	"57437u": KeyMediaRecord,
-	"57438u": KeyMediaVolDown,
-	"57439u": KeyMediaVolUp,
-	"57440u": KeyMediaMute,
-	"57441u": KeyLeftShift,
-	"57442u": KeyLeftControl,
-	"57443u": KeyLeftAlt,
-	"57444u": KeyLeftSuper,
-	"57445u": KeyLeftHyper,
-	"57446u": KeyLeftMeta,
-	"57447u": KeyRightShift,
-	"57448u": KeyRightControl,
-	"57449u": KeyRightAlt,
-	"57450u": KeyRightSuper,
-	"57451u": KeyRightHyper,
-	"57452u": KeyRightMeta,
-	"57453u": KeyL3Shift,
-	"57454u": KeyL5Shift,
-}
-
-func parseKittyKbp(seq ansi.CSI) Key {
-	key := Key{}
-	switch seq.Final {
-	case 'u', '~', 'A', 'B', 'C', 'D', 'E', 'F', 'H', 'P', 'Q', 'R', 'S':
-	default:
-		return key
-	}
-
-	switch len(seq.Parameters) {
-	case 0:
-		seq.Parameters = [][]int{
-			{1},
-			{1, 1},
-		}
-	case 1:
-		seq.Parameters = append(seq.Parameters, []int{1, 1})
-	}
-
-	for i, pm := range seq.Parameters {
-		switch i {
-		case 0:
-			// unicode-key-code
-			// This will always be length of 1. We haven't requested
-			// alternate-keys, which would make the length
-			// longer...we don't care about those. We translate this
-			// codepoint to an internal key below
-			base := fmt.Sprintf("%d%c", pm[0], seq.Final)
-			var ok bool
-			key.Keycode, ok = kittyKeyMap[base]
-			if !ok {
-				key.Keycode = rune(pm[0])
-			}
-		case 1:
-			// Kitty keyboard protocol reports these as their
-			// bitmask + 1, so that an unmodified key has a value of
-			// 1. We subtract one to normalize to our internal
-			// representation
-			key.Modifiers = ModifierMask(pm[0] - 1)
-			if key.Modifiers < 0 {
-				key.Modifiers = 0
-			}
-			if len(pm) > 1 {
-				key.EventType = EventType(pm[1])
-			} else {
-				key.EventType = EventPress
-			}
-		case 2:
-			// text-as-codepoint
-			key.Keycode = rune(pm[0])
-			key.Modifiers &^= ModShift
-		}
-	}
-	return key
+	{57428, 'u'}: KeyMediaPlay,
+	{57429, 'u'}: KeyMediaPause,
+	{57430, 'u'}: KeyMediaPlayPause,
+	{57431, 'u'}: KeyMediaRev,
+	{57432, 'u'}: KeyMediaStop,
+	{57433, 'u'}: KeyMediaFF,
+	{57434, 'u'}: KeyMediaRewind,
+	{57435, 'u'}: KeyMediaNext,
+	{57436, 'u'}: KeyMediaPrev,
+	{57437, 'u'}: KeyMediaRecord,
+	{57438, 'u'}: KeyMediaVolDown,
+	{57439, 'u'}: KeyMediaVolUp,
+	{57440, 'u'}: KeyMediaMute,
+	{57441, 'u'}: KeyLeftShift,
+	{57442, 'u'}: KeyLeftControl,
+	{57443, 'u'}: KeyLeftAlt,
+	{57444, 'u'}: KeyLeftSuper,
+	{57445, 'u'}: KeyLeftHyper,
+	{57446, 'u'}: KeyLeftMeta,
+	{57447, 'u'}: KeyRightShift,
+	{57448, 'u'}: KeyRightControl,
+	{57449, 'u'}: KeyRightAlt,
+	{57450, 'u'}: KeyRightSuper,
+	{57451, 'u'}: KeyRightHyper,
+	{57452, 'u'}: KeyRightMeta,
+	{57453, 'u'}: KeyL3Shift,
+	{57454, 'u'}: KeyL5Shift,
 }

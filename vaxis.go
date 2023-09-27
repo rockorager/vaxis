@@ -603,25 +603,25 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 	log.Debug("[stdin]", "sequence", seq)
 	switch seq := seq.(type) {
 	case ansi.Print:
-		key := decodeXterm(seq)
+		key := decodeKey(seq)
 		if vx.pastePending {
 			key.EventType = EventPaste
 		}
 		vx.PostEvent(key)
 	case ansi.C0:
-		key := decodeXterm(seq)
+		key := decodeKey(seq)
 		if vx.pastePending {
 			key.EventType = EventPaste
 		}
 		vx.PostEvent(key)
 	case ansi.ESC:
-		key := decodeXterm(seq)
+		key := decodeKey(seq)
 		if vx.pastePending {
 			key.EventType = EventPaste
 		}
 		vx.PostEvent(key)
 	case ansi.SS3:
-		key := decodeXterm(seq)
+		key := decodeKey(seq)
 		if vx.pastePending {
 			key.EventType = EventPaste
 		}
@@ -724,19 +724,11 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 			return
 		}
 
-		switch vx.caps.kittyKeyboard.Load() {
-		case true:
-			key := parseKittyKbp(seq)
-			if key.Keycode != 0 {
-				vx.PostEvent(key)
-			}
-		default:
-			key := decodeXterm(seq)
-			if vx.pastePending {
-				key.EventType = EventPaste
-			}
-			vx.PostEvent(key)
+		key := decodeKey(seq)
+		if vx.pastePending {
+			key.EventType = EventPaste
 		}
+		vx.PostEvent(key)
 	case ansi.DCS:
 		switch seq.Final {
 		case 'r':

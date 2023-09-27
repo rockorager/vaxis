@@ -1,52 +1,52 @@
-package vaxis_test
+package vaxis
 
 import (
 	"testing"
 
-	"git.sr.ht/~rockorager/vaxis"
+	"git.sr.ht/~rockorager/vaxis/ansi"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestKey(t *testing.T) {
 	tests := []struct {
 		name string
-		key  vaxis.Key
+		key  Key
 	}{
 		{
 			name: "j",
-			key:  vaxis.Key{Keycode: 'j'},
+			key:  Key{Keycode: 'j'},
 		},
 		{
 			name: "Ctrl+@",
-			key:  vaxis.Key{Keycode: 0x00},
+			key:  Key{Keycode: 0x00},
 		},
 		{
 			name: "Ctrl+a",
-			key:  vaxis.Key{Keycode: 0x01},
+			key:  Key{Keycode: 0x01},
 		},
 		{
 			name: "Alt+a",
-			key:  vaxis.Key{Keycode: 'a', Modifiers: vaxis.ModAlt},
+			key:  Key{Keycode: 'a', Modifiers: ModAlt},
 		},
 		{
 			name: "F1",
-			key:  vaxis.Key{Keycode: vaxis.KeyF01},
+			key:  Key{Keycode: KeyF01},
 		},
 		{
 			name: "Shift+F1",
-			key:  vaxis.Key{Keycode: vaxis.KeyF01, Modifiers: vaxis.ModShift},
+			key:  Key{Keycode: KeyF01, Modifiers: ModShift},
 		},
 		{
 			name: "Shift+Tab",
-			key:  vaxis.Key{Keycode: vaxis.KeyTab, Modifiers: vaxis.ModShift},
+			key:  Key{Keycode: KeyTab, Modifiers: ModShift},
 		},
 		{
 			name: "Escape",
-			key:  vaxis.Key{Keycode: vaxis.KeyEsc},
+			key:  Key{Keycode: KeyEsc},
 		},
 		{
 			name: "space",
-			key:  vaxis.Key{Keycode: vaxis.KeySpace},
+			key:  Key{Keycode: KeySpace},
 		},
 	}
 
@@ -58,20 +58,92 @@ func TestKey(t *testing.T) {
 	}
 }
 
-func ExampleKey() {
-	vx, _ := vaxis.New(vaxis.Options{})
-	msg := vx.PollEvent()
-	switch msg := msg.(type) {
-	case vaxis.Key:
-		switch msg.String() {
-		case "Ctrl+c":
-			vx.Close()
-		case "Ctrl+l":
-			vx.Refresh()
-		case "j":
-			// Down?
-		default:
-			// handle the key
-		}
+func TestKeyDecode(t *testing.T) {
+	tests := []struct {
+		name     string
+		sequence ansi.Sequence
+		expected Key
+	}{
+		{
+			name:     "legacy: j",
+			sequence: ansi.Print('j'),
+			expected: Key{
+				Keycode: 'j',
+				Text:    "j",
+			},
+		},
+		{
+			name:     "legacy: Up",
+			sequence: ansi.SS3('A'),
+			expected: Key{Keycode: KeyUp},
+		},
+		{
+			name:     "legacy: Up, normal keys",
+			sequence: ansi.CSI{Final: 'A'},
+			expected: Key{Keycode: KeyUp},
+		},
+		{
+			name:     "legacy: shift+j",
+			sequence: ansi.Print('J'),
+			expected: Key{
+				Keycode:     'j',
+				ShiftedCode: 'J',
+				Modifiers:   ModShift,
+				Text:        "J",
+			},
+		},
+		{
+			name: "kitty: j with event",
+			sequence: ansi.CSI{
+				Final: 'u',
+				Parameters: [][]int{
+					{106},
+					{1, 1},
+					{106},
+				},
+			},
+			expected: Key{
+				Keycode: 'j',
+				Text:    "j",
+			},
+		},
+		{
+			name: "kitty: j with minimal",
+			sequence: ansi.CSI{
+				Final: 'u',
+				Parameters: [][]int{
+					{106},
+					{},
+					{106},
+				},
+			},
+			expected: Key{
+				Keycode: 'j',
+				Text:    "j",
+			},
+		},
+		{
+			name: "kitty: ф",
+			sequence: ansi.CSI{
+				Final: 'u',
+				Parameters: [][]int{
+					{1092, 0, 102},
+					{},
+					{1092},
+				},
+			},
+			expected: Key{
+				Keycode:        'ф',
+				BaseLayoutCode: 'f',
+				Text:           "ф",
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			act := decodeKey(test.sequence)
+			assert.Equal(t, test.expected, act)
+		})
 	}
 }

@@ -1,11 +1,20 @@
 package main
 
 import (
+	"os"
+
 	"git.sr.ht/~rockorager/vaxis"
+	"golang.org/x/exp/slog"
 )
 
 func main() {
-	vx, err := vaxis.New(vaxis.Options{})
+	h := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	})
+	slog.SetDefault(slog.New(h))
+	vx, err := vaxis.New(vaxis.Options{
+		Logger: slog.Default(),
+	})
 	if err != nil {
 		panic(err)
 	}
@@ -26,6 +35,8 @@ func main() {
 			)
 			vx.Render()
 		case vaxis.Key:
+			slog.Warn("Key", "is", ev)
+
 			switch ev.String() {
 			case "Ctrl+c":
 				return
