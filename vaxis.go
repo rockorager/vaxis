@@ -727,7 +727,7 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 		switch vx.caps.kittyKeyboard.Load() {
 		case true:
 			key := parseKittyKbp(seq)
-			if key.Codepoint != 0 {
+			if key.Keycode != 0 {
 				vx.PostEvent(key)
 			}
 		default:

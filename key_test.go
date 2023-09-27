@@ -14,39 +14,39 @@ func TestKey(t *testing.T) {
 	}{
 		{
 			name: "j",
-			key:  vaxis.Key{Codepoint: 'j'},
+			key:  vaxis.Key{Keycode: 'j'},
 		},
 		{
 			name: "Ctrl+@",
-			key:  vaxis.Key{Codepoint: 0x00},
+			key:  vaxis.Key{Keycode: 0x00},
 		},
 		{
 			name: "Ctrl+a",
-			key:  vaxis.Key{Codepoint: 0x01},
+			key:  vaxis.Key{Keycode: 0x01},
 		},
 		{
 			name: "Alt+a",
-			key:  vaxis.Key{Codepoint: 'a', Modifiers: vaxis.ModAlt},
+			key:  vaxis.Key{Keycode: 'a', Modifiers: vaxis.ModAlt},
 		},
 		{
 			name: "F1",
-			key:  vaxis.Key{Codepoint: vaxis.KeyF01},
+			key:  vaxis.Key{Keycode: vaxis.KeyF01},
 		},
 		{
 			name: "Shift+F1",
-			key:  vaxis.Key{Codepoint: vaxis.KeyF01, Modifiers: vaxis.ModShift},
+			key:  vaxis.Key{Keycode: vaxis.KeyF01, Modifiers: vaxis.ModShift},
 		},
 		{
 			name: "Shift+Tab",
-			key:  vaxis.Key{Codepoint: vaxis.KeyTab, Modifiers: vaxis.ModShift},
+			key:  vaxis.Key{Keycode: vaxis.KeyTab, Modifiers: vaxis.ModShift},
 		},
 		{
 			name: "Escape",
-			key:  vaxis.Key{Codepoint: vaxis.KeyEsc},
+			key:  vaxis.Key{Keycode: vaxis.KeyEsc},
 		},
 		{
 			name: "space",
-			key:  vaxis.Key{Codepoint: vaxis.KeySpace},
+			key:  vaxis.Key{Keycode: vaxis.KeySpace},
 		},
 	}
 

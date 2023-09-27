@@ -141,9 +141,9 @@ func (m *Model) Update(msg vaxis.Event) {
 			if msg.Modifiers&vaxis.ModSuper != 0 {
 				return
 			}
-			if unicode.IsGraphic(msg.Codepoint) {
+			if unicode.IsGraphic(msg.Keycode) {
 				egc := vaxis.Character{
-					Grapheme: string(msg.Codepoint),
+					Grapheme: string(msg.Keycode),
 					Width:    1,
 				}
 				m.content = slices.Insert(m.content, m.cursor, egc)

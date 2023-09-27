@@ -12,7 +12,8 @@ import (
 // keypress, or a value set by Vaxis to indicate special keys. Special keys have
 // their codepoints outside of the valid unicode range
 type Key struct {
-	Codepoint rune
+	Text      string
+	Keycode   rune
 	Modifiers ModifierMask
 	EventType EventType
 }
@@ -84,32 +85,32 @@ func (k Key) String() string {
 	}
 
 	switch {
-	case k.Codepoint == KeyTab:
-	case k.Codepoint == KeySpace:
-	case k.Codepoint == KeyEsc:
-	case k.Codepoint == KeyBackspace:
-	case k.Codepoint == KeyEnter:
-	case k.Codepoint == 0x08:
-		k.Codepoint = KeyBackspace
-	case k.Codepoint < 0x00:
+	case k.Keycode == KeyTab:
+	case k.Keycode == KeySpace:
+	case k.Keycode == KeyEsc:
+	case k.Keycode == KeyBackspace:
+	case k.Keycode == KeyEnter:
+	case k.Keycode == 0x08:
+		k.Keycode = KeyBackspace
+	case k.Keycode < 0x00:
 		return "invalid"
-	case k.Codepoint < 0x20:
+	case k.Keycode < 0x20:
 		var val rune
 		switch {
-		case k.Codepoint == 0x00:
+		case k.Keycode == 0x00:
 			val = '@'
-		case k.Codepoint < 0x1A:
+		case k.Keycode < 0x1A:
 			// normalize these to lowercase runes
-			val = k.Codepoint + 0x60
-		case k.Codepoint < 0x20:
-			val = k.Codepoint + 0x40
+			val = k.Keycode + 0x60
+		case k.Keycode < 0x20:
+			val = k.Keycode + 0x40
 		}
 		return fmt.Sprintf("Ctrl+%c", val)
-	case k.Codepoint <= unicode.MaxRune:
-		buf.WriteRune(k.Codepoint)
+	case k.Keycode <= unicode.MaxRune:
+		buf.WriteRune(k.Keycode)
 	}
 
-	switch k.Codepoint {
+	switch k.Keycode {
 	case KeyUp:
 		buf.WriteString("Up")
 	case KeyRight:
@@ -375,55 +376,55 @@ func decodeXterm(seq ansi.Sequence) Key {
 	key := Key{}
 	switch seq := seq.(type) {
 	case ansi.Print:
-		key.Codepoint = rune(seq)
+		key.Keycode = rune(seq)
 	case ansi.C0:
 		switch rune(seq) {
 		case 0x08:
-			key.Codepoint = KeyBackspace
+			key.Keycode = KeyBackspace
 			key.Modifiers = ModCtrl
 		case 0x09:
-			key.Codepoint = KeyTab
+			key.Keycode = KeyTab
 		case 0x0D:
-			key.Codepoint = KeyEnter
+			key.Keycode = KeyEnter
 		case 0x1B:
-			key.Codepoint = KeyEsc
+			key.Keycode = KeyEsc
 		default:
 			key.Modifiers = ModCtrl
 			switch {
 			case rune(seq) == 0x00:
-				key.Codepoint = '@'
+				key.Keycode = '@'
 			case rune(seq) < 0x1A:
 				// normalize these to lowercase runes
-				key.Codepoint = rune(seq) + 0x60
+				key.Keycode = rune(seq) + 0x60
 			case rune(seq) < 0x20:
-				key.Codepoint = rune(seq) + 0x40
+				key.Keycode = rune(seq) + 0x40
 			}
 		}
 	case ansi.ESC:
-		key.Codepoint = seq.Final
+		key.Keycode = seq.Final
 		key.Modifiers = ModAlt
 	case ansi.SS3:
 		switch rune(seq) {
 		case 'A':
-			key.Codepoint = KeyUp
+			key.Keycode = KeyUp
 		case 'B':
-			key.Codepoint = KeyDown
+			key.Keycode = KeyDown
 		case 'C':
-			key.Codepoint = KeyRight
+			key.Keycode = KeyRight
 		case 'D':
-			key.Codepoint = KeyLeft
+			key.Keycode = KeyLeft
 		case 'F':
-			key.Codepoint = KeyEnd
+			key.Keycode = KeyEnd
 		case 'H':
-			key.Codepoint = KeyHome
+			key.Keycode = KeyHome
 		case 'P':
-			key.Codepoint = KeyF01
+			key.Keycode = KeyF01
 		case 'Q':
-			key.Codepoint = KeyF02
+			key.Keycode = KeyF02
 		case 'R':
-			key.Codepoint = KeyF03
+			key.Keycode = KeyF03
 		case 'S':
-			key.Codepoint = KeyF04
+			key.Keycode = KeyF04
 		}
 	case ansi.CSI:
 		if len(seq.Parameters) < 1 {
@@ -431,52 +432,52 @@ func decodeXterm(seq ansi.Sequence) Key {
 		}
 		switch seq.Final {
 		case 'A':
-			key.Codepoint = KeyUp
+			key.Keycode = KeyUp
 		case 'B':
-			key.Codepoint = KeyDown
+			key.Keycode = KeyDown
 		case 'C':
-			key.Codepoint = KeyRight
+			key.Keycode = KeyRight
 		case 'D':
-			key.Codepoint = KeyLeft
+			key.Keycode = KeyLeft
 		case 'F':
-			key.Codepoint = KeyEnd
+			key.Keycode = KeyEnd
 		case 'H':
-			key.Codepoint = KeyHome
+			key.Keycode = KeyHome
 		case 'P':
-			key.Codepoint = KeyF01
+			key.Keycode = KeyF01
 		case 'Q':
-			key.Codepoint = KeyF02
+			key.Keycode = KeyF02
 		case 'R':
-			key.Codepoint = KeyF03
+			key.Keycode = KeyF03
 		case 'S':
-			key.Codepoint = KeyF04
+			key.Keycode = KeyF04
 		case '~':
 			id := seq.Parameters[0][0]
 			switch id {
 			case 2:
-				key.Codepoint = KeyInsert
+				key.Keycode = KeyInsert
 			case 3:
-				key.Codepoint = KeyDelete
+				key.Keycode = KeyDelete
 			case 5:
-				key.Codepoint = KeyPgUp
+				key.Keycode = KeyPgUp
 			case 6:
-				key.Codepoint = KeyPgDown
+				key.Keycode = KeyPgDown
 			case 15:
-				key.Codepoint = KeyF05
+				key.Keycode = KeyF05
 			case 17:
-				key.Codepoint = KeyF06
+				key.Keycode = KeyF06
 			case 18:
-				key.Codepoint = KeyF07
+				key.Keycode = KeyF07
 			case 19:
-				key.Codepoint = KeyF08
+				key.Keycode = KeyF08
 			case 20:
-				key.Codepoint = KeyF09
+				key.Keycode = KeyF09
 			case 21:
-				key.Codepoint = KeyF10
+				key.Keycode = KeyF10
 			case 23:
-				key.Codepoint = KeyF11
+				key.Keycode = KeyF11
 			case 24:
-				key.Codepoint = KeyF12
+				key.Keycode = KeyF12
 			}
 		}
 		if len(seq.Parameters) < 2 {
@@ -485,20 +486,20 @@ func decodeXterm(seq ansi.Sequence) Key {
 		}
 		mods := seq.Parameters[1][0]
 		switch {
-		case key.Codepoint <= KeyF12 && key.Codepoint >= KeyF01:
+		case key.Keycode <= KeyF12 && key.Keycode >= KeyF01:
 			// function keys don't have modifiers, instead are
 			// shifted up in name
 			switch mods {
 			case 2:
-				key.Codepoint += 12
+				key.Keycode += 12
 			case 3:
-				key.Codepoint += 48
+				key.Keycode += 48
 			case 4:
-				key.Codepoint += 60
+				key.Keycode += 60
 			case 5:
-				key.Codepoint += 24
+				key.Keycode += 24
 			case 6:
-				key.Codepoint += 36
+				key.Keycode += 36
 			}
 		default:
 			modVal := ModifierMask(mods - 1)
@@ -775,9 +776,9 @@ func parseKittyKbp(seq ansi.CSI) Key {
 			// codepoint to an internal key below
 			base := fmt.Sprintf("%d%c", pm[0], seq.Final)
 			var ok bool
-			key.Codepoint, ok = kittyKeyMap[base]
+			key.Keycode, ok = kittyKeyMap[base]
 			if !ok {
-				key.Codepoint = rune(pm[0])
+				key.Keycode = rune(pm[0])
 			}
 		case 1:
 			// Kitty keyboard protocol reports these as their
@@ -795,7 +796,7 @@ func parseKittyKbp(seq ansi.CSI) Key {
 			}
 		case 2:
 			// text-as-codepoint
-			key.Codepoint = rune(pm[0])
+			key.Keycode = rune(pm[0])
 			key.Modifiers &^= ModShift
 		}
 	}

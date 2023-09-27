@@ -12,7 +12,7 @@ import (
 // encode properly
 func encodeXterm(key vaxis.Key, deckpam bool, decckm bool) string {
 	// function keys
-	if val, ok := keymap[key.Codepoint]; ok {
+	if val, ok := keymap[key.Keycode]; ok {
 		return val
 	}
 
@@ -23,11 +23,11 @@ func encodeXterm(key vaxis.Key, deckpam bool, decckm bool) string {
 	if xtermMods == 0 {
 		switch decckm {
 		case true:
-			if val, ok := cursorKeysApplicationMode[key.Codepoint]; ok {
+			if val, ok := cursorKeysApplicationMode[key.Keycode]; ok {
 				return val
 			}
 		case false:
-			if val, ok := cursorKeysNormalMode[key.Codepoint]; ok {
+			if val, ok := cursorKeysNormalMode[key.Keycode]; ok {
 				return val
 			}
 		}
@@ -35,46 +35,46 @@ func encodeXterm(key vaxis.Key, deckpam bool, decckm bool) string {
 		switch deckpam {
 		case true:
 			// Special keys
-			if val, ok := applicationKeymap[key.Codepoint]; ok {
+			if val, ok := applicationKeymap[key.Keycode]; ok {
 				return val
 			}
 		case false:
 			// Special keys
-			if val, ok := numericKeymap[key.Codepoint]; ok {
+			if val, ok := numericKeymap[key.Keycode]; ok {
 				return val
 			}
 		}
 
-		if key.Codepoint < unicode.MaxRune {
+		if key.Keycode < unicode.MaxRune {
 			// Unicode keys
-			return string(key.Codepoint)
+			return string(key.Keycode)
 		}
 	}
 
-	if val, ok := xtermKeymap[key.Codepoint]; ok {
+	if val, ok := xtermKeymap[key.Keycode]; ok {
 		return fmt.Sprintf("\x1B[%d;%d%c", val.number, int(xtermMods)+1, val.final)
 	}
 
 	buf := bytes.NewBuffer(nil)
-	if key.Codepoint < unicode.MaxRune {
+	if key.Keycode < unicode.MaxRune {
 		if xtermMods&vaxis.ModAlt != 0 {
 			buf.WriteRune('\x1b')
 		}
 		if xtermMods&vaxis.ModCtrl != 0 {
-			if unicode.IsLower(key.Codepoint) {
-				buf.WriteRune(key.Codepoint - 0x60)
+			if unicode.IsLower(key.Keycode) {
+				buf.WriteRune(key.Keycode - 0x60)
 				return buf.String()
 			}
-			buf.WriteRune(key.Codepoint - 0x40)
+			buf.WriteRune(key.Keycode - 0x40)
 			return buf.String()
 		}
 		if xtermMods&vaxis.ModShift != 0 {
-			if unicode.IsLower(key.Codepoint) {
-				buf.WriteRune(unicode.ToUpper(key.Codepoint))
+			if unicode.IsLower(key.Keycode) {
+				buf.WriteRune(unicode.ToUpper(key.Keycode))
 				return buf.String()
 			}
 		}
-		buf.WriteRune(key.Codepoint)
+		buf.WriteRune(key.Keycode)
 		return buf.String()
 	}
 	return ""

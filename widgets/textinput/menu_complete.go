@@ -65,7 +65,7 @@ func (m *MenuComplete) Update(msg vaxis.Event) {
 		case "Backspace":
 			m.reset()
 		default:
-			if len(m.completions) > 0 && unicode.IsGraphic(msg.Codepoint) {
+			if len(m.completions) > 0 && unicode.IsGraphic(msg.Keycode) {
 				m.reset()
 			}
 		}

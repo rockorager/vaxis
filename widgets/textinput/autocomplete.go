@@ -39,7 +39,7 @@ func (a *AutoComplete) Update(msg vaxis.Event) {
 		case "Backspace":
 			a.reset()
 		default:
-			if len(a.completions) > 0 && unicode.IsGraphic(msg.Codepoint) {
+			if len(a.completions) > 0 && unicode.IsGraphic(msg.Keycode) {
 				a.reset()
 			}
 		}
