@@ -99,8 +99,8 @@ func New(opts Options) (*Vaxis, error) {
 		log = opts.Logger
 	}
 
-	// Disambiguate, report all keys as escapes, report associated text
-	kittyKBFlags := 25
+	// Disambiguate, report alternate keys, report all keys as escapes, report associated text
+	kittyKBFlags := 29
 	if opts.ReportKeyboardEvents {
 		kittyKBFlags += 2
 	}
