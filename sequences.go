@@ -13,8 +13,6 @@ const (
 	tertiaryAttributes = "\x1b[=c"
 	// Device Status Report - XTVERSION
 	xtversion = "\x1b[>0q"
-	// Synchronized Update Mode
-	sumQuery = "\x1b[?2026$p"
 	// kitty keyboard protocol
 	kittyKBQuery  = "\x1b[?u"
 	kittyKBEnable = "\x1b[=%du"
@@ -87,6 +85,7 @@ const (
 	alternateScreen    = 1049
 	bracketedPaste     = 2004
 	synchronizedUpdate = 2026
+	unicodeCore        = 2027
 	sixelScrolling     = 8452
 )
 
@@ -96,6 +95,10 @@ func decset(mode int) string {
 
 func decrst(mode int) string {
 	return fmt.Sprintf("\x1B[?%dl", mode)
+}
+
+func decrqm(mode int) string {
+	return fmt.Sprintf("\x1B[?%d$p", mode)
 }
 
 func tparm(s string, args ...any) string {

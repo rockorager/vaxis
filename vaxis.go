@@ -28,14 +28,12 @@ var log = slog.New(slog.NewTextHandler(io.Discard, nil))
 
 type capabilities struct {
 	synchronizedUpdate bool
+	unicodeCore        bool
 	rgb                bool
 	kittyGraphics      bool
 	kittyKeyboard      atomic.Bool
 	styledUnderlines   bool
 	sixels             bool
-	// unicode refers to rendering complex unicode graphemes
-	// properly.
-	unicode bool
 }
 
 type cursorState struct {
@@ -185,6 +183,13 @@ outer:
 			case synchronizedUpdates:
 				log.Info("Capability: Synchronized updates")
 				vx.caps.synchronizedUpdate = true
+			case unicodeCoreCap:
+				log.Info("Capability: Unicode core")
+				vx.caps.unicodeCore = true
+				_, err := vx.tty.WriteString(decset(unicodeCore))
+				if err != nil {
+					return nil, err
+				}
 			case kittyKeyboard:
 				log.Info("Capability: Kitty keyboard")
 				if opts.DisableKittyKeyboard {
@@ -207,9 +212,6 @@ outer:
 				if vx.graphicsProtocol < kitty {
 					vx.graphicsProtocol = kitty
 				}
-			case unicodeSupport:
-				log.Info("Capability: Unicode")
-				vx.caps.unicode = true
 			}
 		}
 	}
@@ -692,6 +694,15 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 				case 1, 2:
 					vx.PostEvent(synchronizedUpdates{})
 				}
+			case 2027:
+				if len(seq.Parameters) < 2 {
+					log.Error("not enough DECRPM params")
+					return
+				}
+				switch seq.Parameters[1][0] {
+				case 1, 2:
+					vx.PostEvent(unicodeCoreCap{})
+				}
 			}
 			return
 		case 'u':
@@ -808,14 +819,13 @@ func (vx *Vaxis) sendQueries() {
 	_, _ = vx.tty.WriteString(decset(alternateScreen))
 	_, _ = vx.tw.WriteString(decset(sixelScrolling))
 	_, _ = vx.tw.WriteString(decrst(cursorVisibility))
+	_, _ = vx.tw.WriteString(decrqm(synchronizedUpdate))
+	_, _ = vx.tw.WriteString(decrqm(unicodeCore))
 	_, _ = vx.tw.WriteString(xtversion)
 	_, _ = vx.tw.WriteString(kittyKBQuery)
 	_, _ = vx.tw.WriteString(kittyGquery)
-	_, _ = vx.tw.WriteString(sumQuery)
 
 	_, _ = vx.tw.WriteString(xtsmSixelGeom)
-
-	vx.queryUnicodeSupport()
 
 	// Enable some modes
 	_, _ = vx.tw.WriteString(decset(bracketedPaste)) // bracketed paste
@@ -986,7 +996,7 @@ func (vx *Vaxis) queryUnicodeSupport() {
 // This call can be expensive, callers should consider caching the result for
 // strings or characters which will need to be measured frequently
 func (vx *Vaxis) RenderedWidth(s string) int {
-	if vx.caps.unicode {
+	if vx.caps.unicodeCore {
 		return uniseg.StringWidth(s)
 	}
 	w := 0

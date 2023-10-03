@@ -9,6 +9,7 @@ type (
 	primaryDeviceAttribute struct{}
 	capabilitySixel        struct{}
 	synchronizedUpdates    struct{}
+	unicodeCoreCap         struct{}
 	kittyKeyboard          struct{}
 	kittyGraphics          struct{}
 	styledUnderlines       struct{}
