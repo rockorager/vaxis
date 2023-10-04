@@ -10,6 +10,8 @@ type cell struct {
 	fg      vaxis.Color
 	bg      vaxis.Color
 	attrs   vaxis.AttributeMask
+	url     string
+	urlId   string
 	wrapped bool
 }
 

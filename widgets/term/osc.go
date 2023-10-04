@@ -5,7 +5,7 @@ import (
 )
 
 func (vt *Model) osc(data string) {
-	selector, _, found := cutString(data, ";")
+	selector, val, found := cutString(data, ";")
 	if !found {
 		return
 	}
@@ -18,9 +18,9 @@ func (vt *Model) osc(data string) {
 		// vt.postEvent(ev)
 	case "8":
 		if vt.OSC8 {
-			// url, id := osc8(val)
-			// vt.cursor.attrs = vt.cursor.attrs.Url(url)
-			// vt.cursor.attrs = vt.cursor.attrs.UrlId(id)
+			url, id := osc8(val)
+			vt.cursor.url = url
+			vt.cursor.urlId = id
 		}
 	}
 }

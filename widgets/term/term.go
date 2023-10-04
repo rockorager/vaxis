@@ -478,9 +478,11 @@ func (vt *Model) Draw(win vaxis.Window) {
 					Width:    cell.width,
 				},
 				Style: vaxis.Style{
-					Foreground: cell.fg,
-					Background: cell.bg,
-					Attribute:  cell.attrs,
+					Foreground:      cell.fg,
+					Background:      cell.bg,
+					Attribute:       cell.attrs,
+					Hyperlink:       cell.url,
+					HyperlinkParams: fmt.Sprintf("id=%s", cell.urlId),
 				},
 			}
 
