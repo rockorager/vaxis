@@ -150,13 +150,21 @@ func New(opts Options) (*Vaxis, error) {
 				default:
 					vx.handleSequence(seq)
 				}
-			case <-vx.chSignal:
-				vx.winSize, err = vx.reportWinsize()
-				if err != nil {
-					log.Error("reporting window size",
-						"error", err)
+			case sig := <-vx.chSignal:
+				switch sig {
+				case syscall.SIGWINCH, syscall.SIGCONT:
+					vx.winSize, err = vx.reportWinsize()
+					if err != nil {
+						log.Error("reporting window size",
+							"error", err)
+					}
+					vx.PostEvent(vx.winSize)
+				default:
+					// Anything else is trying to kill the
+					// process
+					vx.Close()
+					return
 				}
-				vx.PostEvent(vx.winSize)
 			case <-vx.chQuit:
 				return
 			}
@@ -216,7 +224,18 @@ outer:
 		}
 	}
 
-	signal.Notify(vx.chSignal, syscall.SIGWINCH)
+	signal.Notify(vx.chSignal,
+		syscall.SIGWINCH,
+		// kill signals
+		syscall.SIGABRT,
+		syscall.SIGBUS,
+		syscall.SIGFPE,
+		syscall.SIGILL,
+		syscall.SIGINT,
+		syscall.SIGQUIT,
+		syscall.SIGSEGV,
+		syscall.SIGTERM,
+	)
 	vx.winSize, err = vx.reportWinsize()
 	if err != nil {
 		return nil, err
@@ -296,7 +315,8 @@ func (vx *Vaxis) Close() {
 	if vx.closed {
 		return
 	}
-	close(vx.chQuit)
+	vx.closed = true
+	defer close(vx.chQuit)
 
 	signal.Stop(vx.chSignal)
 	buf := bufio.NewWriter(vx.tty)
@@ -326,7 +346,6 @@ func (vx *Vaxis) Close() {
 		log.Info("Time/render", "val", vx.elapsed/time.Duration(vx.renders))
 	}
 	log.Info("Cached characters", "val", len(vx.charCache))
-	vx.closed = true
 }
 
 // Render renders the model's content to the terminal
