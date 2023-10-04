@@ -9,3 +9,5 @@ type EventClosed struct {
 	Term  *Model
 	Error error
 }
+
+type EventTitle string

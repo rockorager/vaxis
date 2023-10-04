@@ -11,11 +11,7 @@ func (vt *Model) osc(data string) {
 	}
 	switch selector {
 	case "0", "2":
-		// ev := &EventTitle{
-		// 	EventTerminal: newEventTerminal(vt),
-		// 	title:         val,
-		// }
-		// vt.postEvent(ev)
+		vt.postEvent(EventTitle(val))
 	case "8":
 		if vt.OSC8 {
 			url, id := osc8(val)
