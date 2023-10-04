@@ -16,6 +16,7 @@ func main() {
 	defer vx.Close()
 	vt := term.New()
 	vt.Attach(vx.PostEvent)
+	vt.Focus()
 	err = vt.Start(exec.Command(os.Getenv("EDITOR")))
 	if err != nil {
 		panic(err)

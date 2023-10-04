@@ -55,7 +55,7 @@ type Model struct {
 	window *vaxis.Window
 
 	cmd    *exec.Cmd
-	dirty  bool
+	dirty  atomic.Bool
 	parser *ansi.Parser
 	pty    *os.File
 	rows   int
@@ -186,7 +186,7 @@ func (vt *Model) Start(cmd *exec.Cmd) error {
 			case ev := <-vt.events:
 				vt.eventHandler(ev)
 			case <-tick.C:
-				if vt.dirty {
+				if vt.dirty.Load() {
 					vt.eventHandler(vaxis.Redraw{})
 				}
 			}
@@ -210,7 +210,11 @@ func (vt *Model) Update(msg vaxis.Event) {
 			vt.pty.WriteString("\x1B[201~")
 			return
 		}
-		// TODO: mouse events
+	case vaxis.Mouse:
+		mouse := vt.handleMouse(msg)
+		vt.pty.WriteString(mouse)
+		vt.dirty.Store(true)
+		return
 	}
 }
 
@@ -232,7 +236,7 @@ func (vt *Model) update(seq ansi.Sequence) {
 		vt.osc(string(seq.Payload))
 	case ansi.DCS:
 	}
-	vt.dirty = true
+	vt.dirty.Store(true)
 }
 
 func (vt *Model) String() string {
@@ -466,7 +470,7 @@ func (vt *Model) Draw(win vaxis.Window) {
 		vt.Resize(width, height)
 	}
 	vt.window = &win
-	vt.dirty = false
+	vt.dirty.Store(false)
 	for row := 0; row < vt.height(); row += 1 {
 		for col := 0; col < vt.width(); {
 			cell := vt.activeScreen[row][col]

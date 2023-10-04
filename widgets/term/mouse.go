@@ -1,108 +1,55 @@
 package term
 
 import (
+	"fmt"
+
 	"git.sr.ht/~rockorager/vaxis"
 )
 
 func (vt *Model) handleMouse(msg vaxis.Mouse) string {
-	// if vt.mode&mouseButtons == 0 && vt.mode&mouseDrag == 0 && vt.mode&mouseMotion == 0 && vt.mode&mouseSGR == 0 {
-	// 	if vt.mode&altScroll != 0 && vt.mode&smcup != 0 {
-	// 		// Translate wheel motion into arrows up and down
-	// 		// 3x rows
-	// 		if ev.Buttons()&tcell.WheelUp != 0 {
-	// 			vt.pty.WriteString(info.KeyUp)
-	// 			vt.pty.WriteString(info.KeyUp)
-	// 			vt.pty.WriteString(info.KeyUp)
-	// 		}
-	// 		if ev.Buttons()&tcell.WheelDown != 0 {
-	// 			vt.pty.WriteString(info.KeyDown)
-	// 			vt.pty.WriteString(info.KeyDown)
-	// 			vt.pty.WriteString(info.KeyDown)
-	// 		}
-	// 	}
-	// 	return ""
-	// }
-	// // Return early if we aren't reporting motion or drag events
-	// if vt.mode&mouseButtons != 0 && vt.mouseBtn == ev.Buttons() {
-	// 	// motion or drag
-	// 	return ""
-	// }
-	//
-	// if vt.mode&mouseDrag != 0 && vt.mouseBtn == tcell.ButtonNone && ev.Buttons() == tcell.ButtonNone {
-	// 	// Motion event
-	// 	return ""
-	// }
-	//
-	// // Encode the button
-	// var b int
-	// if ev.Buttons()&tcell.Button1 != 0 {
-	// 	b += 0
-	// }
-	// if ev.Buttons()&tcell.Button3 != 0 {
-	// 	b += 1
-	// }
-	// if ev.Buttons()&tcell.Button2 != 0 {
-	// 	b += 2
-	// }
-	// if ev.Buttons() == tcell.ButtonNone {
-	// 	b += 3
-	// }
-	// if ev.Buttons()&tcell.WheelUp != 0 {
-	// 	b += 0 + 64
-	// }
-	// if ev.Buttons()&tcell.WheelDown != 0 {
-	// 	b += 1 + 64
-	// }
-	// if ev.Modifiers()&tcell.ModShift != 0 {
-	// 	b += 4
-	// }
-	// if ev.Modifiers()&tcell.ModAlt != 0 {
-	// 	b += 8
-	// }
-	// if ev.Modifiers()&tcell.ModCtrl != 0 {
-	// 	b += 16
-	// }
-	//
-	// if vt.mode&mouseButtons == 0 && vt.mouseBtn != tcell.ButtonNone && ev.Buttons() != tcell.ButtonNone {
-	// 	// drag event
-	// 	b += 32
-	// }
-	//
-	// col, row := ev.Position()
-	//
-	// if vt.mode&mouseSGR != 0 {
-	// 	switch {
-	// 	case ev.Buttons()&tcell.WheelUp != 0:
-	// 		return fmt.Sprintf("\x1b[<%d;%d;%dM", b, col+1, row+1)
-	//
-	// 	case ev.Buttons()&tcell.WheelDown != 0:
-	// 		return fmt.Sprintf("\x1b[<%d;%d;%dM", b, col+1, row+1)
-	//
-	// 	case ev.Buttons() == tcell.ButtonNone && vt.mouseBtn != tcell.ButtonNone:
-	// 		// Button was in, and now it's not
-	// 		var button int
-	// 		switch vt.mouseBtn {
-	// 		case tcell.Button1:
-	// 			button = 0
-	// 		case tcell.Button3:
-	// 			button = 1
-	// 		case tcell.Button2:
-	// 			button = 2
-	// 		}
-	// 		vt.mouseBtn = ev.Buttons()
-	// 		return fmt.Sprintf("\x1b[<%d;%d;%dm", button, col+1, row+1)
-	//
-	// 	default:
-	// 		vt.mouseBtn = ev.Buttons()
-	// 		return fmt.Sprintf("\x1b[<%d;%d;%dM", b, col+1, row+1)
-	// 	}
-	// }
-	//
-	// encodedCol := 32 + col + 1
-	// encodedRow := 32 + row + 1
-	// b += 32
-	//
-	// vt.mouseBtn = ev.Buttons()
-	// return fmt.Sprintf("\x1b[M%c%c%c", b, encodedCol, encodedRow)
-	return ""
+	if vt.mode&mouseButtons == 0 && vt.mode&mouseDrag == 0 && vt.mode&mouseMotion == 0 && vt.mode&mouseSGR == 0 {
+		if vt.mode&altScroll != 0 && vt.mode&smcup != 0 {
+			// Translate wheel motion into arrows up and down
+			// 3x rows
+			if msg.Button == vaxis.MouseWheelUp {
+				vt.pty.WriteString("\x1bOA")
+				vt.pty.WriteString("\x1bOA")
+				vt.pty.WriteString("\x1bOA")
+			}
+			if msg.Button == vaxis.MouseWheelDown {
+				vt.pty.WriteString("\x1bOB")
+				vt.pty.WriteString("\x1bOB")
+				vt.pty.WriteString("\x1bOB")
+			}
+		}
+		return ""
+	}
+	// Return early if we aren't reporting motion
+	if vt.mode&mouseMotion == 0 && msg.EventType == vaxis.EventMotion && msg.Button == vaxis.MouseNoButton {
+		return ""
+	}
+	// Return early if we aren't reporting drags
+	if vt.mode&mouseDrag == 0 && msg.EventType == vaxis.EventMotion {
+		return ""
+	}
+
+	if vt.mode&mouseSGR != 0 {
+		switch msg.EventType {
+		case vaxis.EventMotion:
+			return fmt.Sprintf("\x1b[<%d;%d;%dM", msg.Button+32, msg.Col+1, msg.Row+1)
+		case vaxis.EventPress:
+			return fmt.Sprintf("\x1b[<%d;%d;%dM", msg.Button, msg.Col+1, msg.Row+1)
+		case vaxis.EventRelease:
+			return fmt.Sprintf("\x1b[<%d;%d;%dm", msg.Button, msg.Col+1, msg.Row+1)
+		default:
+			// unhandled
+			return ""
+		}
+	}
+
+	// legacy encoding
+	encodedCol := 32 + msg.Col + 1
+	encodedRow := 32 + msg.Row + 1
+
+	return fmt.Sprintf("\x1b[M%c%c%c", msg.Button+32, encodedCol, encodedRow)
 }

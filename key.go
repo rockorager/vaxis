@@ -56,7 +56,7 @@ const (
 	EventRepeat
 	// The key / button was released
 	EventRelease
-	// A mouse motion event (with no button pressed)
+	// A mouse motion event (with or without a button press)
 	EventMotion
 	// The key resulted from a paste
 	EventPaste
