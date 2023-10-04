@@ -34,7 +34,6 @@ type Model struct {
 	TERM string
 
 	mu sync.Mutex
-	vx *vaxis.Vaxis
 
 	activeScreen  [][]cell
 	altScreen     [][]cell
@@ -60,6 +59,9 @@ type Model struct {
 	pty    *os.File
 	rows   int
 	cols   int
+
+	eventHandler func(vaxis.Event)
+	events       chan vaxis.Event
 }
 
 type cursorState struct {
@@ -76,7 +78,7 @@ type margin struct {
 	right  column
 }
 
-func New(vx *vaxis.Vaxis) *Model {
+func New() *Model {
 	tabs := []column{}
 	for i := 7; i < (50 * 7); i += 8 {
 		tabs = append(tabs, column(i))
@@ -84,7 +86,6 @@ func New(vx *vaxis.Vaxis) *Model {
 	m := &Model{
 		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 		OSC8:   true,
-		vx:     vx,
 		charsets: charsets{
 			designations: map[charsetDesignator]charset{
 				g0: ascii,
@@ -116,11 +117,11 @@ func New(vx *vaxis.Vaxis) *Model {
 			},
 			decawm: true,
 		},
-		tabStop: tabs,
-		// eventHandler: func(ev tcell.Event) { return },
+		tabStop:      tabs,
+		eventHandler: func(ev vaxis.Event) {},
 		// Buffering to 2 events. If there is ever a case where one
 		// sequence can trigger two events, this should be increased
-		// events: make(chan tcell.Event, 2),
+		events: make(chan vaxis.Event, 2),
 	}
 	return m
 }
@@ -136,7 +137,12 @@ func (vt *Model) Start(cmd *exec.Cmd) error {
 	if vt.TERM == "" {
 		vt.TERM = "xterm-256color"
 	}
-	cmd.Env = append(os.Environ(), "TERM="+vt.TERM)
+
+	env := os.Environ()
+	if cmd.Env != nil {
+		env = cmd.Env
+	}
+	cmd.Env = append(env, "TERM="+vt.TERM)
 
 	// Start the command with a pty.
 	var err error
@@ -167,7 +173,7 @@ func (vt *Model) Start(cmd *exec.Cmd) error {
 				switch seq := seq.(type) {
 				case ansi.EOF:
 					err := cmd.Wait()
-					vt.vx.PostEvent(EventClosed{
+					vt.eventHandler(EventClosed{
 						Term:  vt,
 						Error: err,
 					})
@@ -175,9 +181,11 @@ func (vt *Model) Start(cmd *exec.Cmd) error {
 				default:
 					vt.update(seq)
 				}
+			case ev := <-vt.events:
+				vt.eventHandler(ev)
 			case <-tick.C:
 				if vt.dirty {
-					vt.vx.PostEvent(vaxis.Redraw{})
+					vt.eventHandler(vaxis.Redraw{})
 				}
 			}
 		}
@@ -221,7 +229,6 @@ func (vt *Model) update(seq ansi.Sequence) {
 		vt.osc(string(seq.Payload))
 	case ansi.DCS:
 	}
-	// TODO optimize when we post EventRedraw
 	vt.dirty = true
 }
 
@@ -240,6 +247,22 @@ func (vt *Model) String() string {
 	return str.String()
 }
 
+func (vt *Model) postEvent(ev vaxis.Event) {
+	vt.events <- ev
+}
+
+func (vt *Model) Attach(fn func(ev vaxis.Event)) {
+	vt.mu.Lock()
+	defer vt.mu.Unlock()
+	vt.eventHandler = fn
+}
+
+func (vt *Model) Detach() {
+	vt.mu.Lock()
+	defer vt.mu.Unlock()
+	vt.eventHandler = func(ev vaxis.Event) {}
+}
+
 func (vt *Model) recover() {
 	err := recover()
 	if err == nil {
@@ -251,10 +274,7 @@ func (vt *Model) recover() {
 	ret.WriteString(fmt.Sprintf("%s\n", err))
 	ret.Write(debug.Stack())
 
-	// vt.postEvent(&EventPanic{
-	// 	EventTerminal: newEventTerminal(vt),
-	// 	Error:         fmt.Errorf(ret.String()),
-	// })
+	vt.postEvent(EventPanic(fmt.Errorf(ret.String())))
 	vt.Close()
 }
 

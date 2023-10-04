@@ -3,9 +3,7 @@ package term
 func (vt *Model) c0(r rune) {
 	switch r {
 	case 0x07:
-		// vt.postEvent(EventBell{
-		// 	EventTerminal: newEventTerminal(vt),
-		// })
+		vt.postEvent(EventBell{})
 	case 0x08:
 		vt.bs()
 	case 0x09:

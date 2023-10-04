@@ -14,7 +14,8 @@ func main() {
 		panic(err)
 	}
 	defer vx.Close()
-	vt := term.New(vx)
+	vt := term.New()
+	vt.Attach(vx.PostEvent)
 	err = vt.Start(exec.Command(os.Getenv("EDITOR")))
 	if err != nil {
 		panic(err)
