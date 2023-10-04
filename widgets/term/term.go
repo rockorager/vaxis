@@ -8,6 +8,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -62,6 +63,7 @@ type Model struct {
 
 	eventHandler func(vaxis.Event)
 	events       chan vaxis.Event
+	focused      atomic.Bool
 }
 
 type cursorState struct {
@@ -208,6 +210,7 @@ func (vt *Model) Update(msg vaxis.Event) {
 			vt.pty.WriteString("\x1B[201~")
 			return
 		}
+		// TODO: mouse events
 	}
 }
 
@@ -493,7 +496,7 @@ func (vt *Model) Draw(win vaxis.Window) {
 			col += w
 		}
 	}
-	if vt.mode&dectcem != 0 {
+	if vt.mode&dectcem != 0 && vt.focused.Load() {
 		win.ShowCursor(int(vt.cursor.col), int(vt.cursor.row), vt.cursor.style)
 	}
 	// for _, s := range buf.getVisibleSixels() {
@@ -504,6 +507,14 @@ func (vt *Model) Draw(win vaxis.Window) {
 	// 	// string terminator(ST)
 	// 	os.Stdout.Write([]byte{0x1b, 0x5c})
 	// }
+}
+
+func (vt *Model) Focus() {
+	vt.focused.Store(true)
+}
+
+func (vt *Model) Blur() {
+	vt.focused.Store(false)
 }
 
 // func (vt *VT) HandleEvent(e tcell.Event) bool {
