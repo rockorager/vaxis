@@ -283,8 +283,9 @@ func (vx *Vaxis) PollEvent() Event {
 // create a channel for you to listen on. Multiple calls will kick off multiple
 // goroutines.
 //
-//	ch := Events()
-//	for ev := range ch {
+// Good use:
+//
+//	for ev := range vx.Events() {
 //		// do something
 //	}
 func (vx *Vaxis) Events() chan Event {

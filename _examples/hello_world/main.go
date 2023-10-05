@@ -19,8 +19,7 @@ func main() {
 		panic(err)
 	}
 	defer vx.Close()
-	events := vx.Events()
-	for ev := range events {
+	for ev := range vx.Events() {
 		switch ev := ev.(type) {
 		case vaxis.Resize:
 			win := vx.Window()
