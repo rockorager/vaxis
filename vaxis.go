@@ -986,26 +986,6 @@ func (vx *Vaxis) advance(cell Cell) int {
 	return w
 }
 
-// Determines if our terminal knows about unicode. The test string should
-// produce an emoji that is ~1.5 cells wide. Terminals that properly render this
-// will report that their cursor has moved forward by 2 total cells. Terminals
-// that don't render this properly will report (probably) 4 cells of movement
-// (one for each emoji in the ZWJ sequence)
-func (vx *Vaxis) queryUnicodeSupport() {
-	_, _ = vx.tty.WriteString(tparm(cup, 1, 1))
-	test := "👩‍🚀"
-	originX, _ := vx.CursorPosition()
-	if originX < 0 {
-		return
-	}
-	_, _ = vx.tty.WriteString(test)
-	newX, _ := vx.CursorPosition()
-	if newX-originX > 2 {
-		return
-	}
-	vx.PostEvent(unicodeSupport{})
-}
-
 // RenderedWidth returns the rendered width of the provided string. The result
 // is dependent on if your terminal can support unicode properly.
 //

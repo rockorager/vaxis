@@ -14,7 +14,6 @@ type (
 	kittyGraphics          struct{}
 	styledUnderlines       struct{}
 	truecolor              struct{}
-	unicodeSupport         struct{}
 )
 
 // Resize is delivered whenever a window size change is detected (likely via
