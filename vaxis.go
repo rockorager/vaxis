@@ -999,14 +999,10 @@ func (vx *Vaxis) RenderedWidth(s string) int {
 	if vx.caps.unicodeCore {
 		return uniseg.StringWidth(s)
 	}
-	w := 0
-	for _, r := range s {
-		// Why runewidth here? uniseg differs from wcwidth a bit but is
-		// more accurate for terminals which support unicode. We use
-		// uniseg there, and runewidth here
-		w += runewidth.RuneWidth(r)
-	}
-	return w
+	// Why runewidth here? uniseg differs from wcwidth a bit but is
+	// more accurate for terminals which support unicode. We use
+	// uniseg there, and runewidth here
+	return runewidth.StringWidth(s)
 }
 
 // characterWidth measures the width of a grapheme cluster, caching the result .
