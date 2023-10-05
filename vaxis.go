@@ -2,7 +2,6 @@
 package vaxis
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/base64"
@@ -83,6 +82,7 @@ type Vaxis struct {
 	cursorLast       cursorState
 	closed           bool
 	refresh          bool
+	kittyFlags       int
 
 	renders int
 	elapsed time.Duration
@@ -98,10 +98,6 @@ func New(opts Options) (*Vaxis, error) {
 	}
 
 	// Disambiguate, report alternate keys, report all keys as escapes, report associated text
-	kittyKBFlags := 29
-	if opts.ReportKeyboardEvents {
-		kittyKBFlags += 2
-	}
 
 	// Let's give some deadline for our queries responding. If they don't,
 	// it means the terminal doesn't respond to Primary Device Attributes
@@ -110,20 +106,15 @@ func New(opts Options) (*Vaxis, error) {
 	defer cancel()
 
 	var err error
-	vx := &Vaxis{}
-
-	vx.tty, err = os.OpenFile("/dev/tty", os.O_RDWR, 0)
-	if err != nil {
-		return nil, err
+	vx := &Vaxis{
+		kittyFlags: 29,
 	}
 
-	vx.state, err = term.MakeRaw(int(vx.tty.Fd()))
-	if err != nil {
-		return nil, err
+	if opts.ReportKeyboardEvents {
+		vx.kittyFlags += 2
 	}
 
 	vx.queue = NewQueue[Event]()
-	vx.tw = newWriter(vx)
 	vx.screenNext = newScreen()
 	vx.screenLast = newScreen()
 	vx.graphicsNext = make(map[int]*placement)
@@ -133,43 +124,10 @@ func New(opts Options) (*Vaxis, error) {
 	vx.chCursorPos = make(chan [2]int)
 	vx.chQuit = make(chan bool)
 	vx.charCache = make(map[string]int, 256)
-
-	parser := ansi.NewParser(vx.tty)
-	go func() {
-		defer func() {
-			if err := recover(); err != nil {
-				vx.Close()
-			}
-		}()
-		for {
-			select {
-			case seq := <-parser.Next():
-				switch seq := seq.(type) {
-				case ansi.EOF:
-					return
-				default:
-					vx.handleSequence(seq)
-				}
-			case sig := <-vx.chSignal:
-				switch sig {
-				case syscall.SIGWINCH, syscall.SIGCONT:
-					vx.winSize, err = vx.reportWinsize()
-					if err != nil {
-						log.Error("reporting window size",
-							"error", err)
-					}
-					vx.PostEvent(vx.winSize)
-				default:
-					// Anything else is trying to kill the
-					// process
-					vx.Close()
-					return
-				}
-			case <-vx.chQuit:
-				return
-			}
-		}
-	}()
+	err = vx.openTty()
+	if err != nil {
+		return nil, err
+	}
 
 	vx.sendQueries()
 outer:
@@ -194,20 +152,12 @@ outer:
 			case unicodeCoreCap:
 				log.Info("Capability: Unicode core")
 				vx.caps.unicodeCore = true
-				_, err := vx.tty.WriteString(decset(unicodeCore))
-				if err != nil {
-					return nil, err
-				}
 			case kittyKeyboard:
 				log.Info("Capability: Kitty keyboard")
 				if opts.DisableKittyKeyboard {
 					continue
 				}
 				vx.caps.kittyKeyboard.Store(true)
-				_, err := vx.tty.WriteString(tparm(kittyKBEnable, kittyKBFlags))
-				if err != nil {
-					return nil, err
-				}
 			case styledUnderlines:
 				vx.caps.styledUnderlines = true
 				log.Info("Capability: Styled underlines")
@@ -224,6 +174,8 @@ outer:
 		}
 	}
 
+	vx.enterAltScreen()
+	vx.enableModes()
 	signal.Notify(vx.chSignal,
 		syscall.SIGWINCH,
 		// kill signals
@@ -319,28 +271,7 @@ func (vx *Vaxis) Close() {
 	vx.closed = true
 	defer close(vx.chQuit)
 
-	signal.Stop(vx.chSignal)
-	buf := bufio.NewWriter(vx.tty)
-	_, _ = buf.WriteString(decset(cursorVisibility)) // show the cursor
-	_, _ = buf.WriteString(sgrReset)                 // reset fg, bg, attrs
-	_, _ = buf.WriteString(clear)
-
-	// Disable any modes we enabled
-	_, _ = buf.WriteString(decrst(bracketedPaste)) // bracketed paste
-	_, _ = buf.WriteString(kittyKBPop)             // kitty keyboard
-	_, _ = buf.WriteString(decrst(cursorKeys))
-	_, _ = buf.WriteString(numericMode)
-	_, _ = buf.WriteString(decrst(mouseAllEvents))
-	_, _ = buf.WriteString(decrst(mouseFocusEvents))
-	_, _ = buf.WriteString(decrst(mouseSGR))
-	_, _ = buf.WriteString(decrst(sixelScrolling))
-	_, _ = buf.WriteString(tparm(mouseShape, MouseShapeDefault))
-
-	_, _ = buf.WriteString(decrst(alternateScreen))
-
-	_ = buf.Flush()
-
-	_ = term.Restore(int(vx.tty.Fd()), vx.state)
+	vx.Suspend()
 
 	log.Info("Renders", "val", vx.renders)
 	if vx.renders != 0 {
@@ -834,27 +765,12 @@ func (vx *Vaxis) sendQueries() {
 		vx.PostEvent(truecolor{})
 	}
 
-	// We enter the alt screen without our buffered writer to prevent our
-	// unicode query from bleeding onto the main terminal
-	_, _ = vx.tty.WriteString(decset(alternateScreen))
-	_, _ = vx.tw.WriteString(decset(sixelScrolling))
-	_, _ = vx.tw.WriteString(decrst(cursorVisibility))
 	_, _ = vx.tw.WriteString(decrqm(synchronizedUpdate))
 	_, _ = vx.tw.WriteString(decrqm(unicodeCore))
 	_, _ = vx.tw.WriteString(xtversion)
 	_, _ = vx.tw.WriteString(kittyKBQuery)
 	_, _ = vx.tw.WriteString(kittyGquery)
-
 	_, _ = vx.tw.WriteString(xtsmSixelGeom)
-
-	// Enable some modes
-	_, _ = vx.tw.WriteString(decset(bracketedPaste)) // bracketed paste
-	_, _ = vx.tw.WriteString(decset(cursorKeys))     // application cursor keys
-	_, _ = vx.tw.WriteString(applicationMode)        // application cursor keys mode
-	_, _ = vx.tw.WriteString(decset(mouseAllEvents))
-	_, _ = vx.tw.WriteString(decset(mouseFocusEvents))
-	_, _ = vx.tw.WriteString(decset(mouseSGR))
-	_, _ = vx.tw.WriteString(clear)
 
 	// Query some terminfo capabilities
 	// Just another way to see if we have RGB support
@@ -871,6 +787,161 @@ func (vx *Vaxis) sendQueries() {
 	// a response we'll return from init
 	_, _ = vx.tw.WriteString(primaryAttributes)
 	_, _ = vx.tw.Flush()
+}
+
+// enableModes enables all the modes we want
+func (vx *Vaxis) enableModes() {
+	// kitty keyboard
+	if vx.caps.kittyKeyboard.Load() {
+		_, _ = vx.tw.WriteString(tparm(kittyKBEnable, vx.kittyFlags))
+	}
+	// sixel scrolling
+	if vx.caps.sixels {
+		_, _ = vx.tw.WriteString(decset(sixelScrolling))
+	}
+	// Mode 2027, unicode segmentation (for correct emoji/wc widths)
+	if vx.caps.unicodeCore {
+		_, _ = vx.tw.WriteString(decset(unicodeCore))
+	}
+
+	// TODO: query for bracketed paste support?
+	_, _ = vx.tw.WriteString(decset(bracketedPaste)) // bracketed paste
+	_, _ = vx.tw.WriteString(decset(cursorKeys))     // application cursor keys
+	_, _ = vx.tw.WriteString(applicationMode)        // application cursor keys mode
+	// TODO: Query for mouse modes or just hope for the best?
+	_, _ = vx.tw.WriteString(decset(mouseAllEvents))
+	_, _ = vx.tw.WriteString(decset(mouseFocusEvents))
+	_, _ = vx.tw.WriteString(decset(mouseSGR))
+	_, _ = vx.tw.Flush()
+}
+
+func (vx *Vaxis) disableModes() {
+	_, _ = vx.tw.WriteString(sgrReset)               // reset fg, bg, attrs
+	_, _ = vx.tw.WriteString(decrst(bracketedPaste)) // bracketed paste
+	if vx.caps.kittyKeyboard.Load() {
+		_, _ = vx.tw.WriteString(kittyKBPop) // kitty keyboard
+	}
+	_, _ = vx.tw.WriteString(decrst(cursorKeys))
+	_, _ = vx.tw.WriteString(numericMode)
+	_, _ = vx.tw.WriteString(decrst(mouseAllEvents))
+	_, _ = vx.tw.WriteString(decrst(mouseFocusEvents))
+	_, _ = vx.tw.WriteString(decrst(mouseSGR))
+	if vx.caps.sixels {
+		_, _ = vx.tw.WriteString(decrst(sixelScrolling))
+	}
+	if vx.caps.unicodeCore {
+		_, _ = vx.tw.WriteString(decrst(unicodeCore))
+	}
+	_, _ = vx.tw.WriteString(tparm(mouseShape, MouseShapeDefault))
+	_, _ = vx.tw.Flush()
+}
+
+func (vx *Vaxis) enterAltScreen() {
+	vx.tw.vx.refresh = true
+	_, _ = vx.tw.WriteString(decset(alternateScreen))
+	_, _ = vx.tw.WriteString(decrst(cursorVisibility))
+	_, _ = vx.tw.Flush()
+}
+
+func (vx *Vaxis) exitAltScreen() {
+	_, _ = vx.tw.WriteString(decset(cursorVisibility))
+	_, _ = vx.tw.WriteString(decrst(alternateScreen))
+	_, _ = vx.tw.Flush()
+}
+
+// Suspend takes Vaxis out of fullscreen state, disables all terminal modes,
+// stops listening for signals, and returns the terminal to it's original state.
+// Suspend can be useful to, for example, drop out of the full screen TUI and
+// run another TUI. The state of vaxis will be retained, so you can reenter the
+// original state by calling Resume
+func (vx *Vaxis) Suspend() error {
+	signal.Stop(vx.chSignal)
+	vx.disableModes()
+	vx.exitAltScreen()
+	_ = term.Restore(int(vx.tty.Fd()), vx.state)
+	vx.tty.Close()
+	return nil
+}
+
+// makeRaw opens the /dev/tty device, makes it raw, and starts an input parser
+func (vx *Vaxis) openTty() error {
+	var err error
+	vx.tty, err = os.OpenFile("/dev/tty", os.O_RDWR, 0)
+	if err != nil {
+		return err
+	}
+	vx.tw = newWriter(vx)
+	vx.state, err = term.MakeRaw(int(vx.tty.Fd()))
+	if err != nil {
+		return err
+	}
+	parser := ansi.NewParser(vx.tty)
+	go func() {
+		defer func() {
+			if err := recover(); err != nil {
+				vx.Close()
+			}
+		}()
+		for {
+			select {
+			case seq := <-parser.Next():
+				switch seq := seq.(type) {
+				case ansi.EOF:
+					return
+				default:
+					vx.handleSequence(seq)
+				}
+			case sig := <-vx.chSignal:
+				switch sig {
+				case syscall.SIGWINCH, syscall.SIGCONT:
+					vx.winSize, err = vx.reportWinsize()
+					if err != nil {
+						log.Error("reporting window size",
+							"error", err)
+					}
+					vx.PostEvent(vx.winSize)
+				default:
+					// Anything else is trying to kill the
+					// process
+					vx.Close()
+					return
+				}
+			case <-vx.chQuit:
+				return
+			}
+		}
+	}()
+	return nil
+}
+
+// Resume returns the application to it's fullscreen state, re-enters raw mode,
+// and reenables input parsing. Upon resuming, a Resize event will be delivered.
+// It is entirely possible the terminal was resized while suspended.
+func (vx *Vaxis) Resume() error {
+	err := vx.openTty()
+	if err != nil {
+		return err
+	}
+	vx.enterAltScreen()
+	vx.enableModes()
+	signal.Notify(vx.chSignal,
+		syscall.SIGWINCH,
+		// kill signals
+		syscall.SIGABRT,
+		syscall.SIGBUS,
+		syscall.SIGFPE,
+		syscall.SIGILL,
+		syscall.SIGINT,
+		syscall.SIGQUIT,
+		syscall.SIGSEGV,
+		syscall.SIGTERM,
+	)
+	vx.winSize, err = vx.reportWinsize()
+	if err != nil {
+		return err
+	}
+	vx.PostEvent(vx.winSize)
+	return nil
 }
 
 // HideCursor hides the hardware cursor

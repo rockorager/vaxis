@@ -2,6 +2,8 @@ package main
 
 import (
 	"os"
+	"os/exec"
+	"time"
 
 	"git.sr.ht/~rockorager/vaxis"
 	"golang.org/x/exp/slog"
@@ -40,6 +42,16 @@ func main() {
 			switch ev.String() {
 			case "Ctrl+c":
 				return
+			case "space":
+				vx.Suspend()
+				cmd := exec.Command("ls", "-al")
+				cmd.Stdout = os.Stdout
+				cmd.Stdin = os.Stdin
+				cmd.Stderr = os.Stderr
+				cmd.Run()
+				time.Sleep(2 * time.Second)
+				vx.Resume()
+				vx.Render()
 			}
 		}
 	}
