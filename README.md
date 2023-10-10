@@ -70,7 +70,9 @@ most dank TUI library
 | System Clipboard (OSC 52)      |  ✅   |  ❌   |    ❌     |    ❌     |
 | System Notifications (OSC 9)   |  ✅   |  ❌   |    ❌     |    ❌     |
 | System Notifications (OSC 777) |  ✅   |  ❌   |    ❌     |    ❌     |
-| Synchronized Output            |  ✅   |  ❌   |    ❌     |    ✅     |
+| Synchronized Output (DEC 2026) |  ✅   |  ❌   |    ❌     |    ✅     |
+| Unicode Core (DEC 2027)        |  ✅   |  ❌   |    ❌     |    ❌     |
+| Color Mode Updates (DEC 2031)  |  ✅   |  ❌   |    ❌     |    ❌     |
 | Images (sixel)                 |  ✅   |  ✅   |    ❌     |    ✅     |
 | Images (kitty)                 |  ✅   |  ❌   |    ❌     |    ✅     |
 | Images (iterm2)                |  ❌   |  ❌   |    ❌     |    ✅     |
