@@ -33,6 +33,7 @@ type capabilities struct {
 	kittyKeyboard      atomic.Bool
 	styledUnderlines   bool
 	sixels             bool
+	colorThemeUpdates  bool
 }
 
 type cursorState struct {
@@ -152,6 +153,9 @@ outer:
 			case unicodeCoreCap:
 				log.Info("Capability: Unicode core")
 				vx.caps.unicodeCore = true
+			case notifyColorChange:
+				log.Info("Capability: Color theme notifications")
+				vx.caps.colorThemeUpdates = true
 			case kittyKeyboard:
 				log.Info("Capability: Kitty keyboard")
 				if opts.DisableKittyKeyboard {
@@ -629,6 +633,20 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 				}
 				return
 			}
+		case 'n':
+			if len(seq.Intermediate) == 1 && seq.Intermediate[0] == '?' {
+				if len(seq.Parameters) != 2 {
+					break
+				}
+				switch seq.Parameters[0][0] {
+				case colorThemeResp: // 997
+					m := ColorThemeMode(seq.Parameters[1][0])
+					vx.PostEvent(ColorThemeUpdate{
+						Mode: m,
+					})
+				}
+				return
+			}
 		case 'y':
 			// DECRPM - DEC Report Mode
 			if len(seq.Parameters) < 1 {
@@ -653,6 +671,15 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 				switch seq.Parameters[1][0] {
 				case 1, 2:
 					vx.PostEvent(unicodeCoreCap{})
+				}
+			case 2031:
+				if len(seq.Parameters) < 2 {
+					log.Error("not enough DECRPM params")
+					return
+				}
+				switch seq.Parameters[1][0] {
+				case 1, 2:
+					vx.PostEvent(notifyColorChange{})
 				}
 			}
 			return
@@ -767,6 +794,7 @@ func (vx *Vaxis) sendQueries() {
 
 	_, _ = vx.tw.WriteString(decrqm(synchronizedUpdate))
 	_, _ = vx.tw.WriteString(decrqm(unicodeCore))
+	_, _ = vx.tw.WriteString(decrqm(colorThemeUpdates))
 	_, _ = vx.tw.WriteString(xtversion)
 	_, _ = vx.tw.WriteString(kittyKBQuery)
 	_, _ = vx.tw.WriteString(kittyGquery)
@@ -804,6 +832,13 @@ func (vx *Vaxis) enableModes() {
 		_, _ = vx.tw.WriteString(decset(unicodeCore))
 	}
 
+	// Mode 2031: color scheme updates
+	if vx.caps.colorThemeUpdates {
+		_, _ = vx.tw.WriteString(decset(colorThemeUpdates))
+		// Let's query the current mode also
+		_, _ = vx.tw.WriteString(tparm(dsr, colorThemeReq))
+	}
+
 	// TODO: query for bracketed paste support?
 	_, _ = vx.tw.WriteString(decset(bracketedPaste)) // bracketed paste
 	_, _ = vx.tw.WriteString(decset(cursorKeys))     // application cursor keys
@@ -831,6 +866,9 @@ func (vx *Vaxis) disableModes() {
 	}
 	if vx.caps.unicodeCore {
 		_, _ = vx.tw.WriteString(decrst(unicodeCore))
+	}
+	if vx.caps.colorThemeUpdates {
+		_, _ = vx.tw.WriteString(decrst(colorThemeUpdates))
 	}
 	_, _ = vx.tw.WriteString(tparm(mouseShape, MouseShapeDefault))
 	_, _ = vx.tw.Flush()

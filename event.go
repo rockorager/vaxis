@@ -14,6 +14,7 @@ type (
 	kittyGraphics          struct{}
 	styledUnderlines       struct{}
 	truecolor              struct{}
+	notifyColorChange      struct{}
 )
 
 // Resize is delivered whenever a window size change is detected (likely via
@@ -54,3 +55,20 @@ type syncFunc func()
 // application calls vaxis.Close, and often times won't be seen by the
 // application.
 type QuitEvent struct{}
+
+// ColorThemeMode is the current color theme of the terminal. The raw value is
+// equivalent to the DSR response value for each mode.
+type ColorThemeMode int
+
+const (
+	// The terminal has a dark color theme
+	DarkMode ColorThemeMode = 1
+	// The terminal has a light color theme
+	LightMode ColorThemeMode = 2
+)
+
+// ColorThemeUpdate is sent when the terminal color scheme has changed. This
+// event is only delivered if supported by the terminal
+type ColorThemeUpdate struct {
+	Mode ColorThemeMode
+}

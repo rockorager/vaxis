@@ -8,6 +8,8 @@ const (
 	// Queries
 	// Device Status Report - Cursor Position Report
 	dsrcpr = "\x1b[6n"
+	// Generic DSR
+	dsr = "\x1b[?%dn"
 	// Device primary attributes
 	primaryAttributes  = "\x1b[c"
 	tertiaryAttributes = "\x1b[=c"
@@ -86,7 +88,12 @@ const (
 	bracketedPaste     = 2004
 	synchronizedUpdate = 2026
 	unicodeCore        = 2027
+	colorThemeUpdates  = 2031
 	sixelScrolling     = 8452
+
+	// dsr requests/responses
+	colorThemeReq  = 996
+	colorThemeResp = 997
 )
 
 func decset(mode int) string {
