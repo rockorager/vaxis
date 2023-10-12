@@ -37,7 +37,7 @@ func (m *Model) Draw(w vaxis.Window) {
 	if m.spinning {
 		w.SetCell(0, 0, vaxis.Cell{
 			Character: vaxis.Character{
-				Grapheme: string(m.Frames),
+				Grapheme: string(m.Frames[m.frame]),
 				Width:    1,
 			},
 			Style: m.Style,
