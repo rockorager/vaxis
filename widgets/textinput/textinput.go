@@ -24,6 +24,8 @@ type Model struct {
 
 	cursor int // the x position of the cursor, relative to the start of Content
 	offset int
+
+	paste []rune
 }
 
 func New() *Model {
@@ -51,8 +53,17 @@ func (m *Model) String() string {
 
 func (m *Model) Update(msg vaxis.Event) {
 	switch msg := msg.(type) {
+	case vaxis.PasteEndEvent:
+		chars := vaxis.Characters(string(m.paste))
+		m.content = slices.Insert(m.content, m.cursor, chars...)
+		m.cursor += len(chars)
+		m.paste = []rune{}
 	case vaxis.Key:
 		if msg.EventType == vaxis.EventRelease {
+			return
+		}
+		if msg.EventType == vaxis.EventPaste {
+			m.paste = append(m.paste, []rune(msg.Text)...)
 			return
 		}
 		switch msg.String() {
@@ -141,13 +152,12 @@ func (m *Model) Update(msg vaxis.Event) {
 			if msg.Modifiers&vaxis.ModSuper != 0 {
 				return
 			}
-			if unicode.IsGraphic(msg.Keycode) {
-				egc := vaxis.Character{
-					Grapheme: string(msg.Keycode),
-					Width:    1,
+			if msg.Text != "" {
+				chars := vaxis.Characters(msg.Text)
+				for _, char := range chars {
+					m.content = slices.Insert(m.content, m.cursor, char)
+					m.cursor += 1
 				}
-				m.content = slices.Insert(m.content, m.cursor, egc)
-				m.cursor += 1
 			}
 		}
 	}

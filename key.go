@@ -402,7 +402,6 @@ func decodeKey(seq ansi.Sequence) Key {
 		switch rune(seq) {
 		case 0x08:
 			key.Keycode = KeyBackspace
-			key.Modifiers = ModCtrl
 		case 0x09:
 			key.Keycode = KeyTab
 		case 0x0D:
