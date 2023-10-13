@@ -1146,3 +1146,15 @@ func (vx *Vaxis) reportWinsize() (Resize, error) {
 		YPixel: int(ws.Ypixel),
 	}, nil
 }
+
+func (vx *Vaxis) CanKittyGraphics() bool {
+	return vx.caps.kittyGraphics
+}
+
+func (vx *Vaxis) CanSixel() bool {
+	return vx.caps.sixels
+}
+
+func (vx *Vaxis) CanDisplayGraphics() bool {
+	return vx.caps.sixels || vx.caps.kittyGraphics
+}
