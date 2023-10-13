@@ -164,6 +164,7 @@ func (m *Model) Draw(win vaxis.Window) {
 	if winW == 0 {
 		return
 	}
+	win.Clear()
 	col := 0
 	for _, char := range m.prompt {
 		cell := vaxis.Cell{
