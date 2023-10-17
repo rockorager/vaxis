@@ -1008,7 +1008,7 @@ func (vx *Vaxis) showCursor() string {
 
 // Reports the current cursor position. 0,0 is the upper left corner. Reports
 // -1,-1 if the query times out or fails
-func (vx *Vaxis) CursorPosition() (col int, row int) {
+func (vx *Vaxis) CursorPosition() (row int, col int) {
 	// DSRCPR - reports cursor position
 	vx.reqCursorPos.Store(true)
 	_, _ = vx.tty.WriteString(dsrcpr)
