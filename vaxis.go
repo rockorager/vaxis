@@ -73,6 +73,7 @@ type Vaxis struct {
 	chSignal         chan os.Signal
 	chCursorPos      chan [2]int
 	chQuit           chan bool
+	chSuspend        chan bool
 	winSize          Resize
 	caps             capabilities
 	graphicsProtocol int
@@ -894,11 +895,12 @@ func (vx *Vaxis) exitAltScreen() {
 // run another TUI. The state of vaxis will be retained, so you can reenter the
 // original state by calling Resume
 func (vx *Vaxis) Suspend() error {
-	signal.Stop(vx.chSignal)
 	vx.disableModes()
 	vx.exitAltScreen()
-	_ = term.Restore(int(vx.tty.Fd()), vx.state)
+	close(vx.chSuspend)
 	vx.tty.Close()
+	signal.Stop(vx.chSignal)
+	_ = term.Restore(int(vx.tty.Fd()), vx.state)
 	return nil
 }
 
@@ -914,6 +916,7 @@ func (vx *Vaxis) openTty() error {
 	if err != nil {
 		return err
 	}
+	vx.chSuspend = make(chan bool)
 	parser := ansi.NewParser(vx.tty)
 	go func() {
 		defer func() {
@@ -923,6 +926,8 @@ func (vx *Vaxis) openTty() error {
 		}()
 		for {
 			select {
+			case <-vx.chSuspend:
+				return
 			case seq := <-parser.Next():
 				switch seq := seq.(type) {
 				case ansi.EOF:
