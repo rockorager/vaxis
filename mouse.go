@@ -41,8 +41,8 @@ const (
 	MouseShapeHelp             MouseShape = "help"
 	MouseShapeBusyBackground   MouseShape = "progress"
 	MouseShapeBusy             MouseShape = "wait"
-	MouseShapeResizeHorizontal MouseShape = "col-resize"
-	MouseShapeResizeVertical   MouseShape = "row-resize"
+	MouseShapeResizeHorizontal MouseShape = "ew-resize"
+	MouseShapeResizeVertical   MouseShape = "ns-resize"
 	// The thick plus sign cursor that's typically used in spread-sheet applications to select cells.
 	MouseShapeCell MouseShape = "cell"
 )
