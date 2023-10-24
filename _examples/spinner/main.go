@@ -17,6 +17,10 @@ func main() {
 	spinner.Start()
 	for ev := range vx.Events() {
 		switch ev := ev.(type) {
+		case vaxis.Resize:
+			vx.Resize(ev)
+		case vaxis.SyncFunc:
+			ev()
 		case vaxis.Key:
 			switch ev.String() {
 			case "Ctrl+c":

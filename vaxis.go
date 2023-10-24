@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"fmt"
 	"io"
 	"os"
 	"os/signal"
@@ -55,10 +56,14 @@ type Options struct {
 	// ReportKeyboardEvents will report key release and key repeat events if
 	// KittyKeyboardProtocol is enabled and supported by the terminal
 	ReportKeyboardEvents bool
+	// The size of the event queue channel. This will default to 1024 to
+	// prevent any blocking on writes.
+	EventQueueSize int
 }
 
 type Vaxis struct {
-	queue            *Queue[Event]
+	// queue            *Queue[Event]
+	queue            chan Event
 	tty              *os.File
 	state            *term.State
 	tw               *writer
@@ -116,7 +121,12 @@ func New(opts Options) (*Vaxis, error) {
 		vx.kittyFlags += 2
 	}
 
-	vx.queue = NewQueue[Event]()
+	if opts.EventQueueSize < 1 {
+		opts.EventQueueSize = 1024
+	}
+
+	// vx.queue = NewQueue[Event]()
+	vx.queue = make(chan Event, opts.EventQueueSize)
 	vx.screenNext = newScreen()
 	vx.screenLast = newScreen()
 	vx.graphicsNext = make(map[int]*placement)
@@ -138,7 +148,7 @@ outer:
 		case <-ctx.Done():
 			log.Warn("terminal did not respond to DA1 query")
 			break outer
-		case ev := <-vx.queue.Chan():
+		case ev := <-vx.queue:
 			switch ev.(type) {
 			case primaryDeviceAttribute:
 				break outer
@@ -203,7 +213,13 @@ outer:
 
 // PostEvent inserts an event into the [Vaxis] event loop
 func (vx *Vaxis) PostEvent(ev Event) {
-	vx.queue.Push(ev)
+	select {
+	case vx.queue <- ev:
+		return
+	default:
+		evType := fmt.Sprintf("%T", ev)
+		log.Warn("Event dropped", "type", evType)
+	}
 }
 
 // SyncFunc queues a function to be called from the main thread. vaxis will call
@@ -211,21 +227,24 @@ func (vx *Vaxis) PostEvent(ev Event) {
 // PollEvent or Events. A Redraw event will be sent to the host application
 // after the function is completed
 func (vx *Vaxis) SyncFunc(fn func()) {
-	vx.PostEvent(syncFunc(fn))
+	vx.PostEvent(SyncFunc(fn))
 }
 
 // PollEvent blocks until there is an Event, and returns that Event
 func (vx *Vaxis) PollEvent() Event {
 	for {
 		select {
-		case ev := <-vx.queue.Chan():
+		case ev, ok := <-vx.queue:
+			if !ok {
+				return QuitEvent{}
+			}
 			switch e := ev.(type) {
 			case Resize:
 				vx.mu.Lock()
 				vx.screenNext.resize(e.Cols, e.Rows)
 				vx.screenLast.resize(e.Cols, e.Rows)
 				vx.mu.Unlock()
-			case syncFunc:
+			case SyncFunc:
 				e()
 				ev = Redraw{}
 			}
@@ -236,35 +255,43 @@ func (vx *Vaxis) PollEvent() Event {
 	}
 }
 
-// Events returns a channel of events. This should only be called once: it will
-// create a channel for you to listen on. Multiple calls will kick off multiple
-// goroutines.
+func (vx *Vaxis) Resize(size Resize) {
+	vx.mu.Lock()
+	vx.screenNext.resize(size.Cols, size.Rows)
+	vx.screenLast.resize(size.Cols, size.Rows)
+	vx.mu.Unlock()
+}
+
+// Events returns the channel of events. Callers of Events must handle a few
+// events:
 //
-// Good use:
+// Resize: this event is emitted when a resize of the underlying terminal
+// happens. The main thread needs to pass this back into the vaxis.Resize method
+// to resize the internal model from the main thread
 //
-//	for ev := range vx.Events() {
-//		// do something
-//	}
+// SyncFunc: this event is emitted from calls to vaxis.SyncFunc. This event is a
+// function, and the main thread must call it
 func (vx *Vaxis) Events() chan Event {
-	ch := make(chan Event)
-	go func() {
-		defer func() {
-			if err := recover(); err != nil {
-				vx.Close()
-			}
-		}()
-		for {
-			ev := vx.PollEvent()
-			switch ev.(type) {
-			case QuitEvent:
-				close(ch)
-				return
-			default:
-				ch <- ev
-			}
-		}
-	}()
-	return ch
+	return vx.queue
+	// ch := make(chan Event)
+	// go func() {
+	// 	defer func() {
+	// 		if err := recover(); err != nil {
+	// 			vx.Close()
+	// 		}
+	// 	}()
+	// 	for {
+	// 		ev := vx.PollEvent()
+	// 		switch ev.(type) {
+	// 		case QuitEvent:
+	// 			close(ch)
+	// 			return
+	// 		default:
+	// 			ch <- ev
+	// 		}
+	// 	}
+	// }()
+	// return ch
 }
 
 // Close shuts down the event loops and returns the terminal to it's original
@@ -901,6 +928,7 @@ func (vx *Vaxis) Suspend() error {
 	vx.tty.Close()
 	signal.Stop(vx.chSignal)
 	_ = term.Restore(int(vx.tty.Fd()), vx.state)
+	defer close(vx.queue)
 	return nil
 }
 

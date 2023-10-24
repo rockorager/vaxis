@@ -14,6 +14,8 @@ type model struct {
 
 func (m *model) Update(msg vaxis.Event) {
 	switch msg := msg.(type) {
+	case vaxis.Resize:
+		m.vx.Resize(msg)
 	case vaxis.Key:
 		switch msg.String() {
 		case "Ctrl+c", "q":

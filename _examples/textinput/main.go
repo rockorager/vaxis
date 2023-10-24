@@ -39,6 +39,8 @@ func main() {
 	ti := textinput.NewMenuComplete(complete)
 	for ev := range vx.Events() {
 		switch ev := ev.(type) {
+		case vaxis.Resize:
+			vx.Resize(ev)
 		case vaxis.Key:
 			switch ev.String() {
 			case "Ctrl+c":

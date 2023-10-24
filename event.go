@@ -49,7 +49,7 @@ type Redraw struct{}
 // call the function and send an empty SyncFunc event to the application to
 // signal that something has been updated (probably the application needs to
 // redraw itself)
-type syncFunc func()
+type SyncFunc func()
 
 // QuitEvent is sent when the application is closing. It is emitted when the
 // application calls vaxis.Close, and often times won't be seen by the

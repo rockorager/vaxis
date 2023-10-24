@@ -24,6 +24,7 @@ func main() {
 	for ev := range vx.Events() {
 		switch ev := ev.(type) {
 		case vaxis.Resize:
+			vx.Resize(ev)
 			win := vx.Window()
 			win.Clear()
 			win.Print(vaxis.Segment{
