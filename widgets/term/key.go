@@ -69,10 +69,8 @@ func encodeXterm(key vaxis.Key, deckpam bool, decckm bool) string {
 			return buf.String()
 		}
 		if xtermMods&vaxis.ModShift != 0 {
-			if unicode.IsLower(key.Keycode) {
-				buf.WriteRune(unicode.ToUpper(key.Keycode))
-				return buf.String()
-			}
+			buf.WriteRune(key.ShiftedCode)
+			return buf.String()
 		}
 		buf.WriteRune(key.Keycode)
 		return buf.String()
