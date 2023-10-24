@@ -894,7 +894,8 @@ func (vx *Vaxis) disableModes() {
 	if vx.caps.colorThemeUpdates {
 		_, _ = vx.tw.WriteString(decrst(colorThemeUpdates))
 	}
-	_, _ = vx.tw.WriteString(tparm(mouseShape, MouseShapeDefault))
+	// Most terminals default to "text" mouse shape
+	_, _ = vx.tw.WriteString(tparm(mouseShape, MouseShapeTextInput))
 	_, _ = vx.tw.Flush()
 }
 
