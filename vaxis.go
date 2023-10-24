@@ -379,6 +379,9 @@ func (vx *Vaxis) render() {
 			}
 			vx.screenLast.buf[row][col] = next
 			if reposition {
+				if cursor.Hyperlink != "" {
+					_, _ = vx.tw.WriteString(tparm(osc8, "", ""))
+				}
 				_, _ = vx.tw.WriteString(tparm(cup, row+1, col+1))
 				reposition = false
 			}
@@ -544,6 +547,9 @@ func (vx *Vaxis) render() {
 			if cursor.Hyperlink != next.Hyperlink {
 				link := next.Hyperlink
 				linkPs := next.HyperlinkParams
+				if link == "" {
+					linkPs = ""
+				}
 				_, _ = vx.tw.WriteString(tparm(osc8, linkPs, link))
 			}
 
@@ -569,6 +575,9 @@ func (vx *Vaxis) render() {
 			}
 			col += skip
 		}
+	}
+	if cursor.Hyperlink != "" {
+		_, _ = vx.tw.WriteString(tparm(osc8, "", ""))
 	}
 	if vx.cursorNext.visible && !vx.cursorLast.visible {
 		_, _ = vx.tw.WriteString(vx.showCursor())
