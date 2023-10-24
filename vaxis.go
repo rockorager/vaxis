@@ -255,43 +255,27 @@ func (vx *Vaxis) PollEvent() Event {
 	}
 }
 
-func (vx *Vaxis) Resize(size Resize) {
-	vx.mu.Lock()
-	vx.screenNext.resize(size.Cols, size.Rows)
-	vx.screenLast.resize(size.Cols, size.Rows)
-	vx.mu.Unlock()
-}
-
-// Events returns the channel of events. Callers of Events must handle a few
-// events:
-//
-// Resize: this event is emitted when a resize of the underlying terminal
-// happens. The main thread needs to pass this back into the vaxis.Resize method
-// to resize the internal model from the main thread
-//
-// SyncFunc: this event is emitted from calls to vaxis.SyncFunc. This event is a
-// function, and the main thread must call it
+// Events returns the channel of events.
 func (vx *Vaxis) Events() chan Event {
-	return vx.queue
-	// ch := make(chan Event)
-	// go func() {
-	// 	defer func() {
-	// 		if err := recover(); err != nil {
-	// 			vx.Close()
-	// 		}
-	// 	}()
-	// 	for {
-	// 		ev := vx.PollEvent()
-	// 		switch ev.(type) {
-	// 		case QuitEvent:
-	// 			close(ch)
-	// 			return
-	// 		default:
-	// 			ch <- ev
-	// 		}
-	// 	}
-	// }()
-	// return ch
+	ch := make(chan Event)
+	go func() {
+		defer func() {
+			if err := recover(); err != nil {
+				vx.Close()
+			}
+		}()
+		for {
+			ev := vx.PollEvent()
+			switch ev.(type) {
+			case QuitEvent:
+				close(ch)
+				return
+			default:
+				ch <- ev
+			}
+		}
+	}()
+	return ch
 }
 
 // Close shuts down the event loops and returns the terminal to it's original
@@ -928,7 +912,6 @@ func (vx *Vaxis) Suspend() error {
 	vx.tty.Close()
 	signal.Stop(vx.chSignal)
 	_ = term.Restore(int(vx.tty.Fd()), vx.state)
-	defer close(vx.queue)
 	return nil
 }
 
