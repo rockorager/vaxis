@@ -15,7 +15,8 @@ func main() {
 	})
 	slog.SetDefault(slog.New(h))
 	vx, err := vaxis.New(vaxis.Options{
-		Logger: slog.Default(),
+		Logger:       slog.Default(),
+		DisableMouse: true,
 	})
 	if err != nil {
 		panic(err)

@@ -59,6 +59,8 @@ type Options struct {
 	// The size of the event queue channel. This will default to 1024 to
 	// prevent any blocking on writes.
 	EventQueueSize int
+	// Disable mouse events
+	DisableMouse bool
 }
 
 type Vaxis struct {
@@ -90,6 +92,7 @@ type Vaxis struct {
 	closed           bool
 	refresh          bool
 	kittyFlags       int
+	disableMouse     bool
 
 	renders int
 	elapsed time.Duration
@@ -123,6 +126,10 @@ func New(opts Options) (*Vaxis, error) {
 
 	if opts.EventQueueSize < 1 {
 		opts.EventQueueSize = 1024
+	}
+
+	if opts.DisableMouse {
+		vx.disableMouse = true
 	}
 
 	// vx.queue = NewQueue[Event]()
@@ -856,9 +863,12 @@ func (vx *Vaxis) enableModes() {
 	_, _ = vx.tw.WriteString(decset(cursorKeys))     // application cursor keys
 	_, _ = vx.tw.WriteString(applicationMode)        // application cursor keys mode
 	// TODO: Query for mouse modes or just hope for the best?
-	_, _ = vx.tw.WriteString(decset(mouseAllEvents))
-	_, _ = vx.tw.WriteString(decset(mouseFocusEvents))
-	_, _ = vx.tw.WriteString(decset(mouseSGR))
+
+	if !vx.disableMouse {
+		_, _ = vx.tw.WriteString(decset(mouseAllEvents))
+		_, _ = vx.tw.WriteString(decset(mouseFocusEvents))
+		_, _ = vx.tw.WriteString(decset(mouseSGR))
+	}
 	_, _ = vx.tw.Flush()
 }
 
@@ -870,9 +880,11 @@ func (vx *Vaxis) disableModes() {
 	}
 	_, _ = vx.tw.WriteString(decrst(cursorKeys))
 	_, _ = vx.tw.WriteString(numericMode)
-	_, _ = vx.tw.WriteString(decrst(mouseAllEvents))
-	_, _ = vx.tw.WriteString(decrst(mouseFocusEvents))
-	_, _ = vx.tw.WriteString(decrst(mouseSGR))
+	if !vx.disableMouse {
+		_, _ = vx.tw.WriteString(decrst(mouseAllEvents))
+		_, _ = vx.tw.WriteString(decrst(mouseFocusEvents))
+		_, _ = vx.tw.WriteString(decrst(mouseSGR))
+	}
 	if vx.caps.sixels {
 		_, _ = vx.tw.WriteString(decrst(sixelScrolling))
 	}
