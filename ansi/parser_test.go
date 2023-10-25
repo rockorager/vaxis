@@ -596,15 +596,14 @@ func TestEscape(t *testing.T) {
 			},
 		},
 		{
-			name:  "with ignore",
-			input: "a\x1b\x7FWc",
+			name:  "ESC Backspace",
+			input: "a\x1b\x7f",
 			expected: []Sequence{
 				Print('a'),
 				ESC{
-					Final:        'W',
+					Final:        0x7F,
 					Intermediate: []rune{},
 				},
-				Print('c'),
 			},
 		},
 	}

@@ -727,16 +727,13 @@ func escape(r rune, p *Parser) stateFn {
 	case in(r, 0x00, 0x17), is(r, 0x19), in(r, 0x1C, 0x1F):
 		p.execute(r)
 		return escape
-	case is(r, 0x7F):
-		// ignore
-		return escape
 	case in(r, 0x20, 0x2F):
 		p.collect(r)
 		return escapeIntermediate
 	case in(r, 0x30, 0x4E),
 		in(r, 0x51, 0x57),
 		is(r, 0x59, 0x5A),
-		in(r, 0x60, 0x7E):
+		in(r, 0x60, 0x7F): // 0x7F is included here to allow for Alt+BackSpace inputs
 		p.escapeDispatch(r)
 		return ground
 	case is(r, 0x5C):
