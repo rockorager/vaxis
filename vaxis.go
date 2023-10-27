@@ -103,8 +103,31 @@ type Vaxis struct {
 // New creates a new [Vaxis] instance. Calling New will query the underlying
 // terminal for supported features and enter the alternate screen
 func New(opts Options) (*Vaxis, error) {
-	if opts.Logger != nil {
-		log = opts.Logger
+	switch os.Getenv("VAXIS_LOG_LEVEL") {
+	case "debug":
+		h := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		})
+		log = slog.New(h)
+	case "info":
+		h := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+			Level: slog.LevelInfo,
+		})
+		log = slog.New(h)
+	case "warn":
+		h := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+			Level: slog.LevelWarn,
+		})
+		log = slog.New(h)
+	case "error":
+		h := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+			Level: slog.LevelError,
+		})
+		log = slog.New(h)
+	default:
+		if opts.Logger != nil {
+			log = opts.Logger
+		}
 	}
 
 	// Disambiguate, report alternate keys, report all keys as escapes, report associated text
