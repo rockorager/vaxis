@@ -233,6 +233,22 @@ outer:
 		syscall.SIGSEGV,
 		syscall.SIGTERM,
 	)
+
+	switch os.Getenv("VAXIS_GRAPHICS") {
+	case "none":
+		vx.graphicsProtocol = noGraphics
+	case "full":
+		vx.graphicsProtocol = fullBlock
+	case "sixel":
+		vx.graphicsProtocol = sixelGraphics
+	case "kitty":
+		vx.graphicsProtocol = kitty
+	default:
+		if vx.graphicsProtocol < fullBlock {
+			vx.graphicsProtocol = fullBlock
+		}
+	}
+
 	vx.winSize, err = vx.reportWinsize()
 	if err != nil {
 		return nil, err
