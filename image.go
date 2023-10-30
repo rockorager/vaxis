@@ -93,7 +93,7 @@ func (k *KittyImage) Draw(win Window) {
 			k.uploaded.Store(true)
 			k.buf.Reset()
 		}
-		fmt.Fprintf(w, "\x1B_Ga=p,i=%d,p=%d\x1B\\", k.id, pid)
+		fmt.Fprintf(w, "\x1B_Ga=p,i=%d,p=%d,C=1\x1B\\", k.id, pid)
 	}
 	deleteFunc := func(w io.Writer) {
 		fmt.Fprintf(w, "\x1B_Ga=d,d=i,i=%d,p=%d\x1B\\", k.id, pid)
