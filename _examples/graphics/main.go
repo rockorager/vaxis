@@ -14,28 +14,36 @@ func main() {
 		panic(err)
 	}
 	defer vx.Close()
-	img, err := newImage(vx)
+	img, err := newImage()
 	if err != nil {
 		panic(err)
 	}
+	vImg, err := vx.NewImage(img)
+	if err != nil {
+		panic(err)
+	}
+	defer vImg.Destroy()
 	for ev := range vx.Events() {
 		switch ev := ev.(type) {
 		case vaxis.Resize:
-			win := vx.Window()
-			win.Clear()
-			w, h := img.CellSize()
-			img.Draw(align.Center(win, w, h))
-			vx.Render()
+			w, h := vx.Window().Size()
+			vImg.Resize(w/2, h/2)
 		case vaxis.Key:
 			switch ev.String() {
 			case "Ctrl+c":
 				return
 			}
 		}
+		win := vx.Window()
+		win.Clear()
+		w, h := vImg.CellSize()
+		win = align.Center(win, w, h)
+		vImg.Draw(win)
+		vx.Render()
 	}
 }
 
-func newImage(vx *vaxis.Vaxis) (*vaxis.Graphic, error) {
+func newImage() (image.Image, error) {
 	f, err := os.Open("./_examples/graphics/vaxis.png")
 	if err != nil {
 		return nil, err
@@ -44,5 +52,5 @@ func newImage(vx *vaxis.Vaxis) (*vaxis.Graphic, error) {
 	if err != nil {
 		return nil, err
 	}
-	return vx.NewGraphic(graphic)
+	return graphic, nil
 }

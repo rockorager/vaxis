@@ -7,8 +7,7 @@ import (
 	"image"
 	"image/png"
 	"io"
-	"math"
-	"strconv"
+	"sync/atomic"
 
 	"github.com/mattn/go-sixel"
 	"golang.org/x/image/draw"
@@ -20,45 +19,120 @@ const (
 	kitty
 )
 
-// Graphic is an image which will be displayed in the terminal
-type Graphic struct {
-	vx          *Vaxis
-	placement   string
-	pixelWidth  int
-	pixelHeight int
-	id          uint64
+// Image is a static image on the screen
+type Image interface {
+	// Draw draws the [Image] to the [Window]. The image will not be drawn
+	// if it is larger than the window
+	Draw(Window)
+	// Destroy removes an image from memory. Call when done with this image
+	Destroy()
+	// Resizes the image to fit within the provided area. The image will not
+	// be upscaled, nor will it's aspect ratio be changed
+	Resize(w int, h int)
+	// CellSize is the current cell size of the encoded image
+	CellSize() (w int, h int)
 }
 
-// NewGraphic loads a graphic into memory. Depending on the terminal
-// capabilities, this can mean that vaxis will retain a sixel-encoded string or
-// it could mean that vaxis loads the graphic into the terminals memory (kitty)
-func (vx *Vaxis) NewGraphic(img image.Image) (*Graphic, error) {
-	vx.graphicsIDNext += 1
-
-	g := &Graphic{
-		id:          vx.graphicsIDNext,
-		pixelWidth:  img.Bounds().Max.X,
-		pixelHeight: img.Bounds().Max.Y,
-		vx:          vx,
-	}
-
+// NewImage creates a new image using the highest quality renderer the terminal
+// is capable of
+func (vx *Vaxis) NewImage(img image.Image) (Image, error) {
 	switch vx.graphicsProtocol {
 	case sixelGraphics:
-		buf := bytes.NewBuffer(nil)
-		err := sixel.NewEncoder(buf).Encode(img)
-		if err != nil {
-			return nil, err
-		}
-		g.placement = buf.String()
+		return vx.NewSixel(img), nil
 	case kitty:
+		return vx.NewKittyGraphic(img), nil
+	default:
+		return nil, fmt.Errorf("no supported image protocol")
+	}
+}
+
+type KittyImage struct {
+	vx       *Vaxis
+	img      image.Image
+	id       uint64
+	w        int
+	h        int
+	uploaded atomic.Bool
+	encoding atomic.Bool
+	buf      *bytes.Buffer
+}
+
+func (vx *Vaxis) NewKittyGraphic(img image.Image) *KittyImage {
+	k := &KittyImage{
+		vx:  vx,
+		img: img,
+		id:  vx.nextGraphicID(),
+		buf: bytes.NewBuffer(nil),
+	}
+	return k
+}
+
+// Draw draws the [Image] to the [Window].
+func (k *KittyImage) Draw(win Window) {
+	if k.encoding.Load() {
+		return
+	}
+	col, row := win.Origin()
+	// the pid is a 32 bit number where the high 16bits are the width and
+	// the low 16 are the height
+	pid := uint(col)<<16 | uint(row)
+	writeFunc := func(w io.Writer) {
+		if !k.uploaded.Load() {
+			w.Write(k.buf.Bytes())
+			k.uploaded.Store(true)
+			k.buf.Reset()
+		}
+		fmt.Fprintf(w, "\x1B_Ga=p,i=%d,p=%d\x1B\\", k.id, pid)
+	}
+	deleteFunc := func(w io.Writer) {
+		fmt.Fprintf(w, "\x1B_Ga=d,d=i,i=%d,p=%d\x1B\\", k.id, pid)
+	}
+	placement := &placement{
+		col:      col,
+		row:      row,
+		writeTo:  writeFunc,
+		deleteFn: deleteFunc,
+		pid:      pid,
+	}
+	k.vx.graphicsNext[int(pid)] = placement
+}
+
+// Destroy deletes this image from memory
+func (k *KittyImage) Destroy() {
+	fmt.Fprintf(k.vx.tty, "\x1B_Ga=d,d=I,i=%d\x1B\\", k.id)
+}
+
+func (k *KittyImage) CellSize() (w int, h int) {
+	return k.w, k.h
+}
+
+// Resizes the image to fit within the wxh area. The image will not be
+// upscaled, nor will it's aspect ratio be changed. Resizing will be done in a
+// separate goroutine. A [Redraw] event will be posted when complete
+func (k *KittyImage) Resize(w int, h int) {
+	// Resize the image
+	cellPixW := k.vx.winSize.XPixel / k.vx.winSize.Cols
+	cellPixH := k.vx.winSize.YPixel / k.vx.winSize.Rows
+	img := resizeImage(k.img, w, h, cellPixW, cellPixH)
+
+	// Reupload the image
+	k.w = img.Bounds().Max.X / cellPixW
+	k.h = img.Bounds().Max.Y / cellPixH
+
+	k.encoding.Store(true)
+	go func() {
+		defer k.encoding.Store(false)
+		// Encode it to base64
 		buf := bytes.NewBuffer(nil)
 		wc := base64.NewEncoder(base64.StdEncoding, buf)
 		err := png.Encode(wc, img)
 		if err != nil {
-			return nil, err
+			log.Error("couldn't encode kitty image", "error", err)
+			return
 		}
 		wc.Close()
 		b := make([]byte, 4096)
+		k.uploaded.Store(false)
 		for buf.Len() > 0 {
 			n, err := buf.Read(b)
 			if err == io.EOF {
@@ -68,164 +142,148 @@ func (vx *Vaxis) NewGraphic(img image.Image) (*Graphic, error) {
 			if buf.Len() == 0 {
 				m = 0
 			}
-			fmt.Fprintf(vx.tty, "\x1B_Gf=100,i=%d,m=%d;%s\x1B\\", g.id, m, string(b[:n]))
+			fmt.Fprintf(k.buf, "\x1B_Gf=100,i=%d,m=%d;%s\x1B\\", k.id, m, string(b[:n]))
 		}
-		g.placement = fmt.Sprintf("\x1B_GC=1,a=p,i=%d\x1B\\", g.id)
-	default:
-		return nil, fmt.Errorf("no graphics protocol supported")
-	}
-	return g, nil
+		k.vx.PostEvent(Redraw{})
+	}()
 }
 
-// columns x lines
-func (g Graphic) CellSize() (columns int, lines int) {
-	// Looks complicated but we're just calculating the size of the
-	// image in cells, and rounding up since we will always take
-	// over any cell we bleed into.
-	columns = int(math.Ceil(float64(g.pixelWidth) * float64(g.vx.winSize.Cols) / float64(g.vx.winSize.XPixel)))
-	lines = int(math.Ceil(float64(g.pixelHeight) * float64(g.vx.winSize.Rows) / float64(g.vx.winSize.YPixel)))
-	return columns, lines
+type Sixel struct {
+	vx       *Vaxis
+	img      image.Image
+	buf      *bytes.Buffer
+	id       uint64
+	w        int
+	h        int
+	encoding atomic.Bool
 }
 
-func (g Graphic) PixelSize(id uint64) (x int, y int) {
-	return g.pixelWidth, g.pixelHeight
-}
-
-// Draw creates a new image placement.Calling draw is a fast operation: it only
-// queues the image to be drawn. Any new image to be drawn will be done so in the
-// Render call. If the image doesn't require redrawing (the ID, geometry, and
-// location haven't changed), it will persist between renders
-func (g Graphic) Draw(win Window) {
-	col, row := win.Origin()
-	placement := &placement{
-		graphic: &g,
-		col:     col,
-		row:     row,
-	}
-	id, err := placement.id()
-	if err != nil {
+// Draw draws the [Image] to the [Window]. The image will not be drawn
+// if it is larger than the window
+func (s *Sixel) Draw(win Window) {
+	if s.buf.Len() == 0 {
 		return
 	}
-	g.vx.graphicsNext[id] = placement
+	if s.encoding.Load() {
+		return
+	}
+	for y := 0; y < s.h; y += 1 {
+		for x := 0; x < s.w; x += 1 {
+			win.SetCell(x, y, Cell{
+				sixel: true,
+			})
+		}
+	}
+	writeFunc := func(w io.Writer) {
+		w.Write(s.buf.Bytes())
+	}
+	// loop over the locked cells and unlock them
+	deleteFunc := func(_ io.Writer) {
+		for y := 0; y < s.h; y += 1 {
+			for x := 0; x < s.w; x += 1 {
+				win.SetCell(x, y, Cell{
+					sixel: false,
+				})
+			}
+		}
+	}
+	col, row := win.Origin()
+	// the pid is a 32 bit number where the high 16bits are the width and
+	// the low 16 are the height
+	pid := uint(col)<<16 | uint(row)
+	placement := &placement{
+		col:      col,
+		row:      row,
+		writeTo:  writeFunc,
+		deleteFn: deleteFunc,
+		pid:      pid,
+	}
+	s.vx.graphicsNext[int(pid)] = placement
 }
 
-// Delete removes the graphic from memory
-func (g *Graphic) Delete() {
-	switch g.vx.graphicsProtocol {
-	case sixelGraphics:
-		g.placement = ""
-	case kitty:
-		fmt.Fprintf(g.vx.tty, "\x1B_Ga=d,d=I,i=%d\x1B\\", g.id)
+// Destroy removes an image from memory. Call when done with this image
+func (s *Sixel) Destroy() {
+	s.buf.Reset()
+}
+
+// Resizes the image to fit within the wxh area. The image will not be
+// upscaled, nor will it's aspect ratio be changed. Resize will be done in a
+// separate gorotuine. A Redraw event will be posted when complete
+func (s *Sixel) Resize(w int, h int) {
+	s.encoding.Store(true)
+	go func() {
+		defer s.encoding.Store(false)
+		// Resize the image
+		cellPixW := s.vx.winSize.XPixel / s.vx.winSize.Cols
+		cellPixH := s.vx.winSize.YPixel / s.vx.winSize.Rows
+		img := resizeImage(s.img, w, h, cellPixW, cellPixH)
+		s.w = img.Bounds().Max.X / cellPixW
+		s.h = img.Bounds().Max.Y / cellPixH
+		// Re-encode the image
+		s.buf.Reset()
+		err := sixel.NewEncoder(s.buf).Encode(img)
+		if err != nil {
+			log.Error("couldn't encode sixel: %v", err)
+			return
+		}
+		s.vx.PostEvent(Redraw{})
+	}()
+}
+
+// CellSize is the current cell size of the encoded image
+func (s *Sixel) CellSize() (w int, h int) {
+	return s.w, s.h
+}
+
+func (vx *Vaxis) NewSixel(img image.Image) *Sixel {
+	s := &Sixel{
+		vx:  vx,
+		img: img,
+		id:  vx.nextGraphicID(),
+		buf: bytes.NewBuffer(nil),
 	}
+	return s
 }
 
 // placement is an image placement. If two placements are identical, the
 // image will not be redrawn
 type placement struct {
-	graphic *Graphic
-	col     int
-	row     int
-}
-
-func (p placement) id() (int, error) {
-	idStr := fmt.Sprintf("%d%d%d", p.graphic.id, p.col, p.row)
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		// This will probably never happen?? Not sure how it could
-		return 0, err
-	}
-	return id, nil
-}
-
-// delete clears the sixel flag on cells, or if kitty protocol is
-// supported it deletes via that protocol
-func (p *placement) delete() string {
-	switch p.graphic.vx.graphicsProtocol {
-	case kitty:
-		id, err := p.id()
-		if err != nil {
-			// fallback to deleting all placements for this graphic
-			return fmt.Sprintf("\x1B_Ga=d,d=i,i=%d\x1B\\", p.graphic.id)
-		}
-		return fmt.Sprintf("\x1B_Ga=d,d=i,i=%d,p=%d\x1B\\", p.graphic.id, id)
-	case sixelGraphics:
-		// For sixels we just have to loop over an remove the
-		// sixel lock
-		w, h := p.graphic.CellSize()
-		for row := p.row; row < (p.row + h); row += 1 {
-			if row >= len(p.graphic.vx.screenNext.buf) {
-				continue
-			}
-			for col := p.col; col < (p.col + w); col += 1 {
-				if col >= len(p.graphic.vx.screenNext.buf[0]) {
-					continue
-				}
-				p.graphic.vx.screenNext.buf[row][col].sixel = false
-			}
-		}
-	}
-	return ""
-}
-
-func (p *placement) lockRegion() {
-	switch p.graphic.vx.graphicsProtocol {
-	case sixelGraphics:
-		w, h := p.graphic.CellSize()
-		for row := p.row; row < (p.row + h); row += 1 {
-			if row >= len(p.graphic.vx.screenNext.buf) {
-				continue
-			}
-			for col := p.col; col < (p.col + w); col += 1 {
-				if col >= len(p.graphic.vx.screenNext.buf[0]) {
-					continue
-				}
-				p.graphic.vx.screenNext.buf[row][col].sixel = true
-			}
-		}
-	}
-}
-
-// draw
-func (p *placement) draw() string {
-	switch p.graphic.vx.graphicsProtocol {
-	case kitty:
-		id, err := p.id()
-		if err != nil {
-			return p.graphic.placement
-		}
-		return fmt.Sprintf("\x1B_Ga=p,i=%d,p=%d\x1B\\", p.graphic.id, id)
-	}
-	return p.graphic.placement
+	writeTo  func(w io.Writer)
+	deleteFn func(w io.Writer)
+	col      int
+	row      int
+	pid      uint
 }
 
 // Resizes an image to fit within the provided rectangle (as cells). If the
 // image already fits, it won't be resized
-func (vx *Vaxis) ResizeGraphic(img image.Image, w int, h int) image.Image {
-	pixelWidth := img.Bounds().Max.X
-	pixelHeight := img.Bounds().Max.Y
+func resizeImage(img image.Image, w int, h int, cellPixW int, cellPixH int) image.Image {
+	wPix := img.Bounds().Max.X
+	hPix := img.Bounds().Max.Y
 	// Looks complicated but we're just calculating the size of the
 	// image in cells, and rounding up since we will always take
 	// over any cell we bleed into.
-	columns := float64(pixelWidth) * float64(vx.winSize.Cols) / float64(vx.winSize.XPixel)
-	lines := float64(pixelHeight) * float64(vx.winSize.Rows) / float64(vx.winSize.YPixel)
-	if columns <= float64(w) && lines <= float64(h) {
+	columns := wPix / cellPixW
+	lines := hPix / cellPixH
+	if columns <= w && lines <= h {
 		return img
 	}
-	sfX := float64(w) / columns
-	sfY := float64(h) / lines
-	newPixelWidth := pixelWidth
-	newPixelHeight := pixelHeight
+	// calculate scale factors
+	sfX := float64(w) / float64(columns)
+	sfY := float64(h) / float64(lines)
+	newPixelWidth := wPix
+	newPixelHeight := hPix
 	switch {
 	case sfX == sfY:
 		// no-op
 	case sfX < sfY:
 		// Width is farther off, so set our new width to w and scale h
 		// appropriately
-		newPixelWidth = int(sfX * float64(pixelWidth))
-		newPixelHeight = int(sfX * float64(pixelHeight))
+		newPixelWidth = int(sfX * float64(wPix))
+		newPixelHeight = int(sfX * float64(hPix))
 	case sfX > sfY:
-		newPixelWidth = int(sfY * float64(pixelWidth))
-		newPixelHeight = int(sfY * float64(pixelHeight))
+		newPixelWidth = int(sfY * float64(wPix))
+		newPixelHeight = int(sfY * float64(hPix))
 	}
 	dst := image.NewRGBA(image.Rect(0, 0, newPixelWidth, newPixelHeight))
 	draw.NearestNeighbor.Scale(dst, dst.Rect, img, img.Bounds(), draw.Over, nil)

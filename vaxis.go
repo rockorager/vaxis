@@ -359,17 +359,16 @@ func (vx *Vaxis) render() {
 		if _, ok := vx.graphicsNext[id]; ok && !vx.refresh {
 			continue
 		}
-		_, _ = vx.tw.WriteString(p.delete())
+		p.deleteFn(vx.tw)
 		delete(vx.graphicsLast, id)
 	}
 	// draw new placements
 	for id, p := range vx.graphicsNext {
-		p.lockRegion()
 		if _, ok := vx.graphicsLast[id]; ok {
 			continue
 		}
 		_, _ = vx.tw.WriteString(tparm(cup, p.row+1, p.col+1))
-		_, _ = vx.tw.WriteString(p.draw())
+		p.writeTo(vx.tw)
 		vx.graphicsLast[id] = p
 	}
 	if vx.mouseShapeLast != vx.mouseShapeNext {
@@ -1219,4 +1218,9 @@ func (vx *Vaxis) CanSixel() bool {
 
 func (vx *Vaxis) CanDisplayGraphics() bool {
 	return vx.caps.sixels || vx.caps.kittyGraphics
+}
+
+func (vx *Vaxis) nextGraphicID() uint64 {
+	vx.graphicsIDNext += 1
+	return vx.graphicsIDNext
 }
