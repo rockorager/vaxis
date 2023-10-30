@@ -101,11 +101,13 @@ func (k *KittyImage) Draw(win Window) {
 	placement := &placement{
 		col:      col,
 		row:      row,
+		id:       k.id,
+		w:        k.w,
+		h:        k.h,
 		writeTo:  writeFunc,
 		deleteFn: deleteFunc,
-		pid:      pid,
 	}
-	k.vx.graphicsNext[int(pid)] = placement
+	k.vx.graphicsNext = append(k.vx.graphicsNext, placement)
 }
 
 // Destroy deletes this image from memory
@@ -190,6 +192,14 @@ func (s *Sixel) Draw(win Window) {
 		}
 	}
 	writeFunc := func(w io.Writer) {
+		// Also need to set sixel value in here for Refresh cycles
+		for y := 0; y < s.h; y += 1 {
+			for x := 0; x < s.w; x += 1 {
+				win.SetCell(x, y, Cell{
+					sixel: true,
+				})
+			}
+		}
 		w.Write(s.buf.Bytes())
 	}
 	// loop over the locked cells and unlock them
@@ -203,17 +213,16 @@ func (s *Sixel) Draw(win Window) {
 		}
 	}
 	col, row := win.Origin()
-	// the pid is a 32 bit number where the high 16bits are the width and
-	// the low 16 are the height
-	pid := uint(col)<<16 | uint(row)
 	placement := &placement{
 		col:      col,
 		row:      row,
 		writeTo:  writeFunc,
 		deleteFn: deleteFunc,
-		pid:      pid,
+		id:       s.id,
+		w:        s.w,
+		h:        s.h,
 	}
-	s.vx.graphicsNext[int(pid)] = placement
+	s.vx.graphicsNext = append(s.vx.graphicsNext, placement)
 }
 
 // Destroy removes an image from memory. Call when done with this image
@@ -267,7 +276,31 @@ type placement struct {
 	deleteFn func(w io.Writer)
 	col      int
 	row      int
-	pid      uint
+	id       uint64
+	w        int
+	h        int
+}
+
+// samePlacement compares two placements for equality. Two placements are
+// considered equal if it is the same image, with the same size, at the same
+// location
+func samePlacement(p1, p2 *placement) bool {
+	if p1.id != p2.id {
+		return false
+	}
+	if p1.col != p2.col {
+		return false
+	}
+	if p1.row != p2.row {
+		return false
+	}
+	if p1.w != p2.w {
+		return false
+	}
+	if p1.h != p2.h {
+		return false
+	}
+	return true
 }
 
 // Resizes an image to fit within the provided rectangle (as cells). If the

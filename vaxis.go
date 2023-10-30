@@ -71,8 +71,8 @@ type Vaxis struct {
 	tw               *writer
 	screenNext       *screen
 	screenLast       *screen
-	graphicsNext     map[int]*placement
-	graphicsLast     map[int]*placement
+	graphicsNext     []*placement
+	graphicsLast     []*placement
 	mouseShapeNext   MouseShape
 	mouseShapeLast   MouseShape
 	pastePending     bool
@@ -159,8 +159,6 @@ func New(opts Options) (*Vaxis, error) {
 	vx.queue = make(chan Event, opts.EventQueueSize)
 	vx.screenNext = newScreen()
 	vx.screenLast = newScreen()
-	vx.graphicsNext = make(map[int]*placement)
-	vx.graphicsLast = make(map[int]*placement)
 	vx.chClipboard = make(chan string)
 	vx.chSignal = make(chan os.Signal, 1)
 	vx.chCursorPos = make(chan [2]int)
@@ -374,23 +372,39 @@ func (vx *Vaxis) render() {
 		reposition = true
 		cursor     Style
 	)
+outerLast:
 	// Delete any placements we don't have this round
-	for id, p := range vx.graphicsLast {
-		if _, ok := vx.graphicsNext[id]; ok && !vx.refresh {
+	for _, p1 := range vx.graphicsLast {
+		// Delete all previous placements on a refresh
+		if vx.refresh {
+			p1.deleteFn(vx.tw)
 			continue
 		}
-		p.deleteFn(vx.tw)
-		delete(vx.graphicsLast, id)
+		for _, p2 := range vx.graphicsNext {
+			if samePlacement(p1, p2) {
+				continue outerLast
+			}
+		}
+		p1.deleteFn(vx.tw)
 	}
+	if vx.refresh {
+		vx.graphicsLast = []*placement{}
+	}
+outerNew:
 	// draw new placements
-	for id, p := range vx.graphicsNext {
-		if _, ok := vx.graphicsLast[id]; ok {
-			continue
+	for _, p1 := range vx.graphicsNext {
+		for _, p2 := range vx.graphicsLast {
+			if samePlacement(p1, p2) {
+				// don't write existing placements
+				continue outerNew
+			}
 		}
-		_, _ = vx.tw.WriteString(tparm(cup, p.row+1, p.col+1))
-		p.writeTo(vx.tw)
-		vx.graphicsLast[id] = p
+		_, _ = vx.tw.WriteString(tparm(cup, p1.row+1, p1.col+1))
+		p1.writeTo(vx.tw)
 	}
+	// Save this frame as the last frame
+	vx.graphicsLast = vx.graphicsNext
+
 	if vx.mouseShapeLast != vx.mouseShapeNext {
 		_, _ = vx.tw.WriteString(tparm(mouseShape, vx.mouseShapeNext))
 		vx.mouseShapeLast = vx.mouseShapeNext

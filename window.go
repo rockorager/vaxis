@@ -193,9 +193,7 @@ func (win Window) Clear() {
 	// space and a cleared cell. \x00 is rendered as a space, but the
 	// internal model will differentiate
 	win.Fill(Cell{Character: Character{" ", 1}, Style: Style{}})
-	for k := range win.Vx.graphicsNext {
-		delete(win.Vx.graphicsNext, k)
-	}
+	win.Vx.graphicsNext = []*placement{}
 }
 
 // Print prints [Segment]s, with each block having a given style. Text will be

@@ -30,8 +30,22 @@ func main() {
 			vImg.Resize(w/2, h/2)
 		case vaxis.Key:
 			switch ev.String() {
+			case "space":
+				// Makes the image disappear
+				vx.Window().Clear()
+				vx.Render()
+				continue
 			case "Ctrl+c":
 				return
+			case "Ctrl+l":
+				// Refreshes the entire screen
+				win := vx.Window()
+				win.Clear()
+				w, h := vImg.CellSize()
+				win = align.Center(win, w, h)
+				vImg.Draw(win)
+				vx.Refresh()
+				continue
 			}
 		}
 		win := vx.Window()
