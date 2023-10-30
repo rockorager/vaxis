@@ -178,6 +178,10 @@ func (s *Sixel) Draw(win Window) {
 	if s.encoding.Load() {
 		return
 	}
+	w, h := win.Size()
+	if s.w > w || s.h > h {
+		return
+	}
 	for y := 0; y < s.h; y += 1 {
 		for x := 0; x < s.w; x += 1 {
 			win.SetCell(x, y, Cell{
