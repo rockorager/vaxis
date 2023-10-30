@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"image"
+	"image/color"
 	"image/png"
 	"io"
 	"sync/atomic"
@@ -15,6 +16,7 @@ import (
 
 const (
 	noGraphics = iota
+	fullBlock
 	sixelGraphics
 	kitty
 )
@@ -37,6 +39,8 @@ type Image interface {
 // is capable of
 func (vx *Vaxis) NewImage(img image.Image) (Image, error) {
 	switch vx.graphicsProtocol {
+	case fullBlock:
+		return vx.NewFullBlockImage(img), nil
 	case sixelGraphics:
 		return vx.NewSixel(img), nil
 	case kitty:
@@ -288,4 +292,119 @@ func resizeImage(img image.Image, w int, h int, cellPixW int, cellPixH int) imag
 	dst := image.NewRGBA(image.Rect(0, 0, newPixelWidth, newPixelHeight))
 	draw.NearestNeighbor.Scale(dst, dst.Rect, img, img.Bounds(), draw.Over, nil)
 	return dst
+}
+
+// FullBlockImage is an image composed of 0x20 characters. This is the most
+// primitive graphics protocol
+type FullBlockImage struct {
+	vx       *Vaxis
+	img      image.Image
+	cells    []Color
+	width    int
+	height   int
+	resizing atomic.Bool
+}
+
+func (vx *Vaxis) NewFullBlockImage(img image.Image) *FullBlockImage {
+	fb := &FullBlockImage{
+		vx:  vx,
+		img: img,
+	}
+	return fb
+}
+
+func (fb *FullBlockImage) Draw(win Window) {
+	if fb.resizing.Load() {
+		return
+	}
+	for i, cell := range fb.cells {
+		y := i / fb.width
+		x := i - (y * fb.width)
+		win.SetCell(x, y, Cell{
+			Character: Character{
+				Grapheme: " ",
+				Width:    1,
+			},
+			Style: Style{
+				Background: cell,
+			},
+		})
+	}
+}
+
+// Resize resizes and re-encodes an image
+func (fb *FullBlockImage) Resize(w int, h int) {
+	// FullBlockImage gets resized with a cell geometry of 1x2 pixels. We
+	// will then average the vertical two pixels to make a single color ' '
+	// character
+	img := resizeImage(fb.img, w, h, 1, 2)
+
+	// Store the actual width and height of the resized image
+	fb.width = img.Bounds().Max.X
+	h = img.Bounds().Max.Y
+	if h%2 != 0 {
+		h += 1
+	}
+	fb.height = h / 2
+	// The image will be made into an array of cells, each cell will capture
+	// 1x2 pixels
+	fb.cells = make([]Color, (fb.height * fb.width))
+	for i := range fb.cells {
+		y := i / fb.width
+		x := i - (y * fb.width)
+		y *= 2
+
+		top := img.At(x, y)
+		bot := img.At(x, y+1)
+		r, g, b, a := averageColor(top, bot)
+		switch {
+		// TODO: What is the right value for alpha that we should set
+		// the background color = 0??
+		case a < 50:
+			fb.cells[i] = 0
+		default:
+			fb.cells[i] = RGBColor(r, g, b)
+		}
+	}
+}
+
+func (fb *FullBlockImage) Destroy() {
+	fb.cells = []Color{}
+}
+
+func (fb *FullBlockImage) CellSize() (int, int) {
+	return fb.width, fb.height
+}
+
+func toRGB(c color.Color) (uint8, uint8, uint8, uint8) {
+	pr, pg, pb, pa := c.RGBA()
+	var r, g, b, a uint8
+	switch pa {
+	case 0:
+		r = uint8(pr)
+		g = uint8(pg)
+		b = uint8(pb)
+	default:
+		r = uint8((pr * 255) / pa)
+		g = uint8((pg * 255) / pa)
+		b = uint8((pb * 255) / pa)
+		a = uint8(pa >> 8)
+	}
+	return r, g, b, a
+}
+
+// averageColor computes the average color from all inputs and returns it's rgb
+// value
+func averageColor(c color.Color, colors ...color.Color) (uint8, uint8, uint8, uint8) {
+	var r, g, b, a int
+	colors = append(colors, c)
+	for _, col := range colors {
+		rA, gA, bA, aA := toRGB(col)
+		r += int(rA)
+		g += int(gA)
+		b += int(bA)
+		a += int(aA)
+	}
+	n := len(colors)
+	return uint8(r / n), uint8(g / n), uint8(b / n), uint8(a / n)
 }
