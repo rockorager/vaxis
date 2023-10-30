@@ -56,7 +56,9 @@ func main() {
 
 ## Support
 
-Questions are welcome in #vaxis on libera.chat, or on the [mailing list](mailto:~rockorager/vaxis-devel@lists.sr.ht)
+Questions are welcome in #vaxis on libera.chat, or on the [mailing list](mailto:~rockorager/vaxis-devel@lists.sr.ht).
+
+Issues can be reported on the [tracker](https://todo.sr.ht/~rockorager/vaxis).
 
 ## TUI Library Roundup
 
