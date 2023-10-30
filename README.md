@@ -54,6 +54,10 @@ func main() {
 }
 ```
 
+## Support
+
+Questions are welcome in #vaxis on libera.chat, or on the [mailing list](mailto:~rockorager/vaxis-devel@lists.sr.ht)
+
 ## TUI Library Roundup
 
 Notcurses is included because it's the most advanced, most efficient,
@@ -73,6 +77,10 @@ most dank TUI library
 | Synchronized Output (DEC 2026) |  ✅   |  ❌   |    ❌     |    ✅     |
 | Unicode Core (DEC 2027)        |  ✅   |  ❌   |    ❌     |    ❌     |
 | Color Mode Updates (DEC 2031)  |  ✅   |  ❌   |    ❌     |    ❌     |
+| Images (full/space)            |  ✅   |  ❌   |    ❌     |    ✅     |
+| Images (half block)            |  ✅   |  ❌   |    ❌     |    ✅     |
+| Images (quadrant)              |  ❌   |  ❌   |    ❌     |    ✅     |
+| Images (sextant)               |  ❌   |  ❌   |    ❌     |    ✅     |
 | Images (sixel)                 |  ✅   |  ✅   |    ❌     |    ✅     |
 | Images (kitty)                 |  ✅   |  ❌   |    ❌     |    ✅     |
 | Images (iterm2)                |  ❌   |  ❌   |    ❌     |    ✅     |
