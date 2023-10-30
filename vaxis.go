@@ -239,13 +239,17 @@ outer:
 		vx.graphicsProtocol = noGraphics
 	case "full":
 		vx.graphicsProtocol = fullBlock
+	case "half":
+		vx.graphicsProtocol = halfBlock
 	case "sixel":
 		vx.graphicsProtocol = sixelGraphics
 	case "kitty":
 		vx.graphicsProtocol = kitty
 	default:
-		if vx.graphicsProtocol < fullBlock {
-			vx.graphicsProtocol = fullBlock
+		// Use highest quality block renderer by default. Users will
+		// need to fallback on their own if not supported
+		if vx.graphicsProtocol < halfBlock {
+			vx.graphicsProtocol = halfBlock
 		}
 	}
 

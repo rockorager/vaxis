@@ -14,9 +14,14 @@ import (
 	"golang.org/x/image/draw"
 )
 
+// Alpha value that we consider to be transparent enough to use default
+// background color
+const transparentEnough = 50
+
 const (
 	noGraphics = iota
 	fullBlock
+	halfBlock
 	sixelGraphics
 	kitty
 )
@@ -41,6 +46,8 @@ func (vx *Vaxis) NewImage(img image.Image) (Image, error) {
 	switch vx.graphicsProtocol {
 	case fullBlock:
 		return vx.NewFullBlockImage(img), nil
+	case halfBlock:
+		return vx.NewHalfBlockImage(img), nil
 	case sixelGraphics:
 		return vx.NewSixel(img), nil
 	case kitty:
@@ -407,4 +414,112 @@ func averageColor(c color.Color, colors ...color.Color) (uint8, uint8, uint8, ui
 	}
 	n := len(colors)
 	return uint8(r / n), uint8(g / n), uint8(b / n), uint8(a / n)
+}
+
+// HalfBlockImage is an image composed of half block characters.
+type HalfBlockImage struct {
+	vx       *Vaxis
+	img      image.Image
+	cells    []Cell
+	width    int
+	height   int
+	resizing atomic.Bool
+}
+
+func (vx *Vaxis) NewHalfBlockImage(img image.Image) *HalfBlockImage {
+	hb := &HalfBlockImage{
+		vx:  vx,
+		img: img,
+	}
+	return hb
+}
+
+func (hb *HalfBlockImage) Draw(win Window) {
+	if hb.resizing.Load() {
+		return
+	}
+	for i, cell := range hb.cells {
+		y := i / hb.width
+		x := i - (y * hb.width)
+		win.SetCell(x, y, cell)
+	}
+}
+
+// Resize resizes and re-encodes an image
+func (hb *HalfBlockImage) Resize(w int, h int) {
+	// HalfBlockImage gets resized with a cell geometry of 1x2 pixels.
+	img := resizeImage(hb.img, w, h, 1, 2)
+
+	// Store the actual width and height of the resized image
+	hb.width = img.Bounds().Max.X
+	h = img.Bounds().Max.Y
+	if h%2 != 0 {
+		h += 1
+	}
+	hb.height = h / 2
+	// The image will be made into an array of cells, each cell will capture
+	// 1x2 pixels
+	hb.cells = make([]Cell, (hb.height * hb.width))
+	for i := range hb.cells {
+		y := i / hb.width
+		x := i - (y * hb.width)
+		y *= 2
+
+		tr, tg, tb, ta := toRGB(img.At(x, y))
+		br, bg, bb, ba := toRGB(img.At(x, y+1))
+		// Figure out if one of the alpha channels is transparent
+		// "enough"
+		switch {
+		case ta < transparentEnough && ba < transparentEnough:
+			// Use a transparent space
+			hb.cells[i] = Cell{
+				Character: Character{
+					Grapheme: " ",
+					Width:    1,
+				},
+			}
+		case ta < transparentEnough:
+			// Top is transparent. Use a lower block
+			hb.cells[i] = Cell{
+				Character: Character{
+					Grapheme: "▄",
+					Width:    1,
+				},
+				Style: Style{
+					Foreground: RGBColor(br, bg, bb),
+				},
+			}
+		case ba < transparentEnough:
+			// Bottom is transparent. Use an upper block
+			hb.cells[i] = Cell{
+				Character: Character{
+					Grapheme: "▀",
+					Width:    1,
+				},
+				Style: Style{
+					Foreground: RGBColor(tr, tg, tb),
+				},
+			}
+		default:
+			// Neither is transparent. Use an upper block
+			hb.cells[i] = Cell{
+				Character: Character{
+					Grapheme: "▀",
+					Width:    1,
+				},
+				Style: Style{
+					Foreground: RGBColor(tr, tg, tb),
+					Background: RGBColor(br, bg, bb),
+				},
+			}
+		}
+	}
+}
+
+func (hb *HalfBlockImage) Destroy() {
+	hb.cells = []Cell{}
+}
+
+func (hb *HalfBlockImage) CellSize() (int, int) {
+	return hb.width, hb.height
 }
