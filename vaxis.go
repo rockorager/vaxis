@@ -12,14 +12,12 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
+	"github.com/containerd/console"
 	"github.com/mattn/go-runewidth"
 	"github.com/rivo/uniseg"
 	"golang.org/x/exp/slog"
-	"golang.org/x/sys/unix"
-	"golang.org/x/term"
 
 	"git.sr.ht/~rockorager/vaxis/ansi"
 )
@@ -64,10 +62,8 @@ type Options struct {
 }
 
 type Vaxis struct {
-	// queue            *Queue[Event]
 	queue            chan Event
-	tty              *os.File
-	state            *term.State
+	console          console.Console
 	tw               *writer
 	screenNext       *screen
 	screenLast       *screen
@@ -77,10 +73,10 @@ type Vaxis struct {
 	mouseShapeLast   MouseShape
 	pastePending     bool
 	chClipboard      chan string
-	chSignal         chan os.Signal
+	chSigWinSz       chan os.Signal
+	chSigKill        chan os.Signal
 	chCursorPos      chan [2]int
 	chQuit           chan bool
-	chSuspend        chan bool
 	winSize          Resize
 	caps             capabilities
 	graphicsProtocol int
@@ -155,12 +151,12 @@ func New(opts Options) (*Vaxis, error) {
 		vx.disableMouse = true
 	}
 
-	// vx.queue = NewQueue[Event]()
 	vx.queue = make(chan Event, opts.EventQueueSize)
 	vx.screenNext = newScreen()
 	vx.screenLast = newScreen()
 	vx.chClipboard = make(chan string)
-	vx.chSignal = make(chan os.Signal, 1)
+	vx.chSigWinSz = make(chan os.Signal, 1)
+	vx.chSigKill = make(chan os.Signal, 1)
 	vx.chCursorPos = make(chan [2]int)
 	vx.chQuit = make(chan bool)
 	vx.charCache = make(map[string]int, 256)
@@ -219,18 +215,7 @@ outer:
 
 	vx.enterAltScreen()
 	vx.enableModes()
-	signal.Notify(vx.chSignal,
-		syscall.SIGWINCH,
-		// kill signals
-		syscall.SIGABRT,
-		syscall.SIGBUS,
-		syscall.SIGFPE,
-		syscall.SIGILL,
-		syscall.SIGINT,
-		syscall.SIGQUIT,
-		syscall.SIGSEGV,
-		syscall.SIGTERM,
-	)
+	vx.setupSignals()
 
 	switch os.Getenv("VAXIS_GRAPHICS") {
 	case "none":
@@ -986,27 +971,29 @@ func (vx *Vaxis) exitAltScreen() {
 func (vx *Vaxis) Suspend() error {
 	vx.disableModes()
 	vx.exitAltScreen()
-	close(vx.chSuspend)
-	vx.tty.Close()
-	signal.Stop(vx.chSignal)
-	_ = term.Restore(int(vx.tty.Fd()), vx.state)
+	signal.Stop(vx.chSigKill)
+	signal.Stop(vx.chSigWinSz)
+	vx.console.Reset()
 	return nil
 }
 
 // makeRaw opens the /dev/tty device, makes it raw, and starts an input parser
 func (vx *Vaxis) openTty() error {
-	var err error
-	vx.tty, err = os.OpenFile("/dev/tty", os.O_RDWR, 0)
+	for _, s := range []*os.File{os.Stderr, os.Stdout, os.Stdin} {
+		if c, err := console.ConsoleFromFile(s); err == nil {
+			vx.console = c
+			break
+		}
+	}
+	if vx.console == nil {
+		return console.ErrNotAConsole
+	}
+	err := vx.console.SetRaw()
 	if err != nil {
 		return err
 	}
 	vx.tw = newWriter(vx)
-	vx.state, err = term.MakeRaw(int(vx.tty.Fd()))
-	if err != nil {
-		return err
-	}
-	vx.chSuspend = make(chan bool)
-	parser := ansi.NewParser(vx.tty)
+	parser := ansi.NewParser(vx.console)
 	go func() {
 		defer func() {
 			if err := recover(); err != nil {
@@ -1015,8 +1002,6 @@ func (vx *Vaxis) openTty() error {
 		}()
 		for {
 			select {
-			case <-vx.chSuspend:
-				return
 			case seq := <-parser.Next():
 				switch seq := seq.(type) {
 				case ansi.EOF:
@@ -1024,21 +1009,16 @@ func (vx *Vaxis) openTty() error {
 				default:
 					vx.handleSequence(seq)
 				}
-			case sig := <-vx.chSignal:
-				switch sig {
-				case syscall.SIGWINCH, syscall.SIGCONT:
-					vx.winSize, err = vx.reportWinsize()
-					if err != nil {
-						log.Error("reporting window size",
-							"error", err)
-					}
-					vx.PostEvent(vx.winSize)
-				default:
-					// Anything else is trying to kill the
-					// process
-					vx.Close()
-					return
+			case <-vx.chSigWinSz:
+				vx.winSize, err = vx.reportWinsize()
+				if err != nil {
+					log.Error("reporting window size",
+						"error", err)
 				}
+				vx.PostEvent(vx.winSize)
+			case <-vx.chSigKill:
+				vx.Close()
+				return
 			case <-vx.chQuit:
 				return
 			}
@@ -1051,24 +1031,14 @@ func (vx *Vaxis) openTty() error {
 // and reenables input parsing. Upon resuming, a Resize event will be delivered.
 // It is entirely possible the terminal was resized while suspended.
 func (vx *Vaxis) Resume() error {
-	err := vx.openTty()
-	if err != nil {
-		return err
-	}
+	// err := vx.openTty()
+	// if err != nil {
+	// 	return err
+	// }
+	err := vx.console.SetRaw()
 	vx.enterAltScreen()
 	vx.enableModes()
-	signal.Notify(vx.chSignal,
-		syscall.SIGWINCH,
-		// kill signals
-		syscall.SIGABRT,
-		syscall.SIGBUS,
-		syscall.SIGFPE,
-		syscall.SIGILL,
-		syscall.SIGINT,
-		syscall.SIGQUIT,
-		syscall.SIGSEGV,
-		syscall.SIGTERM,
-	)
+	vx.setupSignals()
 	vx.winSize, err = vx.reportWinsize()
 	if err != nil {
 		return err
@@ -1105,7 +1075,8 @@ func (vx *Vaxis) showCursor() string {
 func (vx *Vaxis) CursorPosition() (row int, col int) {
 	// DSRCPR - reports cursor position
 	vx.reqCursorPos.Store(true)
-	_, _ = vx.tty.WriteString(dsrcpr)
+	_, _ = io.WriteString(vx.console, dsrcpr)
+	// _, _ = vx.tty.WriteString(dsrcpr)
 	timeout := time.NewTimer(50 * time.Millisecond)
 	select {
 	case <-timeout.C:
@@ -1140,7 +1111,7 @@ func (vx *Vaxis) cursorStyle() string {
 // ClipboardPush copies the provided string to the system clipboard
 func (vx *Vaxis) ClipboardPush(s string) {
 	b64 := base64.StdEncoding.EncodeToString([]byte(s))
-	_, _ = vx.tty.WriteString(tparm(osc52put, b64))
+	_, _ = io.WriteString(vx.console, tparm(osc52put, b64))
 }
 
 // ClipboardPop requests the content from the system clipboard. ClipboardPop works by
@@ -1149,7 +1120,7 @@ func (vx *Vaxis) ClipboardPush(s string) {
 // a context to set a deadline for this function to return. An error will be
 // returned if the context is cancelled.
 func (vx *Vaxis) ClipboardPop(ctx context.Context) (string, error) {
-	_, _ = vx.tty.WriteString(osc52pop)
+	_, _ = io.WriteString(vx.console, osc52pop)
 	select {
 	case str := <-vx.chClipboard:
 		return str, nil
@@ -1162,20 +1133,20 @@ func (vx *Vaxis) ClipboardPop(ctx context.Context) (string, error) {
 // string, OSC9 will be used - otherwise osc777 is used
 func (vx *Vaxis) Notify(title string, body string) {
 	if title == "" {
-		_, _ = vx.tty.WriteString(tparm(osc9notify, body))
+		_, _ = io.WriteString(vx.console, tparm(osc9notify, body))
 		return
 	}
-	_, _ = vx.tty.WriteString(tparm(osc777notify, title, body))
+	_, _ = io.WriteString(vx.console, tparm(osc777notify, title, body))
 }
 
 // SetTitle sets the terminal's title via OSC 2
 func (vx *Vaxis) SetTitle(s string) {
-	_, _ = vx.tty.WriteString(tparm(setTitle, s))
+	_, _ = io.WriteString(vx.console, tparm(setTitle, s))
 }
 
 // Bell sends a BEL control signal to the terminal
 func (vx *Vaxis) Bell() {
-	_, _ = vx.tty.WriteString("\a")
+	_, _ = vx.console.Write([]byte{0x07})
 }
 
 // advance returns the extra amount to advance the column by when rendering
@@ -1226,20 +1197,6 @@ func (vx *Vaxis) characterWidth(s string) int {
 // SetMouseShape sets the shape of the mouse
 func (vx *Vaxis) SetMouseShape(shape MouseShape) {
 	vx.mouseShapeNext = shape
-}
-
-// reportWinsize
-func (vx *Vaxis) reportWinsize() (Resize, error) {
-	ws, err := unix.IoctlGetWinsize(int(vx.tty.Fd()), unix.TIOCGWINSZ)
-	if err != nil {
-		return Resize{}, err
-	}
-	return Resize{
-		Cols:   int(ws.Col),
-		Rows:   int(ws.Row),
-		XPixel: int(ws.Xpixel),
-		YPixel: int(ws.Ypixel),
-	}, nil
 }
 
 func (vx *Vaxis) CanKittyGraphics() bool {

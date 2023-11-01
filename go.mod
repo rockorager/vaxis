@@ -3,6 +3,7 @@ module git.sr.ht/~rockorager/vaxis
 go 1.18
 
 require (
+	github.com/containerd/console v1.0.3
 	github.com/creack/pty v1.1.18
 	github.com/mattn/go-runewidth v0.0.14
 	github.com/mattn/go-sixel v0.0.5
@@ -11,7 +12,6 @@ require (
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 	golang.org/x/image v0.9.0
 	golang.org/x/sys v0.10.0
-	golang.org/x/term v0.5.0
 )
 
 require (
