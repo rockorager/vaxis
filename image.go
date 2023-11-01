@@ -131,8 +131,15 @@ func (k *KittyImage) Resize(w int, h int) {
 	img := resizeImage(k.img, w, h, cellPixW, cellPixH)
 
 	// Reupload the image
-	k.w = img.Bounds().Max.X / cellPixW
-	k.h = img.Bounds().Max.Y / cellPixH
+	max := img.Bounds().Max
+	k.w = max.X / cellPixW
+	if max.X%cellPixW != 0 {
+		k.w += 1
+	}
+	k.h = max.Y / cellPixH
+	if max.Y%cellPixH != 0 {
+		k.h += 1
+	}
 	log.Info("Kitty bounds w %d h %d", k.w, k.h)
 	log.Info("Kitty: target w %d, h %d", w, h)
 
@@ -239,8 +246,15 @@ func (s *Sixel) Resize(w int, h int) {
 		cellPixW := s.vx.winSize.XPixel / s.vx.winSize.Cols
 		cellPixH := s.vx.winSize.YPixel / s.vx.winSize.Rows
 		img := resizeImage(s.img, w, h, cellPixW, cellPixH)
-		s.w = img.Bounds().Max.X / cellPixW
-		s.h = img.Bounds().Max.Y / cellPixH
+		max := img.Bounds().Max
+		s.w = max.X / cellPixW
+		if max.X%cellPixW != 0 {
+			s.w += 1
+		}
+		s.h = max.Y / cellPixH
+		if max.Y%cellPixH != 0 {
+			s.h += 1
+		}
 		// Re-encode the image
 		s.buf.Reset()
 		err := sixel.NewEncoder(s.buf).Encode(img)
