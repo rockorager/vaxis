@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"fmt"
 	"io"
 	"os"
 	"os/signal"
@@ -17,12 +16,10 @@ import (
 	"github.com/containerd/console"
 	"github.com/mattn/go-runewidth"
 	"github.com/rivo/uniseg"
-	"golang.org/x/exp/slog"
 
 	"git.sr.ht/~rockorager/vaxis/ansi"
+	"git.sr.ht/~rockorager/vaxis/log"
 )
-
-var log = slog.New(slog.NewTextHandler(io.Discard, nil))
 
 type capabilities struct {
 	synchronizedUpdate bool
@@ -45,9 +42,6 @@ type cursorState struct {
 // Options are the runtime options which must be supplied to a new [Vaxis]
 // object at instantiation
 type Options struct {
-	// Logger is an optional slog.Logger that vaxis will log to. vaxis uses
-	// stdlib levels for logging
-	Logger *slog.Logger
 	// DisableKittyKeyboard disables the use of the Kitty Keyboard protocol.
 	// By default, if support is detected the protocol will be used.
 	DisableKittyKeyboard bool
@@ -101,30 +95,21 @@ type Vaxis struct {
 // terminal for supported features and enter the alternate screen
 func New(opts Options) (*Vaxis, error) {
 	switch os.Getenv("VAXIS_LOG_LEVEL") {
+	case "trace":
+		log.SetLevel(log.LevelTrace)
+		log.SetOutput(os.Stderr)
 	case "debug":
-		h := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-			Level: slog.LevelDebug,
-		})
-		log = slog.New(h)
+		log.SetLevel(log.LevelDebug)
+		log.SetOutput(os.Stderr)
 	case "info":
-		h := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-			Level: slog.LevelInfo,
-		})
-		log = slog.New(h)
+		log.SetLevel(log.LevelInfo)
+		log.SetOutput(os.Stderr)
 	case "warn":
-		h := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-			Level: slog.LevelWarn,
-		})
-		log = slog.New(h)
+		log.SetLevel(log.LevelWarn)
+		log.SetOutput(os.Stderr)
 	case "error":
-		h := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-			Level: slog.LevelError,
-		})
-		log = slog.New(h)
-	default:
-		if opts.Logger != nil {
-			log = opts.Logger
-		}
+		log.SetLevel(log.LevelError)
+		log.SetOutput(os.Stderr)
 	}
 
 	// Disambiguate, report alternate keys, report all keys as escapes, report associated text
@@ -178,34 +163,34 @@ outer:
 			case primaryDeviceAttribute:
 				break outer
 			case capabilitySixel:
-				log.Info("Capability: Sixel graphics")
+				log.Info("[capability] Sixel graphics")
 				vx.caps.sixels = true
 				if vx.graphicsProtocol < sixelGraphics {
 					vx.graphicsProtocol = sixelGraphics
 				}
 			case synchronizedUpdates:
-				log.Info("Capability: Synchronized updates")
+				log.Info("[capability] Synchronized updates")
 				vx.caps.synchronizedUpdate = true
 			case unicodeCoreCap:
-				log.Info("Capability: Unicode core")
+				log.Info("[capability] Unicode core")
 				vx.caps.unicodeCore = true
 			case notifyColorChange:
-				log.Info("Capability: Color theme notifications")
+				log.Info("[capability] Color theme notifications")
 				vx.caps.colorThemeUpdates = true
 			case kittyKeyboard:
-				log.Info("Capability: Kitty keyboard")
+				log.Info("[capability] Kitty keyboard")
 				if opts.DisableKittyKeyboard {
 					continue
 				}
 				vx.caps.kittyKeyboard.Store(true)
 			case styledUnderlines:
 				vx.caps.styledUnderlines = true
-				log.Info("Capability: Styled underlines")
+				log.Info("[capability] Styled underlines")
 			case truecolor:
 				vx.caps.rgb = true
-				log.Info("Capability: RGB")
+				log.Info("[capability] RGB")
 			case kittyGraphics:
-				log.Info("Capability: Kitty graphics supported")
+				log.Info("[capability] Kitty graphics supported")
 				vx.caps.kittyGraphics = true
 				if vx.graphicsProtocol < kitty {
 					vx.graphicsProtocol = kitty
@@ -250,12 +235,12 @@ outer:
 
 // PostEvent inserts an event into the [Vaxis] event loop
 func (vx *Vaxis) PostEvent(ev Event) {
+	log.Debug("[event] %#v", ev)
 	select {
 	case vx.queue <- ev:
 		return
 	default:
-		evType := fmt.Sprintf("%T", ev)
-		log.Warn("Event dropped", "type", evType)
+		log.Warn("Event dropped: %T", ev)
 	}
 }
 
@@ -321,11 +306,11 @@ func (vx *Vaxis) Close() {
 
 	vx.Suspend()
 
-	log.Info("Renders", "val", vx.renders)
+	log.Info("Renders: %d", vx.renders)
 	if vx.renders != 0 {
-		log.Info("Time/render", "val", vx.elapsed/time.Duration(vx.renders))
+		log.Info("Time/render: %s", vx.elapsed/time.Duration(vx.renders))
 	}
-	log.Info("Cached characters", "val", len(vx.charCache))
+	log.Info("Cached characters: %d", len(vx.charCache))
 }
 
 // Render renders the model's content to the terminal
@@ -334,7 +319,7 @@ func (vx *Vaxis) Render() {
 		defer vx.resize.Store(false)
 		ws, err := vx.reportWinsize()
 		if err != nil {
-			log.Error("couldn't report winsize", "error", err)
+			log.Error("couldn't report winsize: %v", err)
 			return
 		}
 		if ws.Cols != vx.winSize.Cols || ws.Rows != vx.winSize.Rows {
@@ -641,7 +626,7 @@ outerNew:
 }
 
 func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
-	log.Debug("[stdin]", "sequence", seq)
+	log.Trace("[stdin] sequence: %s", seq)
 	switch seq := seq.(type) {
 	case ansi.Print:
 		key := decodeKey(seq)
@@ -819,7 +804,7 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 				}
 				vals := strings.Split(string(seq.Data), "=")
 				if len(vals) != 2 {
-					log.Error("error parsing XTGETTCAP", "value", string(seq.Data))
+					log.Error("error parsing XTGETTCAP: %s", string(seq.Data))
 				}
 				switch vals[0] {
 				case hexEncode("Smulx"):
@@ -857,7 +842,7 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 			}
 			b, err := base64.StdEncoding.DecodeString(vals[2])
 			if err != nil {
-				log.Error("couldn't decode OSC 52", "error", err)
+				log.Error("couldn't decode OSC 52: %v", err)
 				return
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)

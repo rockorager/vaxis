@@ -2,6 +2,7 @@ package vaxis
 
 import (
 	"git.sr.ht/~rockorager/vaxis/ansi"
+	"git.sr.ht/~rockorager/vaxis/log"
 )
 
 // Mouse is a mouse event
@@ -58,12 +59,12 @@ const (
 func parseMouseEvent(seq ansi.CSI) (Mouse, bool) {
 	mouse := Mouse{}
 	if len(seq.Intermediate) != 1 && seq.Intermediate[0] != '<' {
-		log.Error("[CSI] unknown sequence", "sequence", seq)
+		log.Error("[CSI] unknown sequence: %s", seq)
 		return mouse, false
 	}
 
 	if len(seq.Parameters) != 3 {
-		log.Error("[CSI] unknown sequence", "sequence", seq)
+		log.Error("[CSI] unknown sequence: %s", seq)
 		return mouse, false
 	}
 

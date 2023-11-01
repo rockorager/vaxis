@@ -2,7 +2,6 @@ package term
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"runtime/debug"
@@ -16,7 +15,6 @@ import (
 	"git.sr.ht/~rockorager/vaxis/ansi"
 	"github.com/creack/pty"
 	"github.com/rivo/uniseg"
-	"golang.org/x/exp/slog"
 )
 
 type (
@@ -26,7 +24,6 @@ type (
 
 // Model models a virtual terminal
 type Model struct {
-	Logger *slog.Logger
 	// If true, OSC8 enables the output of OSC8 strings. Otherwise, any OSC8
 	// sequences will be stripped
 	OSC8 bool
@@ -86,8 +83,7 @@ func New() *Model {
 		tabs = append(tabs, column(i))
 	}
 	m := &Model{
-		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
-		OSC8:   true,
+		OSC8: true,
 		charsets: charsets{
 			designations: map[charsetDesignator]charset{
 				g0: ascii,

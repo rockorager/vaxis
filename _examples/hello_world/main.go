@@ -6,16 +6,10 @@ import (
 	"time"
 
 	"git.sr.ht/~rockorager/vaxis"
-	"golang.org/x/exp/slog"
 )
 
 func main() {
-	h := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	})
-	slog.SetDefault(slog.New(h))
 	vx, err := vaxis.New(vaxis.Options{
-		Logger:       slog.Default(),
 		DisableMouse: true,
 	})
 	if err != nil {
@@ -38,8 +32,6 @@ func main() {
 			)
 			vx.Refresh()
 		case vaxis.Key:
-			slog.Warn("Key", "is", ev)
-
 			switch ev.String() {
 			case "Ctrl+c":
 				return

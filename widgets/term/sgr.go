@@ -2,6 +2,7 @@ package term
 
 import (
 	"git.sr.ht/~rockorager/vaxis"
+	"git.sr.ht/~rockorager/vaxis/log"
 )
 
 func (vt *Model) sgr(params [][]int) {
@@ -53,13 +54,13 @@ func (vt *Model) sgr(params [][]int) {
 			switch len(params[i]) {
 			case 1:
 				if len(params[i:]) < 3 {
-					vt.Logger.Error("[term] malformed SGR sequence")
+					log.Error("[term] malformed SGR sequence")
 					return
 				}
 				switch params[i+1][0] {
 				case 2:
 					if len(params[i:]) < 5 {
-						vt.Logger.Error("[term] malformed SGR sequence")
+						log.Error("[term] malformed SGR sequence")
 						return
 					}
 					vt.cursor.fg = vaxis.RGBColor(
@@ -72,18 +73,18 @@ func (vt *Model) sgr(params [][]int) {
 					vt.cursor.fg = vaxis.IndexColor(uint8(params[i+2][0]))
 					i += 2
 				default:
-					vt.Logger.Error("[term] malformed SGR sequence")
+					log.Error("[term] malformed SGR sequence")
 					return
 				}
 			case 3:
 				if params[i][1] != 5 {
-					vt.Logger.Error("[term] malformed SGR sequence")
+					log.Error("[term] malformed SGR sequence")
 					return
 				}
 				vt.cursor.fg = vaxis.IndexColor(uint8(params[i][2]))
 			case 5:
 				if params[i][1] != 2 {
-					vt.Logger.Error("[term] malformed SGR sequence")
+					log.Error("[term] malformed SGR sequence")
 					return
 				}
 				vt.cursor.fg = vaxis.RGBColor(
@@ -93,7 +94,7 @@ func (vt *Model) sgr(params [][]int) {
 				)
 			case 6:
 				if params[i][1] != 2 {
-					vt.Logger.Error("[term] malformed SGR sequence")
+					log.Error("[term] malformed SGR sequence")
 					return
 				}
 				vt.cursor.fg = vaxis.RGBColor(
@@ -110,13 +111,13 @@ func (vt *Model) sgr(params [][]int) {
 			switch len(params[i]) {
 			case 1:
 				if len(params[i:]) < 3 {
-					vt.Logger.Error("[term] malformed SGR sequence")
+					log.Error("[term] malformed SGR sequence")
 					return
 				}
 				switch params[i+1][0] {
 				case 2:
 					if len(params[i:]) < 5 {
-						vt.Logger.Error("[term] malformed SGR sequence")
+						log.Error("[term] malformed SGR sequence")
 						return
 					}
 					vt.cursor.bg = vaxis.RGBColor(
@@ -129,18 +130,18 @@ func (vt *Model) sgr(params [][]int) {
 					vt.cursor.bg = vaxis.IndexColor(uint8(params[i+2][0]))
 					i += 2
 				default:
-					vt.Logger.Error("[term] malformed SGR sequence")
+					log.Error("[term] malformed SGR sequence")
 					return
 				}
 			case 3:
 				if params[i][1] != 5 {
-					vt.Logger.Error("[term] malformed SGR sequence")
+					log.Error("[term] malformed SGR sequence")
 					return
 				}
 				vt.cursor.bg = vaxis.IndexColor(uint8(params[i][2]))
 			case 5:
 				if params[i][1] != 2 {
-					vt.Logger.Error("[term] malformed SGR sequence")
+					log.Error("[term] malformed SGR sequence")
 					return
 				}
 				vt.cursor.bg = vaxis.RGBColor(
@@ -150,7 +151,7 @@ func (vt *Model) sgr(params [][]int) {
 				)
 			case 6:
 				if params[i][1] != 2 {
-					vt.Logger.Error("[term] malformed SGR sequence")
+					log.Error("[term] malformed SGR sequence")
 					return
 				}
 				vt.cursor.bg = vaxis.RGBColor(

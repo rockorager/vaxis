@@ -10,6 +10,7 @@ import (
 	"io"
 	"sync/atomic"
 
+	"git.sr.ht/~rockorager/vaxis/log"
 	"github.com/mattn/go-sixel"
 	"golang.org/x/image/draw"
 )
@@ -140,7 +141,7 @@ func (k *KittyImage) Resize(w int, h int) {
 		wc := base64.NewEncoder(base64.StdEncoding, buf)
 		err := png.Encode(wc, img)
 		if err != nil {
-			log.Error("couldn't encode kitty image", "error", err)
+			log.Error("couldn't encode kitty image: %v", err)
 			return
 		}
 		wc.Close()
