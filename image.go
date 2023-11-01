@@ -127,11 +127,14 @@ func (k *KittyImage) Resize(w int, h int) {
 	// Resize the image
 	cellPixW := k.vx.winSize.XPixel / k.vx.winSize.Cols
 	cellPixH := k.vx.winSize.YPixel / k.vx.winSize.Rows
+	log.Info("Kitty: cell pixW, cellPixH", cellPixW, cellPixH)
 	img := resizeImage(k.img, w, h, cellPixW, cellPixH)
 
 	// Reupload the image
 	k.w = img.Bounds().Max.X / cellPixW
 	k.h = img.Bounds().Max.Y / cellPixH
+	log.Info("Kitty bounds w %d h %d", k.w, k.h)
+	log.Info("Kitty: target w %d, h %d", w, h)
 
 	k.encoding.Store(true)
 	go func() {
@@ -313,7 +316,13 @@ func resizeImage(img image.Image, w int, h int, cellPixW int, cellPixH int) imag
 	// image in cells, and rounding up since we will always take
 	// over any cell we bleed into.
 	columns := wPix / cellPixW
+	if wPix%cellPixW != 0 {
+		columns += 1
+	}
 	lines := hPix / cellPixH
+	if hPix%cellPixH != 0 {
+		lines += 1
+	}
 	if columns <= w && lines <= h {
 		return img
 	}
