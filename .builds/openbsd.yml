@@ -1,0 +1,13 @@
+---
+image: openbsd/latest
+packages:
+  - go
+sources:
+  - "https://git.sr.ht/~rockorager/vaxis"
+tasks:
+  - build: |
+      cd vaxis
+      go build
+  - test: |
+      cd vaxis
+      go test ./...
