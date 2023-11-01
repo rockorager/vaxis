@@ -1026,6 +1026,7 @@ func (vx *Vaxis) openTty() error {
 				}
 			case <-vx.chSigWinSz:
 				vx.resize.Store(true)
+				vx.PostEvent(Redraw{})
 			case <-vx.chSigKill:
 				vx.Close()
 				return
