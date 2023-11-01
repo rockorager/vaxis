@@ -206,15 +206,9 @@ func (s *Sixel) Draw(win Window) {
 		}
 		w.Write(s.buf.Bytes())
 	}
-	// loop over the locked cells and unlock them
 	deleteFunc := func(_ io.Writer) {
-		for y := 0; y < s.h; y += 1 {
-			for x := 0; x < s.w; x += 1 {
-				win.SetCell(x, y, Cell{
-					sixel: false,
-				})
-			}
-		}
+		// no-op. we expect users to Clear the screen or just print
+		// cells, which will have the effect of clearing the sixel
 	}
 	col, row := win.Origin()
 	placement := &placement{
