@@ -93,7 +93,8 @@ type Vaxis struct {
 	renders int
 	elapsed time.Duration
 
-	mu sync.Mutex
+	mu     sync.Mutex
+	resize atomic.Bool
 }
 
 // New creates a new [Vaxis] instance. Calling New will query the underlying
@@ -236,10 +237,13 @@ outer:
 		}
 	}
 
-	vx.winSize, err = vx.reportWinsize()
+	ws, err := vx.reportWinsize()
 	if err != nil {
 		return nil, err
 	}
+	vx.screenNext.resize(ws.Cols, ws.Rows)
+	vx.screenLast.resize(ws.Cols, ws.Rows)
+	vx.winSize = ws
 	vx.PostEvent(vx.winSize)
 	return vx, nil
 }
@@ -272,11 +276,6 @@ func (vx *Vaxis) PollEvent() Event {
 				return QuitEvent{}
 			}
 			switch e := ev.(type) {
-			case Resize:
-				vx.mu.Lock()
-				vx.screenNext.resize(e.Cols, e.Rows)
-				vx.screenLast.resize(e.Cols, e.Rows)
-				vx.mu.Unlock()
 			case SyncFunc:
 				e()
 				ev = Redraw{}
@@ -331,6 +330,22 @@ func (vx *Vaxis) Close() {
 
 // Render renders the model's content to the terminal
 func (vx *Vaxis) Render() {
+	if vx.resize.Load() {
+		defer vx.resize.Store(false)
+		ws, err := vx.reportWinsize()
+		if err != nil {
+			log.Error("couldn't report winsize", "error", err)
+			return
+		}
+		if ws.Cols != vx.winSize.Cols || ws.Rows != vx.winSize.Rows {
+			vx.screenNext.resize(ws.Cols, ws.Rows)
+			vx.screenLast.resize(ws.Cols, ws.Rows)
+			vx.winSize = ws
+			vx.refresh = true
+			vx.PostEvent(vx.winSize)
+			return
+		}
+	}
 	start := time.Now()
 	// defer renderBuf.Reset()
 	vx.render()
@@ -1010,12 +1025,7 @@ func (vx *Vaxis) openTty() error {
 					vx.handleSequence(seq)
 				}
 			case <-vx.chSigWinSz:
-				vx.winSize, err = vx.reportWinsize()
-				if err != nil {
-					log.Error("reporting window size",
-						"error", err)
-				}
-				vx.PostEvent(vx.winSize)
+				vx.resize.Store(true)
 			case <-vx.chSigKill:
 				vx.Close()
 				return
@@ -1036,14 +1046,13 @@ func (vx *Vaxis) Resume() error {
 	// 	return err
 	// }
 	err := vx.console.SetRaw()
-	vx.enterAltScreen()
-	vx.enableModes()
-	vx.setupSignals()
-	vx.winSize, err = vx.reportWinsize()
 	if err != nil {
 		return err
 	}
-	vx.PostEvent(vx.winSize)
+	vx.enterAltScreen()
+	vx.enableModes()
+	vx.setupSignals()
+	vx.resize.Store(true)
 	return nil
 }
 

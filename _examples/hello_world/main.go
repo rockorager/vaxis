@@ -36,7 +36,7 @@ func main() {
 				Text: "This line should be truncated at 6 characters",
 			},
 			)
-			vx.Render()
+			vx.Refresh()
 		case vaxis.Key:
 			slog.Warn("Key", "is", ev)
 

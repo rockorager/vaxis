@@ -26,13 +26,16 @@ func (vx *Vaxis) winch() {
 	ticker := time.NewTicker(100 * time.Millisecond)
 	for {
 		<-ticker.C
+		if vx.resize.Load() {
+			continue
+		}
 		ws, err := vx.reportWinsize()
 		if err != nil {
 			log.Error("couldn't report winsize", "error", err)
 			return
 		}
 		if ws.Cols != vx.winSize.Cols || ws.Rows != vx.winSize.Rows {
-			vx.PostEvent(ws)
+			vx.resize.Store(true)
 		}
 	}
 }
