@@ -36,6 +36,7 @@ func (vx *Vaxis) winch() {
 		}
 		if ws.Cols != vx.winSize.Cols || ws.Rows != vx.winSize.Rows {
 			vx.resize.Store(true)
+			vx.PostEvent(Redraw{})
 		}
 	}
 }
