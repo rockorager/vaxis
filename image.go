@@ -70,6 +70,7 @@ type KittyImage struct {
 }
 
 func (vx *Vaxis) NewKittyGraphic(img image.Image) *KittyImage {
+	log.Trace("new kitty image")
 	k := &KittyImage{
 		vx:  vx,
 		img: img,
@@ -85,6 +86,7 @@ func (k *KittyImage) Draw(win Window) {
 		return
 	}
 	col, row := win.Origin()
+	log.Trace("placing kitty image at cell %d,%d", col, row)
 	// the pid is a 32 bit number where the high 16bits are the width and
 	// the low 16 are the height
 	pid := uint(col)<<16 | uint(row)
@@ -127,7 +129,6 @@ func (k *KittyImage) Resize(w int, h int) {
 	// Resize the image
 	cellPixW := k.vx.winSize.XPixel / k.vx.winSize.Cols
 	cellPixH := k.vx.winSize.YPixel / k.vx.winSize.Rows
-	log.Info("Kitty: cell pixW, cellPixH", cellPixW, cellPixH)
 	img := resizeImage(k.img, w, h, cellPixW, cellPixH)
 
 	// Reupload the image
@@ -140,8 +141,6 @@ func (k *KittyImage) Resize(w int, h int) {
 	if max.Y%cellPixH != 0 {
 		k.h += 1
 	}
-	log.Info("Kitty bounds w %d h %d", k.w, k.h)
-	log.Info("Kitty: target w %d, h %d", w, h)
 
 	k.encoding.Store(true)
 	go func() {
@@ -218,6 +217,7 @@ func (s *Sixel) Draw(win Window) {
 		// cells, which will have the effect of clearing the sixel
 	}
 	col, row := win.Origin()
+	log.Trace("placing sixel image at cell %d,%d", col, row)
 	placement := &placement{
 		col:      col,
 		row:      row,
@@ -272,6 +272,7 @@ func (s *Sixel) CellSize() (w int, h int) {
 }
 
 func (vx *Vaxis) NewSixel(img image.Image) *Sixel {
+	log.Trace("new sixel image")
 	s := &Sixel{
 		vx:  vx,
 		img: img,
@@ -331,6 +332,7 @@ func resizeImage(img image.Image, w int, h int, cellPixW int, cellPixH int) imag
 	if hPix%cellPixH != 0 {
 		lines += 1
 	}
+	log.Debug("resizing image from (%d x %d) to (%d x %d)", columns, lines, w, h)
 	if columns <= w && lines <= h {
 		return img
 	}
@@ -368,6 +370,7 @@ type FullBlockImage struct {
 }
 
 func (vx *Vaxis) NewFullBlockImage(img image.Image) *FullBlockImage {
+	log.Trace("new full block image")
 	fb := &FullBlockImage{
 		vx:  vx,
 		img: img,
@@ -379,6 +382,9 @@ func (fb *FullBlockImage) Draw(win Window) {
 	if fb.resizing.Load() {
 		return
 	}
+
+	col, row := win.Origin()
+	log.Trace("placing full block image at cell %d,%d", col, row)
 	for i, cell := range fb.cells {
 		y := i / fb.width
 		x := i - (y * fb.width)
@@ -482,6 +488,7 @@ type HalfBlockImage struct {
 }
 
 func (vx *Vaxis) NewHalfBlockImage(img image.Image) *HalfBlockImage {
+	log.Trace("new half block image")
 	hb := &HalfBlockImage{
 		vx:  vx,
 		img: img,
@@ -493,6 +500,8 @@ func (hb *HalfBlockImage) Draw(win Window) {
 	if hb.resizing.Load() {
 		return
 	}
+	col, row := win.Origin()
+	log.Trace("placing half block image at cell %d,%d", col, row)
 	for i, cell := range hb.cells {
 		y := i / hb.width
 		x := i - (y * hb.width)
