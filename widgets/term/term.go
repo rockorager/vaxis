@@ -52,7 +52,7 @@ type Model struct {
 	window *vaxis.Window
 
 	cmd    *exec.Cmd
-	dirty  atomic.Bool
+	dirty  int32
 	parser *ansi.Parser
 	pty    *os.File
 	rows   int
@@ -60,7 +60,7 @@ type Model struct {
 
 	eventHandler func(vaxis.Event)
 	events       chan vaxis.Event
-	focused      atomic.Bool
+	focused      int32
 }
 
 type cursorState struct {
@@ -182,7 +182,7 @@ func (vt *Model) Start(cmd *exec.Cmd) error {
 			case ev := <-vt.events:
 				vt.eventHandler(ev)
 			case <-tick.C:
-				if vt.dirty.Load() {
+				if atomicLoad(&vt.dirty) {
 					vt.eventHandler(vaxis.Redraw{})
 				}
 			}
@@ -209,7 +209,7 @@ func (vt *Model) Update(msg vaxis.Event) {
 	case vaxis.Mouse:
 		mouse := vt.handleMouse(msg)
 		vt.pty.WriteString(mouse)
-		vt.dirty.Store(true)
+		atomicStore(&vt.dirty, true)
 		return
 	}
 }
@@ -232,7 +232,7 @@ func (vt *Model) update(seq ansi.Sequence) {
 		vt.osc(string(seq.Payload))
 	case ansi.DCS:
 	}
-	vt.dirty.Store(true)
+	atomicStore(&vt.dirty, true)
 }
 
 func (vt *Model) String() string {
@@ -466,7 +466,7 @@ func (vt *Model) Draw(win vaxis.Window) {
 		vt.Resize(width, height)
 	}
 	vt.window = &win
-	vt.dirty.Store(false)
+	atomicStore(&vt.dirty, false)
 	for row := 0; row < vt.height(); row += 1 {
 		for col := 0; col < vt.width(); {
 			cell := vt.activeScreen[row][col]
@@ -496,7 +496,7 @@ func (vt *Model) Draw(win vaxis.Window) {
 			col += w
 		}
 	}
-	if vt.mode&dectcem != 0 && vt.focused.Load() {
+	if vt.mode&dectcem != 0 && atomicLoad(&vt.focused) {
 		win.ShowCursor(int(vt.cursor.col), int(vt.cursor.row), vt.cursor.style)
 	}
 	// for _, s := range buf.getVisibleSixels() {
@@ -510,11 +510,11 @@ func (vt *Model) Draw(win vaxis.Window) {
 }
 
 func (vt *Model) Focus() {
-	vt.focused.Store(true)
+	atomicStore(&vt.focused, true)
 }
 
 func (vt *Model) Blur() {
-	vt.focused.Store(false)
+	atomicStore(&vt.focused, false)
 }
 
 // func (vt *VT) HandleEvent(e tcell.Event) bool {
@@ -541,3 +541,15 @@ func (vt *Model) Blur() {
 // 	}
 // 	return false
 // }
+
+func atomicLoad(val *int32) bool {
+	return atomic.LoadInt32(val) == 1
+}
+
+func atomicStore(addr *int32, val bool) {
+	if val {
+		atomic.StoreInt32(addr, 1)
+	} else {
+		atomic.StoreInt32(addr, 0)
+	}
+}

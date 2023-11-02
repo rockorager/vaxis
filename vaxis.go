@@ -26,7 +26,7 @@ type capabilities struct {
 	unicodeCore        bool
 	rgb                bool
 	kittyGraphics      bool
-	kittyKeyboard      atomic.Bool
+	kittyKeyboard      bool
 	styledUnderlines   bool
 	sixels             bool
 	colorThemeUpdates  bool
@@ -79,7 +79,7 @@ type Vaxis struct {
 	caps             capabilities
 	graphicsProtocol int
 	graphicsIDNext   uint64
-	reqCursorPos     atomic.Bool
+	reqCursorPos     int32
 	charCache        map[string]int
 	cursorNext       cursorState
 	cursorLast       cursorState
@@ -92,7 +92,7 @@ type Vaxis struct {
 	elapsed time.Duration
 
 	mu     sync.Mutex
-	resize atomic.Bool
+	resize int32
 }
 
 // New creates a new [Vaxis] instance. Calling New will query the underlying
@@ -187,7 +187,7 @@ outer:
 				if opts.DisableKittyKeyboard {
 					continue
 				}
-				vx.caps.kittyKeyboard.Store(true)
+				vx.caps.kittyKeyboard = true
 			case styledUnderlines:
 				vx.caps.styledUnderlines = true
 				log.Info("[capability] Styled underlines")
@@ -330,8 +330,8 @@ func (vx *Vaxis) Close() {
 
 // Render renders the model's content to the terminal
 func (vx *Vaxis) Render() {
-	if vx.resize.Load() {
-		defer vx.resize.Store(false)
+	if atomicLoad(&vx.resize) {
+		defer atomicStore(&vx.resize, false)
 		ws, err := vx.reportWinsize()
 		if err != nil {
 			log.Error("couldn't report winsize: %v", err)
@@ -693,7 +693,8 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 			//
 			// Kitty keyboard protocol disambiguates this scenario,
 			// hopefully people are using that
-			if vx.reqCursorPos.Swap(false) {
+			if atomicLoad(&vx.reqCursorPos) {
+				atomicStore(&vx.reqCursorPos, false)
 				if len(seq.Parameters) != 2 {
 					log.Error("not enough DSRCPR params")
 					return
@@ -827,7 +828,7 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 				}
 				vx.chSizeDone <- true
 			}
-
+			return
 		}
 
 		key := decodeKey(seq)
@@ -939,7 +940,7 @@ func (vx *Vaxis) sendQueries() {
 // enableModes enables all the modes we want
 func (vx *Vaxis) enableModes() {
 	// kitty keyboard
-	if vx.caps.kittyKeyboard.Load() {
+	if vx.caps.kittyKeyboard {
 		_, _ = vx.tw.WriteString(tparm(kittyKBEnable, vx.kittyFlags))
 	}
 	// sixel scrolling
@@ -975,7 +976,7 @@ func (vx *Vaxis) enableModes() {
 func (vx *Vaxis) disableModes() {
 	_, _ = vx.tw.WriteString(sgrReset)               // reset fg, bg, attrs
 	_, _ = vx.tw.WriteString(decrst(bracketedPaste)) // bracketed paste
-	if vx.caps.kittyKeyboard.Load() {
+	if vx.caps.kittyKeyboard {
 		_, _ = vx.tw.WriteString(kittyKBPop) // kitty keyboard
 	}
 	_, _ = vx.tw.WriteString(decrst(cursorKeys))
@@ -1060,7 +1061,7 @@ func (vx *Vaxis) openTty() error {
 					vx.handleSequence(seq)
 				}
 			case <-vx.chSigWinSz:
-				vx.resize.Store(true)
+				atomicStore(&vx.resize, true)
 				vx.PostEvent(Redraw{})
 			case <-vx.chSigKill:
 				vx.Close()
@@ -1088,7 +1089,7 @@ func (vx *Vaxis) Resume() error {
 	vx.enterAltScreen()
 	vx.enableModes()
 	vx.setupSignals()
-	vx.resize.Store(true)
+	atomicStore(&vx.resize, true)
 	return nil
 }
 
@@ -1119,14 +1120,13 @@ func (vx *Vaxis) showCursor() string {
 // -1,-1 if the query times out or fails
 func (vx *Vaxis) CursorPosition() (row int, col int) {
 	// DSRCPR - reports cursor position
-	vx.reqCursorPos.Store(true)
+	atomicStore(&vx.reqCursorPos, true)
 	_, _ = io.WriteString(vx.console, dsrcpr)
-	// _, _ = vx.tty.WriteString(dsrcpr)
 	timeout := time.NewTimer(50 * time.Millisecond)
 	select {
 	case <-timeout.C:
 		log.Warn("CursorPosition timed out")
-		vx.reqCursorPos.Store(false)
+		atomicStore(&vx.reqCursorPos, false)
 		return -1, -1
 	case pos := <-vx.chCursorPos:
 		return pos[0] - 1, pos[1] - 1
@@ -1259,4 +1259,16 @@ func (vx *Vaxis) CanDisplayGraphics() bool {
 func (vx *Vaxis) nextGraphicID() uint64 {
 	vx.graphicsIDNext += 1
 	return vx.graphicsIDNext
+}
+
+func atomicLoad(val *int32) bool {
+	return atomic.LoadInt32(val) == 1
+}
+
+func atomicStore(addr *int32, val bool) {
+	if val {
+		atomic.StoreInt32(addr, 1)
+	} else {
+		atomic.StoreInt32(addr, 0)
+	}
 }

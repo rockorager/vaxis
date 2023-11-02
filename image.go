@@ -8,7 +8,6 @@ import (
 	"image/color"
 	"image/png"
 	"io"
-	"sync/atomic"
 
 	"git.sr.ht/~rockorager/vaxis/log"
 	"github.com/mattn/go-sixel"
@@ -64,8 +63,8 @@ type KittyImage struct {
 	id       uint64
 	w        int
 	h        int
-	uploaded atomic.Bool
-	encoding atomic.Bool
+	uploaded int32
+	encoding int32
 	buf      *bytes.Buffer
 }
 
@@ -82,7 +81,7 @@ func (vx *Vaxis) NewKittyGraphic(img image.Image) *KittyImage {
 
 // Draw draws the [Image] to the [Window].
 func (k *KittyImage) Draw(win Window) {
-	if k.encoding.Load() {
+	if atomicLoad(&k.encoding) {
 		return
 	}
 	col, row := win.Origin()
@@ -91,9 +90,9 @@ func (k *KittyImage) Draw(win Window) {
 	// the low 16 are the height
 	pid := uint(col)<<16 | uint(row)
 	writeFunc := func(w io.Writer) {
-		if !k.uploaded.Load() {
+		if !atomicLoad(&k.uploaded) {
 			w.Write(k.buf.Bytes())
-			k.uploaded.Store(true)
+			atomicStore(&k.uploaded, true)
 			k.buf.Reset()
 		}
 		fmt.Fprintf(w, "\x1B_Ga=p,i=%d,p=%d,C=1\x1B\\", k.id, pid)
@@ -142,9 +141,9 @@ func (k *KittyImage) Resize(w int, h int) {
 		k.h += 1
 	}
 
-	k.encoding.Store(true)
+	atomicStore(&k.encoding, true)
 	go func() {
-		defer k.encoding.Store(false)
+		defer atomicStore(&k.encoding, false)
 		// Encode it to base64
 		buf := bytes.NewBuffer(nil)
 		wc := base64.NewEncoder(base64.StdEncoding, buf)
@@ -155,7 +154,7 @@ func (k *KittyImage) Resize(w int, h int) {
 		}
 		wc.Close()
 		b := make([]byte, 4096)
-		k.uploaded.Store(false)
+		atomicStore(&k.uploaded, false)
 		for buf.Len() > 0 {
 			n, err := buf.Read(b)
 			if err == io.EOF {
@@ -178,7 +177,7 @@ type Sixel struct {
 	id       uint64
 	w        int
 	h        int
-	encoding atomic.Bool
+	encoding int32
 }
 
 // Draw draws the [Image] to the [Window]. The image will not be drawn
@@ -187,7 +186,7 @@ func (s *Sixel) Draw(win Window) {
 	if s.buf.Len() == 0 {
 		return
 	}
-	if s.encoding.Load() {
+	if atomicLoad(&s.encoding) {
 		return
 	}
 	w, h := win.Size()
@@ -239,9 +238,9 @@ func (s *Sixel) Destroy() {
 // upscaled, nor will it's aspect ratio be changed. Resize will be done in a
 // separate gorotuine. A Redraw event will be posted when complete
 func (s *Sixel) Resize(w int, h int) {
-	s.encoding.Store(true)
+	atomicStore(&s.encoding, true)
 	go func() {
-		defer s.encoding.Store(false)
+		defer atomicStore(&s.encoding, false)
 		// Resize the image
 		cellPixW := s.vx.winSize.XPixel / s.vx.winSize.Cols
 		cellPixH := s.vx.winSize.YPixel / s.vx.winSize.Rows
@@ -361,12 +360,11 @@ func resizeImage(img image.Image, w int, h int, cellPixW int, cellPixH int) imag
 // FullBlockImage is an image composed of 0x20 characters. This is the most
 // primitive graphics protocol
 type FullBlockImage struct {
-	vx       *Vaxis
-	img      image.Image
-	cells    []Color
-	width    int
-	height   int
-	resizing atomic.Bool
+	vx     *Vaxis
+	img    image.Image
+	cells  []Color
+	width  int
+	height int
 }
 
 func (vx *Vaxis) NewFullBlockImage(img image.Image) *FullBlockImage {
@@ -379,10 +377,6 @@ func (vx *Vaxis) NewFullBlockImage(img image.Image) *FullBlockImage {
 }
 
 func (fb *FullBlockImage) Draw(win Window) {
-	if fb.resizing.Load() {
-		return
-	}
-
 	col, row := win.Origin()
 	log.Trace("placing full block image at cell %d,%d", col, row)
 	for i, cell := range fb.cells {
@@ -479,12 +473,11 @@ func averageColor(c color.Color, colors ...color.Color) (uint8, uint8, uint8, ui
 
 // HalfBlockImage is an image composed of half block characters.
 type HalfBlockImage struct {
-	vx       *Vaxis
-	img      image.Image
-	cells    []Cell
-	width    int
-	height   int
-	resizing atomic.Bool
+	vx     *Vaxis
+	img    image.Image
+	cells  []Cell
+	width  int
+	height int
 }
 
 func (vx *Vaxis) NewHalfBlockImage(img image.Image) *HalfBlockImage {
@@ -497,9 +490,6 @@ func (vx *Vaxis) NewHalfBlockImage(img image.Image) *HalfBlockImage {
 }
 
 func (hb *HalfBlockImage) Draw(win Window) {
-	if hb.resizing.Load() {
-		return
-	}
 	col, row := win.Origin()
 	log.Trace("placing half block image at cell %d,%d", col, row)
 	for i, cell := range hb.cells {
