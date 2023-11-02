@@ -30,6 +30,8 @@ type capabilities struct {
 	styledUnderlines   bool
 	sixels             bool
 	colorThemeUpdates  bool
+	reportSizeChars    bool
+	reportSizePixels   bool
 }
 
 type cursorState struct {
@@ -72,6 +74,8 @@ type Vaxis struct {
 	chCursorPos      chan [2]int
 	chQuit           chan bool
 	winSize          Resize
+	nextSize         Resize
+	chSizeDone       chan bool
 	caps             capabilities
 	graphicsProtocol int
 	graphicsIDNext   uint64
@@ -145,6 +149,7 @@ func New(opts Options) (*Vaxis, error) {
 	vx.chSigKill = make(chan os.Signal, 1)
 	vx.chCursorPos = make(chan [2]int)
 	vx.chQuit = make(chan bool)
+	vx.chSizeDone = make(chan bool, 1)
 	vx.charCache = make(map[string]int, 256)
 	err = vx.openTty()
 	if err != nil {
@@ -195,6 +200,12 @@ outer:
 				if vx.graphicsProtocol < kitty {
 					vx.graphicsProtocol = kitty
 				}
+			case textAreaPix:
+				vx.caps.reportSizePixels = true
+				log.Info("[capability] Report screen size: pixels")
+			case textAreaChar:
+				vx.caps.reportSizeChars = true
+				log.Info("[capability] Report screen size: characters")
 			}
 		}
 	}
@@ -780,6 +791,39 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 				vx.PostEvent(mouse)
 			}
 			return
+		case 't':
+			if len(seq.Parameters) != 3 {
+				log.Error("[CSI] unknown sequence: %s", seq)
+				return
+			}
+			// CSI <type> ; <height> ; <width> t
+			typ := seq.Parameters[0][0]
+			h := seq.Parameters[1][0]
+			w := seq.Parameters[2][0]
+			switch typ {
+			case 4:
+				vx.nextSize.XPixel = w
+				vx.nextSize.YPixel = h
+				if !vx.caps.reportSizePixels {
+					// Gate on this so we only report this
+					// once at startup
+					vx.PostEvent(textAreaPix{})
+					return
+				}
+			case 8:
+				vx.nextSize.Cols = w
+				vx.nextSize.Rows = h
+				if !vx.caps.reportSizeChars {
+					// Gate on this so we only report this
+					// once at startup. This also means we
+					// can set the size directly and won't
+					// have race conditions
+					vx.PostEvent(textAreaChar{})
+					return
+				}
+				vx.chSizeDone <- true
+			}
+
 		}
 
 		key := decodeKey(seq)
@@ -868,6 +912,8 @@ func (vx *Vaxis) sendQueries() {
 	_, _ = vx.tw.WriteString(kittyKBQuery)
 	_, _ = vx.tw.WriteString(kittyGquery)
 	_, _ = vx.tw.WriteString(xtsmSixelGeom)
+	// Can the terminal report it's own size?
+	_, _ = vx.tw.WriteString(textAreaSize)
 
 	// Query some terminfo capabilities
 	// Just another way to see if we have RGB support

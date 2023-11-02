@@ -15,6 +15,8 @@ type (
 	styledUnderlines       struct{}
 	truecolor              struct{}
 	notifyColorChange      struct{}
+	textAreaPix            struct{}
+	textAreaChar           struct{}
 )
 
 // Resize is delivered whenever a window size change is detected (likely via

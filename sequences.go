@@ -94,6 +94,9 @@ const (
 	// dsr requests/responses
 	colorThemeReq  = 996
 	colorThemeResp = 997
+
+	// screen size, always requested pixels first and characters second
+	textAreaSize = "\x1b[14t\x1b[18t"
 )
 
 func decset(mode int) string {
