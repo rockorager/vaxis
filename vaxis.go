@@ -237,6 +237,10 @@ outer:
 	if err != nil {
 		return nil, err
 	}
+	if ws.XPixel == 0 || ws.YPixel == 0 {
+		log.Debug("pixel size not reported, setting graphics protocol to half block")
+		vx.graphicsProtocol = halfBlock
+	}
 	vx.screenNext.resize(ws.Cols, ws.Rows)
 	vx.screenLast.resize(ws.Cols, ws.Rows)
 	vx.winSize = ws
