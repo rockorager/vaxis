@@ -4,6 +4,8 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"git.sr.ht/~rockorager/vaxis/log"
 )
 
 func (vx *Vaxis) setupSignals() {
