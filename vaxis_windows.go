@@ -30,7 +30,7 @@ func (vx *Vaxis) winch() {
 	ticker := time.NewTicker(100 * time.Millisecond)
 	for {
 		<-ticker.C
-		if vx.resize.Load() {
+		if atomicLoad(&vx.resize) {
 			continue
 		}
 		ws, err := vx.reportWinsize()
@@ -39,7 +39,7 @@ func (vx *Vaxis) winch() {
 			return
 		}
 		if ws.Cols != vx.winSize.Cols || ws.Rows != vx.winSize.Rows {
-			vx.resize.Store(true)
+			atomicStore(&vx.resize, true)
 			vx.PostEvent(Redraw{})
 		}
 	}
