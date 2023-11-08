@@ -38,3 +38,16 @@ func (s *screen) setCell(col int, row int, text Cell) {
 	}
 	s.buf[row][col] = text
 }
+
+func (s *screen) setStyle(col int, row int, style Style) {
+	if col < 0 || row < 0 {
+		return
+	}
+	if col >= s.cols {
+		return
+	}
+	if row >= s.rows {
+		return
+	}
+	s.buf[row][col].Style = style
+}

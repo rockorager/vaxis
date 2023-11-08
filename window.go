@@ -150,6 +150,22 @@ func (win Window) SetCell(col int, row int, cell Cell) {
 	}
 }
 
+// SetStyle changes the style at a given location, leaving the text in place.
+func (win Window) SetStyle(col int, row int, style Style) {
+	if row >= win.Height || col >= win.Width {
+		return
+	}
+	if row < 0 || col < 0 {
+		return
+	}
+	switch win.Parent {
+	case nil:
+		win.Vx.screenNext.setStyle(col+win.Column, row+win.Row, style)
+	default:
+		win.Parent.SetStyle(col+win.Column, row+win.Row, style)
+	}
+}
+
 // ShowCursor shows the cursor at colxrow, relative to this Window's location
 func (win Window) ShowCursor(col int, row int, style CursorStyle) {
 	col += win.Column
