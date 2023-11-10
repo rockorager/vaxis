@@ -121,7 +121,7 @@ func (win Window) New(col, row, cols, rows int) Window {
 	switch {
 	case rows < 0:
 		newWin.Height = h - row
-	case rows+row > w:
+	case rows+row > h:
 		newWin.Height = h - row
 	}
 	return newWin
