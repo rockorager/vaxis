@@ -383,7 +383,7 @@ func anywhere(r rune, p *Parser) stateFn {
 			p.exit = nil
 		}
 		p.clear()
-		p.escTimeout = time.AfterFunc(1*time.Millisecond, func() {
+		p.escTimeout = time.AfterFunc(10*time.Millisecond, func() {
 			p.emit(C0(0x1B))
 			p.mu.Lock()
 			p.state = ground
