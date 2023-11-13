@@ -60,12 +60,8 @@ const (
 	// SGR Parameterized
 	fgSet       = "\x1b[3%dm"
 	fgBrightSet = "\x1b[9%dm"
-	fgIndexSet  = "\x1b[38:5:%dm"
-	fgRGBSet    = "\x1b[38:2:%d:%d:%dm"
 	bgSet       = "\x1b[4%dm"
 	bgBrightSet = "\x1b[10%dm"
-	bgIndexSet  = "\x1b[48:5:%dm"
-	bgRGBSet    = "\x1b[48:2:%d:%d:%dm"
 	ulIndexSet  = "\x1b[58:5:%dm"
 	ulRGBSet    = "\x1b[58:2:%d:%d:%dm"
 	ulStyleSet  = "\x1b[4:%dm"
@@ -97,6 +93,14 @@ const (
 
 	// screen size, always requested pixels first and characters second
 	textAreaSize = "\x1b[14t\x1b[18t"
+)
+
+// These are variable because of quirks
+var (
+	fgIndexSet = "\x1b[38:5:%dm"
+	fgRGBSet   = "\x1b[38:2:%d:%d:%dm"
+	bgIndexSet = "\x1b[48:5:%dm"
+	bgRGBSet   = "\x1b[48:2:%d:%d:%dm"
 )
 
 func decset(mode int) string {

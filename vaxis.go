@@ -213,6 +213,7 @@ outer:
 	vx.enterAltScreen()
 	vx.enableModes()
 	vx.setupSignals()
+	vx.applyQuirks()
 
 	switch os.Getenv("VAXIS_GRAPHICS") {
 	case "none":
