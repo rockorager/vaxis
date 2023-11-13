@@ -13,12 +13,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/containerd/console"
 	"github.com/mattn/go-runewidth"
 	"github.com/rivo/uniseg"
 
 	"git.sr.ht/~rockorager/vaxis/ansi"
 	"git.sr.ht/~rockorager/vaxis/log"
+	"git.sr.ht/~rockorager/vaxis/term"
 )
 
 type capabilities struct {
@@ -58,8 +58,9 @@ type Options struct {
 }
 
 type Vaxis struct {
-	queue            chan Event
-	console          console.Console
+	queue chan Event
+	// console          console.Console
+	pty              term.Pty
 	tw               *writer
 	screenNext       *screen
 	screenLast       *screen
@@ -1025,27 +1026,24 @@ func (vx *Vaxis) Suspend() error {
 	vx.exitAltScreen()
 	signal.Stop(vx.chSigKill)
 	signal.Stop(vx.chSigWinSz)
-	vx.console.Reset()
+	vx.pty.Restore()
+	// vx.console.Reset()
 	return nil
 }
 
-// makeRaw opens the /dev/tty device, makes it raw, and starts an input parser
+// openTty opens the /dev/tty device, makes it raw, and starts an input parser
 func (vx *Vaxis) openTty() error {
-	for _, s := range []*os.File{os.Stderr, os.Stdout, os.Stdin} {
-		if c, err := console.ConsoleFromFile(s); err == nil {
-			vx.console = c
-			break
-		}
+	pty, err := term.OpenPty()
+	if err != nil {
+		return err
 	}
-	if vx.console == nil {
-		return console.ErrNotAConsole
-	}
-	err := vx.console.SetRaw()
+	vx.pty = pty
+	err = vx.pty.MakeRaw()
 	if err != nil {
 		return err
 	}
 	vx.tw = newWriter(vx)
-	parser := ansi.NewParser(vx.console)
+	parser := ansi.NewParser(vx.pty)
 	go func() {
 		defer func() {
 			if err := recover(); err != nil {
@@ -1083,7 +1081,7 @@ func (vx *Vaxis) Resume() error {
 	// if err != nil {
 	// 	return err
 	// }
-	err := vx.console.SetRaw()
+	err := vx.pty.MakeRaw()
 	if err != nil {
 		return err
 	}
@@ -1122,7 +1120,7 @@ func (vx *Vaxis) showCursor() string {
 func (vx *Vaxis) CursorPosition() (row int, col int) {
 	// DSRCPR - reports cursor position
 	atomicStore(&vx.reqCursorPos, true)
-	_, _ = io.WriteString(vx.console, dsrcpr)
+	_, _ = io.WriteString(vx.pty, dsrcpr)
 	timeout := time.NewTimer(50 * time.Millisecond)
 	select {
 	case <-timeout.C:
@@ -1157,7 +1155,7 @@ func (vx *Vaxis) cursorStyle() string {
 // ClipboardPush copies the provided string to the system clipboard
 func (vx *Vaxis) ClipboardPush(s string) {
 	b64 := base64.StdEncoding.EncodeToString([]byte(s))
-	_, _ = io.WriteString(vx.console, tparm(osc52put, b64))
+	_, _ = io.WriteString(vx.pty, tparm(osc52put, b64))
 }
 
 // ClipboardPop requests the content from the system clipboard. ClipboardPop works by
@@ -1166,7 +1164,7 @@ func (vx *Vaxis) ClipboardPush(s string) {
 // a context to set a deadline for this function to return. An error will be
 // returned if the context is cancelled.
 func (vx *Vaxis) ClipboardPop(ctx context.Context) (string, error) {
-	_, _ = io.WriteString(vx.console, osc52pop)
+	_, _ = io.WriteString(vx.pty, osc52pop)
 	select {
 	case str := <-vx.chClipboard:
 		return str, nil
@@ -1179,20 +1177,20 @@ func (vx *Vaxis) ClipboardPop(ctx context.Context) (string, error) {
 // string, OSC9 will be used - otherwise osc777 is used
 func (vx *Vaxis) Notify(title string, body string) {
 	if title == "" {
-		_, _ = io.WriteString(vx.console, tparm(osc9notify, body))
+		_, _ = io.WriteString(vx.pty, tparm(osc9notify, body))
 		return
 	}
-	_, _ = io.WriteString(vx.console, tparm(osc777notify, title, body))
+	_, _ = io.WriteString(vx.pty, tparm(osc777notify, title, body))
 }
 
 // SetTitle sets the terminal's title via OSC 2
 func (vx *Vaxis) SetTitle(s string) {
-	_, _ = io.WriteString(vx.console, tparm(setTitle, s))
+	_, _ = io.WriteString(vx.pty, tparm(setTitle, s))
 }
 
 // Bell sends a BEL control signal to the terminal
 func (vx *Vaxis) Bell() {
-	_, _ = vx.console.Write([]byte{0x07})
+	_, _ = vx.pty.Write([]byte{0x07})
 }
 
 // advance returns the extra amount to advance the column by when rendering

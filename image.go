@@ -114,7 +114,7 @@ func (k *KittyImage) Draw(win Window) {
 
 // Destroy deletes this image from memory
 func (k *KittyImage) Destroy() {
-	fmt.Fprintf(k.vx.console, "\x1B_Ga=d,d=I,i=%d\x1B\\", k.id)
+	fmt.Fprintf(k.vx.pty, "\x1B_Ga=d,d=I,i=%d\x1B\\", k.id)
 }
 
 func (k *KittyImage) CellSize() (w int, h int) {

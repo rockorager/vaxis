@@ -18,7 +18,7 @@ type writer struct {
 func newWriter(vx *Vaxis) *writer {
 	return &writer{
 		buf: bytes.NewBuffer(make([]byte, 8192)),
-		w:   vx.console,
+		w:   vx.pty,
 		vx:  vx,
 	}
 }

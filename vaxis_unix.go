@@ -10,13 +10,10 @@ import (
 	"time"
 
 	"git.sr.ht/~rockorager/vaxis/log"
-	"golang.org/x/sys/unix"
 )
 
 func (vx *Vaxis) setupSignals() {
-	signal.Notify(vx.chSigWinSz,
-		syscall.SIGWINCH,
-	)
+	vx.pty.Notify(vx.chSigWinSz)
 	signal.Notify(vx.chSigKill,
 		// kill signals
 		syscall.SIGABRT,
@@ -34,7 +31,7 @@ func (vx *Vaxis) setupSignals() {
 func (vx *Vaxis) reportWinsize() (Resize, error) {
 	if vx.caps.reportSizeChars && vx.caps.reportSizePixels {
 		log.Trace("requesting screen size from terminal")
-		io.WriteString(vx.console, textAreaSize)
+		io.WriteString(vx.pty, textAreaSize)
 		deadline := time.NewTimer(100 * time.Millisecond)
 		select {
 		case <-deadline.C:
@@ -44,14 +41,15 @@ func (vx *Vaxis) reportWinsize() (Resize, error) {
 		}
 	}
 	log.Trace("requesting screen size from ioctl")
-	ws, err := unix.IoctlGetWinsize(int(vx.console.Fd()), unix.TIOCGWINSZ)
+	ws, err := vx.pty.Size()
+	// ws, err := unix.IoctlGetWinsize(int(vx.pty.Fd()), unix.TIOCGWINSZ)
 	if err != nil {
 		return Resize{}, err
 	}
 	return Resize{
 		Cols:   int(ws.Col),
 		Rows:   int(ws.Row),
-		XPixel: int(ws.Xpixel),
-		YPixel: int(ws.Ypixel),
+		XPixel: int(ws.XPixel),
+		YPixel: int(ws.YPixel),
 	}, nil
 }
