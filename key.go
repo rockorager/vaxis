@@ -117,7 +117,11 @@ func (k Key) String() string {
 		}
 		return fmt.Sprintf("Ctrl+%c", val)
 	case k.Keycode <= unicode.MaxRune:
-		buf.WriteRune(k.Keycode)
+		if k.Modifiers&ModCapsLock != 0 {
+			buf.WriteRune(unicode.ToUpper(k.Keycode))
+		} else {
+			buf.WriteRune(k.Keycode)
+		}
 	}
 
 	switch k.Keycode {
