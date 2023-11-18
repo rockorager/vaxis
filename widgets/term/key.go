@@ -55,6 +55,10 @@ func encodeXterm(key vaxis.Key, deckpam bool, decckm bool) string {
 		return fmt.Sprintf("\x1B[%d;%d%c", val.number, int(xtermMods)+1, val.final)
 	}
 
+	if key.Text != "" && key.Modifiers&vaxis.ModCtrl == 0 && key.Modifiers&vaxis.ModAlt == 0 {
+		return key.Text
+	}
+
 	buf := bytes.NewBuffer(nil)
 	if key.Keycode < unicode.MaxRune {
 		if xtermMods&vaxis.ModAlt != 0 {
