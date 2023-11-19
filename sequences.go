@@ -17,8 +17,7 @@ const (
 	xtversion = "\x1b[>0q"
 	// kitty keyboard protocol
 	kittyKBQuery  = "\x1b[?u"
-	kittyKBEnable = "\x1b[=%du"
-	kittyKBPush   = "\x1b[>1u"
+	kittyKBEnable = "\x1b[>%du"
 	kittyKBPop    = "\x1b[<u"
 	// kitty graphics protocol
 	kittyGquery = "\x1b_Gi=1,a=q\x1b\\"
