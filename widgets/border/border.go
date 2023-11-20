@@ -76,11 +76,22 @@ func Right(win vaxis.Window, style vaxis.Style) vaxis.Window {
 
 func Bottom(win vaxis.Window, style vaxis.Style) vaxis.Window {
 	w, h := win.Size()
-	for i := 0; i < (w - 1); i += 1 {
+	for i := 0; i < w; i += 1 {
 		win.SetCell(i, h-1, vaxis.Cell{
 			Character: horizontal,
 			Style:     style,
 		})
 	}
 	return win.New(0, 0, -1, h-1)
+}
+
+func Top(win vaxis.Window, style vaxis.Style) vaxis.Window {
+	w, _ := win.Size()
+	for i := 0; i < w; i += 1 {
+		win.SetCell(i, 0, vaxis.Cell{
+			Character: horizontal,
+			Style:     style,
+		})
+	}
+	return win.New(0, 1, -1, -1)
 }
