@@ -21,6 +21,8 @@ type Model struct {
 
 	Content vaxis.Style
 	Prompt  vaxis.Style
+	// HideCursor tells the textinput not to draw the cursor
+	HideCursor bool
 
 	cursor int // the x position of the cursor, relative to the start of Content
 	offset int
@@ -225,7 +227,9 @@ func (m *Model) Draw(win vaxis.Window) {
 			break
 		}
 	}
-	win.ShowCursor(cursor, 0, vaxis.CursorBlock)
+	if !m.HideCursor {
+		win.ShowCursor(cursor, 0, vaxis.CursorBlock)
+	}
 }
 
 // isAlphaNumeric returns true if the character is a letter or a number
