@@ -95,7 +95,7 @@ func (k *KittyImage) Draw(win Window) {
 			atomicStore(&k.uploaded, true)
 			k.buf.Reset()
 		}
-		fmt.Fprintf(w, "\x1B_Ga=p,i=%d,p=%d,C=1\x1B\\", k.id, pid)
+		fmt.Fprintf(w, "\x1B_Ga=p,i=%d,p=%d,z=-10,C=1\x1B\\", k.id, pid)
 	}
 	deleteFunc := func(w io.Writer) {
 		fmt.Fprintf(w, "\x1B_Ga=d,d=i,i=%d,p=%d\x1B\\", k.id, pid)

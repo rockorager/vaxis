@@ -53,6 +53,7 @@ func main() {
 		w, h := vImg.CellSize()
 		win = align.Center(win, w, h)
 		vImg.Draw(win)
+		win.Print(vaxis.Segment{Text: "text\n with image"})
 		vx.Render()
 	}
 }
