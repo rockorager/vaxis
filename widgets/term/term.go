@@ -184,6 +184,7 @@ func (vt *Model) Start(cmd *exec.Cmd) error {
 			case <-tick.C:
 				if atomicLoad(&vt.dirty) {
 					vt.eventHandler(vaxis.Redraw{})
+					atomicStore(&vt.dirty, false)
 				}
 			}
 		}
