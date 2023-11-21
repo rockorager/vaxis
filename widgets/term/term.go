@@ -486,7 +486,7 @@ func (vt *Model) Draw(win vaxis.Window) {
 					Background:      cell.bg,
 					Attribute:       cell.attrs,
 					Hyperlink:       cell.url,
-					HyperlinkParams: fmt.Sprintf("id=%s", cell.urlId),
+					HyperlinkParams: "id=%s" + cell.urlId,
 				},
 			}
 
