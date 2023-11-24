@@ -492,21 +492,6 @@ func decodeKey(seq ansi.Sequence) Key {
 						if key.Modifiers < 0 {
 							key.Modifiers = 0
 						}
-						if key.Keycode <= KeyF12 && key.Keycode >= KeyF01 {
-							switch key.Modifiers {
-							case 1:
-								key.Keycode += 12
-							case 2:
-								key.Keycode += 48
-							case 3:
-								key.Keycode += 60
-							case 4:
-								key.Keycode += 24
-							case 5:
-								key.Keycode += 36
-							}
-							key.Modifiers = 0
-						}
 					case 1:
 						// event type
 						//
