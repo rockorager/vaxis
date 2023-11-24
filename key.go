@@ -30,6 +30,58 @@ type Key struct {
 	EventType EventType
 }
 
+// Matches returns true if there is any way for the passed key and mods to match
+// the [Key]. Before matching, ModCapsLock and ModNumLock are removed from the
+// modifier mask. Returns true if any of the following are true
+//
+// 1. Keycode and Modifiers are exact matches
+// 2. Text and Modifiers are exact matches
+// 3. ShiftedCode and Modifiers (with ModShift removed) are exact matches
+// 4. BaseLayoutCode and Modifiers are exact matches
+//
+// If key is lowercase and mods includes ModShift, uppercase Key, remove
+// ModShift and continue
+//
+// 5. Text and Modifiers are exact matches
+func (k Key) Matches(key rune, mods ModifierMask) bool {
+	mods = mods &^ ModCapsLock
+	mods = mods &^ ModNumLock
+	kMods := k.Modifiers &^ ModCapsLock
+	kMods = kMods &^ ModNumLock
+	unshiftedMods := kMods &^ ModShift
+
+	// Rule 1
+	if k.Keycode == key && mods == kMods {
+		return true
+	}
+
+	// Rule 2
+	if k.Text == string(key) && mods == kMods {
+		return true
+	}
+
+	// Rule 3
+	if k.ShiftedCode == key && mods == unshiftedMods {
+		return true
+	}
+
+	// Rule 4
+	if k.BaseLayoutCode == key && mods == kMods {
+		return true
+	}
+
+	if mods&ModShift != 0 && unicode.IsLower(key) {
+		// Rule 5
+		mods = mods &^ ModShift
+		key = unicode.ToUpper(key)
+		if k.Text == string(key) && mods == kMods {
+			return true
+		}
+	}
+
+	return false
+}
+
 // ModifierMask is a bitmask for which modifier keys were held when a key was
 // pressed
 type ModifierMask int
