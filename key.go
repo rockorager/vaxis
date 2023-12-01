@@ -43,7 +43,11 @@ type Key struct {
 // ModShift and continue
 //
 // 5. Text and Modifiers are exact matches
-func (k Key) Matches(key rune, mods ModifierMask) bool {
+func (k Key) Matches(key rune, modifiers ...ModifierMask) bool {
+	var mods ModifierMask
+	for _, mod := range modifiers {
+		mods |= mod
+	}
 	mods = mods &^ ModCapsLock
 	mods = mods &^ ModNumLock
 	kMods := k.Modifiers &^ ModCapsLock
