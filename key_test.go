@@ -177,6 +177,24 @@ func TestKeyMatches(t *testing.T) {
 			matchRune: 'a',
 			matchMods: ModCtrl | ModShift,
 		},
+		{
+			name:      "Kitty: ':' (shift + ';')",
+			sequence:  "\x1b[59:58;2;58u",
+			matchRune: ':',
+			matchMods: ModShift,
+		},
+		{
+			name:      "Kitty: ':' (shift + ';')",
+			sequence:  "\x1b[58:59;2:1;58u",
+			matchRune: ':',
+			matchMods: ModShift,
+		},
+		{
+			name:      "Kitty: ':' (shift + ';')",
+			sequence:  "\x1b[58:59;;58u",
+			matchRune: ':',
+			matchMods: ModShift,
+		},
 	}
 
 	for _, test := range tests {

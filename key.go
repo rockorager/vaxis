@@ -39,8 +39,8 @@ type Key struct {
 // 3. ShiftedCode and Modifiers (with ModShift removed) are exact matches
 // 4. BaseLayoutCode and Modifiers are exact matches
 //
-// If key is lowercase and mods includes ModShift, uppercase Key, remove
-// ModShift and continue
+// If key is lowercase or not a letter and mods includes ModShift, uppercase
+// Key, remove ModShift and continue
 //
 // 5. Text and Modifiers are exact matches
 func (k Key) Matches(key rune, modifiers ...ModifierMask) bool {
@@ -74,7 +74,7 @@ func (k Key) Matches(key rune, modifiers ...ModifierMask) bool {
 		return true
 	}
 
-	if mods&ModShift != 0 && unicode.IsLower(key) {
+	if mods&ModShift != 0 && (unicode.IsLower(key) || !unicode.IsLetter(key)) {
 		// Rule 5
 		mods = mods &^ ModShift
 		key = unicode.ToUpper(key)
