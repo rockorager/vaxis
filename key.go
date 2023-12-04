@@ -39,7 +39,8 @@ type Key struct {
 // 3. ShiftedCode and Modifiers (with ModShift removed) are exact matches
 // 4. BaseLayoutCode and Modifiers are exact matches
 //
-// If key is not a letter:
+// If key is not a letter, but still a graphic: (so we can match ':', which is
+// shift+; but we don't want to match "shift+tab" as the same as "tab")
 //
 // 5. Keycode and Modifers (without ModShift) are exact matches
 // 6. Shifted Keycode and Modifers (without ModShift) are exact matches
@@ -80,7 +81,7 @@ func (k Key) Matches(key rune, modifiers ...ModifierMask) bool {
 	}
 
 	// Rule 5
-	if !unicode.IsLetter(key) {
+	if !unicode.IsLetter(key) && unicode.IsGraphic(key) {
 		mods = mods &^ ModShift
 		if k.Keycode == key && mods == kMods {
 			return true
@@ -538,6 +539,11 @@ func decodeKey(seq ansi.Sequence) Key {
 						// unicode-key-code
 						// This will always be length of at least 1
 						sk := specialKey{rune(ps), seq.Final}
+						if sk.keycode == 1 && sk.final == 'Z' {
+							key.Keycode = KeyTab
+							key.Modifiers = ModShift
+							continue
+						}
 						var ok bool
 						key.Keycode, ok = specialsKeys[sk]
 						if !ok {

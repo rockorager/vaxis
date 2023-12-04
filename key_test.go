@@ -195,6 +195,34 @@ func TestKeyMatches(t *testing.T) {
 			matchRune: ':',
 			matchMods: ModShift,
 		},
+		{
+			name:      "legacy: 'tab'",
+			sequence:  "\t",
+			matchRune: KeyTab,
+		},
+		{
+			name:      "legacy: 'shift+tab'",
+			sequence:  "\x1b[Z",
+			matchRune: KeyTab,
+			matchMods: ModShift,
+		},
+		{
+			name:      "Kitty: 'tab'",
+			sequence:  "\x1b[9;1:1u",
+			matchRune: KeyTab,
+		},
+		{
+			name:      "Kitty: 'shift+tab'",
+			sequence:  "\x1b[9;2:1u",
+			matchRune: KeyTab,
+			matchMods: ModShift,
+		},
+		{
+			name:      "legacy: 'ctrl+shift+tab'",
+			sequence:  "\x1b[27;6;9~",
+			matchRune: KeyTab,
+			matchMods: ModShift | ModCtrl,
+		},
 	}
 
 	for _, test := range tests {
