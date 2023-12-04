@@ -453,9 +453,9 @@ outerNew:
 
 			if cursor.Foreground != next.Foreground {
 				fg := next.Foreground
-				ps := fg.params()
+				ps := fg.Params()
 				if !vx.caps.rgb {
-					ps = fg.asIndex().params()
+					ps = fg.asIndex().Params()
 				}
 				switch len(ps) {
 				case 0:
@@ -476,9 +476,9 @@ outerNew:
 
 			if cursor.Background != next.Background {
 				bg := next.Background
-				ps := bg.params()
+				ps := bg.Params()
 				if !vx.caps.rgb {
-					ps = bg.asIndex().params()
+					ps = bg.asIndex().Params()
 				}
 				switch len(ps) {
 				case 0:
@@ -500,9 +500,9 @@ outerNew:
 			if vx.caps.styledUnderlines {
 				if cursor.UnderlineColor != next.UnderlineColor {
 					ul := next.UnderlineColor
-					ps := ul.params()
+					ps := ul.Params()
 					if !vx.caps.rgb {
-						ps = ul.asIndex().params()
+						ps = ul.asIndex().Params()
 					}
 					switch len(ps) {
 					case 0:

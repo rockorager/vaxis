@@ -11,9 +11,9 @@ const (
 	rgb     Color = 1 << 25
 )
 
-// params returns the TParm parameters for the color, or an empty slice if the
+// Params returns the TParm parameters for the color, or an empty slice if the
 // color is the default color
-func (c Color) params() []uint8 {
+func (c Color) Params() []uint8 {
 	switch {
 	case c&indexed != 0:
 		return []uint8{uint8(c)}
