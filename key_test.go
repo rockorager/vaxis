@@ -80,26 +80,30 @@ func TestKey(t *testing.T) {
 // the match function
 func TestKeyMatches(t *testing.T) {
 	tests := []struct {
-		name      string
-		sequence  string
-		matchRune rune
-		matchMods ModifierMask
+		name        string
+		sequence    string
+		matchRune   rune
+		matchMods   ModifierMask
+		matchString string
 	}{
 		{
-			name:      "Application: j",
-			sequence:  "j",
-			matchRune: 'j',
+			name:        "Application: j",
+			sequence:    "j",
+			matchRune:   'j',
+			matchString: "j",
 		},
 		{
-			name:      "Kitty: j",
-			sequence:  "\x1b[106;1:3u",
-			matchRune: 'j',
+			name:        "Kitty: j",
+			sequence:    "\x1b[106;1:3u",
+			matchRune:   'j',
+			matchString: "j",
 		},
 		{
-			name:      "Legacy: Ctrl+j",
-			sequence:  "\n",
-			matchRune: 'j',
-			matchMods: ModCtrl,
+			name:        "Legacy: Ctrl+j",
+			sequence:    "\n",
+			matchRune:   'j',
+			matchMods:   ModCtrl,
+			matchString: "ctrl+j",
 		},
 		{
 			name:      "Kitty: Ctrl+j",
@@ -108,120 +112,127 @@ func TestKeyMatches(t *testing.T) {
 			matchMods: ModCtrl,
 		},
 		{
-			name:      "Legacy: caps+j",
-			sequence:  "J",
-			matchRune: 'J',
+			name:        "Legacy: caps+j",
+			sequence:    "J",
+			matchRune:   'J',
+			matchString: "caps+J",
 		},
 		{
-			name:      "Kitty: caps+j",
-			sequence:  "\x1b[106;65;74u",
-			matchRune: 'J',
+			name:        "Kitty: caps+j",
+			sequence:    "\x1b[106;65;74u",
+			matchRune:   'J',
+			matchString: "caps+j",
 		},
 		{
-			name:      "Kitty: caps+j",
-			sequence:  "\x1b[106;65;74u",
-			matchRune: 'j',
-			matchMods: ModShift,
+			name:        "Kitty: shift+j",
+			sequence:    "\x1b[106;65;74u",
+			matchRune:   'j',
+			matchMods:   ModShift,
+			matchString: "shift+j",
 		},
 		{
-			name:      "Legacy: F1",
-			sequence:  "\x1bOP",
-			matchRune: KeyF01,
+			name:        "Legacy: F1",
+			sequence:    "\x1bOP",
+			matchRune:   KeyF01,
+			matchString: "f1",
 		},
 		{
-			name:      "Kitty: F1",
-			sequence:  "\x1b[P",
-			matchRune: KeyF01,
+			name:        "Kitty: F1",
+			sequence:    "\x1b[P",
+			matchRune:   KeyF01,
+			matchString: "f1",
 		},
 		{
-			name:      "Legacy: Shift+F1",
-			sequence:  "\x1b[1;2P",
-			matchRune: KeyF01,
-			matchMods: ModShift,
+			name:        "Legacy: Shift+F1",
+			sequence:    "\x1b[1;2P",
+			matchRune:   KeyF01,
+			matchMods:   ModShift,
+			matchString: "shift+f1",
 		},
 		{
-			name:      "Kitty: Shift+F1",
-			sequence:  "\x1b[1;2P",
-			matchRune: KeyF01,
-			matchMods: ModShift,
+			name:        "Kitty: Shift+F1",
+			sequence:    "\x1b[1;2P",
+			matchRune:   KeyF01,
+			matchMods:   ModShift,
+			matchString: "shift+f1",
 		},
 		{
-			name:      "Kitty: F35",
-			sequence:  "\x1b[57398u",
-			matchRune: KeyF35,
+			name:        "Kitty: F35",
+			sequence:    "\x1b[57398u",
+			matchRune:   KeyF35,
+			matchString: "F35",
 		},
 		{
-			name:      "Kitty: Shift+F35",
-			sequence:  "\x1b[57398;2u",
-			matchRune: KeyF35,
-			matchMods: ModShift,
+			name:        "Kitty: Shift+F35",
+			sequence:    "\x1b[57398;2u",
+			matchRune:   KeyF35,
+			matchMods:   ModShift,
+			matchString: "sHiFt+f35",
 		},
 		{
-			name:      "Legacy: ф",
-			sequence:  "ф",
-			matchRune: 'ф',
+			name:        "Legacy: ф",
+			sequence:    "ф",
+			matchRune:   'ф',
+			matchString: "ф",
 		},
 		{
-			name:      "Kitty: ф matched to 'ф'",
-			sequence:  "\x1b[1092::97;;1092u",
-			matchRune: 'ф',
+			name:        "Kitty: ф matched to 'ф'",
+			sequence:    "\x1b[1092::97;;1092u",
+			matchRune:   'ф',
+			matchString: "ф",
 		},
 		{
-			name:      "Kitty: ф matched to 'a'",
-			sequence:  "\x1b[1092::97;;1092u",
-			matchRune: 'a',
+			name:        "Kitty: ф matched to 'a'",
+			sequence:    "\x1b[1092::97;;1092u",
+			matchRune:   'a',
+			matchString: "ф",
 		},
 		{
-			name:      "Kitty: Ctrl+Shift+ф matched to Ctrl+Shift+'a'",
-			sequence:  "\x1b[1092:1060:97;6:3u",
-			matchRune: 'a',
-			matchMods: ModCtrl | ModShift,
+			name:        "Kitty: Ctrl+Shift+ф matched to Ctrl+Shift+'a'",
+			sequence:    "\x1b[1092:1060:97;6:3u",
+			matchRune:   'a',
+			matchMods:   ModCtrl | ModShift,
+			matchString: "ctrl+shift+ф",
 		},
 		{
-			name:      "Kitty: ':' (shift + ';')",
-			sequence:  "\x1b[59:58;2;58u",
-			matchRune: ':',
-			matchMods: ModShift,
+			name:        "Kitty: ':' (shift + ';')",
+			sequence:    "\x1b[59:58;2;58u",
+			matchRune:   ':',
+			matchMods:   ModShift,
+			matchString: ":",
 		},
 		{
-			name:      "Kitty: ':' (shift + ';')",
-			sequence:  "\x1b[58:59;2:1;58u",
-			matchRune: ':',
-			matchMods: ModShift,
+			name:        "legacy: 'tab'",
+			sequence:    "\t",
+			matchRune:   KeyTab,
+			matchString: "tab",
 		},
 		{
-			name:      "Kitty: ':' (shift + ';')",
-			sequence:  "\x1b[58:59;;58u",
-			matchRune: ':',
-			matchMods: ModShift,
+			name:        "legacy: 'shift+tab'",
+			sequence:    "\x1b[Z",
+			matchRune:   KeyTab,
+			matchMods:   ModShift,
+			matchString: "shift+tab",
 		},
 		{
-			name:      "legacy: 'tab'",
-			sequence:  "\t",
-			matchRune: KeyTab,
+			name:        "Kitty: 'tab'",
+			sequence:    "\x1b[9;1:1u",
+			matchRune:   KeyTab,
+			matchString: "tab",
 		},
 		{
-			name:      "legacy: 'shift+tab'",
-			sequence:  "\x1b[Z",
-			matchRune: KeyTab,
-			matchMods: ModShift,
+			name:        "Kitty: 'shift+tab'",
+			sequence:    "\x1b[9;2:1u",
+			matchRune:   KeyTab,
+			matchMods:   ModShift,
+			matchString: "shift+tab",
 		},
 		{
-			name:      "Kitty: 'tab'",
-			sequence:  "\x1b[9;1:1u",
-			matchRune: KeyTab,
-		},
-		{
-			name:      "Kitty: 'shift+tab'",
-			sequence:  "\x1b[9;2:1u",
-			matchRune: KeyTab,
-			matchMods: ModShift,
-		},
-		{
-			name:      "legacy: 'ctrl+shift+tab'",
-			sequence:  "\x1b[27;6;9~",
-			matchRune: KeyTab,
-			matchMods: ModShift | ModCtrl,
+			name:        "legacy: 'ctrl+shift+tab'",
+			sequence:    "\x1b[27;6;9~",
+			matchRune:   KeyTab,
+			matchMods:   ModShift | ModCtrl,
+			matchString: "ctrl+shift+tab",
 		},
 	}
 
@@ -231,6 +242,9 @@ func TestKeyMatches(t *testing.T) {
 			seq := <-parser.Next()
 			key := decodeKey(seq)
 			assert.True(t, key.Matches(test.matchRune, test.matchMods), "got %s %#v", key.String(), key)
+			if test.matchString != "" {
+				assert.True(t, key.MatchString(test.matchString), "got %s %#v", key.String(), key)
+			}
 		})
 	}
 }

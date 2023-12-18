@@ -3,7 +3,9 @@ package vaxis
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"git.sr.ht/~rockorager/vaxis/ansi"
 )
@@ -82,24 +84,80 @@ func (k Key) Matches(key rune, modifiers ...ModifierMask) bool {
 
 	// Rule 5
 	if !unicode.IsLetter(key) && unicode.IsGraphic(key) {
-		mods = mods &^ ModShift
-		if k.Keycode == key && mods == kMods {
+		if k.Keycode == key && unshiftedMods == kMods {
 			return true
 		}
-		if k.ShiftedCode == key && mods == kMods {
+		if k.ShiftedCode == key && unshiftedMods == kMods {
 			return true
 		}
 	}
 
 	// Rule 6
 	if mods&ModShift != 0 && unicode.IsLower(key) {
-		mods = mods &^ ModShift
 		key = unicode.ToUpper(key)
-		if k.Text == string(key) && mods == kMods {
+		if k.Text == string(key) && unshiftedMods == kMods {
 			return true
 		}
 	}
 
+	return false
+}
+
+// MatchString parses a string and matches to the Key event. The syntax for
+// strings is: <modifier>[+<modifer>]+<key>. For example:
+//
+//	Ctrl+p
+//	Shift+Alt+Up
+//
+// All modifiers will be matched lowercase
+func (k Key) MatchString(tgt string) bool {
+	if tgt == "" {
+		return false
+	}
+	if r, n := utf8.DecodeRuneInString(tgt); n == len(tgt) {
+		// fast path if the 'tgt' is a single utf8 codepoint
+		return k.Matches(r)
+	}
+	vals := strings.Split(tgt, "+")
+	mods := vals[0 : len(vals)-1]
+	key := vals[len(vals)-1]
+
+	var mask ModifierMask
+	for _, m := range mods {
+		switch strings.ToLower(m) {
+		case "shift":
+			mask |= ModShift
+		case "alt":
+			mask |= ModAlt
+		case "ctrl":
+			mask |= ModCtrl
+		case "super":
+			mask |= ModSuper
+		case "meta":
+			mask |= ModMeta
+		case "caps":
+			mask |= ModCapsLock
+		case "num":
+			mask |= ModNumLock
+		}
+	}
+	if r, n := utf8.DecodeRuneInString(key); n == len(key) {
+		// fast path if the 'key' is unicode
+		return k.Matches(r, mask)
+	}
+	for _, kn := range keyNames {
+		if !strings.EqualFold(kn.name, key) {
+			continue
+		}
+		return k.Matches(kn.key, mask)
+	}
+
+	// maybe it's a multi-byte, non special character. Grab the first rune
+	// and try matching
+	for _, r := range key {
+		return k.Matches(r, mask)
+	}
+	// not a match
 	return false
 }
 
@@ -197,263 +255,12 @@ func (k Key) String() string {
 		}
 	}
 
-	switch k.Keycode {
-	case KeyUp:
-		buf.WriteString("Up")
-	case KeyRight:
-		buf.WriteString("Right")
-	case KeyDown:
-		buf.WriteString("Down")
-	case KeyLeft:
-		buf.WriteString("Left")
-	case KeyInsert:
-		buf.WriteString("Insert")
-	case KeyDelete:
-		buf.WriteString("Delete")
-	case KeyBackspace:
-		buf.WriteString("BackSpace")
-	case KeyPgDown:
-		buf.WriteString("Page_Down")
-	case KeyPgUp:
-		buf.WriteString("Page_Up")
-	case KeyHome:
-		buf.WriteString("Home")
-	case KeyEnd:
-		buf.WriteString("End")
-	case KeyF00:
-		buf.WriteString("F0")
-	case KeyF01:
-		buf.WriteString("F1")
-	case KeyF02:
-		buf.WriteString("F2")
-	case KeyF03:
-		buf.WriteString("F3")
-	case KeyF04:
-		buf.WriteString("F4")
-	case KeyF05:
-		buf.WriteString("F5")
-	case KeyF06:
-		buf.WriteString("F6")
-	case KeyF07:
-		buf.WriteString("F7")
-	case KeyF08:
-		buf.WriteString("F8")
-	case KeyF09:
-		buf.WriteString("F9")
-	case KeyF10:
-		buf.WriteString("F10")
-	case KeyF11:
-		buf.WriteString("F11")
-	case KeyF12:
-		buf.WriteString("F12")
-	case KeyF13:
-		buf.WriteString("F13")
-	case KeyF14:
-		buf.WriteString("F14")
-	case KeyF15:
-		buf.WriteString("F15")
-	case KeyF16:
-		buf.WriteString("F16")
-	case KeyF17:
-		buf.WriteString("F17")
-	case KeyF18:
-		buf.WriteString("F18")
-	case KeyF19:
-		buf.WriteString("F19")
-	case KeyF20:
-		buf.WriteString("F20")
-	case KeyF21:
-		buf.WriteString("F21")
-	case KeyF22:
-		buf.WriteString("F22")
-	case KeyF23:
-		buf.WriteString("F23")
-	case KeyF24:
-		buf.WriteString("F24")
-	case KeyF25:
-		buf.WriteString("F25")
-	case KeyF26:
-		buf.WriteString("F26")
-	case KeyF27:
-		buf.WriteString("F27")
-	case KeyF28:
-		buf.WriteString("F28")
-	case KeyF29:
-		buf.WriteString("F29")
-	case KeyF30:
-		buf.WriteString("F30")
-	case KeyF31:
-		buf.WriteString("F31")
-	case KeyF32:
-		buf.WriteString("F32")
-	case KeyF33:
-		buf.WriteString("F33")
-	case KeyF34:
-		buf.WriteString("F34")
-	case KeyF35:
-		buf.WriteString("F35")
-	case KeyF36:
-		buf.WriteString("F36")
-	case KeyF37:
-		buf.WriteString("F37")
-	case KeyF38:
-		buf.WriteString("F38")
-	case KeyF39:
-		buf.WriteString("F39")
-	case KeyF40:
-		buf.WriteString("F40")
-	case KeyF41:
-		buf.WriteString("F41")
-	case KeyF42:
-		buf.WriteString("F42")
-	case KeyF43:
-		buf.WriteString("F43")
-	case KeyF44:
-		buf.WriteString("F44")
-	case KeyF45:
-		buf.WriteString("F45")
-	case KeyF46:
-		buf.WriteString("F46")
-	case KeyF47:
-		buf.WriteString("F47")
-	case KeyF48:
-		buf.WriteString("F48")
-	case KeyF49:
-		buf.WriteString("F49")
-	case KeyF50:
-		buf.WriteString("F50")
-	case KeyF51:
-		buf.WriteString("F51")
-	case KeyF52:
-		buf.WriteString("F52")
-	case KeyF53:
-		buf.WriteString("F53")
-	case KeyF54:
-		buf.WriteString("F54")
-	case KeyF55:
-		buf.WriteString("F55")
-	case KeyF56:
-		buf.WriteString("F56")
-	case KeyF57:
-		buf.WriteString("F57")
-	case KeyF58:
-		buf.WriteString("F58")
-	case KeyF59:
-		buf.WriteString("F59")
-	case KeyF60:
-		buf.WriteString("F60")
-	case KeyF61:
-		buf.WriteString("F61")
-	case KeyF62:
-		buf.WriteString("F62")
-	case KeyF63:
-		buf.WriteString("F63")
-	case KeyEnter:
-		buf.WriteString("Enter")
-	case KeyClear:
-		buf.WriteString("Clear")
-	case KeyDownLeft:
-		buf.WriteString("DownLeft")
-	case KeyDownRight:
-		buf.WriteString("DownRight")
-	case KeyUpLeft:
-		buf.WriteString("UpLeft")
-	case KeyUpRight:
-		buf.WriteString("UpRight")
-	case KeyCenter:
-		buf.WriteString("Center")
-	case KeyBegin:
-		buf.WriteString("Begin")
-	case KeyCancel:
-		buf.WriteString("Cancel")
-	case KeyClose:
-		buf.WriteString("Close")
-	case KeyCommand:
-		buf.WriteString("Cmd")
-	case KeyCopy:
-		buf.WriteString("Copy")
-	case KeyExit:
-		buf.WriteString("Exit")
-	case KeyPrint:
-		buf.WriteString("Print")
-	case KeyRefresh:
-		buf.WriteString("Refresh")
-		// notcurses says these are only avaialbe in kitty kbp:
-	case KeyCapsLock:
-		buf.WriteString("Caps_Lock")
-	case KeyScrollLock:
-		buf.WriteString("Scroll_Lock")
-	case KeyNumlock:
-		buf.WriteString("Num_Lock")
-	case KeyPrintScreen:
-		buf.WriteString("Print")
-	case KeyPause:
-		buf.WriteString("Pause")
-	case KeyMenu:
-		buf.WriteString("Menu")
-		// Media keys, also generally only kitty kbp:
-	case KeyMediaPlay:
-		buf.WriteString("Media_Play")
-	case KeyMediaPause:
-		buf.WriteString("Media_Pause")
-	case KeyMediaPlayPause:
-		buf.WriteString("Media_Play_Pause")
-	case KeyMediaRev:
-		buf.WriteString("Media_Reverse")
-	case KeyMediaStop:
-		buf.WriteString("Media_Stop")
-	case KeyMediaFF:
-		buf.WriteString("Media_Fast_Forward")
-	case KeyMediaRewind:
-		buf.WriteString("Media_Rewind")
-	case KeyMediaNext:
-		buf.WriteString("Media_Track_Next")
-	case KeyMediaPrev:
-		buf.WriteString("Media_Track_Previous")
-	case KeyMediaRecord:
-		buf.WriteString("Media_Record")
-	case KeyMediaVolDown:
-		buf.WriteString("Lower_Volume")
-	case KeyMediaVolUp:
-		buf.WriteString("Raise_Volume")
-	case KeyMediaMute:
-		buf.WriteString("Mute_Volume")
-	// Modifiers, when pressed by themselves
-	case KeyLeftShift:
-		buf.WriteString("Shift_L")
-	case KeyLeftControl:
-		buf.WriteString("Control_L")
-	case KeyLeftAlt:
-		buf.WriteString("Alt_L")
-	case KeyLeftSuper:
-		buf.WriteString("Super_L")
-	case KeyLeftHyper:
-		buf.WriteString("Hyper_L")
-	case KeyLeftMeta:
-		buf.WriteString("Meta_L")
-	case KeyRightShift:
-		buf.WriteString("Shift_R")
-	case KeyRightControl:
-		buf.WriteString("Control_R")
-	case KeyRightAlt:
-		buf.WriteString("Alt_R")
-	case KeyRightSuper:
-		buf.WriteString("Super_R")
-	case KeyRightHyper:
-		buf.WriteString("Hyper_R")
-	case KeyRightMeta:
-		buf.WriteString("Meta_R")
-	case KeyL3Shift:
-		buf.WriteString("ISO_Level3_Shift")
-	case KeyL5Shift:
-		buf.WriteString("ISO_Level5_Shift")
-	// Aliases
-	case KeyTab:
-		buf.WriteString("Tab")
-	case KeyEsc:
-		buf.WriteString("Escape")
-	case KeySpace:
-		buf.WriteString("space")
+	for _, kn := range keyNames {
+		if kn.key != k.Keycode {
+			continue
+		}
+		buf.WriteString(kn.name)
+		break
 	}
 
 	return buf.String()
@@ -821,4 +628,138 @@ var specialsKeys = map[specialKey]rune{
 	{57452, 'u'}: KeyRightMeta,
 	{57453, 'u'}: KeyL3Shift,
 	{57454, 'u'}: KeyL5Shift,
+}
+
+type keyName struct {
+	key  rune
+	name string
+}
+
+var keyNames = []keyName{
+	{KeyUp, "Up"},
+	{KeyRight, "Right"},
+	{KeyDown, "Down"},
+	{KeyLeft, "Left"},
+	{KeyInsert, "Insert"},
+	{KeyDelete, "Delete"},
+	{KeyBackspace, "BackSpace"},
+	{KeyPgDown, "Page_Down"},
+	{KeyPgUp, "Page_Up"},
+	{KeyHome, "Home"},
+	{KeyEnd, "End"},
+	{KeyF00, "F0"},
+	{KeyF01, "F1"},
+	{KeyF02, "F2"},
+	{KeyF03, "F3"},
+	{KeyF04, "F4"},
+	{KeyF05, "F5"},
+	{KeyF06, "F6"},
+	{KeyF07, "F7"},
+	{KeyF08, "F8"},
+	{KeyF09, "F9"},
+	{KeyF10, "F10"},
+	{KeyF11, "F11"},
+	{KeyF12, "F12"},
+	{KeyF13, "F13"},
+	{KeyF14, "F14"},
+	{KeyF15, "F15"},
+	{KeyF16, "F16"},
+	{KeyF17, "F17"},
+	{KeyF18, "F18"},
+	{KeyF19, "F19"},
+	{KeyF20, "F20"},
+	{KeyF21, "F21"},
+	{KeyF22, "F22"},
+	{KeyF23, "F23"},
+	{KeyF24, "F24"},
+	{KeyF25, "F25"},
+	{KeyF26, "F26"},
+	{KeyF27, "F27"},
+	{KeyF28, "F28"},
+	{KeyF29, "F29"},
+	{KeyF30, "F30"},
+	{KeyF31, "F31"},
+	{KeyF32, "F32"},
+	{KeyF33, "F33"},
+	{KeyF34, "F34"},
+	{KeyF35, "F35"},
+	{KeyF36, "F36"},
+	{KeyF37, "F37"},
+	{KeyF38, "F38"},
+	{KeyF39, "F39"},
+	{KeyF40, "F40"},
+	{KeyF41, "F41"},
+	{KeyF42, "F42"},
+	{KeyF43, "F43"},
+	{KeyF44, "F44"},
+	{KeyF45, "F45"},
+	{KeyF46, "F46"},
+	{KeyF47, "F47"},
+	{KeyF48, "F48"},
+	{KeyF49, "F49"},
+	{KeyF50, "F50"},
+	{KeyF51, "F51"},
+	{KeyF52, "F52"},
+	{KeyF53, "F53"},
+	{KeyF54, "F54"},
+	{KeyF55, "F55"},
+	{KeyF56, "F56"},
+	{KeyF57, "F57"},
+	{KeyF58, "F58"},
+	{KeyF59, "F59"},
+	{KeyF60, "F60"},
+	{KeyF61, "F61"},
+	{KeyF62, "F62"},
+	{KeyF63, "F63"},
+	{KeyEnter, "Enter"},
+	{KeyClear, "Clear"},
+	{KeyDownLeft, "DownLeft"},
+	{KeyDownRight, "DownRight"},
+	{KeyUpLeft, "UpLeft"},
+	{KeyUpRight, "UpRight"},
+	{KeyCenter, "Center"},
+	{KeyBegin, "Begin"},
+	{KeyCancel, "Cancel"},
+	{KeyClose, "Close"},
+	{KeyCommand, "Cmd"},
+	{KeyCopy, "Copy"},
+	{KeyExit, "Exit"},
+	{KeyPrint, "Print"},
+	{KeyRefresh, "Refresh"},
+	{KeyCapsLock, "Caps_Lock"},
+	{KeyScrollLock, "Scroll_Lock"},
+	{KeyNumlock, "Num_Lock"},
+	{KeyPrintScreen, "Print"},
+	{KeyPause, "Pause"},
+	{KeyMenu, "Menu"},
+	{KeyMediaPlay, "Media_Play"},
+	{KeyMediaPause, "Media_Pause"},
+	{KeyMediaPlayPause, "Media_Play_Pause"},
+	{KeyMediaRev, "Media_Reverse"},
+	{KeyMediaStop, "Media_Stop"},
+	{KeyMediaFF, "Media_Fast_Forward"},
+	{KeyMediaRewind, "Media_Rewind"},
+	{KeyMediaNext, "Media_Track_Next"},
+	{KeyMediaPrev, "Media_Track_Previous"},
+	{KeyMediaRecord, "Media_Record"},
+	{KeyMediaVolDown, "Lower_Volume"},
+	{KeyMediaVolUp, "Raise_Volume"},
+	{KeyMediaMute, "Mute_Volume"},
+	{KeyLeftShift, "Shift_L"},
+	{KeyLeftControl, "Control_L"},
+	{KeyLeftAlt, "Alt_L"},
+	{KeyLeftSuper, "Super_L"},
+	{KeyLeftHyper, "Hyper_L"},
+	{KeyLeftMeta, "Meta_L"},
+	{KeyRightShift, "Shift_R"},
+	{KeyRightControl, "Control_R"},
+	{KeyRightAlt, "Alt_R"},
+	{KeyRightSuper, "Super_R"},
+	{KeyRightHyper, "Hyper_R"},
+	{KeyRightMeta, "Meta_R"},
+	{KeyL3Shift, "ISO_Level3_Shift"},
+	{KeyL5Shift, "ISO_Level5_Shift"},
+	{KeyTab, "Tab"},
+	{KeyEsc, "Escape"},
+	{KeySpace, "space"},
 }
