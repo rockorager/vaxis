@@ -45,6 +45,17 @@ func (m *Model) SetContent(s string) *Model {
 	return m
 }
 
+// Characters returns the characters of the content
+func (m *Model) Characters() []vaxis.Character {
+	return m.content
+}
+
+// CursorPosition returns the cursor position, in characters. A cursor position
+// of '0' means the cursor is at the beginning of the line
+func (m *Model) CursorPosition() int {
+	return m.cursor
+}
+
 func (m *Model) String() string {
 	buf := strings.Builder{}
 	for _, ch := range m.content {
