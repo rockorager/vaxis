@@ -21,11 +21,11 @@ func (vt *Model) esc(esc string) {
 		vt.charsets.singleShift = true
 		vt.charsets.selected = g3
 	case "=":
-		vt.mode |= deckpam
-		vt.mode &^= deckpnm
+		vt.mode.deckpam = true
+		vt.mode.deckpnm = false
 	case ">":
-		vt.mode |= deckpnm
-		vt.mode &^= deckpam
+		vt.mode.deckpnm = true
+		vt.mode.deckpam = false
 	case "c":
 		vt.ris()
 	case "(0":
@@ -95,8 +95,8 @@ func (vt *Model) ri() {
 func (vt *Model) decsc() {
 	state := cursorState{
 		cursor: vt.cursor,
-		decawm: vt.mode&decawm != 0,
-		decom:  vt.mode&decom != 0,
+		decawm: vt.mode.decawm,
+		decom:  vt.mode.decom,
 		charsets: charsets{
 			selected: vt.charsets.selected,
 			saved:    vt.charsets.saved,
@@ -109,7 +109,7 @@ func (vt *Model) decsc() {
 		},
 	}
 	switch {
-	case vt.mode&smcup != 0:
+	case vt.mode.smcup:
 		// We are in alt screen
 		vt.altState = state
 	default:
@@ -121,7 +121,7 @@ func (vt *Model) decsc() {
 func (vt *Model) decrc() {
 	var state cursorState
 	switch {
-	case vt.mode&smcup != 0:
+	case vt.mode.smcup:
 		// In the alt screen
 		state = vt.altState
 	default:
@@ -139,20 +139,8 @@ func (vt *Model) decrc() {
 			g3: state.charsets.designations[g3],
 		},
 	}
-
-	switch state.decawm {
-	case true:
-		vt.mode |= decawm
-	case false:
-		vt.mode &^= decawm
-	}
-
-	switch state.decom {
-	case true:
-		vt.mode |= decom
-	case false:
-		vt.mode &^= decom
-	}
+	vt.mode.decawm = state.decawm
+	vt.mode.decom = state.decom
 }
 
 // Reset Initial State (RIS) ESC-c
@@ -181,7 +169,10 @@ func (vt *Model) ris() {
 			g3: ascii,
 		},
 	}
-	vt.mode = decawm | dectcem
+	vt.mode = mode{
+		decawm:  true,
+		dectcem: true,
+	}
 	vt.tabStop = []column{}
 	for i := 7; i < (50 * 7); i += 8 {
 		vt.tabStop = append(vt.tabStop, column(i))

@@ -7,8 +7,8 @@ import (
 )
 
 func (vt *Model) handleMouse(msg vaxis.Mouse) string {
-	if vt.mode&mouseButtons == 0 && vt.mode&mouseDrag == 0 && vt.mode&mouseMotion == 0 && vt.mode&mouseSGR == 0 {
-		if vt.mode&altScroll != 0 && vt.mode&smcup != 0 {
+	if !vt.mode.mouseButtons && !vt.mode.mouseDrag && !vt.mode.mouseMotion && !vt.mode.mouseSGR {
+		if vt.mode.altScroll && vt.mode.smcup {
 			// Translate wheel motion into arrows up and down
 			// 3x rows
 			if msg.Button == vaxis.MouseWheelUp {
@@ -25,15 +25,15 @@ func (vt *Model) handleMouse(msg vaxis.Mouse) string {
 		return ""
 	}
 	// Return early if we aren't reporting motion
-	if vt.mode&mouseMotion == 0 && msg.EventType == vaxis.EventMotion && msg.Button == vaxis.MouseNoButton {
+	if !vt.mode.mouseMotion && msg.EventType == vaxis.EventMotion && msg.Button == vaxis.MouseNoButton {
 		return ""
 	}
 	// Return early if we aren't reporting drags
-	if vt.mode&mouseDrag == 0 && msg.EventType == vaxis.EventMotion {
+	if !vt.mode.mouseDrag && msg.EventType == vaxis.EventMotion {
 		return ""
 	}
 
-	if vt.mode&mouseSGR != 0 {
+	if vt.mode.mouseSGR {
 		switch msg.EventType {
 		case vaxis.EventMotion:
 			return fmt.Sprintf("\x1b[<%d;%d;%dM", msg.Button+32, msg.Col+1, msg.Row+1)

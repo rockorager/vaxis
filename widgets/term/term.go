@@ -92,7 +92,10 @@ func New() *Model {
 				g3: ascii,
 			},
 		},
-		mode: decawm | dectcem,
+		mode: mode{
+			decawm:  true,
+			dectcem: true,
+		},
 		primaryState: cursorState{
 			charsets: charsets{
 				designations: map[charsetDesignator]charset{
@@ -195,15 +198,15 @@ func (vt *Model) Start(cmd *exec.Cmd) error {
 func (vt *Model) Update(msg vaxis.Event) {
 	switch msg := msg.(type) {
 	case vaxis.Key:
-		str := encodeXterm(msg, vt.mode&deckpam != 0, vt.mode&decckm != 0)
+		str := encodeXterm(msg, vt.mode.deckpam, vt.mode.decckm)
 		vt.pty.WriteString(str)
 	case vaxis.PasteStartEvent:
-		if vt.mode&paste != 0 {
+		if vt.mode.paste {
 			vt.pty.WriteString("\x1B[200~")
 			return
 		}
 	case vaxis.PasteEndEvent:
-		if vt.mode&paste != 0 {
+		if vt.mode.paste {
 			vt.pty.WriteString("\x1B[201~")
 			return
 		}
@@ -314,8 +317,8 @@ func (vt *Model) Resize(w int, h int) {
 			vt.nel()
 		}
 	}
-	switch vt.mode & smcup {
-	case 0:
+	switch vt.mode.smcup {
+	case true:
 		vt.activeScreen = vt.primaryScreen
 	default:
 		vt.activeScreen = vt.altScreen
@@ -365,7 +368,7 @@ func (vt *Model) print(r string) {
 	rw := vt.cursor.row
 	w := uniseg.StringWidth(r)
 
-	if vt.mode&irm != 0 {
+	if vt.mode.irm {
 		line := vt.activeScreen[rw]
 		for i := vt.margin.right; i > col; i -= 1 {
 			line[i] = line[i-column(w)]
@@ -405,7 +408,7 @@ func (vt *Model) print(r string) {
 	}
 
 	switch {
-	case vt.mode&decawm != 0 && col == vt.margin.right:
+	case vt.mode.decawm && col == vt.margin.right:
 		vt.lastCol = true
 	case col == vt.margin.right:
 		// don't move the cursor
@@ -497,7 +500,7 @@ func (vt *Model) Draw(win vaxis.Window) {
 			col += w
 		}
 	}
-	if vt.mode&dectcem != 0 && atomicLoad(&vt.focused) {
+	if vt.mode.dectcem && atomicLoad(&vt.focused) {
 		win.ShowCursor(int(vt.cursor.col), int(vt.cursor.row), vt.cursor.style)
 	}
 	// for _, s := range buf.getVisibleSixels() {

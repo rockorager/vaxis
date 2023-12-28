@@ -1,77 +1,78 @@
 package term
 
-type mode int
-
-const (
+type mode struct {
 	// ANSI-Standardized modes
 	//
 	// Keyboard Action mode
-	kam mode = 1 << iota
+	kam bool
 	// Insert/Replace mode
-	irm
+	irm bool
 	// Send/Receive mode
-	srm
+	srm bool
 	// Line feed/new line mode
-	lnm
+	lnm bool
 
 	// ANSI-Compatible DEC Private Modes
 	//
 	// Cursor Key mode
-	decckm
+	decckm bool
 	// ANSI/VT52 mode
-	decanm
+	decanm bool
 	// Column mode
-	deccolm
+	deccolm bool
 	// Scroll mode
-	decsclm
+	decsclm bool
 	// Origin mode
-	decom
+	decom bool
 	// Autowrap mode
-	decawm
+	decawm bool
 	// Autorepeat mode
-	decarm
+	decarm bool
 	// Printer form feed mode
-	decpff
+	decpff bool
 	// Printer extent mode
-	decpex
+	decpex bool
 	// Text Cursor Enable mode
-	dectcem
+	dectcem bool
 	// National replacement character sets
-	decnrcm
+	decnrcm bool
 	// Application keypad
-	deckpam
+	deckpam bool
 	// Normal keypad
-	deckpnm
+	deckpnm bool
 
 	// xterm
 	//
 	// Use alternate screen
-	smcup
+	smcup bool
 	// Bracketed paste
-	paste
+	paste bool
 	// vt220 mouse
-	mouseButtons
+	mouseButtons bool
 	// vt220 + drag
-	mouseDrag
+	mouseDrag bool
 	// vt220 + all motion
-	mouseMotion
+	mouseMotion bool
 	// Mouse SGR mode
-	mouseSGR
+	mouseSGR bool
 	// Alternate scroll
-	altScroll
-)
+	altScroll bool
+
+	// Others
+	syncUpdate bool
+}
 
 func (vt *Model) sm(params [][]int) {
 	for _, param := range params {
 		switch param[0] {
 		case 2:
-			vt.mode |= kam
+			vt.mode.kam = true
 		case 4:
-			vt.mode |= irm
+			vt.mode.irm = true
 		case 12:
-			vt.mode |= srm
+			vt.mode.srm = true
 		case 20:
-			vt.mode |= lnm
+			vt.mode.lnm = true
 		}
 	}
 }
@@ -80,13 +81,13 @@ func (vt *Model) rm(params [][]int) {
 	for _, param := range params {
 		switch param[0] {
 		case 2:
-			vt.mode &^= kam
+			vt.mode.kam = false
 		case 4:
-			vt.mode &^= irm
+			vt.mode.irm = false
 		case 12:
-			vt.mode &^= srm
+			vt.mode.srm = false
 		case 20:
-			vt.mode &^= lnm
+			vt.mode.lnm = false
 		}
 	}
 }
@@ -95,42 +96,44 @@ func (vt *Model) decset(params [][]int) {
 	for _, param := range params {
 		switch param[0] {
 		case 1:
-			vt.mode |= decckm
+			vt.mode.decckm = true
 		case 2:
-			vt.mode |= decanm
+			vt.mode.decanm = true
 		case 3:
-			vt.mode |= deccolm
+			vt.mode.deccolm = true
 		case 4:
-			vt.mode |= decsclm
+			vt.mode.decsclm = true
 		case 5:
 		case 6:
-			vt.mode |= decom
+			vt.mode.decom = true
 		case 7:
-			vt.mode |= decawm
+			vt.mode.decawm = true
 			vt.lastCol = false
 		case 8:
-			vt.mode |= decarm
+			vt.mode.decarm = true
 		case 25:
-			vt.mode |= dectcem
+			vt.mode.dectcem = true
 		case 1000:
-			vt.mode |= mouseButtons
+			vt.mode.mouseButtons = true
 		case 1002:
-			vt.mode |= mouseDrag
+			vt.mode.mouseDrag = true
 		case 1003:
-			vt.mode |= mouseMotion
+			vt.mode.mouseMotion = true
 		case 1006:
-			vt.mode |= mouseSGR
+			vt.mode.mouseSGR = true
 		case 1007:
-			vt.mode |= altScroll
+			vt.mode.altScroll = true
 		case 1049:
 			vt.decsc()
 			vt.activeScreen = vt.altScreen
-			vt.mode |= smcup
+			vt.mode.smcup = true
 			// Enable altScroll in the alt screen. This is only used
 			// if the application doesn't enable mouse
-			vt.mode |= altScroll
+			vt.mode.altScroll = true
 		case 2004:
-			vt.mode |= paste
+			vt.mode.paste = true
+		case 2026:
+			vt.mode.syncUpdate = true
 		}
 	}
 }
@@ -139,44 +142,46 @@ func (vt *Model) decrst(params [][]int) {
 	for _, param := range params {
 		switch param[0] {
 		case 1:
-			vt.mode &^= decckm
+			vt.mode.decckm = false
 		case 2:
-			vt.mode &^= decanm
+			vt.mode.decanm = false
 		case 3:
-			vt.mode &^= deccolm
+			vt.mode.deccolm = false
 		case 4:
-			vt.mode &^= decsclm
+			vt.mode.decsclm = false
 		case 5:
 		case 6:
-			vt.mode &^= decom
+			vt.mode.decom = false
 		case 7:
-			vt.mode &^= decawm
+			vt.mode.decawm = false
 			vt.lastCol = false
 		case 8:
-			vt.mode &^= decarm
+			vt.mode.decarm = false
 		case 25:
-			vt.mode &^= dectcem
+			vt.mode.dectcem = false
 		case 1000:
-			vt.mode &^= mouseButtons
+			vt.mode.mouseButtons = false
 		case 1002:
-			vt.mode &^= mouseDrag
+			vt.mode.mouseDrag = false
 		case 1003:
-			vt.mode &^= mouseMotion
+			vt.mode.mouseMotion = false
 		case 1006:
-			vt.mode &^= mouseSGR
+			vt.mode.mouseSGR = false
 		case 1007:
-			vt.mode &^= altScroll
+			vt.mode.altScroll = false
 		case 1049:
-			if vt.mode&smcup != 0 {
+			if vt.mode.smcup {
 				// Only clear if we were in the alternate
 				vt.ed(2)
 			}
 			vt.activeScreen = vt.primaryScreen
-			vt.mode &^= smcup
-			vt.mode &^= altScroll
+			vt.mode.smcup = false
+			vt.mode.altScroll = false
 			vt.decrc()
 		case 2004:
-			vt.mode &^= paste
+			vt.mode.paste = false
+		case 2026:
+			vt.mode.syncUpdate = false
 		}
 	}
 }

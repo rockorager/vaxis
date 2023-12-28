@@ -47,7 +47,7 @@ func (vt *Model) ht() {
 func (vt *Model) lf() {
 	vt.ind()
 
-	if vt.mode&lnm != lnm {
+	if vt.mode.lnm {
 		return
 	}
 	vt.cursor.col = vt.margin.left
