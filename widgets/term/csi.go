@@ -111,6 +111,11 @@ func (vt *Model) csi(csi string, params [][]int) {
 			resp := fmt.Sprintf("\x1B[%d;%dR", vt.cursor.row+1, vt.cursor.col+1)
 			vt.pty.WriteString(resp)
 		}
+	case "$p":
+		// TODO: DECRQM for ANSI modes
+	case "?$p":
+		// DECRQM
+		vt.decrqm(ps(params))
 	case "r":
 		vt.decstbm(params)
 	case "s":

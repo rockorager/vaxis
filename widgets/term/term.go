@@ -463,6 +463,12 @@ func (vt *Model) Close() {
 func (vt *Model) Draw(win vaxis.Window) {
 	vt.mu.Lock()
 	defer vt.mu.Unlock()
+	if vt.mode.syncUpdate {
+		// We don't render while syncUpdate is true. Mark us as dirt so
+		// the next tick sends a new redraw request
+		atomicStore(&vt.dirty, true)
+		return
+	}
 	width, height := win.Size()
 	if int(width) != vt.width() || int(height) != vt.height() {
 		win.Width = width

@@ -17,7 +17,7 @@ func main() {
 	vt := term.New()
 	vt.Attach(vx.PostEvent)
 	vt.Focus()
-	err = vt.Start(exec.Command(os.Getenv("EDITOR")))
+	err = vt.Start(exec.Command(os.Getenv("SHELL")))
 	if err != nil {
 		panic(err)
 	}

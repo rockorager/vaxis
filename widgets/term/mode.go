@@ -1,5 +1,9 @@
 package term
 
+import (
+	"fmt"
+)
+
 type mode struct {
 	// ANSI-Standardized modes
 	//
@@ -184,4 +188,124 @@ func (vt *Model) decrst(params [][]int) {
 			vt.mode.syncUpdate = false
 		}
 	}
+}
+
+func (vt *Model) decrqm(pd int) {
+	ps := 0
+	switch pd {
+	case 1:
+		switch vt.mode.decckm {
+		case true:
+			ps = 1
+		case false:
+			ps = 2
+		}
+	case 2:
+		switch vt.mode.decanm {
+		case true:
+			ps = 1
+		case false:
+			ps = 2
+		}
+	case 3:
+		switch vt.mode.deccolm {
+		case true:
+			ps = 1
+		case false:
+			ps = 2
+		}
+	case 4:
+		switch vt.mode.decsclm {
+		case true:
+			ps = 1
+		case false:
+			ps = 2
+		}
+	case 5:
+	case 6:
+		switch vt.mode.decom {
+		case true:
+			ps = 1
+		case false:
+			ps = 2
+		}
+	case 7:
+		switch vt.mode.decawm {
+		case true:
+			ps = 1
+		case false:
+			ps = 2
+		}
+	case 8:
+		switch vt.mode.decarm {
+		case true:
+			ps = 1
+		case false:
+			ps = 2
+		}
+	case 25:
+		switch vt.mode.dectcem {
+		case true:
+			ps = 1
+		case false:
+			ps = 2
+		}
+	case 1000:
+		switch vt.mode.mouseButtons {
+		case true:
+			ps = 1
+		case false:
+			ps = 2
+		}
+	case 1002:
+		switch vt.mode.mouseDrag {
+		case true:
+			ps = 1
+		case false:
+			ps = 2
+		}
+	case 1003:
+		switch vt.mode.mouseMotion {
+		case true:
+			ps = 1
+		case false:
+			ps = 2
+		}
+	case 1006:
+		switch vt.mode.mouseSGR {
+		case true:
+			ps = 1
+		case false:
+			ps = 2
+		}
+	case 1007:
+		switch vt.mode.altScroll {
+		case true:
+			ps = 1
+		case false:
+			ps = 2
+		}
+	case 1049:
+		switch vt.mode.smcup {
+		case true:
+			ps = 1
+		case false:
+			ps = 2
+		}
+	case 2004:
+		switch vt.mode.paste {
+		case true:
+			ps = 1
+		case false:
+			ps = 2
+		}
+	case 2026:
+		switch vt.mode.syncUpdate {
+		case true:
+			ps = 1
+		case false:
+			ps = 2
+		}
+	}
+	fmt.Fprintf(vt.pty, "\x1B[?%d;%d$y", pd, ps)
 }
