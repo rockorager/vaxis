@@ -861,11 +861,7 @@ func ground(r rune, p *Parser) stateFn {
 	case in(r, 0x00, 0x17), is(r, 0x19), in(r, 0x1C, 0x1F):
 		p.execute(r)
 		return ground
-	case in(r, 0x20, 0x7F):
-		p.print(r)
-		return ground
 	default:
-		// Catchall for UTF-8
 		p.print(r)
 		return ground
 	}
