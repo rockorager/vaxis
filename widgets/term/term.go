@@ -383,7 +383,6 @@ func (vt *Model) print(r string) {
 		if col-1 < 0 {
 			return
 		}
-		// vt.activeScreen[rw][col-1].combining = append(vt.activeScreen[rw][col-1].combining, r)
 		return
 	}
 	cell := cell{
