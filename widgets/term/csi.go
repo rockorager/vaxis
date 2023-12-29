@@ -625,14 +625,26 @@ func (vt *Model) rep(ps int) {
 
 // Set top and bottom margins CSI Ps ; Ps r
 func (vt *Model) decstbm(pm [][]int) {
-	vt.lastCol = false
-	if len(pm) != 2 {
-		vt.margin.top = 0
-		vt.margin.bottom = row(vt.height()) - 1
+	var (
+		top row
+		bot row
+	)
+	switch len(pm) {
+	case 0:
+		top = 0
+		bot = row(vt.height()) - 1
+	case 1:
+		top = row(pm[0][0] - 1)
+	case 2:
+		top = row(pm[0][0] - 1)
+		bot = row(pm[1][0] - 1)
+	}
+	if top >= bot {
 		return
 	}
-	vt.margin.top = row(pm[0][0]) - 1
-	vt.margin.bottom = row(pm[1][0]) - 1
+	vt.lastCol = false
+	vt.margin.top = top
+	vt.margin.bottom = bot
 	vt.cursor.row = 0
 	vt.cursor.col = 0
 }
