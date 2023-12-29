@@ -183,7 +183,6 @@ func (vt *Model) Start(cmd *exec.Cmd) error {
 			case <-tick.C:
 				if atomicLoad(&vt.dirty) {
 					vt.eventHandler(vaxis.Redraw{})
-					atomicStore(&vt.dirty, false)
 				}
 			}
 		}
@@ -191,7 +190,9 @@ func (vt *Model) Start(cmd *exec.Cmd) error {
 	return nil
 }
 
+// Update is called from the host application. This is user input
 func (vt *Model) Update(msg vaxis.Event) {
+	defer atomicStore(&vt.dirty, true)
 	switch msg := msg.(type) {
 	case vaxis.Key:
 		str := encodeXterm(msg, vt.mode.deckpam, vt.mode.decckm)
@@ -209,14 +210,16 @@ func (vt *Model) Update(msg vaxis.Event) {
 	case vaxis.Mouse:
 		mouse := vt.handleMouse(msg)
 		vt.pty.WriteString(mouse)
-		atomicStore(&vt.dirty, true)
 		return
 	}
 }
 
+// update is called from the PTY routine...this is updating the internal model
+// based on the underlying process
 func (vt *Model) update(seq ansi.Sequence) {
 	vt.mu.Lock()
 	defer vt.mu.Unlock()
+	defer atomicStore(&vt.dirty, true)
 	switch seq := seq.(type) {
 	case ansi.Print:
 		vt.print(string(seq))
@@ -232,7 +235,6 @@ func (vt *Model) update(seq ansi.Sequence) {
 		vt.osc(string(seq.Payload))
 	case ansi.DCS:
 	}
-	atomicStore(&vt.dirty, true)
 }
 
 func (vt *Model) String() string {
@@ -460,11 +462,12 @@ func (vt *Model) Draw(win vaxis.Window) {
 	vt.mu.Lock()
 	defer vt.mu.Unlock()
 	if vt.mode.syncUpdate {
-		// We don't render while syncUpdate is true. Mark us as dirt so
+		// We don't render while syncUpdate is true. Mark us as dirty so
 		// the next tick sends a new redraw request
 		atomicStore(&vt.dirty, true)
 		return
 	}
+	defer atomicStore(&vt.dirty, false)
 	width, height := win.Size()
 	if int(width) != vt.width() || int(height) != vt.height() {
 		win.Width = width
@@ -472,7 +475,6 @@ func (vt *Model) Draw(win vaxis.Window) {
 		vt.Resize(width, height)
 	}
 	vt.window = &win
-	atomicStore(&vt.dirty, false)
 	for row := 0; row < vt.height(); row += 1 {
 		for col := 0; col < vt.width(); {
 			cell := vt.activeScreen[row][col]
