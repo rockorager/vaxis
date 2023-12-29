@@ -78,10 +78,6 @@ type margin struct {
 }
 
 func New() *Model {
-	tabs := []column{}
-	for i := 7; i < (50 * 7); i += 8 {
-		tabs = append(tabs, column(i))
-	}
 	m := &Model{
 		OSC8: true,
 		charsets: charsets{
@@ -118,12 +114,12 @@ func New() *Model {
 			},
 			decawm: true,
 		},
-		tabStop:      tabs,
 		eventHandler: func(ev vaxis.Event) {},
 		// Buffering to 2 events. If there is ever a case where one
 		// sequence can trigger two events, this should be increased
 		events: make(chan vaxis.Event, 2),
 	}
+	m.setDefaultTabStops()
 	return m
 }
 

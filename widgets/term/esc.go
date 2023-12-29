@@ -173,6 +173,10 @@ func (vt *Model) ris() {
 		decawm:  true,
 		dectcem: true,
 	}
+	vt.setDefaultTabStops()
+}
+
+func (vt *Model) setDefaultTabStops() {
 	vt.tabStop = []column{}
 	for i := 7; i < (50 * 7); i += 8 {
 		vt.tabStop = append(vt.tabStop, column(i))
