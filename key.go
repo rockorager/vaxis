@@ -60,7 +60,8 @@ func (k Key) Matches(key rune, modifiers ...ModifierMask) bool {
 	mods = mods &^ ModNumLock
 	kMods := k.Modifiers &^ ModCapsLock
 	kMods = kMods &^ ModNumLock
-	unshiftedMods := kMods &^ ModShift
+	unshiftedkMods := kMods &^ ModShift
+	unshiftedMods := mods &^ ModShift
 
 	// Rule 1
 	if k.Keycode == key && mods == kMods {
@@ -73,7 +74,7 @@ func (k Key) Matches(key rune, modifiers ...ModifierMask) bool {
 	}
 
 	// Rule 3
-	if k.ShiftedCode == key && mods == unshiftedMods {
+	if k.ShiftedCode == key && mods == unshiftedkMods {
 		return true
 	}
 
@@ -84,10 +85,10 @@ func (k Key) Matches(key rune, modifiers ...ModifierMask) bool {
 
 	// Rule 5
 	if !unicode.IsLetter(key) && unicode.IsGraphic(key) {
-		if k.Keycode == key && unshiftedMods == kMods {
+		if k.Keycode == key && unshiftedkMods == unshiftedMods {
 			return true
 		}
-		if k.ShiftedCode == key && unshiftedMods == kMods {
+		if k.ShiftedCode == key && unshiftedkMods == unshiftedMods {
 			return true
 		}
 	}
@@ -95,7 +96,7 @@ func (k Key) Matches(key rune, modifiers ...ModifierMask) bool {
 	// Rule 6
 	if mods&ModShift != 0 && unicode.IsLower(key) {
 		key = unicode.ToUpper(key)
-		if k.Text == string(key) && unshiftedMods == kMods {
+		if k.Text == string(key) && unshiftedMods == unshiftedkMods {
 			return true
 		}
 	}

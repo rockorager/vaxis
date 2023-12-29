@@ -79,7 +79,7 @@ func TestKey(t *testing.T) {
 // Parses a raw sequence obtained from actual terminals into a key then tests
 // the match function
 func TestKeyMatches(t *testing.T) {
-	tests := []struct {
+	shouldMatch := []struct {
 		name        string
 		sequence    string
 		matchRune   rune
@@ -234,9 +234,16 @@ func TestKeyMatches(t *testing.T) {
 			matchMods:   ModShift | ModCtrl,
 			matchString: "ctrl+shift+tab",
 		},
+		{
+			name:        "kitty: 'caps+p'",
+			sequence:    "\x1b[112;65;80u", // actually the sequence for CAPS+p
+			matchRune:   'p',
+			matchMods:   ModCapsLock,
+			matchString: "P",
+		},
 	}
 
-	for _, test := range tests {
+	for _, test := range shouldMatch {
 		t.Run(test.name, func(t *testing.T) {
 			parser := ansi.NewParser(strings.NewReader(test.sequence))
 			seq := <-parser.Next()
@@ -244,6 +251,33 @@ func TestKeyMatches(t *testing.T) {
 			assert.True(t, key.Matches(test.matchRune, test.matchMods), "got %s %#v", key.String(), key)
 			if test.matchString != "" {
 				assert.True(t, key.MatchString(test.matchString), "got %s %#v", key.String(), key)
+			}
+		})
+	}
+
+	shouldNotMatch := []struct {
+		name        string
+		sequence    string
+		matchRune   rune
+		matchMods   ModifierMask
+		matchString string
+	}{
+		{
+			name:        "kitty: 'caps+p' is not 'ctrl+shift+p'",
+			sequence:    "\x1b[112;65;80u", // actually the sequence for CAPS+p
+			matchRune:   'p',
+			matchMods:   ModCtrl | ModShift,
+			matchString: "ctrl+shift+p",
+		},
+	}
+	for _, test := range shouldNotMatch {
+		t.Run(test.name, func(t *testing.T) {
+			parser := ansi.NewParser(strings.NewReader(test.sequence))
+			seq := <-parser.Next()
+			key := decodeKey(seq)
+			assert.False(t, key.Matches(test.matchRune, test.matchMods), "got %s %#v", key.String(), key)
+			if test.matchString != "" {
+				assert.False(t, key.MatchString(test.matchString), "got %s %#v", key.String(), key)
 			}
 		})
 	}
