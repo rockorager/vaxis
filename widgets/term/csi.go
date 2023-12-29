@@ -504,7 +504,7 @@ func (vt *Model) ech(ps int) {
 	}
 
 	for i := column(0); i < column(ps); i += 1 {
-		if vt.cursor.col+i == column(vt.width())-1 {
+		if vt.cursor.col+i == column(vt.width()) {
 			return
 		}
 		vt.activeScreen[vt.cursor.row][vt.cursor.col+i].erase(vt.cursor.bg)
@@ -635,6 +635,7 @@ func (vt *Model) decstbm(pm [][]int) {
 		bot = row(vt.height()) - 1
 	case 1:
 		top = row(pm[0][0] - 1)
+		bot = row(vt.height()) - 1
 	case 2:
 		top = row(pm[0][0] - 1)
 		bot = row(pm[1][0] - 1)
