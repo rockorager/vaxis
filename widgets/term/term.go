@@ -316,7 +316,7 @@ func (vt *Model) Resize(w int, h int) {
 		}
 	}
 	switch vt.mode.smcup {
-	case true:
+	case false:
 		vt.activeScreen = vt.primaryScreen
 	default:
 		vt.activeScreen = vt.altScreen
