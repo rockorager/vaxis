@@ -6,9 +6,11 @@ import (
 
 	"git.sr.ht/~rockorager/vaxis"
 	"git.sr.ht/~rockorager/vaxis/widgets/term"
+	"github.com/pkg/profile"
 )
 
 func main() {
+	defer profile.Start().Stop()
 	vx, err := vaxis.New(vaxis.Options{})
 	if err != nil {
 		panic(err)
@@ -33,6 +35,7 @@ func main() {
 		case term.EventClosed:
 			return
 		case vaxis.Redraw:
+			vx.HideCursor()
 			vt.Draw(vx.Window())
 			vx.Render()
 			continue

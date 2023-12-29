@@ -141,9 +141,14 @@ func (p *Parser) execute(r rune) {
 // csi entry and dcs entry states, so that erroneous sequences like CSI 3 ; 1
 // CSI 2 J are handled correctly.
 func (p *Parser) clear() {
-	p.intermediate = []rune{}
+	// We'll usually never have more than 2 intermediates (a private marker
+	// and an intermediate)
+	p.intermediate = make([]rune, 0, 2)
 	p.final = rune(0)
-	p.params = []rune{}
+	// A typical case is to have an SGR sequence like:
+	//    38:2::rrr:ggg:bbb;48:2::rrr:ggg:bbb
+	// which is 35 bytes long.
+	p.params = make([]rune, 0, 35)
 }
 
 // The private marker or intermediate character should be stored for later
@@ -168,7 +173,6 @@ func (p *Parser) escapeDispatch(r rune) {
 		Final:        r,
 		Intermediate: p.intermediate,
 	})
-	return
 }
 
 // This action collects the characters of a parameter string for a control
@@ -206,22 +210,24 @@ func (p *Parser) param(r rune) {
 // character, and execute it, passing in the parameter list.
 func (p *Parser) csiDispatch(r rune) {
 	csi := CSI{
-		Final:        r,
-		Intermediate: p.intermediate,
-		Parameters:   [][]int{},
+		Final: r,
+	}
+	if len(p.intermediate) > 0 {
+		csi.Intermediate = p.intermediate
 	}
 	if len(p.params) == 0 {
 		p.emit(csi)
 		return
 	}
 	params := strings.Split(string(p.params), ";")
+	csi.Parameters = make([][]int, 0, len(params))
 	for _, param := range params {
 		if param == "" {
 			csi.Parameters = append(csi.Parameters, []int{0})
 			continue
 		}
 		subParamstr := strings.Split(param, ":")
-		subParams := []int{}
+		subParams := make([]int, 0, len(subParamstr))
 		for _, ps := range subParamstr {
 			if ps == "" {
 				ps = "0"
@@ -265,7 +271,9 @@ func (p *Parser) oscEnd() {
 	p.emit(OSC{
 		Payload: p.oscData,
 	})
-	p.oscData = []rune{}
+	// OSC will usually be a hyperlink or pasted text, these can be pretty
+	// large so we'll initialize with 128
+	p.oscData = make([]rune, 0, 128)
 }
 
 // This action is invoked when a final character arrives in the first part
@@ -288,13 +296,13 @@ func (p *Parser) oscEnd() {
 func (p *Parser) hook(r rune) {
 	p.exit = p.unhook
 	p.dcs = DCS{
-		Final:        r,
-		Intermediate: p.intermediate,
-		Parameters:   []int{},
-		Data:         []rune{},
+		Final: r,
+		Data:  make([]rune, 0, 128),
+	}
+	if len(p.intermediate) > 0 {
+		p.dcs.Intermediate = p.intermediate
 	}
 	if len(p.params) == 0 {
-		// p.emit(dcs)
 		return
 	}
 	paramStr := strings.Split(string(p.params), ";")
@@ -312,7 +320,6 @@ func (p *Parser) hook(r rune) {
 		params = append(params, val)
 	}
 	p.dcs.Parameters = params
-	// p.emit(dcs)
 }
 
 // This action passes characters from the data string part of a device
@@ -320,7 +327,6 @@ func (p *Parser) hook(r rune) {
 // hook action. C0 controls are also passed to the handler.
 func (p *Parser) put(r rune) {
 	p.dcs.Data = append(p.dcs.Data, r)
-	// p.emit(DCSData(r))
 }
 
 // When a device control string is terminated by ST, CAN, SUB or ESC, this
