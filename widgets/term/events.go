@@ -11,3 +11,8 @@ type EventClosed struct {
 }
 
 type EventTitle string
+
+type EventNotify struct {
+	Title string
+	Body  string
+}

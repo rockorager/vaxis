@@ -18,6 +18,24 @@ func (vt *Model) osc(data string) {
 			vt.cursor.url = url
 			vt.cursor.urlId = id
 		}
+	case "9":
+		vt.postEvent(EventNotify{Body: val})
+	case "777":
+		selector, val, found := cutString(val, ";")
+		if !found {
+			return
+		}
+		switch selector {
+		case "notify":
+			title, body, found := cutString(val, ";")
+			if !found {
+				return
+			}
+			vt.postEvent(EventNotify{
+				Title: title,
+				Body:  body,
+			})
+		}
 	}
 }
 

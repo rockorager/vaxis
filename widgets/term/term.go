@@ -468,7 +468,6 @@ func (vt *Model) Draw(win vaxis.Window) {
 		win.Height = height
 		vt.Resize(width, height)
 	}
-	vt.window = &win
 	for row := 0; row < vt.height(); row += 1 {
 		for col := 0; col < vt.width(); {
 			cell := vt.activeScreen[row][col]

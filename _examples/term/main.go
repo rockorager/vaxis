@@ -39,6 +39,8 @@ func main() {
 			vt.Draw(vx.Window())
 			vx.Render()
 			continue
+		case term.EventNotify:
+			vx.Notify(ev.Title, ev.Body)
 		}
 		vt.Update(ev)
 	}
