@@ -2,8 +2,6 @@ package term
 
 import (
 	"fmt"
-
-	"git.sr.ht/~rockorager/vaxis"
 )
 
 type mode struct {
@@ -63,9 +61,6 @@ type mode struct {
 	mouseSGR bool
 	// Alternate scroll
 	altScroll bool
-
-	// Others
-	syncUpdate bool
 }
 
 func (vt *Model) sm(params [][]int) {
@@ -138,8 +133,6 @@ func (vt *Model) decset(params [][]int) {
 			vt.mode.altScroll = true
 		case 2004:
 			vt.mode.paste = true
-		case 2026:
-			vt.mode.syncUpdate = true
 		}
 	}
 }
@@ -186,12 +179,6 @@ func (vt *Model) decrst(params [][]int) {
 			vt.decrc()
 		case 2004:
 			vt.mode.paste = false
-		case 2026:
-			vt.mode.syncUpdate = false
-			// We issue an immediate redraw event when syncUpdate is
-			// turned off. This allows applications to control the
-			// rendering of the display directly
-			vt.eventHandler(vaxis.Redraw{})
 		}
 	}
 }
@@ -300,13 +287,6 @@ func (vt *Model) decrqm(pd int) {
 		}
 	case 2004:
 		switch vt.mode.paste {
-		case true:
-			ps = 1
-		case false:
-			ps = 2
-		}
-	case 2026:
-		switch vt.mode.syncUpdate {
 		case true:
 			ps = 1
 		case false:
