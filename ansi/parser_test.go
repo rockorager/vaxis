@@ -84,46 +84,6 @@ func TestIn(t *testing.T) {
 	}
 }
 
-func TestIs(t *testing.T) {
-	tests := []struct {
-		name     string
-		isVals   []rune
-		input    rune
-		expected bool
-	}{
-		{
-			name:     "multiple",
-			isVals:   []rune{0x00, 0x20},
-			input:    0x00,
-			expected: true,
-		},
-		{
-			name:     "single",
-			isVals:   []rune{0x00},
-			input:    0x00,
-			expected: true,
-		},
-		{
-			name:     "false multiple",
-			isVals:   []rune{0x00, 0x20},
-			input:    0x19,
-			expected: false,
-		},
-		{
-			name:     "false single",
-			isVals:   []rune{0x00},
-			input:    0x21,
-			expected: false,
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			actual := is(test.input, test.isVals...)
-			assert.Equal(t, test.expected, actual)
-		})
-	}
-}
-
 func TestAnywhere(t *testing.T) {
 	tests := []struct {
 		expected stateFn

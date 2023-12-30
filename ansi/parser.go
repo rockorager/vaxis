@@ -219,28 +219,31 @@ func (p *Parser) csiDispatch(r rune) {
 		p.emit(csi)
 		return
 	}
-	params := strings.Split(string(p.params), ";")
-	csi.Parameters = make([][]int, 0, len(params))
-	for _, param := range params {
-		if param == "" {
-			csi.Parameters = append(csi.Parameters, []int{0})
-			continue
+
+	// Usually we won't have more than 2
+	csi.Parameters = make([][]int, 0, 4)
+	ps := 0
+	// an rgb sequence will have up to 6 subparams
+	param := make([]int, 0, 6)
+	for i := 0; i < len(p.params); i += 1 {
+		b := p.params[i]
+		switch b {
+		case ';':
+			param = append(param, ps)
+			csi.Parameters = append(csi.Parameters, param)
+			param = make([]int, 0, 6)
+			ps = 0
+		case ':':
+			param = append(param, ps)
+			ps = 0
+		default:
+			// All of our non ';' and ':' bytes are a digit.
+			ps *= 10
+			ps += int(b) - 0x30
 		}
-		subParamstr := strings.Split(param, ":")
-		subParams := make([]int, 0, len(subParamstr))
-		for _, ps := range subParamstr {
-			if ps == "" {
-				ps = "0"
-			}
-			val, err := strconv.Atoi(ps)
-			if err != nil {
-				p.emit(fmt.Errorf("csiDispatch: %w", err))
-				return
-			}
-			subParams = append(subParams, val)
-		}
-		csi.Parameters = append(csi.Parameters, subParams)
 	}
+	param = append(param, ps)
+	csi.Parameters = append(csi.Parameters, param)
 	p.emit(csi)
 }
 
@@ -352,16 +355,6 @@ func in(r rune, min int32, max int32) bool {
 	return false
 }
 
-// is returns true of the rune matches any of the provided values
-func is(r rune, vals ...int32) bool {
-	for _, val := range vals {
-		if r == val {
-			return true
-		}
-	}
-	return false
-}
-
 // State functions
 
 type stateFn func(rune, *Parser) stateFn
@@ -376,14 +369,14 @@ func anywhere(r rune, p *Parser) stateFn {
 			p.exit = nil
 		}
 		return nil
-	case is(r, 0x18, 0x1A):
+	case r == 0x18, r == 0x1A:
 		if p.exit != nil {
 			p.exit()
 			p.exit = nil
 		}
 		p.execute(r)
 		return ground
-	case is(r, 0x1B):
+	case r == 0x1B:
 		if p.exit != nil {
 			p.exit()
 			p.exit = nil
@@ -420,13 +413,13 @@ func anywhere(r rune, p *Parser) stateFn {
 // so the 8-bit representation should do so as well.
 func csiEntry(r rune, p *Parser) stateFn {
 	switch {
-	case in(r, 0x00, 0x17), is(r, 0x19), in(r, 0x1C, 0x1F):
+	case in(r, 0x00, 0x17), r == 0x19, in(r, 0x1C, 0x1F):
 		p.execute(r)
 		return csiEntry
-	case is(r, 0x7F):
+	case r == 0x7F:
 		// ignore
 		return csiEntry
-	case in(r, 0x30, 0x39), is(r, 0x3B, 0x3A):
+	case in(r, 0x30, 0x39), r == 0x3B, r == 0x3A:
 		// 0x3A is not per the PFW, but using colons is valid SGR
 		// syntax for separating params when including colorspace. The
 		// colorspace should be ignored
@@ -457,13 +450,13 @@ func csiEntry(r rune, p *Parser) stateFn {
 // standardised meaning, will cause transition to the csi ignore state.
 func csiParam(r rune, p *Parser) stateFn {
 	switch {
-	case in(r, 0x00, 0x17), is(r, 0x19), in(r, 0x1C, 0x1F):
+	case in(r, 0x00, 0x17), r == 0x19, in(r, 0x1C, 0x1F):
 		p.execute(r)
 		return csiParam
-	case is(r, 0x7F):
+	case r == 0x7F:
 		// ignore
 		return csiParam
-	case in(r, 0x30, 0x39), is(r, 0x3B, 0x3A):
+	case in(r, 0x30, 0x39), r == 0x3B, r == 0x3A:
 		// 0x3A is not per the PFW, but using colons is valid SGR
 		// syntax for separating params when including colorspace. The
 		// colorspace should be ignored
@@ -500,10 +493,10 @@ func csiParam(r rune, p *Parser) stateFn {
 // ignored
 func csiIgnore(r rune, p *Parser) stateFn {
 	switch {
-	case in(r, 0x00, 0x17), is(r, 0x19), in(r, 0x1C, 0x1F):
+	case in(r, 0x00, 0x17), r == 0x19, in(r, 0x1C, 0x1F):
 		p.execute(r)
 		return csiIgnore
-	case is(r, 0x7F):
+	case r == 0x7F:
 		// ignore
 		return csiIgnore
 	case in(r, 0x40, 0x7E):
@@ -522,10 +515,10 @@ func csiIntermediate(r rune, p *Parser) stateFn {
 	switch {
 	case r == eof:
 		return nil
-	case in(r, 0x00, 0x17), is(r, 0x19), in(r, 0x1C, 0x1F):
+	case in(r, 0x00, 0x17), r == 0x19, in(r, 0x1C, 0x1F):
 		p.execute(r)
 		return csiIntermediate
-	case is(r, 0x7F):
+	case r == 0x7F:
 		// ignore
 		return csiIntermediate
 	case in(r, 0x20, 0x2F):
@@ -554,18 +547,18 @@ func csiIntermediate(r rune, p *Parser) stateFn {
 // recognising the first part of a device control string.
 func dcsEntry(r rune, p *Parser) stateFn {
 	switch {
-	case in(r, 0x00, 0x17), is(r, 0x19), in(r, 0x1C, 0x1F):
+	case in(r, 0x00, 0x17), r == 0x19, in(r, 0x1C, 0x1F):
 		// ignore
 		return dcsEntry
-	case is(r, 0x7F):
+	case r == 0x7F:
 		// ignore
 		return dcsEntry
 	case in(r, 0x20, 0x2F):
 		p.collect(r)
 		return dcsIntermediate
-	case is(r, 0x3A):
+	case r == 0x3A:
 		return dcsIgnore
-	case in(r, 0x30, 0x39), is(r, 0x3B):
+	case in(r, 0x30, 0x39), r == 0x3B:
 		p.param(r)
 		return dcsParam
 	case in(r, 0x3C, 0x3F):
@@ -587,13 +580,13 @@ func dcsEntry(r rune, p *Parser) stateFn {
 // dcs ignore state.
 func dcsIntermediate(r rune, p *Parser) stateFn {
 	switch {
-	case in(r, 0x00, 0x17), is(r, 0x19), in(r, 0x1C, 0x1F):
+	case in(r, 0x00, 0x17), r == 0x19, in(r, 0x1C, 0x1F):
 		// ignore
 		return dcsIntermediate
 	case in(r, 0x20, 0x2F):
 		p.collect(r)
 		return dcsIntermediate
-	case is(r, 0x7F):
+	case r == 0x7F:
 		// ignore
 		return dcsIntermediate
 	case in(r, 0x30, 0x3F):
@@ -615,19 +608,19 @@ func dcsIntermediate(r rune, p *Parser) stateFn {
 // a transition to the dcs ignore state.
 func dcsParam(r rune, p *Parser) stateFn {
 	switch {
-	case in(r, 0x00, 0x17), is(r, 0x19), in(r, 0x1C, 0x1F):
+	case in(r, 0x00, 0x17), r == 0x19, in(r, 0x1C, 0x1F):
 		// ignore
 		return dcsParam
-	case in(r, 0x30, 0x39), is(r, 0x3B):
+	case in(r, 0x30, 0x39), r == 0x3B:
 		p.param(r)
 		return dcsParam
-	case is(r, 0x7F):
+	case r == 0x7F:
 		// ignore
 		return dcsParam
 	case in(r, 0x20, 0x2F):
 		p.collect(r)
 		return dcsIntermediate
-	case is(r, 0x3A), in(r, 0x3C, 0x3F):
+	case r == 0x3A, in(r, 0x3C, 0x3F):
 		return dcsIgnore
 	case in(r, 0x40, 0x7E):
 		p.hook(r)
@@ -657,7 +650,7 @@ func dcsParam(r rune, p *Parser) stateFn {
 func dcsIgnore(r rune, p *Parser) stateFn {
 	p.ignoreST = true
 	switch {
-	case in(r, 0x00, 0x17), is(r, 0x19), in(r, 0x1C, 0x1F):
+	case in(r, 0x00, 0x17), r == 0x19, in(r, 0x1C, 0x1F):
 		// ignore
 		return dcsIgnore
 	case in(r, 0x20, 0x7F):
@@ -685,13 +678,13 @@ func dcsPassthrough(r rune, p *Parser) stateFn {
 	p.ignoreST = true
 	p.exit = p.unhook
 	switch {
-	case in(r, 0x00, 0x17), is(r, 0x19), in(r, 0x1C, 0x1F):
+	case in(r, 0x00, 0x17), r == 0x19, in(r, 0x1C, 0x1F):
 		p.put(r)
 		return dcsPassthrough
 	case in(r, 0x20, 0x7E):
 		p.put(r)
 		return dcsPassthrough
-	case is(r, 0x7F):
+	case r == 0x7F:
 		// ignore
 		return dcsPassthrough
 	default:
@@ -730,7 +723,7 @@ func escape(r rune, p *Parser) stateFn {
 		p.ignoreST = false
 	}()
 	switch {
-	case in(r, 0x00, 0x17), is(r, 0x19), in(r, 0x1C, 0x1F):
+	case in(r, 0x00, 0x17), r == 0x19, in(r, 0x1C, 0x1F):
 		p.execute(r)
 		return escape
 	case in(r, 0x20, 0x2F):
@@ -738,30 +731,31 @@ func escape(r rune, p *Parser) stateFn {
 		return escapeIntermediate
 	case in(r, 0x30, 0x4E),
 		in(r, 0x51, 0x57),
-		is(r, 0x59, 0x5A),
+		r == 0x59,
+		r == 0x5A,
 		in(r, 0x60, 0x7F): // 0x7F is included here to allow for Alt+BackSpace inputs
 		p.escapeDispatch(r)
 		return ground
-	case is(r, 0x5C):
+	case r == 0x5C:
 		if p.ignoreST {
 			return ground
 		}
 		p.escapeDispatch(r)
 		return ground
-	case is(r, 0x4F):
+	case r == 0x4F:
 		return ss3
-	case is(r, 0x50):
+	case r == 0x50:
 		p.clear()
 		return dcsEntry
-	case is(r, 0x58, 0x5E):
+	case r == 0x58, r == 0x5E:
 		return sosPm
-	case is(r, 0x5F):
+	case r == 0x5F:
 		p.exit = p.apcUnhook
 		return apc
-	case is(r, 0x5B):
+	case r == 0x5B:
 		p.clear()
 		return csiEntry
-	case is(r, 0x5D):
+	case r == 0x5D:
 		p.oscStart()
 		return oscString
 	default:
@@ -772,10 +766,10 @@ func escape(r rune, p *Parser) stateFn {
 
 func ss3(r rune, p *Parser) stateFn {
 	switch {
-	case in(r, 0x00, 0x17), is(r, 0x19), in(r, 0x1C, 0x1F):
+	case in(r, 0x00, 0x17), r == 0x19, in(r, 0x1C, 0x1F):
 		p.execute(r)
 		return ss3
-	case is(r, 0x7F):
+	case r == 0x7F:
 		// ignore
 		return ss3
 	default:
@@ -804,10 +798,10 @@ func ss3(r rune, p *Parser) stateFn {
 // sequence when a final character was received.
 func escapeIntermediate(r rune, p *Parser) stateFn {
 	switch {
-	case in(r, 0x00, 0x17), is(r, 0x19), in(r, 0x1C, 0x1F):
+	case in(r, 0x00, 0x17), r == 0x19, in(r, 0x1C, 0x1F):
 		p.execute(r)
 		return escapeIntermediate
-	case is(r, 0x7F):
+	case r == 0x7F:
 		// ignore
 		return escapeIntermediate
 	case in(r, 0x20, 0x2F):
@@ -828,7 +822,7 @@ func escapeIntermediate(r rune, p *Parser) stateFn {
 func sosPm(r rune, p *Parser) stateFn {
 	p.ignoreST = true
 	switch {
-	case in(r, 0x00, 0x17), is(r, 0x19), in(r, 0x1C, 0x1F):
+	case in(r, 0x00, 0x17), r == 0x19, in(r, 0x1C, 0x1F):
 		// ignore
 		return sosPm
 	default:
@@ -839,7 +833,7 @@ func sosPm(r rune, p *Parser) stateFn {
 func apc(r rune, p *Parser) stateFn {
 	p.ignoreST = true
 	switch {
-	case in(r, 0x00, 0x17), is(r, 0x19), in(r, 0x1C, 0x1F):
+	case in(r, 0x00, 0x17), r == 0x19, in(r, 0x1C, 0x1F):
 		// ignore
 		return apc
 	default:
@@ -864,7 +858,7 @@ func apc(r rune, p *Parser) stateFn {
 // VT320 compatibility mode need to treat 7F as a printable character.
 func ground(r rune, p *Parser) stateFn {
 	switch {
-	case in(r, 0x00, 0x17), is(r, 0x19), in(r, 0x1C, 0x1F):
+	case in(r, 0x00, 0x17), r == 0x19, in(r, 0x1C, 0x1F):
 		p.execute(r)
 		return ground
 	default:
@@ -886,11 +880,11 @@ func ground(r rune, p *Parser) stateFn {
 func oscString(r rune, p *Parser) stateFn {
 	p.ignoreST = true
 	switch {
-	case is(r, 0x07):
+	case r == 0x07:
 		p.exit()
 		p.exit = nil
 		return ground
-	case in(r, 0x00, 0x17), is(r, 0x19), in(r, 0x1C, 0x1F):
+	case in(r, 0x00, 0x17), r == 0x19, in(r, 0x1C, 0x1F):
 		// ignore
 		return oscString
 	case in(r, 0x20, 0x7F):
