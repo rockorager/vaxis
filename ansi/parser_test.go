@@ -506,8 +506,7 @@ func TestEscape(t *testing.T) {
 			expected: []Sequence{
 				Print('a'),
 				ESC{
-					Final:        'D',
-					Intermediate: []rune{},
+					Final: 'D',
 				},
 				Print('c'),
 			},
@@ -518,8 +517,7 @@ func TestEscape(t *testing.T) {
 			expected: []Sequence{
 				Print('a'),
 				ESC{
-					Final:        'W',
-					Intermediate: []rune{},
+					Final: 'W',
 				},
 				Print('c'),
 			},
@@ -531,8 +529,7 @@ func TestEscape(t *testing.T) {
 				Print('a'),
 				C0(0x00),
 				ESC{
-					Final:        'W',
-					Intermediate: []rune{},
+					Final: 'W',
 				},
 				Print('c'),
 			},
@@ -543,8 +540,7 @@ func TestEscape(t *testing.T) {
 			expected: []Sequence{
 				Print('a'),
 				ESC{
-					Final:        0x7F,
-					Intermediate: []rune{},
+					Final: 0x7F,
 				},
 			},
 		},
@@ -722,8 +718,7 @@ func TestOSC(t *testing.T) {
 				Print('a'),
 				OSC{},
 				ESC{
-					Final:        0x5C,
-					Intermediate: []rune{},
+					Final: 0x5C,
 				},
 			},
 		},

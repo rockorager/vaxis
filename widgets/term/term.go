@@ -220,6 +220,7 @@ func (vt *Model) update(seq ansi.Sequence) {
 	vt.mu.Lock()
 	defer vt.mu.Unlock()
 	defer atomicStore(&vt.dirty, true)
+	defer vt.parser.Finish(seq)
 	switch seq := seq.(type) {
 	case ansi.Print:
 		vt.print(string(seq))

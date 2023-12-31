@@ -32,6 +32,10 @@ type Parser struct {
 	params       []rune
 	final        rune
 
+	paramListPool    pool[[][]int]
+	paramPool        pool[[]int]
+	intermediatePool pool[[]rune]
+
 	// we turn ignoreST on when we enter a state that can "only" be exited
 	// by ST. This will have the effect of ignore an ST so we don't see
 	// ambiguous "Alt+\" when parsing input
@@ -50,9 +54,12 @@ type Parser struct {
 
 func NewParser(r io.Reader) *Parser {
 	parser := &Parser{
-		r:         bufio.NewReader(r),
-		sequences: make(chan Sequence, 2),
-		state:     ground,
+		r:                bufio.NewReader(r),
+		sequences:        make(chan Sequence, 2),
+		state:            ground,
+		paramListPool:    newPool(newCSIParamList),
+		paramPool:        newPool(newCSIParam),
+		intermediatePool: newPool(newIntermediateSlice),
 	}
 	// Rob Pike didn't use concurrency since he wanted templates to be able
 	// to happen in init() functions, but we don't care about that.
@@ -72,6 +79,29 @@ func NewParser(r io.Reader) *Parser {
 //	EOF   Sent at end of input
 func (p *Parser) Next() chan Sequence {
 	return p.sequences
+}
+
+func (p *Parser) Finish(seq Sequence) {
+	switch seq := seq.(type) {
+	case ESC:
+		if seq.Intermediate != nil {
+			p.intermediatePool.Put(seq.Intermediate)
+		}
+	case CSI:
+		if seq.Parameters != nil {
+			for _, param := range seq.Parameters {
+				p.paramPool.Put(param)
+			}
+			p.paramListPool.Put(seq.Parameters)
+		}
+		if seq.Intermediate != nil {
+			p.intermediatePool.Put(seq.Intermediate)
+		}
+	case DCS:
+		if seq.Intermediate != nil {
+			p.intermediatePool.Put(seq.Intermediate)
+		}
+	}
 }
 
 func (p *Parser) run() {
@@ -141,14 +171,9 @@ func (p *Parser) execute(r rune) {
 // csi entry and dcs entry states, so that erroneous sequences like CSI 3 ; 1
 // CSI 2 J are handled correctly.
 func (p *Parser) clear() {
-	// We'll usually never have more than 2 intermediates (a private marker
-	// and an intermediate)
-	p.intermediate = make([]rune, 0, 2)
+	p.intermediate = p.intermediate[:0]
 	p.final = rune(0)
-	// A typical case is to have an SGR sequence like:
-	//    38:2::rrr:ggg:bbb;48:2::rrr:ggg:bbb
-	// which is 35 bytes long.
-	p.params = make([]rune, 0, 35)
+	p.params = p.params[:0]
 }
 
 // The private marker or intermediate character should be stored for later
@@ -169,10 +194,14 @@ func (p *Parser) collect(r rune) {
 // final character, and execute it. The intermediate characters are
 // available because collect stored them as they arrived.
 func (p *Parser) escapeDispatch(r rune) {
-	p.emit(ESC{
-		Final:        r,
-		Intermediate: p.intermediate,
-	})
+	esc := ESC{
+		Final: r,
+	}
+	if len(p.intermediate) > 0 {
+		esc.Intermediate = p.intermediate
+		p.intermediate = p.intermediatePool.Get()
+	}
+	p.emit(esc)
 }
 
 // This action collects the characters of a parameter string for a control
@@ -214,6 +243,7 @@ func (p *Parser) csiDispatch(r rune) {
 	}
 	if len(p.intermediate) > 0 {
 		csi.Intermediate = p.intermediate
+		p.intermediate = p.intermediatePool.Get()
 	}
 	if len(p.params) == 0 {
 		p.emit(csi)
@@ -221,17 +251,20 @@ func (p *Parser) csiDispatch(r rune) {
 	}
 
 	// Usually we won't have more than 2
-	csi.Parameters = make([][]int, 0, 4)
+	csi.Parameters = p.paramListPool.Get()[:0]
+	// csi.Parameters = make([][]int, 0, 4)
 	ps := 0
 	// an rgb sequence will have up to 6 subparams
-	param := make([]int, 0, 6)
+	param := p.paramPool.Get()[:0]
+	// param := make([]int, 0, 6)
 	for i := 0; i < len(p.params); i += 1 {
 		b := p.params[i]
 		switch b {
 		case ';':
 			param = append(param, ps)
 			csi.Parameters = append(csi.Parameters, param)
-			param = make([]int, 0, 6)
+			// param = make([]int, 0, 6)
+			param = p.paramPool.Get()[:0]
 			ps = 0
 		case ':':
 			param = append(param, ps)
@@ -304,6 +337,7 @@ func (p *Parser) hook(r rune) {
 	}
 	if len(p.intermediate) > 0 {
 		p.dcs.Intermediate = p.intermediate
+		p.intermediate = p.intermediatePool.Get()
 	}
 	if len(p.params) == 0 {
 		return
@@ -944,6 +978,18 @@ type CSI struct {
 	Intermediate []rune
 	Parameters   [][]int
 	Final        rune
+}
+
+func newCSIParamList() [][]int {
+	return make([][]int, 0, 4)
+}
+
+func newCSIParam() []int {
+	return make([]int, 0, 6)
+}
+
+func newIntermediateSlice() []rune {
+	return make([]rune, 0, 2)
 }
 
 func (seq CSI) String() string {
