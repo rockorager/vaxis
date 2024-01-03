@@ -16,3 +16,8 @@ type EventNotify struct {
 	Title string
 	Body  string
 }
+
+// EventAPC is emitted when an APC sequence is received in the terminal
+type EventAPC struct {
+	Payload string
+}

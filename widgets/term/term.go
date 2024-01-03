@@ -235,6 +235,8 @@ func (vt *Model) update(seq ansi.Sequence) {
 	case ansi.OSC:
 		vt.osc(string(seq.Payload))
 	case ansi.DCS:
+	case ansi.APC:
+		vt.postEvent(EventAPC{Payload: seq.Data})
 	}
 }
 
