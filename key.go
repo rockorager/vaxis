@@ -271,10 +271,15 @@ func decodeKey(seq ansi.Sequence) Key {
 	key := Key{}
 	switch seq := seq.(type) {
 	case ansi.Print:
-		raw := rune(seq)
+		// For decoding keys, we take the first rune
+		var raw rune
+		for _, r := range seq {
+			raw = r
+			break
+		}
 		key.Keycode = raw
 		if unicode.IsUpper(raw) {
-			key.Keycode = unicode.ToLower(rune(seq))
+			key.Keycode = unicode.ToLower(raw)
 			key.ShiftedCode = raw
 			// It's a shifted character
 			key.Modifiers = ModShift

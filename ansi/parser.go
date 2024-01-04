@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 	"unicode"
+
+	"github.com/rivo/uniseg"
 )
 
 const eof rune = -1
@@ -152,7 +154,24 @@ func (p *Parser) emit(seq Sequence) {
 // and that glyph should be displayed. 20 (SP) and 7F (DEL) have special
 // behaviour in later VT series, as described in ground.
 func (p *Parser) print(r rune) {
-	p.emit(Print(r))
+	// We read until we have consumed the entire grapheme
+	var (
+		bldr     strings.Builder
+		grapheme string
+		rest     string
+		state    = -1
+	)
+	bldr.WriteRune(r)
+	for {
+		nextRune, _, _ := p.r.ReadRune()
+		bldr.WriteRune(nextRune)
+		grapheme, rest, _, state = uniseg.FirstGraphemeClusterInString(bldr.String(), state)
+		if rest != "" {
+			p.r.UnreadRune()
+			break
+		}
+	}
+	p.emit(Print(grapheme))
 }
 
 // The C0 or C1 control function should be executed, which may have any one of a
@@ -936,10 +955,10 @@ func oscString(r rune, p *Parser) stateFn {
 type Sequence interface{}
 
 // A character which should be printed to the screen
-type Print rune
+type Print string
 
 func (seq Print) String() string {
-	return fmt.Sprintf("Print: codepoint=0x%X rune='%c'", rune(seq), rune(seq))
+	return fmt.Sprintf("Print: %q", string(seq))
 }
 
 // A C0 control code
