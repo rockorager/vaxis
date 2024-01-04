@@ -1201,6 +1201,7 @@ func (vx *Vaxis) advance(cell Cell) int {
 	if cell.Width == 0 {
 		cell.Width = vx.characterWidth(cell.Grapheme)
 	}
+	// TODO: use max(cell.Width-1, 0) when >go1.19
 	w := cell.Width - 1
 	if w < 0 {
 		return 0
