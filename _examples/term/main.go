@@ -6,11 +6,9 @@ import (
 
 	"git.sr.ht/~rockorager/vaxis"
 	"git.sr.ht/~rockorager/vaxis/widgets/term"
-	"github.com/pkg/profile"
 )
 
 func main() {
-	defer profile.Start().Stop()
 	vx, err := vaxis.New(vaxis.Options{})
 	if err != nil {
 		panic(err)
