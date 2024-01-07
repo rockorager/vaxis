@@ -154,15 +154,15 @@ func (p *Parser) emit(seq Sequence) {
 // and that glyph should be displayed. 20 (SP) and 7F (DEL) have special
 // behaviour in later VT series, as described in ground.
 func (p *Parser) print(r rune) {
+	bldr := strings.Builder{}
+	bldr.WriteRune(r)
 	// We read until we have consumed the entire grapheme
 	var (
-		bldr     strings.Builder
-		grapheme string
 		rest     string
+		grapheme = bldr.String()
 		state    = -1
 	)
-	bldr.WriteRune(r)
-	for {
+	for p.r.Buffered() > 0 {
 		nextRune, _, _ := p.r.ReadRune()
 		bldr.WriteRune(nextRune)
 		grapheme, rest, _, state = uniseg.FirstGraphemeClusterInString(bldr.String(), state)
