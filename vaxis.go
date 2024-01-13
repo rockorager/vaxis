@@ -55,6 +55,10 @@ type Options struct {
 	EventQueueSize int
 	// Disable mouse events
 	DisableMouse bool
+	// WithTTY passes an absolute path to use for the TTY Vaxis will draw
+	// on. If the file is not a TTY, an error will be returned when calling
+	// New
+	WithTTY string
 }
 
 type Vaxis struct {
@@ -141,6 +145,15 @@ func New(opts Options) (*Vaxis, error) {
 		vx.disableMouse = true
 	}
 
+	tgts := []*os.File{os.Stderr, os.Stdout, os.Stdin}
+	if opts.WithTTY != "" {
+		f, err := os.OpenFile(opts.WithTTY, os.O_RDWR, 0)
+		if err != nil {
+			return nil, err
+		}
+		tgts = []*os.File{f}
+	}
+
 	vx.queue = make(chan Event, opts.EventQueueSize)
 	vx.screenNext = newScreen()
 	vx.screenLast = newScreen()
@@ -151,7 +164,7 @@ func New(opts Options) (*Vaxis, error) {
 	vx.chQuit = make(chan bool)
 	vx.chSizeDone = make(chan bool, 1)
 	vx.charCache = make(map[string]int, 256)
-	err = vx.openTty()
+	err = vx.openTty(tgts)
 	if err != nil {
 		return nil, err
 	}
@@ -1030,8 +1043,8 @@ func (vx *Vaxis) Suspend() error {
 }
 
 // makeRaw opens the /dev/tty device, makes it raw, and starts an input parser
-func (vx *Vaxis) openTty() error {
-	for _, s := range []*os.File{os.Stderr, os.Stdout, os.Stdin} {
+func (vx *Vaxis) openTty(tgts []*os.File) error {
+	for _, s := range tgts {
 		if c, err := console.ConsoleFromFile(s); err == nil {
 			vx.console = c
 			break
