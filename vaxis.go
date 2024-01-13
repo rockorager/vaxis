@@ -59,6 +59,8 @@ type Options struct {
 	// on. If the file is not a TTY, an error will be returned when calling
 	// New
 	WithTTY string
+	// NoSignals causes Vaxis not to not install any signal handlers
+	NoSignals bool
 }
 
 type Vaxis struct {
@@ -225,7 +227,9 @@ outer:
 
 	vx.enterAltScreen()
 	vx.enableModes()
-	vx.setupSignals()
+	if !opts.NoSignals {
+		vx.setupSignals()
+	}
 	vx.applyQuirks()
 
 	switch os.Getenv("VAXIS_GRAPHICS") {
