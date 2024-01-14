@@ -346,6 +346,14 @@ func (vx *Vaxis) Close() {
 	log.Info("Cached characters: %d", len(vx.charCache))
 }
 
+// Resize manually triggers a resize event. Normally, vaxis listens to SIGWINCH
+// for resize events, however in some use cases a manual resize trigger may be
+// needed
+func (vx *Vaxis) Resize() {
+	atomicStore(&vx.resize, true)
+	vx.PostEvent(Redraw{})
+}
+
 // Render renders the model's content to the terminal
 func (vx *Vaxis) Render() {
 	if atomicLoad(&vx.resize) {
