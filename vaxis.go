@@ -338,6 +338,7 @@ func (vx *Vaxis) Close() {
 	defer close(vx.chQuit)
 
 	vx.Suspend()
+	vx.console.Close()
 
 	log.Info("Renders: %d", vx.renders)
 	if vx.renders != 0 {
