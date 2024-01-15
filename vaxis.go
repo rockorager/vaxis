@@ -297,25 +297,7 @@ func (vx *Vaxis) PollEvent() Event {
 
 // Events returns the channel of events.
 func (vx *Vaxis) Events() chan Event {
-	ch := make(chan Event)
-	go func() {
-		defer func() {
-			if err := recover(); err != nil {
-				vx.Close()
-			}
-		}()
-		for {
-			ev := vx.PollEvent()
-			switch ev.(type) {
-			case QuitEvent:
-				close(ch)
-				return
-			default:
-				ch <- ev
-			}
-		}
-	}()
-	return ch
+	return vx.queue
 }
 
 // Close shuts down the event loops and returns the terminal to it's original
