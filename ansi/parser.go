@@ -26,6 +26,8 @@ const eof rune = -1
 // Many of the comments are directly from Paul Flo Williams description of
 // the parser, licensed undo [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/)
 type Parser struct {
+	close        chan bool
+	closed       chan bool
 	r            *bufio.Reader
 	sequences    chan Sequence
 	state        stateFn
@@ -56,6 +58,8 @@ type Parser struct {
 
 func NewParser(r io.Reader) *Parser {
 	parser := &Parser{
+		close:            make(chan bool, 1),
+		closed:           make(chan bool, 1),
 		r:                bufio.NewReader(r),
 		sequences:        make(chan Sequence, 2),
 		state:            ground,
@@ -107,18 +111,36 @@ func (p *Parser) Finish(seq Sequence) {
 }
 
 func (p *Parser) run() {
+outer:
 	for {
-		r := p.readRune()
-		p.mu.Lock()
-		p.state = anywhere(r, p)
-		if p.state == nil {
+		select {
+		case <-p.close:
+			break outer
+		default:
+			r := p.readRune()
+			p.mu.Lock()
+			p.state = anywhere(r, p)
+			if p.state == nil {
+				p.mu.Unlock()
+				break outer
+			}
 			p.mu.Unlock()
-			break
 		}
-		p.mu.Unlock()
+	}
+	if p.escTimeout != nil {
+		p.escTimeout.Stop()
 	}
 	p.emit(EOF{})
 	close(p.sequences)
+	p.closed <- true
+}
+
+func (p *Parser) Close() {
+	p.close <- true
+}
+
+func (p *Parser) WaitClose() {
+	<-p.closed
 }
 
 func (p *Parser) readRune() rune {

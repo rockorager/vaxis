@@ -66,6 +66,7 @@ type Options struct {
 type Vaxis struct {
 	queue            chan Event
 	console          console.Console
+	parser           *ansi.Parser
 	tw               *writer
 	screenNext       *screen
 	screenLast       *screen
@@ -287,22 +288,11 @@ func (vx *Vaxis) SyncFunc(fn func()) {
 
 // PollEvent blocks until there is an Event, and returns that Event
 func (vx *Vaxis) PollEvent() Event {
-	for {
-		select {
-		case ev, ok := <-vx.queue:
-			if !ok {
-				return QuitEvent{}
-			}
-			switch e := ev.(type) {
-			case SyncFunc:
-				e()
-				ev = Redraw{}
-			}
-			return ev
-		case <-vx.chQuit:
-			return QuitEvent{}
-		}
+	ev, ok := <-vx.queue
+	if !ok {
+		return QuitEvent{}
 	}
+	return ev
 }
 
 // Events returns the channel of events.
@@ -334,7 +324,20 @@ func (vx *Vaxis) Close() {
 	if vx.closed {
 		return
 	}
+	vx.PostEvent(QuitEvent{})
 	vx.closed = true
+	// HACK: The parser could be hanging for input. Because we have a handle
+	// on a real terminal, we can't "actually" close the FD, so the poll
+	// doesn't necessarily wake on the close call. However, we are the only
+	// one reading from it...so we have to do a little dance:
+	// 1. Send a signal that we want to close
+	// 2. Send a DA1 query so there is data on the reader, breaking the read
+	//    loop
+	// 3. Confirm we have closed
+	vx.parser.Close()
+	io.WriteString(vx.console, primaryAttributes)
+	vx.parser.WaitClose()
+
 	defer close(vx.chQuit)
 
 	vx.Suspend()
@@ -1071,7 +1074,7 @@ func (vx *Vaxis) openTty(tgts []*os.File) error {
 		return err
 	}
 	vx.tw = newWriter(vx)
-	parser := ansi.NewParser(vx.console)
+	vx.parser = ansi.NewParser(vx.console)
 	go func() {
 		defer func() {
 			if err := recover(); err != nil {
@@ -1080,21 +1083,19 @@ func (vx *Vaxis) openTty(tgts []*os.File) error {
 		}()
 		for {
 			select {
-			case seq := <-parser.Next():
+			case seq := <-vx.parser.Next():
 				switch seq := seq.(type) {
 				case ansi.EOF:
 					return
 				default:
 					vx.handleSequence(seq)
-					parser.Finish(seq)
+					vx.parser.Finish(seq)
 				}
 			case <-vx.chSigWinSz:
 				atomicStore(&vx.resize, true)
 				vx.PostEvent(Redraw{})
 			case <-vx.chSigKill:
 				vx.Close()
-				return
-			case <-vx.chQuit:
 				return
 			}
 		}
