@@ -1,10 +1,12 @@
 package term
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -13,7 +15,9 @@ import (
 
 	"git.sr.ht/~rockorager/vaxis"
 	"git.sr.ht/~rockorager/vaxis/ansi"
+	"git.sr.ht/~rockorager/vaxis/log"
 	"github.com/creack/pty"
+	"github.com/mattn/go-sixel"
 	"github.com/rivo/uniseg"
 )
 
@@ -61,6 +65,7 @@ type Model struct {
 	eventHandler func(vaxis.Event)
 	events       chan vaxis.Event
 	focused      int32
+	graphics     []*Image
 }
 
 type cursorState struct {
@@ -235,6 +240,38 @@ func (vt *Model) update(seq ansi.Sequence) {
 	case ansi.OSC:
 		vt.osc(string(seq.Payload))
 	case ansi.DCS:
+		switch seq.Final {
+		case 'q': // sixel
+			// Write the raw sequence to the writer
+			buf := bytes.NewBuffer(nil)
+			// DCS
+			buf.Write([]byte{'\x1B', 'P'})
+			// Params
+			for i, p := range seq.Parameters {
+				buf.WriteString(strconv.Itoa(p))
+				if i <= len(seq.Parameters)-1 {
+					buf.WriteByte(';')
+				}
+			}
+			// Final
+			buf.WriteByte('q')
+			// Data
+			buf.WriteString(string(seq.Data))
+			// ST
+			buf.Write([]byte{0x1B, '\\'})
+			// Decode the sixel
+			log.Info("SIXEL %d", buf.Len())
+			dec := sixel.NewDecoder(buf)
+			img := &Image{}
+			img.origin.row = int(vt.cursor.row)
+			img.origin.col = int(vt.cursor.col)
+			err := dec.Decode(&img.img)
+			if err != nil {
+				log.Error("couldn't decode sixel: %v", err)
+				return
+			}
+			vt.graphics = append(vt.graphics, img)
+		}
 	case ansi.APC:
 		vt.postEvent(EventAPC{Payload: seq.Data})
 	}
@@ -502,14 +539,33 @@ func (vt *Model) Draw(win vaxis.Window) {
 	if vt.mode.dectcem && atomicLoad(&vt.focused) {
 		win.ShowCursor(int(vt.cursor.col), int(vt.cursor.row), vt.cursor.style)
 	}
-	// for _, s := range buf.getVisibleSixels() {
-	// 	fmt.Printf("\033[%d;%dH", s.Sixel.Y, s.Sixel.X)
-	// 	// DECSIXEL Introducer(\033P0;0;8q) + DECGRA ("1;1): Set Raster Attributes
-	// 	os.Stdout.Write([]byte{0x1b, 0x50, 0x30, 0x3b, 0x30, 0x3b, 0x38, 0x71, 0x22, 0x31, 0x3b, 0x31})
-	// 	os.Stdout.Write(s.Sixel.Data)
-	// 	// string terminator(ST)
-	// 	os.Stdout.Write([]byte{0x1b, 0x5c})
-	// }
+	vx := win.Vx
+outer:
+	for _, img := range vt.graphics {
+		for _, imgVx := range img.vaxii {
+			if vx != imgVx.vx {
+				continue
+			}
+			// We have already created an image for this
+			// Vaxis. All we have to do is draw it
+			win := win.New(img.origin.col, img.origin.row, -1, -1)
+			imgVx.vxImage.Draw(win)
+			continue outer
+		}
+		// We haven't encountered this vaxis before
+		vxImg, err := vx.NewImage(img.img)
+		if err != nil {
+			log.Error("couldn't create Vaxis image: %v", err)
+			continue
+		}
+		// We "resize" the image to the full window size. This will
+		// trigger the encoding
+		vxImg.Resize(win.Size())
+		img.vaxii = append(img.vaxii, &vaxisImage{
+			vx:      vx,
+			vxImage: vxImg,
+		})
+	}
 }
 
 func (vt *Model) Focus() {
