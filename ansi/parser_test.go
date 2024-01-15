@@ -22,6 +22,13 @@ func TestUTF8(t *testing.T) {
 				Print('🔥'),
 			},
 		},
+		{
+			name:  "UTF-8",
+			input: "👩‍🚀",
+			expected: []Sequence{
+				Print("👩‍🚀"),
+			},
+		},
 	}
 
 	for _, test := range tests {

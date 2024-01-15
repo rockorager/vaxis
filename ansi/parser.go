@@ -182,12 +182,11 @@ func (p *Parser) print(r rune) {
 	var (
 		rest     string
 		grapheme = bldr.String()
-		state    = -1
 	)
-	for p.r.Buffered() > 0 {
+	for {
 		nextRune, _, _ := p.r.ReadRune()
 		bldr.WriteRune(nextRune)
-		grapheme, rest, _, state = uniseg.FirstGraphemeClusterInString(bldr.String(), state)
+		grapheme, rest, _, _ = uniseg.FirstGraphemeClusterInString(bldr.String(), -1)
 		if rest != "" {
 			p.r.UnreadRune()
 			break
