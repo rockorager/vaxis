@@ -217,9 +217,9 @@ func (vt *Model) Update(msg vaxis.Event) {
 // update is called from the PTY routine...this is updating the internal model
 // based on the underlying process
 func (vt *Model) update(seq ansi.Sequence) {
+	atomicStore(&vt.dirty, true)
 	vt.mu.Lock()
 	defer vt.mu.Unlock()
-	defer atomicStore(&vt.dirty, true)
 	defer vt.parser.Finish(seq)
 	switch seq := seq.(type) {
 	case ansi.Print:
@@ -463,7 +463,7 @@ func (vt *Model) Close() {
 func (vt *Model) Draw(win vaxis.Window) {
 	vt.mu.Lock()
 	defer vt.mu.Unlock()
-	atomicStore(&vt.dirty, false)
+	defer atomicStore(&vt.dirty, false)
 	width, height := win.Size()
 	if int(width) != vt.width() || int(height) != vt.height() {
 		win.Width = width
