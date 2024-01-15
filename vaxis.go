@@ -59,7 +59,7 @@ type Options struct {
 	// on. If the file is not a TTY, an error will be returned when calling
 	// New
 	WithTTY string
-	// NoSignals causes Vaxis not to not install any signal handlers
+	// NoSignals causes Vaxis to not install any signal handlers
 	NoSignals bool
 }
 
@@ -122,8 +122,6 @@ func New(opts Options) (*Vaxis, error) {
 		log.SetLevel(log.LevelError)
 		log.SetOutput(os.Stderr)
 	}
-
-	// Disambiguate, report alternate keys, report all keys as escapes, report associated text
 
 	// Let's give some deadline for our queries responding. If they don't,
 	// it means the terminal doesn't respond to Primary Device Attributes
