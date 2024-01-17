@@ -182,17 +182,18 @@ func (p *Parser) print(r rune) {
 	var (
 		rest     string
 		grapheme = bldr.String()
+		w        int
 	)
 	for {
 		nextRune, _, _ := p.r.ReadRune()
 		bldr.WriteRune(nextRune)
-		grapheme, rest, _, _ = uniseg.FirstGraphemeClusterInString(bldr.String(), -1)
+		grapheme, rest, w, _ = uniseg.FirstGraphemeClusterInString(bldr.String(), -1)
 		if rest != "" {
 			p.r.UnreadRune()
 			break
 		}
 	}
-	p.emit(Print(grapheme))
+	p.emit(Print{Grapheme: grapheme, Width: w})
 }
 
 // The C0 or C1 control function should be executed, which may have any one of a
@@ -976,10 +977,13 @@ func oscString(r rune, p *Parser) stateFn {
 type Sequence interface{}
 
 // A character which should be printed to the screen
-type Print string
+type Print struct {
+	Grapheme string
+	Width    int
+}
 
 func (seq Print) String() string {
-	return fmt.Sprintf("Print: %q", string(seq))
+	return fmt.Sprintf("Print: %q", seq.Grapheme)
 }
 
 // A C0 control code

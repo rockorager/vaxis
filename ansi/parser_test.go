@@ -19,14 +19,14 @@ func TestUTF8(t *testing.T) {
 			name:  "UTF-8",
 			input: "🔥",
 			expected: []Sequence{
-				Print('🔥'),
+				Print{"🔥", 2},
 			},
 		},
 		{
 			name:  "UTF-8",
 			input: "👩‍🚀",
 			expected: []Sequence{
-				Print("👩‍🚀"),
+				Print{"👩‍🚀", 2},
 			},
 		},
 	}
@@ -148,7 +148,7 @@ func TestCSI(t *testing.T) {
 			name:  "CSI Entry + C0",
 			input: "a\x1b[\x00",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				C0(0x00),
 			},
 		},
@@ -156,21 +156,21 @@ func TestCSI(t *testing.T) {
 			name:  "CSI Entry + escape",
 			input: "a\x1b[\x1b",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 			},
 		},
 		{
 			name:  "CSI Entry + ignore",
 			input: "a\x1b[\x7F",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 			},
 		},
 		{
 			name:  "CSI Entry + dispatch",
 			input: "a\x1b[c",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				CSI{
 					Final: 'c',
 				},
@@ -180,7 +180,7 @@ func TestCSI(t *testing.T) {
 			name:  "CSI Param with collect first",
 			input: "a\x1b[<c",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				CSI{
 					Final:        'c',
 					Intermediate: []rune{'<'},
@@ -191,7 +191,7 @@ func TestCSI(t *testing.T) {
 			name:  "CSI Param with colorspace",
 			input: "a\x1b[38:2::0:0:0m",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				CSI{
 					Final: 'm',
 					Parameters: [][]int{
@@ -204,7 +204,7 @@ func TestCSI(t *testing.T) {
 			name:  "CSI Param with colorspace fg and bg",
 			input: "a\x1b[38:2::0:0:0;48:2::0:0:0m",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				CSI{
 					Final: 'm',
 					Parameters: [][]int{
@@ -218,7 +218,7 @@ func TestCSI(t *testing.T) {
 			name:  "CSI Param SGR with semicolons",
 			input: "a\x1b[38;2;0;0;0;48;2;0;0;0m",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				CSI{
 					Final:      'm',
 					Parameters: [][]int{{38}, {2}, {0}, {0}, {0}, {48}, {2}, {0}, {0}, {0}},
@@ -229,7 +229,7 @@ func TestCSI(t *testing.T) {
 			name:  "CSI Param",
 			input: "a\x1b[0c",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				CSI{
 					Final:      'c',
 					Parameters: [][]int{{0}},
@@ -240,14 +240,14 @@ func TestCSI(t *testing.T) {
 			name:  "CSI Param + eof",
 			input: "a\x1b[0",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 			},
 		},
 		{
 			name:  "CSI Param + eof",
 			input: "a\x1b[0\x00",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				C0(0x00),
 			},
 		},
@@ -255,7 +255,7 @@ func TestCSI(t *testing.T) {
 			name:  "CSI Param + eof",
 			input: "a\x1b[0\x7F\x00",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				C0(0x00),
 			},
 		},
@@ -263,7 +263,7 @@ func TestCSI(t *testing.T) {
 			name:  "CSI Param with long param",
 			input: "a\x1b[9999c",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				CSI{
 					Final:      'c',
 					Parameters: [][]int{{9999}},
@@ -274,7 +274,7 @@ func TestCSI(t *testing.T) {
 			name:  "CSI Param with multiple",
 			input: "a\x1b[0;0c",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				CSI{
 					Final:      'c',
 					Parameters: [][]int{{0}, {0}},
@@ -285,7 +285,7 @@ func TestCSI(t *testing.T) {
 			name:  "CSI Param with multiple blank",
 			input: "a\x1b[;c",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				CSI{
 					Final:      'c',
 					Parameters: [][]int{{0}, {0}},
@@ -296,7 +296,7 @@ func TestCSI(t *testing.T) {
 			name:  "CSI Param with multiple filled or blank",
 			input: "a\x1b[;1c",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				CSI{
 					Final:      'c',
 					Parameters: [][]int{{0}, {1}},
@@ -307,21 +307,21 @@ func TestCSI(t *testing.T) {
 			name:  "CSI Param + csiIgnore",
 			input: "a\x1b[;1\x3Cc",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 			},
 		},
 		{
 			name:  "CSI Param + escape",
 			input: "a\x1b[;1\x1b",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 			},
 		},
 		{
 			name:  "CSI Intermediate",
 			input: "a\x1b[\x20\x20c",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				CSI{
 					Final:        'c',
 					Intermediate: []rune{' ', ' '},
@@ -332,14 +332,14 @@ func TestCSI(t *testing.T) {
 			name:  "CSI Intermediate + escape",
 			input: "a\x1b[\x20\x20\x1b",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 			},
 		},
 		{
 			name:  "CSI Intermediate + c0",
 			input: "a\x1b[\x20\x20\x00c",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				C0(0x00),
 				CSI{
 					Final:        'c',
@@ -351,7 +351,7 @@ func TestCSI(t *testing.T) {
 			name:  "CSI Intermediate + 7f ignore",
 			input: "a\x1b[\x20\x20\x7Fc",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				CSI{
 					Final:        'c',
 					Intermediate: []rune{' ', ' '},
@@ -362,14 +362,14 @@ func TestCSI(t *testing.T) {
 			name:  "CSI Intermediate + eof",
 			input: "a\x1b[\x20\x20",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 			},
 		},
 		{
 			name:  "CSI Intermediate + param",
 			input: "a\x1b[0\x20\x20c",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				CSI{
 					Final:        'c',
 					Parameters:   [][]int{{0}},
@@ -381,28 +381,28 @@ func TestCSI(t *testing.T) {
 			name:  "CSI Intermediate + param + ignore",
 			input: "a\x1b[0\x20\x20\x30c",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 			},
 		},
 		{
 			name:  "CSI Ignore + eof",
 			input: "a\x1b[0\x20\x20\x30\x3A",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 			},
 		},
 		{
 			name:  "CSI Ignore + esc",
 			input: "a\x1b[0\x20\x20\x30\x1B",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 			},
 		},
 		{
 			name:  "CSI Ignore + c0",
 			input: "a\x1b[0\x20\x20\x30\x00c",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				C0(0x00),
 			},
 		},
@@ -410,7 +410,7 @@ func TestCSI(t *testing.T) {
 			name:  "CSI Ignore + 7F ignore",
 			input: "a\x1b[0\x20\x20\x30\x7Fc",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 			},
 		},
 	}
@@ -446,14 +446,14 @@ func TestDCS(t *testing.T) {
 			name:  "DCS Entry + C0",
 			input: "a\x1bP\x00",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 			},
 		},
 		{
 			name:  "DCS Entry + end",
 			input: "a\x1bPq",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				DCS{
 					Final: 'q',
 					Data:  []rune{},
@@ -464,7 +464,7 @@ func TestDCS(t *testing.T) {
 			name:  "DCS Entry + data + end",
 			input: "a\x1bPq#0;2;0;\x1b\\",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				DCS{
 					Final: 'q',
 					Data: []rune{
@@ -511,41 +511,41 @@ func TestEscape(t *testing.T) {
 			name:  "ESC W",
 			input: "a\x1bDc",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				ESC{
 					Final: 'D',
 				},
-				Print('c'),
+				Print{"c", 1},
 			},
 		},
 		{
 			name:  "ESC W",
 			input: "a\x1bWc",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				ESC{
 					Final: 'W',
 				},
-				Print('c'),
+				Print{"c", 1},
 			},
 		},
 		{
 			name:  "ESC W with a C0",
 			input: "a\x1b\x00Wc",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				C0(0x00),
 				ESC{
 					Final: 'W',
 				},
-				Print('c'),
+				Print{"c", 1},
 			},
 		},
 		{
 			name:  "ESC Backspace",
 			input: "a\x1b\x7f",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				ESC{
 					Final: 0x7F,
 				},
@@ -582,61 +582,61 @@ func TestEscapeIntermediate(t *testing.T) {
 			name:  "ESC SP F",
 			input: "a\x1b Fc",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				ESC{
 					Final:        'F',
 					Intermediate: []rune{' '},
 				},
-				Print('c'),
+				Print{"c", 1},
 			},
 		},
 		{
 			name:  "ESC # 3",
 			input: "a\x1b#3c",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				ESC{
 					Final:        '3',
 					Intermediate: []rune{'#'},
 				},
-				Print('c'),
+				Print{"c", 1},
 			},
 		},
 		{
 			name:  "ESC ( B",
 			input: "a\x1b(Bc",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				ESC{
 					Final:        'B',
 					Intermediate: []rune{'('},
 				},
-				Print('c'),
+				Print{"c", 1},
 			},
 		},
 		{
 			name:  "ESC ( B with C0",
 			input: "a\x1b(\tBc",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				C0('\t'),
 				ESC{
 					Final:        'B',
 					Intermediate: []rune{'('},
 				},
-				Print('c'),
+				Print{"c", 1},
 			},
 		},
 		{
 			name:  "ESC ( B with ignore",
 			input: "a\x1b(\x7FBc",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				ESC{
 					Final:        'B',
 					Intermediate: []rune{'('},
 				},
-				Print('c'),
+				Print{"c", 1},
 			},
 		},
 	}
@@ -671,18 +671,18 @@ func TestGround(t *testing.T) {
 			name:  "printables",
 			input: "abc",
 			expected: []Sequence{
-				Print('a'),
-				Print('b'),
-				Print('c'),
+				Print{"a", 1},
+				Print{"b", 1},
+				Print{"c", 1},
 			},
 		},
 		{
 			name:  "printable with c0",
 			input: string([]rune{'a', 0x00, 'c'}),
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				C0(0x00),
-				Print('c'),
+				Print{"c", 1},
 			},
 		},
 	}
@@ -714,7 +714,7 @@ func TestOSC(t *testing.T) {
 			name:  "OSC entry",
 			input: "a\x1b\x5D",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				OSC{},
 			},
 		},
@@ -722,7 +722,7 @@ func TestOSC(t *testing.T) {
 			name:  "OSC end ST",
 			input: "a\x1B\x5D\x1B\x5C",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				OSC{},
 				ESC{
 					Final: 0x5C,
@@ -733,7 +733,7 @@ func TestOSC(t *testing.T) {
 			name:  "OSC end CAN",
 			input: "a\x1B\x5D\x1B\x18",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				OSC{},
 				C0(0x18),
 			},
@@ -742,7 +742,7 @@ func TestOSC(t *testing.T) {
 			name:  "OSC end SUB",
 			input: "a\x1B\x5D\x1B\x1A",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				OSC{},
 				C0(0x1A),
 			},
@@ -751,7 +751,7 @@ func TestOSC(t *testing.T) {
 			name:  "OSC 8 ;; http://example.com",
 			input: "a\x1B\x5D8;;http://example.com\x1b\x5CLink\x1b\x5D8;;\x1b\x5C",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				OSC{
 					Payload: []rune{
 						'8',
@@ -777,10 +777,10 @@ func TestOSC(t *testing.T) {
 						'm',
 					},
 				},
-				Print('L'),
-				Print('i'),
-				Print('n'),
-				Print('k'),
+				Print{"L", 1},
+				Print{"i", 1},
+				Print{"n", 1},
+				Print{"k", 1},
 				OSC{
 					Payload: []rune{
 						'8',
@@ -794,9 +794,9 @@ func TestOSC(t *testing.T) {
 			name:  "OSC bell terminated",
 			input: "a\x1B\x5D\ab",
 			expected: []Sequence{
-				Print('a'),
+				Print{"a", 1},
 				OSC{},
-				Print('b'),
+				Print{"b", 1},
 			},
 		},
 	}

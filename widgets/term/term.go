@@ -18,7 +18,6 @@ import (
 	"git.sr.ht/~rockorager/vaxis/log"
 	"github.com/creack/pty"
 	"github.com/mattn/go-sixel"
-	"github.com/rivo/uniseg"
 )
 
 type (
@@ -228,7 +227,7 @@ func (vt *Model) update(seq ansi.Sequence) {
 	defer vt.parser.Finish(seq)
 	switch seq := seq.(type) {
 	case ansi.Print:
-		vt.print(string(seq))
+		vt.print(seq)
 	case ansi.C0:
 		vt.c0(rune(seq))
 	case ansi.ESC:
@@ -348,7 +347,10 @@ func (vt *Model) Resize(w int, h int) {
 		for col := 0; col < len(primary[0]); col += 1 {
 			cell := primary[row][col]
 			vt.cursor.attrs = cell.attrs
-			vt.print(cell.content)
+			vt.print(ansi.Print{
+				Grapheme: cell.content,
+				Width:    cell.width,
+			})
 			wrapped = cell.wrapped
 		}
 		if !wrapped {
@@ -381,7 +383,7 @@ func (vt *Model) height() int {
 
 // print sets the current cell contents to the given rune. The attributes will
 // be copied from the current cursor attributes
-func (vt *Model) print(r string) {
+func (vt *Model) print(seq ansi.Print) {
 	// TODO fix this for change to string
 	// if vt.charsets.designations[vt.charsets.selected] == decSpecialAndLineDrawing {
 	// 	shifted, ok := decSpecial[r]
@@ -404,7 +406,7 @@ func (vt *Model) print(r string) {
 
 	col := vt.cursor.col
 	rw := vt.cursor.row
-	w := uniseg.StringWidth(r)
+	w := seq.Width
 
 	if vt.mode.irm {
 		line := vt.activeScreen[rw]
@@ -426,7 +428,7 @@ func (vt *Model) print(r string) {
 		return
 	}
 	cell := cell{
-		content: r,
+		content: seq.Grapheme,
 		width:   w,
 		fg:      vt.cursor.fg,
 		bg:      vt.cursor.bg,

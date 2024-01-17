@@ -291,7 +291,7 @@ func TestKeyDecode(t *testing.T) {
 	}{
 		{
 			name:     "legacy: j",
-			sequence: ansi.Print('j'),
+			sequence: ansi.Print{"j", 1},
 			expected: Key{
 				Keycode: 'j',
 				Text:    "j",
@@ -309,7 +309,7 @@ func TestKeyDecode(t *testing.T) {
 		},
 		{
 			name:     "legacy: shift+j",
-			sequence: ansi.Print('J'),
+			sequence: ansi.Print{"J", 1},
 			expected: Key{
 				Keycode:     'j',
 				ShiftedCode: 'J',

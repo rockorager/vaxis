@@ -273,7 +273,7 @@ func decodeKey(seq ansi.Sequence) Key {
 	case ansi.Print:
 		// For decoding keys, we take the first rune
 		var raw rune
-		for _, r := range seq {
+		for _, r := range seq.Grapheme {
 			raw = r
 			break
 		}
@@ -284,7 +284,7 @@ func decodeKey(seq ansi.Sequence) Key {
 			// It's a shifted character
 			key.Modifiers = ModShift
 		}
-		key.Text = string(seq)
+		key.Text = seq.Grapheme
 		// NOTE: we don't set baselayout code on printed keys. In legacy
 		// encodings, this is meaningless. In kitty, this is best used to map
 		// keybinds and we should only get ansi.Print types when a paste occurs
