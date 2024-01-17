@@ -184,7 +184,7 @@ func (p *Parser) print(r rune) {
 		grapheme = bldr.String()
 		w        int
 	)
-	for {
+	for p.r.Buffered() > 0 {
 		nextRune, _, _ := p.r.ReadRune()
 		bldr.WriteRune(nextRune)
 		grapheme, rest, w, _ = uniseg.FirstGraphemeClusterInString(bldr.String(), -1)
