@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log"
 	"strconv"
 	"strings"
 	"sync"
@@ -188,10 +189,16 @@ func (p *Parser) print(r rune) {
 		nextRune, _, _ := p.r.ReadRune()
 		bldr.WriteRune(nextRune)
 		grapheme, rest, w, _ = uniseg.FirstGraphemeClusterInString(bldr.String(), -1)
+		log.Printf("width: %d", w)
 		if rest != "" {
 			p.r.UnreadRune()
 			break
 		}
+	}
+	if w == 0 {
+		// If we weren't buffered, we won't have a width. Measure it
+		// here
+		w = uniseg.StringWidth(grapheme)
 	}
 	p.emit(Print{Grapheme: grapheme, Width: w})
 }
