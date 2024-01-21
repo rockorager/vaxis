@@ -24,6 +24,9 @@ type Model struct {
 	// HideCursor tells the textinput not to draw the cursor
 	HideCursor bool
 
+	// invisibleChar, if set, will be displayed instead of the pressed keys
+	invisibleChar vaxis.Character
+
 	cursor int // the x position of the cursor, relative to the start of Content
 	offset int
 
@@ -42,6 +45,16 @@ func (m *Model) SetPrompt(s string) *Model {
 func (m *Model) SetContent(s string) *Model {
 	m.content = vaxis.Characters(s)
 	m.cursor = len(m.content)
+	return m
+}
+
+// SetInvisibleChar will use the first character of s to be displayed in the
+// textinput field instead of the pressed keys (password mode).
+func (m *Model) SetInvisibleChar(s string) *Model {
+	chars := vaxis.Characters(s)
+	if len(chars) > 0 {
+		m.invisibleChar = chars[0]
+	}
 	return m
 }
 
@@ -225,6 +238,9 @@ func (m *Model) Draw(win vaxis.Window) {
 		cell := vaxis.Cell{
 			Character: char,
 			Style:     m.Content,
+		}
+		if m.invisibleChar.Grapheme != "" {
+			cell.Character = m.invisibleChar
 		}
 		if m.offset > 0 && i == m.offset {
 			cell.Character = truncator
