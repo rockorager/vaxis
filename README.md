@@ -39,17 +39,16 @@ func main() {
 	defer vx.Close()
 	for ev := range vx.Events() {
 		switch ev := ev.(type) {
-		case vaxis.Resize:
-			win := vx.Window()
-			vaxis.Clear(win)
-			vaxis.Print(win, vaxis.Segment{Text: "Hello, World!"})
-			vx.Render()
 		case vaxis.Key:
 			switch ev.String() {
 			case "Ctrl+c":
 				return
 			}
 		}
+		win := vx.Window()
+		vaxis.Clear(win)
+		vaxis.Print(win, vaxis.Segment{Text: "Hello, World!"})
+		vx.Render()
 	}
 }
 ```
