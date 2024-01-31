@@ -27,6 +27,7 @@ type Cell struct {
 func ParseStyledString(s string) []Cell {
 	r := strings.NewReader(s)
 	parser := ansi.NewParser(r)
+	defer parser.Close()
 	cells := make([]Cell, 0, len(s)/2) // best effort
 	style := Style{}
 	for seq := range parser.Next() {
@@ -48,8 +49,8 @@ func ParseStyledString(s string) []Cell {
 			// TODO: OSC8 handling??
 		default:
 			// We don't handle anything else
-			continue
 		}
+		parser.Finish(seq)
 	}
 	return cells
 }
