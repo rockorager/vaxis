@@ -346,6 +346,10 @@ func (vt *Model) Resize(w int, h int) {
 		wrapped := false
 		for col := 0; col < len(primary[0]); col += 1 {
 			cell := primary[row][col]
+			vt.cursor.fg = cell.fg
+			vt.cursor.bg = cell.bg
+			vt.cursor.url = cell.url
+			vt.cursor.urlId = cell.urlId
 			vt.cursor.attrs = cell.attrs
 			vt.print(ansi.Print{
 				Grapheme: cell.content,
