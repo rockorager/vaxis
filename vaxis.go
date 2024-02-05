@@ -14,8 +14,6 @@ import (
 	"time"
 
 	"github.com/containerd/console"
-	"github.com/mattn/go-runewidth"
-	"github.com/rivo/uniseg"
 
 	"git.sr.ht/~rockorager/vaxis/ansi"
 	"git.sr.ht/~rockorager/vaxis/log"
@@ -1226,13 +1224,7 @@ func (vx *Vaxis) advance(cell Cell) int {
 // This call can be expensive, callers should consider caching the result for
 // strings or characters which will need to be measured frequently
 func (vx *Vaxis) RenderedWidth(s string) int {
-	if vx.caps.unicodeCore {
-		return uniseg.StringWidth(s)
-	}
-	// Why runewidth here? uniseg differs from wcwidth a bit but is
-	// more accurate for terminals which support unicode. We use
-	// uniseg there, and runewidth here
-	return runewidth.StringWidth(s)
+	return gwidth(s, vx.caps.unicodeCore)
 }
 
 // characterWidth measures the width of a grapheme cluster, caching the result .
