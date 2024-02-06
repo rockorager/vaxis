@@ -6,68 +6,6 @@ import (
 	"github.com/rivo/uniseg"
 )
 
-// printWrap uses unicode line break logic to wrap text. this is expensive, but
-// has good results
-// TODO make this into a widget, it's too expensive to do every Draw call...we
-// need to have a Reflow widget or something that cache's the line results and
-// only reflows if the window is a different width
-// func printWrap(win Window, segs ...Text) (col int, row int) {
-// 	cols, rows := win.Size()
-// 	for _, seg := range segs {
-// 		var (
-// 			b       = []byte(seg.Content)
-// 			state   = -1
-// 			cluster []byte
-// 		)
-// 		for len(b) > 0 {
-// 			cluster, b, _, state = uniseg.Step(b, state)
-// 			if row > rows {
-// 				break
-// 			}
-// 			if uniseg.HasTrailingLineBreak(cluster) {
-// 				// if col > maxWidth {
-// 				// 	maxWidth = col
-// 				// }
-// 				col = 0
-// 				row += 1
-// 				continue
-// 			}
-// 			cSeg := seg
-// 			cSeg.Content = string(cluster)
-// 			win.SetCell(col, row, cSeg)
-// 			col += characterWidth(string(cluster))
-// 			if col+nextBreak(b) > cols {
-// 				// if col > maxWidth {
-// 				// 	maxWidth = col
-// 				// }
-// 				col = 0
-// 				row += 1
-// 			}
-// 		}
-// 	}
-// 	return col, row
-// }
-
-// returns the stringwidth until the next can or must break
-func nextBreak(b []byte) int {
-	var (
-		bound int
-		w     int
-	)
-	state := -1
-	for len(b) > 0 {
-		_, b, bound, state = uniseg.Step(b, state)
-		w += bound >> uniseg.ShiftWidth
-		if bound&uniseg.MaskLine == uniseg.LineMustBreak {
-			break
-		}
-		if bound&uniseg.MaskLine == uniseg.LineCanBreak {
-			break
-		}
-	}
-	return w
-}
-
 // Window is a Window with an offset from an optional parent and a specified
 // size. A Window can be instantiated directly, however the provided constructor
 // methods are recommended as they will enforce size constraints
@@ -228,6 +166,10 @@ func (win Window) Print(segs ...Segment) (col int, row int) {
 			if row > rows {
 				return col, row
 			}
+			if !win.Vx.caps.unicodeCore {
+				// characterWidth will cache the result
+				char.Width = win.Vx.characterWidth(char.Grapheme)
+			}
 			cell := Cell{
 				Character: char,
 				Style:     seg.Style,
@@ -261,6 +203,10 @@ func (win Window) PrintTruncate(row int, segs ...Segment) {
 	}
 	for _, seg := range segs {
 		for _, char := range Characters(seg.Text) {
+			if !win.Vx.caps.unicodeCore {
+				// characterWidth will cache the result
+				char.Width = win.Vx.characterWidth(char.Grapheme)
+			}
 			w := char.Width
 			cell := Cell{
 				Character: char,
@@ -291,9 +237,17 @@ func (win Window) Println(row int, segs ...Segment) {
 	col := 0
 	for _, seg := range segs {
 		for _, char := range Characters(seg.Text) {
+			if !win.Vx.caps.unicodeCore {
+				// characterWidth will cache the result
+				char.Width = win.Vx.characterWidth(char.Grapheme)
+			}
 			w := char.Width
 			if col+w > cols {
 				return
+			}
+			if !win.Vx.caps.unicodeCore {
+				// characterWidth will cache the result
+				win.Vx.characterWidth(char.Grapheme)
 			}
 			cell := Cell{
 				Character: char,
@@ -303,4 +257,62 @@ func (win Window) Println(row int, segs ...Segment) {
 			col += w
 		}
 	}
+}
+
+// Wrap uses unicode line break logic to wrap text. this is expensive, but
+// has good results
+func (win Window) Wrap(segs ...Segment) (col int, row int) {
+	cols, rows := win.Size()
+	var (
+		state   = -1
+		segment string
+	)
+	for _, seg := range segs {
+		rest := seg.Text
+		for len(rest) > 0 {
+			if row >= rows {
+				break
+			}
+			segment, rest, _, state = uniseg.FirstLineSegmentInString(rest, state)
+			chars := Characters(segment)
+			total := 0
+			for _, char := range chars {
+				if !win.Vx.caps.unicodeCore {
+					// characterWidth will cache the result
+					char.Width = win.Vx.characterWidth(char.Grapheme)
+				}
+				total += char.Width
+			}
+			// Figure out how to break the line
+			switch {
+			case total > cols:
+				// the line is greater than our entire width, so we'll
+				// break at a grapheme
+			case total+col > cols:
+				// there isn't space left, go to a new line
+				col = 0
+				row += 1
+			default:
+				// it fits on our line. Print it
+			}
+			for _, char := range chars {
+				if uniseg.HasTrailingLineBreakInString(char.Grapheme) {
+					row += 1
+					col = 0
+					continue
+				}
+				cell := Cell{
+					Character: char,
+					Style:     seg.Style,
+				}
+				win.SetCell(col, row, cell)
+				col += char.Width
+				if col >= cols {
+					row += 1
+					col = 0
+				}
+			}
+		}
+	}
+	return col, row
 }
