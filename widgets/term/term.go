@@ -127,9 +127,7 @@ func New() *Model {
 	return m
 }
 
-// Start starts the terminal with the specified command. Start returns when the
-// command has been successfully started.
-func (vt *Model) Start(cmd *exec.Cmd) error {
+func (vt *Model) StartWithSize(cmd *exec.Cmd, width int, height int) error {
 	if cmd == nil {
 		return fmt.Errorf("no command to run")
 	}
@@ -148,8 +146,8 @@ func (vt *Model) Start(cmd *exec.Cmd) error {
 	// Start the command with a pty.
 	var err error
 	winsize := pty.Winsize{
-		Cols: 80,
-		Rows: 24,
+		Cols: uint16(width),
+		Rows: uint16(height),
 	}
 	vt.pty, err = pty.StartWithAttrs(
 		cmd,
@@ -192,6 +190,12 @@ func (vt *Model) Start(cmd *exec.Cmd) error {
 		}
 	}()
 	return nil
+}
+
+// Start starts the terminal with the specified command. Start returns when the
+// command has been successfully started.
+func (vt *Model) Start(cmd *exec.Cmd) error {
+	return vt.StartWithSize(cmd, 80, 24)
 }
 
 // Update is called from the host application. This is user input
