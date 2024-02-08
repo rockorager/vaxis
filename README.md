@@ -46,8 +46,8 @@ func main() {
 			}
 		}
 		win := vx.Window()
-		vaxis.Clear(win)
-		vaxis.Print(win, vaxis.Segment{Text: "Hello, World!"})
+		win.Clear()
+		win.Print(vaxis.Segment{Text: "Hello, World!"})
 		vx.Render()
 	}
 }
