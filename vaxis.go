@@ -913,6 +913,11 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 }
 
 func (vx *Vaxis) sendQueries() {
+	// always query in the alt screen so a terminal who doesn't understand
+	// this doesn't get messed up. We are in full control of the alt screen
+	vx.enterAltScreen()
+	defer vx.exitAltScreen()
+
 	switch os.Getenv("COLORTERM") {
 	case "truecolor", "24bit":
 		vx.PostEvent(truecolor{})
