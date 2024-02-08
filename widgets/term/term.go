@@ -161,7 +161,7 @@ func (vt *Model) StartWithSize(cmd *exec.Cmd, width int, height int) error {
 		return err
 	}
 
-	vt.Resize(int(winsize.Cols), int(winsize.Rows))
+	vt.resize(width, height)
 	vt.parser = ansi.NewParser(vt.pty)
 	tick := time.NewTicker(8 * time.Millisecond)
 	go func() {
@@ -327,6 +327,14 @@ func (vt *Model) recover() {
 }
 
 func (vt *Model) Resize(w int, h int) {
+	vt.resize(w, h)
+	_ = pty.Setsize(vt.pty, &pty.Winsize{
+		Cols: uint16(w),
+		Rows: uint16(h),
+	})
+}
+
+func (vt *Model) resize(w int, h int) {
 	primary := vt.primaryScreen
 	vt.altScreen = make([][]cell, h)
 	vt.primaryScreen = make([][]cell, h)
@@ -371,11 +379,6 @@ func (vt *Model) Resize(w int, h int) {
 	default:
 		vt.activeScreen = vt.altScreen
 	}
-
-	_ = pty.Setsize(vt.pty, &pty.Winsize{
-		Cols: uint16(w),
-		Rows: uint16(h),
-	})
 }
 
 func (vt *Model) width() int {
