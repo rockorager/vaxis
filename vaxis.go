@@ -1160,7 +1160,8 @@ const (
 
 func (vx *Vaxis) cursorStyle() string {
 	if vx.cursorNext.style == CursorDefault {
-		return cursorStyleReset
+		// Cursor block is the default
+		return tparm(cursorStyleSet, int(CursorBlock))
 	}
 	return tparm(cursorStyleSet, int(vx.cursorNext.style))
 }

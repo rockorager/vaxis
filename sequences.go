@@ -66,8 +66,7 @@ const (
 	ulStyleSet  = "\x1b[4:%dm"
 
 	// cursor styles
-	cursorStyleSet   = "\x1b[%d q"
-	cursorStyleReset = "\x1b[ q"
+	cursorStyleSet = "\x1b[%d q"
 
 	// keypad
 	applicationMode = "\x1b="
