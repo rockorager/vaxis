@@ -200,7 +200,13 @@ func (m *Model) Draw(win vaxis.Window) {
 	if winW == 0 {
 		return
 	}
-	win.Clear()
+	win.Fill(vaxis.Cell{
+		Character: vaxis.Character{
+			Grapheme: " ",
+			Width:    1,
+		},
+		Style: m.Content,
+	})
 	col := 0
 	for _, char := range m.prompt {
 		cell := vaxis.Cell{
