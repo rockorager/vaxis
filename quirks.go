@@ -21,4 +21,10 @@ func (vx *Vaxis) applyQuirks() {
 		bgIndexSet = strings.ReplaceAll(bgIndexSet, ":", ";")
 		bgRGBSet = strings.ReplaceAll(bgRGBSet, ":", ";")
 	}
+	if os.Getenv("VAXIS_FORCE_WCWIDTH") != "" {
+		vx.caps.unicodeCore = false
+	}
+	if os.Getenv("VAXIS_FORCE_UNICODE") != "" {
+		vx.caps.unicodeCore = true
+	}
 }
