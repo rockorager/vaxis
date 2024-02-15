@@ -14,9 +14,12 @@ func (vt *Model) osc(data string) {
 		vt.postEvent(EventTitle(val))
 	case "8":
 		if vt.OSC8 {
-			url, id := osc8(val)
-			vt.cursor.url = url
-			vt.cursor.urlId = id
+			params, url, found := cutString(val, ";")
+			if !found {
+				return
+			}
+			vt.cursor.Hyperlink = url
+			vt.cursor.HyperlinkParams = params
 		}
 	case "9":
 		vt.postEvent(EventNotify{Body: val})

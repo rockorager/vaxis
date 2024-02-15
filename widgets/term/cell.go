@@ -5,21 +5,15 @@ import (
 )
 
 type cell struct {
-	width   int
-	content string
-	fg      vaxis.Color
-	bg      vaxis.Color
-	attrs   vaxis.AttributeMask
-	url     string
-	urlId   string
+	vaxis.Cell
 	wrapped bool
 }
 
 func (c *cell) rune() string {
-	if c.content == "" {
+	if c.Grapheme == "" {
 		return " "
 	}
-	return c.content
+	return c.Grapheme
 }
 
 // Erasing removes characters from the screen without affecting other characters
@@ -27,12 +21,13 @@ func (c *cell) rune() string {
 // change when erasing characters or lines. Erasing resets the attributes, but
 // applies the background color of the passed style
 func (c *cell) erase(bg vaxis.Color) {
-	c.content = ""
-	c.attrs = 0
-	c.bg = bg
+	c.Grapheme = ""
+	c.Attribute = 0
+	c.UnderlineStyle = vaxis.UnderlineOff
+	c.Background = bg
 }
 
 // selectiveErase removes the cell content, but keeps the attributes
 func (c *cell) selectiveErase() {
-	c.content = " "
+	c.Grapheme = " "
 }

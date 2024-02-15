@@ -5,14 +5,8 @@ import (
 )
 
 type cursor struct {
-	fg      vaxis.Color
-	bg      vaxis.Color
-	ul      vaxis.Color
-	ulStyle vaxis.UnderlineStyle
-	attrs   vaxis.AttributeMask
-	style   vaxis.CursorStyle
-	url     string
-	urlId   string
+	vaxis.Cell
+	style vaxis.CursorStyle
 
 	// position
 	row row    // 0-indexed

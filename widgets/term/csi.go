@@ -157,8 +157,12 @@ func (vt *Model) ich(ps int) {
 			break
 		}
 		line[col+column(i)] = cell{
-			content: " ",
-			width:   1,
+			Cell: vaxis.Cell{
+				Character: vaxis.Character{
+					Grapheme: " ",
+					Width:    1,
+				},
+			},
 		}
 	}
 }
@@ -319,7 +323,7 @@ func (vt *Model) ed(ps int) {
 					// Don't erase current row before cursor
 					continue
 				}
-				vt.activeScreen[r][col].erase(vt.cursor.bg)
+				vt.activeScreen[r][col].erase(vt.cursor.Style.Background)
 			}
 		}
 
@@ -335,7 +339,7 @@ func (vt *Model) ed(ps int) {
 					// column
 					break
 				}
-				vt.activeScreen[r][col].erase(vt.cursor.bg)
+				vt.activeScreen[r][col].erase(vt.cursor.Style.Background)
 			}
 		}
 
@@ -345,7 +349,7 @@ func (vt *Model) ed(ps int) {
 		vt.lastCol = false
 		for r := row(0); r < row(vt.height()); r += 1 {
 			for col := column(0); col < column(vt.width()); col += 1 {
-				vt.activeScreen[r][col].erase(vt.cursor.bg)
+				vt.activeScreen[r][col].erase(vt.cursor.Style.Background)
 			}
 		}
 	}
@@ -360,20 +364,20 @@ func (vt *Model) el(ps int) {
 	// position. Line attribute is not affected.
 	case 0:
 		for col := vt.cursor.col; col < column(vt.width()); col += 1 {
-			vt.activeScreen[r][col].erase(vt.cursor.bg)
+			vt.activeScreen[r][col].erase(vt.cursor.Style.Background)
 		}
 
 	// Erases from the beginning of the line to the cursor, including the
 	// cursor position. Line attribute is not affected.
 	case 1:
 		for col := column(0); col <= vt.cursor.col; col += 1 {
-			vt.activeScreen[r][col].erase(vt.cursor.bg)
+			vt.activeScreen[r][col].erase(vt.cursor.Style.Background)
 		}
 
 	// Erases the complete line.
 	case 2:
 		for col := column(0); col < column(vt.width()); col += 1 {
-			vt.activeScreen[r][col].erase(vt.cursor.bg)
+			vt.activeScreen[r][col].erase(vt.cursor.Style.Background)
 		}
 	}
 }
@@ -417,7 +421,7 @@ func (vt *Model) il(ps int) {
 	// insert the blank lines (we do this by erasing the cells)
 	for r := row(0); r < row(ps); r += 1 {
 		for col := vt.margin.left; col <= vt.margin.right; col += 1 {
-			vt.activeScreen[vt.cursor.row+r][col].erase(vt.cursor.bg)
+			vt.activeScreen[vt.cursor.row+r][col].erase(vt.cursor.Style.Background)
 		}
 	}
 	vt.cursor.col = vt.margin.left
@@ -460,7 +464,7 @@ func (vt *Model) dl(ps int) {
 			continue
 		}
 		for col := vt.margin.left; col <= vt.margin.right; col += 1 {
-			vt.activeScreen[r][col].erase(vt.cursor.bg)
+			vt.activeScreen[r][col].erase(vt.cursor.Style.Background)
 		}
 	}
 	vt.cursor.col = vt.margin.left
@@ -481,7 +485,7 @@ func (vt *Model) dch(ps int) {
 	row := vt.cursor.row
 	for col := vt.cursor.col; col <= vt.margin.right; col += 1 {
 		if col+column(ps) > vt.margin.right {
-			vt.activeScreen[row][col].erase(vt.cursor.bg)
+			vt.activeScreen[row][col].erase(vt.cursor.Style.Background)
 			continue
 		}
 		vt.activeScreen[row][col] = vt.activeScreen[row][col+column(ps)]
@@ -504,7 +508,7 @@ func (vt *Model) ech(ps int) {
 		if vt.cursor.col+i == column(vt.width()) {
 			return
 		}
-		vt.activeScreen[vt.cursor.row][vt.cursor.col+i].erase(vt.cursor.bg)
+		vt.activeScreen[vt.cursor.row][vt.cursor.col+i].erase(vt.cursor.Style.Background)
 	}
 }
 
@@ -616,7 +620,7 @@ func (vt *Model) rep(ps int) {
 		if col+column(i) == vt.margin.right {
 			return
 		}
-		vt.activeScreen[vt.cursor.row][vt.cursor.col+column(i)].content = ch.content
+		vt.activeScreen[vt.cursor.row][vt.cursor.col+column(i)].Character = ch.Character
 	}
 }
 

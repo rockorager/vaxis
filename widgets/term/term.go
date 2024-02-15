@@ -134,7 +134,7 @@ func (vt *Model) StartWithSize(cmd *exec.Cmd, width int, height int) error {
 	vt.cmd = cmd
 
 	if vt.TERM == "" {
-		vt.TERM = "xterm-256color"
+		vt.TERM = "xterm-kitty"
 	}
 
 	env := os.Environ()
@@ -358,14 +358,10 @@ func (vt *Model) resize(w int, h int) {
 		wrapped := false
 		for col := 0; col < len(primary[0]); col += 1 {
 			cell := primary[row][col]
-			vt.cursor.fg = cell.fg
-			vt.cursor.bg = cell.bg
-			vt.cursor.url = cell.url
-			vt.cursor.urlId = cell.urlId
-			vt.cursor.attrs = cell.attrs
+			vt.cursor.Style = cell.Style
 			vt.print(ansi.Print{
-				Grapheme: cell.content,
-				Width:    cell.width,
+				Grapheme: cell.Character.Grapheme,
+				Width:    cell.Character.Width,
 			})
 			wrapped = cell.wrapped
 		}
@@ -439,11 +435,13 @@ func (vt *Model) print(seq ansi.Print) {
 		return
 	}
 	cell := cell{
-		content: seq.Grapheme,
-		width:   w,
-		fg:      vt.cursor.fg,
-		bg:      vt.cursor.bg,
-		attrs:   vt.cursor.attrs,
+		Cell: vaxis.Cell{
+			Character: vaxis.Character{
+				Grapheme: seq.Grapheme,
+				Width:    seq.Width,
+			},
+			Style: vt.cursor.Style,
+		},
 	}
 
 	vt.activeScreen[rw][col] = cell
@@ -453,8 +451,8 @@ func (vt *Model) print(seq ansi.Print) {
 		if col+i > vt.margin.right {
 			break
 		}
-		vt.activeScreen[rw][col+i].content = " "
-		vt.activeScreen[rw][col+i].attrs = vt.cursor.attrs
+		vt.activeScreen[rw][col+i].Character.Grapheme = " "
+		vt.activeScreen[rw][col+i].Style = vt.cursor.Style
 	}
 
 	switch {
@@ -479,7 +477,7 @@ func (vt *Model) scrollUp(n int) {
 		}
 		if row+n > int(vt.margin.bottom) {
 			for col := vt.margin.left; col <= vt.margin.right; col += 1 {
-				vt.activeScreen[row][col].erase(vt.cursor.bg)
+				vt.activeScreen[row][col].erase(vt.cursor.Style.Background)
 			}
 			continue
 		}
@@ -492,7 +490,7 @@ func (vt *Model) scrollDown(n int) {
 	for r := vt.margin.bottom; r >= vt.margin.top; r -= 1 {
 		if r-row(n) < vt.margin.top {
 			for col := vt.margin.left; col <= vt.margin.right; col += 1 {
-				vt.activeScreen[r][col].erase(vt.cursor.bg)
+				vt.activeScreen[r][col].erase(vt.cursor.Style.Background)
 			}
 			continue
 		}
@@ -523,26 +521,13 @@ func (vt *Model) Draw(win vaxis.Window) {
 	for row := 0; row < vt.height(); row += 1 {
 		for col := 0; col < vt.width(); {
 			cell := vt.activeScreen[row][col]
-			w := cell.width
+			w := cell.Width
 
-			if cell.content == "" {
-				cell.content = " "
-			}
-			vcell := vaxis.Cell{
-				Character: vaxis.Character{
-					Grapheme: cell.content,
-					Width:    cell.width,
-				},
-				Style: vaxis.Style{
-					Foreground:      cell.fg,
-					Background:      cell.bg,
-					Attribute:       cell.attrs,
-					Hyperlink:       cell.url,
-					HyperlinkParams: "id=%s" + cell.urlId,
-				},
+			if cell.Grapheme == "" {
+				cell.Grapheme = " "
 			}
 
-			win.SetCell(col, row, vcell)
+			win.SetCell(col, row, cell.Cell)
 			if w == 0 {
 				w = 1
 			}
