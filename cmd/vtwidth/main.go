@@ -3,47 +3,55 @@
 package main
 
 import (
-	"bufio"
-	"flag"
 	"fmt"
 	"os"
-	"strings"
 
 	"git.sr.ht/~rockorager/vaxis"
 )
 
-func main() {
-	var verbose bool
-	flag.BoolVar(&verbose, "v", false, "print verbose result")
-	flag.BoolVar(&verbose, "verbose", false, "print verbose result")
-	flag.Parse()
+type failure struct {
+	input    string
+	actual   int
+	expected int
+}
 
-	var input string
-	switch len(flag.Args()) {
-	case 0:
-		fmt.Print("Enter text: ")
-		scanner := bufio.NewScanner(os.Stdin)
-		scanner.Scan()
-		input = scanner.Text()
-	case 1:
-		input = flag.Arg(0)
-	case 2:
-		fmt.Println("multiple arguments not supported")
-		os.Exit(1)
-	}
+func main() {
 	vx, err := vaxis.New(vaxis.Options{})
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	// We can close vaxis immediately. We have the data we need already
-	// loaded in the struct
+	defer vx.Close()
+	// Our test corpus
+	cases := []string{
+		"😀",
+		"\u26A0\uFE0F", // VS16 selector
+		"👩‍🚀",          // ZWJ
+		"👋🏿",           // skin tone selector
+	}
+	failures := []failure{}
+	_, col := vx.CursorPosition()
+	for _, c := range cases {
+		w := vx.RenderedWidth(c)
+
+		// out := "|" + strings.Repeat("-", w) + "|"
+		fmt.Print(c)
+		// fmt.Println("|" + c + "|")
+		_, next := vx.CursorPosition()
+		if w != (next - col) {
+			failures = append(failures, failure{
+				input:    c,
+				actual:   next - col,
+				expected: w,
+			})
+		}
+		fmt.Println("")
+	}
 	vx.Close()
-	w := vx.RenderedWidth(input)
-	fmt.Println(w)
-	if verbose {
-		out := "|" + strings.Repeat("-", w) + "|"
-		fmt.Println(out)
-		fmt.Println("|" + input + "|")
+	for _, f := range failures {
+		fmt.Printf("Test fail: %q: actual=%d, expected=%d\n", f.input, f.actual, f.expected)
+	}
+	if len(failures) > 0 {
+		os.Exit(1)
 	}
 }
