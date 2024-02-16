@@ -3,9 +3,17 @@ package vaxis
 import (
 	"os"
 	"strings"
+
+	"git.sr.ht/~rockorager/vaxis/log"
 )
 
 func (vx *Vaxis) applyQuirks() {
+	switch vx.termID {
+	case termKitty:
+		log.Debug("kitty identified. applying quirks")
+		vx.caps.noZWJ = true
+	}
+
 	// TODO: remove this when asciinema supports ':' delimiters in RGB
 	if os.Getenv("ASCIINEMA_REC") != "" {
 		fgIndexSet = strings.ReplaceAll(fgIndexSet, ":", ";")
@@ -26,5 +34,11 @@ func (vx *Vaxis) applyQuirks() {
 	}
 	if os.Getenv("VAXIS_FORCE_UNICODE") != "" {
 		vx.caps.unicodeCore = true
+	}
+	if os.Getenv("VAXIS_FORCE_NOZWJ") != "" {
+		vx.caps.noZWJ = true
+	}
+	if os.Getenv("VAXIS_DISABLE_NOZWJ") != "" {
+		vx.caps.noZWJ = false
 	}
 }

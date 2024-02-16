@@ -22,6 +22,7 @@ import (
 type capabilities struct {
 	synchronizedUpdate bool
 	unicodeCore        bool
+	noZWJ              bool // a terminal may support shaped emoji but not ZWJ
 	rgb                bool
 	kittyGraphics      bool
 	kittyKeyboard      bool
@@ -92,6 +93,8 @@ type Vaxis struct {
 	refresh          bool
 	kittyFlags       int
 	disableMouse     bool
+
+	termID terminalID
 
 	renders int
 	elapsed time.Duration
@@ -176,7 +179,7 @@ outer:
 			log.Warn("terminal did not respond to DA1 query")
 			break outer
 		case ev := <-vx.queue:
-			switch ev.(type) {
+			switch ev := ev.(type) {
 			case primaryDeviceAttribute:
 				break outer
 			case capabilitySixel:
@@ -218,6 +221,8 @@ outer:
 			case textAreaChar:
 				vx.caps.reportSizeChars = true
 				log.Info("[capability] Report screen size: characters")
+			case terminalID:
+				vx.termID = ev
 			}
 		}
 	}
@@ -881,6 +886,10 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 					// doesn't respond to XTGETTCAP
 					vx.PostEvent(styledUnderlines{})
 				}
+			case '>':
+				if strings.Contains(string(seq.Data), "kitty") {
+					vx.PostEvent(terminalID(termKitty))
+				}
 			}
 		}
 	case ansi.APC:
@@ -1230,7 +1239,13 @@ func (vx *Vaxis) advance(cell Cell) int {
 // This call can be expensive, callers should consider caching the result for
 // strings or characters which will need to be measured frequently
 func (vx *Vaxis) RenderedWidth(s string) int {
-	return gwidth(s, vx.caps.unicodeCore)
+	if vx.caps.unicodeCore {
+		return gwidth(s, unicodeStd)
+	}
+	if vx.caps.noZWJ {
+		return gwidth(s, noZWJ)
+	}
+	return gwidth(s, wcwidth)
 }
 
 // characterWidth measures the width of a grapheme cluster, caching the result .

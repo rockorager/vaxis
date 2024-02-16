@@ -17,6 +17,12 @@ type (
 	notifyColorChange      struct{}
 	textAreaPix            struct{}
 	textAreaChar           struct{}
+	terminalID             int
+)
+
+const (
+	// used to apply quirks for specific terminals
+	termKitty terminalID = iota + 1
 )
 
 // Resize is delivered whenever a window size change is detected (likely via

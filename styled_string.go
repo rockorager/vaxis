@@ -205,7 +205,7 @@ func (vx *Vaxis) NewStyledString(s string, defaultStyle Style) *StyledString {
 		default:
 			grapheme, s, width, _ = uniseg.FirstGraphemeClusterInString(s, -1)
 			if !ss.unicode {
-				width = gwidth(grapheme, false)
+				width = gwidth(grapheme, wcwidth)
 			}
 			ss.Cells = append(ss.Cells, Cell{
 				Character: Character{
