@@ -106,6 +106,13 @@ func TestKeyMatches(t *testing.T) {
 			matchString: "ctrl+j",
 		},
 		{
+			name:        "Legacy: Ctrl+z",
+			sequence:    "\x1a",
+			matchRune:   'z',
+			matchMods:   ModCtrl,
+			matchString: "ctrl+z",
+		},
+		{
 			name:      "Kitty: Ctrl+j",
 			sequence:  "\x1b[106;5:3u",
 			matchRune: 'j',

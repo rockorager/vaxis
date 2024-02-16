@@ -241,7 +241,7 @@ func (k Key) String() string {
 		switch {
 		case k.Keycode == 0x00:
 			val = '@'
-		case k.Keycode < 0x1A:
+		case k.Keycode <= 0x1A:
 			// normalize these to lowercase runes
 			val = k.Keycode + 0x60
 		case k.Keycode < 0x20:
@@ -303,7 +303,7 @@ func decodeKey(seq ansi.Sequence) Key {
 			switch {
 			case rune(seq) == 0x00:
 				key.Keycode = '@'
-			case rune(seq) < 0x1A:
+			case rune(seq) <= 0x1A:
 				// normalize these to lowercase runes
 				key.Keycode = rune(seq) + 0x60
 			case rune(seq) < 0x20:
