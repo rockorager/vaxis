@@ -1071,6 +1071,7 @@ func (vx *Vaxis) openTty(tgts []*os.File) error {
 		defer func() {
 			if err := recover(); err != nil {
 				vx.Close()
+				panic(err)
 			}
 		}()
 		for {

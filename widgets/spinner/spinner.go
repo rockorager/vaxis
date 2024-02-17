@@ -68,6 +68,7 @@ func (m *Model) start() {
 		defer func() {
 			if err := recover(); err != nil {
 				m.vx.Close()
+				panic(err)
 			}
 		}()
 		for {
