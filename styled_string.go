@@ -17,15 +17,11 @@ const (
 
 type StyledString struct {
 	Cells []Cell
-	// if we will measure with unicode or wcwidth. We keep a reference to
-	// this in case we add or remove cells
-	unicode bool
 }
 
 func (vx *Vaxis) NewStyledString(s string, defaultStyle Style) *StyledString {
 	ss := &StyledString{
-		Cells:   make([]Cell, 0, len(s)),
-		unicode: vx.caps.unicodeCore,
+		Cells: make([]Cell, 0, len(s)),
 	}
 	style := defaultStyle
 	width := 0
@@ -204,7 +200,12 @@ func (vx *Vaxis) NewStyledString(s string, defaultStyle Style) *StyledString {
 			}
 		default:
 			grapheme, s, width, _ = uniseg.FirstGraphemeClusterInString(s, -1)
-			if !ss.unicode {
+			switch {
+			case vx.caps.unicodeCore:
+				// we're done
+			case vx.caps.noZWJ:
+				width = gwidth(grapheme, noZWJ)
+			default:
 				width = gwidth(grapheme, wcwidth)
 			}
 			ss.Cells = append(ss.Cells, Cell{

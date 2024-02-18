@@ -28,7 +28,8 @@ func main() {
 		"\u26A0\uFE0F", // VS16 selector
 		"👩‍🚀",          // ZWJ
 		"👋🏿",           // skin tone selector
-		"🏳️‍🌈",
+		"🏳️‍🌈",         // VS16 and ZWJ
+		"⚠️",
 	}
 	failures := []failure{}
 	_, col := vx.CursorPosition()
