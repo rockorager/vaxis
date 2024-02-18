@@ -18,21 +18,7 @@ const (
 func gwidth(s string, method graphemeWidthMethod) int {
 	switch method {
 	case noZWJ:
-		if strings.ContainsRune(s, 0x200D) {
-			total := 0
-			for _, r := range s {
-				if r >= 0xFE00 && r <= 0xFE0F {
-					// Variation Selectors 1 - 16
-					continue
-				}
-				if r >= 0xE0100 && r <= 0xE01EF {
-					// Variation Selectors 17-256
-					continue
-				}
-				total += runewidth.RuneWidth(r)
-			}
-			return total
-		}
+		s = strings.ReplaceAll(s, "\u200D", "")
 		return uniseg.StringWidth(s)
 	case unicodeStd:
 		return uniseg.StringWidth(s)
