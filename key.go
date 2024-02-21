@@ -583,6 +583,16 @@ var specialsKeys = map[specialKey]rune{
 	{21, '~'}:    KeyF10,
 	{23, '~'}:    KeyF11,
 	{24, '~'}:    KeyF12,
+	// DEC vt220 F13-F20 definitions
+	{25, '~'}: KeyF13,
+	{26, '~'}: KeyF14,
+	{28, '~'}: KeyF15,
+	{29, '~'}: KeyF16,
+	{31, '~'}: KeyF17,
+	{32, '~'}: KeyF18,
+	{33, '~'}: KeyF19,
+	{34, '~'}: KeyF20,
+	// Kitty encodings F13+
 	{57376, 'u'}: KeyF13,
 	{57377, 'u'}: KeyF14,
 	{57378, 'u'}: KeyF15,
