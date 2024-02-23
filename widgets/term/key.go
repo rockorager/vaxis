@@ -73,7 +73,11 @@ func encodeXterm(key vaxis.Key, deckpam bool, decckm bool) string {
 			return buf.String()
 		}
 		if xtermMods&vaxis.ModShift != 0 {
-			buf.WriteRune(key.ShiftedCode)
+			if key.ShiftedCode > 0 {
+				buf.WriteRune(key.ShiftedCode)
+			} else {
+				buf.WriteRune(key.Keycode)
+			}
 			return buf.String()
 		}
 		buf.WriteRune(key.Keycode)
