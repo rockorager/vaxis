@@ -43,8 +43,6 @@ type cursorState struct {
 // Options are the runtime options which must be supplied to a new [Vaxis]
 // object at instantiation
 type Options struct {
-	// Deprecated Use CSIuBitMask instead
-	//
 	// DisableKittyKeyboard disables the use of the Kitty Keyboard protocol.
 	// By default, if support is detected the protocol will be used.
 	DisableKittyKeyboard bool
@@ -66,7 +64,7 @@ type Options struct {
 	NoSignals bool
 
 	// CSIuBitMask is the bit mask to use for CSIu key encoding, when
-	// available
+	// available. This has no effect if DisableKittyKeyboard is true
 	CSIuBitMask CSIuBitMask
 }
 
@@ -78,8 +76,6 @@ const (
 	CSIuAlternateKeys
 	CSIuAllKeys
 	CSIuAssociatedText
-
-	CSIuNone CSIuBitMask = 0
 )
 
 type Vaxis struct {
@@ -152,7 +148,11 @@ func New(opts Options) (*Vaxis, error) {
 
 	var err error
 	vx := &Vaxis{
-		kittyFlags: int(opts.CSIuBitMask),
+		kittyFlags: int(CSIuDisambiguate),
+	}
+
+	if opts.CSIuBitMask > CSIuDisambiguate {
+		vx.kittyFlags = int(opts.CSIuBitMask)
 	}
 
 	if opts.ReportKeyboardEvents {
