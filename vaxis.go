@@ -43,9 +43,13 @@ type cursorState struct {
 // Options are the runtime options which must be supplied to a new [Vaxis]
 // object at instantiation
 type Options struct {
+	// Deprecated Use CSIuBitMask instead
+	//
 	// DisableKittyKeyboard disables the use of the Kitty Keyboard protocol.
 	// By default, if support is detected the protocol will be used.
 	DisableKittyKeyboard bool
+	// Deprecated Use CSIuBitMask instead
+	//
 	// ReportKeyboardEvents will report key release and key repeat events if
 	// KittyKeyboardProtocol is enabled and supported by the terminal
 	ReportKeyboardEvents bool
@@ -60,7 +64,23 @@ type Options struct {
 	WithTTY string
 	// NoSignals causes Vaxis to not install any signal handlers
 	NoSignals bool
+
+	// CSIuBitMask is the bit mask to use for CSIu key encoding, when
+	// available
+	CSIuBitMask CSIuBitMask
 }
+
+type CSIuBitMask int
+
+const (
+	CSIuDisambiguate CSIuBitMask = 1 << iota
+	CSIuReportEvents
+	CSIuAlternateKeys
+	CSIuAllKeys
+	CSIuAssociatedText
+
+	CSIuNone CSIuBitMask = 0
+)
 
 type Vaxis struct {
 	queue            chan Event
@@ -132,11 +152,11 @@ func New(opts Options) (*Vaxis, error) {
 
 	var err error
 	vx := &Vaxis{
-		kittyFlags: 29,
+		kittyFlags: int(opts.CSIuBitMask),
 	}
 
 	if opts.ReportKeyboardEvents {
-		vx.kittyFlags += 2
+		vx.kittyFlags |= int(CSIuReportEvents)
 	}
 
 	if opts.EventQueueSize < 1 {
@@ -200,6 +220,9 @@ outer:
 			case kittyKeyboard:
 				log.Info("[capability] Kitty keyboard")
 				if opts.DisableKittyKeyboard {
+					continue
+				}
+				if opts.CSIuBitMask == CSIuNone {
 					continue
 				}
 				vx.caps.kittyKeyboard = true
