@@ -222,9 +222,6 @@ outer:
 				if opts.DisableKittyKeyboard {
 					continue
 				}
-				if opts.CSIuBitMask == CSIuNone {
-					continue
-				}
 				vx.caps.kittyKeyboard = true
 			case styledUnderlines:
 				vx.caps.styledUnderlines = true
