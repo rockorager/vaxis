@@ -397,6 +397,17 @@ func decodeKey(seq ansi.Sequence) Key {
 			}
 		}
 	}
+
+	// Remove caps and num, if all we have left is shift and no text was
+	// generated, check if our codepoint is printable and we'll force some
+	// text. This check is to get around a bug in ghostty and foot where
+	// shift+space generates \x1b[32;2u with the disambiguate flag on. This
+	// can be removed in the future when these are fixed (I've submitted
+	// patches to both terminals)
+	nmods := key.Modifiers &^ (ModCapsLock | ModNumLock)
+	if key.Text == "" && nmods == ModShift && unicode.IsPrint(key.Keycode) {
+		key.Text = string(unicode.ToUpper(key.Keycode))
+	}
 	return key
 }
 
