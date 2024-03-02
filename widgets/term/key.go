@@ -69,7 +69,27 @@ func encodeXterm(key vaxis.Key, deckpam bool, decckm bool) string {
 				buf.WriteRune(key.Keycode - 0x60)
 				return buf.String()
 			}
-			buf.WriteRune(key.Keycode - 0x40)
+			switch key.Keycode {
+			case '1':
+				buf.WriteRune('1')
+			case '2':
+				buf.WriteRune(0x00)
+			case '3':
+				buf.WriteRune(0x1b)
+			case '4':
+				buf.WriteRune(0x1c)
+			case '5':
+				buf.WriteRune(0x1d)
+			case '6':
+				buf.WriteRune(0x1e)
+			case '7':
+				buf.WriteRune(0x1f)
+			case '8':
+				buf.WriteRune(0x7f)
+			case '9':
+			default:
+				buf.WriteRune(key.Keycode - 0x40)
+			}
 			return buf.String()
 		}
 		if xtermMods&vaxis.ModShift != 0 {
