@@ -3,11 +3,8 @@
 package vaxis
 
 import (
-	"fmt"
-	"io"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"git.sr.ht/~rockorager/vaxis/log"
 	"golang.org/x/sys/unix"
@@ -32,17 +29,17 @@ func (vx *Vaxis) setupSignals() {
 
 // reportWinsize
 func (vx *Vaxis) reportWinsize() (Resize, error) {
-	if vx.caps.reportSizeChars && vx.caps.reportSizePixels {
-		log.Trace("requesting screen size from terminal")
-		io.WriteString(vx.console, textAreaSize)
-		deadline := time.NewTimer(100 * time.Millisecond)
-		select {
-		case <-deadline.C:
-			return Resize{}, fmt.Errorf("screen size request deadline exceeded")
-		case <-vx.chSizeDone:
-			return vx.nextSize, nil
-		}
-	}
+	// if vx.caps.reportSizeChars && vx.caps.reportSizePixels {
+	// 	log.Trace("requesting screen size from terminal")
+	// 	io.WriteString(vx.console, textAreaSize)
+	// 	deadline := time.NewTimer(100 * time.Millisecond)
+	// 	select {
+	// 	case <-deadline.C:
+	// 		return Resize{}, fmt.Errorf("screen size request deadline exceeded")
+	// 	case <-vx.chSizeDone:
+	// 		return vx.nextSize, nil
+	// 	}
+	// }
 	log.Trace("requesting screen size from ioctl")
 	ws, err := unix.IoctlGetWinsize(int(vx.console.Fd()), unix.TIOCGWINSZ)
 	if err != nil {
