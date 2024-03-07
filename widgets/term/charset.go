@@ -23,7 +23,7 @@ const (
 	g3
 )
 
-var decSpecial = map[rune]rune{
+var decSpecial = map[byte]rune{
 	0x5f: 0x00A0, // NO-BREAK SPACE
 	0x60: 0x25C6, // BLACK DIAMOND
 	0x61: 0x2592, // MEDIUM SHADE

@@ -391,13 +391,13 @@ func (vt *Model) height() int {
 // print sets the current cell contents to the given rune. The attributes will
 // be copied from the current cursor attributes
 func (vt *Model) print(seq ansi.Print) {
-	// TODO fix this for change to string
-	// if vt.charsets.designations[vt.charsets.selected] == decSpecialAndLineDrawing {
-	// 	shifted, ok := decSpecial[r]
-	// 	if ok {
-	// 		r = shifted
-	// 	}
-	// }
+	if len(seq.Grapheme) == 1 &&
+		vt.charsets.designations[vt.charsets.selected] == decSpecialAndLineDrawing {
+		shifted, ok := decSpecial[seq.Grapheme[0]]
+		if ok {
+			seq.Grapheme = string(shifted)
+		}
+	}
 
 	// If we are single-shifted, move the previous charset into the current
 	if vt.charsets.singleShift {
