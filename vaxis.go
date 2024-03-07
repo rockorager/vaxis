@@ -443,6 +443,7 @@ outerNew:
 		vx.mouseShapeLast = vx.mouseShapeNext
 	}
 	for row := range vx.screenNext.buf {
+		reposition = true
 		for col := 0; col < len(vx.screenNext.buf[row]); col += 1 {
 			next := vx.screenNext.buf[row][col]
 			if next.sixel {
