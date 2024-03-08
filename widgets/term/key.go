@@ -11,16 +11,15 @@ import (
 // TODO we assume it's always application keys. Add in the right modes and
 // encode properly
 func encodeXterm(key vaxis.Key, deckpam bool, decckm bool) string {
-	// function keys
-	if val, ok := keymap[key.Keycode]; ok {
-		return val
-	}
-
 	// ignore any kitty mods
 	xtermMods := key.Modifiers & vaxis.ModShift
 	xtermMods |= key.Modifiers & vaxis.ModAlt
 	xtermMods |= key.Modifiers & vaxis.ModCtrl
 	if xtermMods == 0 {
+		// function keys
+		if val, ok := keymap[key.Keycode]; ok {
+			return val
+		}
 		switch decckm {
 		case true:
 			if val, ok := cursorKeysApplicationMode[key.Keycode]; ok {
@@ -122,6 +121,18 @@ var xtermKeymap = map[rune]keycode{
 	vaxis.KeyDelete: {3, '~'},
 	vaxis.KeyPgUp:   {5, '~'},
 	vaxis.KeyPgDown: {6, '~'},
+	vaxis.KeyF01:    {1, 'P'},
+	vaxis.KeyF02:    {1, 'Q'},
+	vaxis.KeyF03:    {1, 'R'},
+	vaxis.KeyF04:    {1, 'S'},
+	vaxis.KeyF05:    {15, '~'},
+	vaxis.KeyF06:    {17, '~'},
+	vaxis.KeyF07:    {18, '~'},
+	vaxis.KeyF08:    {19, '~'},
+	vaxis.KeyF09:    {20, '~'},
+	vaxis.KeyF10:    {21, '~'},
+	vaxis.KeyF11:    {23, '~'},
+	vaxis.KeyF12:    {24, '~'},
 }
 
 var cursorKeysApplicationMode = map[rune]string{
