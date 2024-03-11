@@ -110,6 +110,8 @@ type Vaxis struct {
 	kittyFlags       int
 	disableMouse     bool
 
+	withTty string
+
 	termID terminalID
 
 	renders int
@@ -169,6 +171,7 @@ func New(opts Options) (*Vaxis, error) {
 
 	tgts := []*os.File{os.Stderr, os.Stdout, os.Stdin}
 	if opts.WithTTY != "" {
+		vx.withTty = opts.WithTTY
 		f, err := os.OpenFile(opts.WithTTY, os.O_RDWR, 0)
 		if err != nil {
 			return nil, err
@@ -329,17 +332,6 @@ func (vx *Vaxis) Close() {
 	}
 	vx.PostEvent(QuitEvent{})
 	vx.closed = true
-	// HACK: The parser could be hanging for input. Because we have a handle
-	// on a real terminal, we can't "actually" close the FD, so the poll
-	// doesn't necessarily wake on the close call. However, we are the only
-	// one reading from it...so we have to do a little dance:
-	// 1. Send a signal that we want to close
-	// 2. Send a DA1 query so there is data on the reader, breaking the read
-	//    loop
-	// 3. Confirm we have closed
-	vx.parser.Close()
-	io.WriteString(vx.console, primaryAttributes)
-	vx.parser.WaitClose()
 
 	defer close(vx.chQuit)
 
@@ -1063,6 +1055,18 @@ func (vx *Vaxis) exitAltScreen() {
 // run another TUI. The state of vaxis will be retained, so you can reenter the
 // original state by calling Resume
 func (vx *Vaxis) Suspend() error {
+	// HACK: The parser could be hanging for input. Because we have a handle
+	// on a real terminal, we can't "actually" close the FD, so the poll
+	// doesn't necessarily wake on the close call. However, we are the only
+	// one reading from it...so we have to do a little dance:
+	// 1. Send a signal that we want to close
+	// 2. Send a DA1 query so there is data on the reader, breaking the read
+	//    loop
+	// 3. Confirm we have closed
+	vx.parser.Close()
+	io.WriteString(vx.console, primaryAttributes)
+	vx.parser.WaitClose()
+
 	vx.disableModes()
 	vx.exitAltScreen()
 	signal.Stop(vx.chSigKill)
@@ -1121,11 +1125,15 @@ func (vx *Vaxis) openTty(tgts []*os.File) error {
 // and reenables input parsing. Upon resuming, a Resize event will be delivered.
 // It is entirely possible the terminal was resized while suspended.
 func (vx *Vaxis) Resume() error {
-	// err := vx.openTty()
-	// if err != nil {
-	// 	return err
-	// }
-	err := vx.console.SetRaw()
+	tgts := []*os.File{os.Stderr, os.Stdout, os.Stdin}
+	if vx.withTty != "" {
+		f, err := os.OpenFile(vx.withTty, os.O_RDWR, 0)
+		if err != nil {
+			return err
+		}
+		tgts = []*os.File{f}
+	}
+	err := vx.openTty(tgts)
 	if err != nil {
 		return err
 	}
