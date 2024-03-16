@@ -25,6 +25,8 @@ func (c *cell) erase(bg vaxis.Color) {
 	c.Attribute = 0
 	c.UnderlineStyle = vaxis.UnderlineOff
 	c.Background = bg
+	c.Hyperlink = ""
+	c.HyperlinkParams = ""
 }
 
 // selectiveErase removes the cell content, but keeps the attributes
