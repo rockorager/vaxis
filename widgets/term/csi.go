@@ -79,6 +79,9 @@ func (vt *Model) csi(csi string, params [][]int) {
 		// Response terminator
 		resp.WriteString("c")
 		vt.pty.WriteString(resp.String())
+	case ">c":
+		// vt220
+		vt.pty.WriteString("\x1b[>1;0;0c")
 	case "d":
 		vt.vpa(ps(params))
 	case "e":
