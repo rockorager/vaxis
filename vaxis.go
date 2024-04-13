@@ -169,8 +169,16 @@ func New(opts Options) (*Vaxis, error) {
 		vx.disableMouse = true
 	}
 
-	tgts := []*os.File{os.Stderr, os.Stdout, os.Stdin}
-	if opts.WithTTY != "" {
+	var tgts []*os.File
+	switch opts.WithTTY {
+	case "":
+		f, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
+		if err != nil {
+			tgts = []*os.File{os.Stderr, os.Stdout, os.Stdin}
+			break
+		}
+		tgts = []*os.File{f, os.Stderr, os.Stdout, os.Stdin}
+	default:
 		vx.withTty = opts.WithTTY
 		f, err := os.OpenFile(opts.WithTTY, os.O_RDWR, 0)
 		if err != nil {
