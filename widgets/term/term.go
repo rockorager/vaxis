@@ -171,6 +171,7 @@ func (vt *Model) StartWithSize(cmd *exec.Cmd, width int, height int) error {
 			case seq := <-vt.parser.Next():
 				switch seq := seq.(type) {
 				case ansi.EOF:
+					tick.Stop()
 					err := cmd.Wait()
 					vt.eventHandler(EventClosed{
 						Term:  vt,
