@@ -55,7 +55,7 @@ type Model struct {
 	window *vaxis.Window
 
 	cmd    *exec.Cmd
-	dirty  int32
+	dirty  bool
 	parser *ansi.Parser
 	pty    *os.File
 	rows   int
@@ -65,6 +65,7 @@ type Model struct {
 	events       chan vaxis.Event
 	focused      int32
 	graphics     []*Image
+	timer        *time.Timer
 }
 
 type cursorState struct {
@@ -122,6 +123,7 @@ func New() *Model {
 		// Buffering to 2 events. If there is ever a case where one
 		// sequence can trigger two events, this should be increased
 		events: make(chan vaxis.Event, 2),
+		timer:  time.NewTimer(0),
 	}
 	m.setDefaultTabStops()
 	return m
@@ -163,7 +165,6 @@ func (vt *Model) StartWithSize(cmd *exec.Cmd, width int, height int) error {
 
 	vt.resize(width, height)
 	vt.parser = ansi.NewParser(vt.pty)
-	tick := time.NewTicker(8 * time.Millisecond)
 	go func() {
 		defer vt.recover()
 		for {
@@ -171,7 +172,6 @@ func (vt *Model) StartWithSize(cmd *exec.Cmd, width int, height int) error {
 			case seq := <-vt.parser.Next():
 				switch seq := seq.(type) {
 				case ansi.EOF:
-					tick.Stop()
 					err := cmd.Wait()
 					vt.eventHandler(EventClosed{
 						Term:  vt,
@@ -183,10 +183,11 @@ func (vt *Model) StartWithSize(cmd *exec.Cmd, width int, height int) error {
 				}
 			case ev := <-vt.events:
 				vt.eventHandler(ev)
-			case <-tick.C:
-				if atomicLoad(&vt.dirty) {
-					vt.eventHandler(vaxis.Redraw{})
-				}
+			case <-vt.timer.C:
+				vt.mu.Lock()
+				vt.timer.Stop()
+				vt.mu.Unlock()
+				vt.eventHandler(vaxis.Redraw{})
 			}
 		}
 	}()
@@ -201,7 +202,9 @@ func (vt *Model) Start(cmd *exec.Cmd) error {
 
 // Update is called from the host application. This is user input
 func (vt *Model) Update(msg vaxis.Event) {
-	defer atomicStore(&vt.dirty, true)
+	vt.mu.Lock()
+	defer vt.mu.Unlock()
+	vt.invalidate()
 	switch msg := msg.(type) {
 	case vaxis.Key:
 		str := encodeXterm(msg, vt.mode.deckpam, vt.mode.decckm)
@@ -223,13 +226,22 @@ func (vt *Model) Update(msg vaxis.Event) {
 	}
 }
 
+// only call invalidate while a lock is held
+func (vt *Model) invalidate() {
+	if vt.dirty {
+		return
+	}
+	vt.dirty = true
+	vt.timer.Reset(8 * time.Millisecond)
+}
+
 // update is called from the PTY routine...this is updating the internal model
 // based on the underlying process
 func (vt *Model) update(seq ansi.Sequence) {
-	atomicStore(&vt.dirty, true)
 	vt.mu.Lock()
 	defer vt.mu.Unlock()
 	defer vt.parser.Finish(seq)
+	defer vt.invalidate()
 	switch seq := seq.(type) {
 	case ansi.Print:
 		vt.print(seq)
@@ -512,7 +524,7 @@ func (vt *Model) Close() {
 func (vt *Model) Draw(win vaxis.Window) {
 	vt.mu.Lock()
 	defer vt.mu.Unlock()
-	defer atomicStore(&vt.dirty, false)
+	vt.dirty = false
 	width, height := win.Size()
 	if int(width) != vt.width() || int(height) != vt.height() {
 		win.Width = width
