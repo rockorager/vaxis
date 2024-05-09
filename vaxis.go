@@ -1083,7 +1083,7 @@ func (vx *Vaxis) Suspend() error {
 	return nil
 }
 
-// makeRaw opens the /dev/tty device, makes it raw, and starts an input parser
+// openTty opens the /dev/tty device, makes it raw, and starts an input parser
 func (vx *Vaxis) openTty(tgts []*os.File) error {
 	for _, s := range tgts {
 		if c, err := console.ConsoleFromFile(s); err == nil {
