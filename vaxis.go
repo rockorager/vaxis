@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"fmt"
 	"io"
 	"os"
 	"os/signal"
@@ -31,6 +32,7 @@ type capabilities struct {
 	colorThemeUpdates  bool
 	reportSizeChars    bool
 	reportSizePixels   bool
+	osc11              bool
 }
 
 type cursorState struct {
@@ -109,6 +111,7 @@ type Vaxis struct {
 	refresh          bool
 	kittyFlags       int
 	disableMouse     bool
+	chBg             chan string
 
 	withTty string
 
@@ -197,6 +200,7 @@ func New(opts Options) (*Vaxis, error) {
 	vx.chQuit = make(chan bool)
 	vx.chSizeDone = make(chan bool, 1)
 	vx.charCache = make(map[string]int, 256)
+	vx.chBg = make(chan string, 1)
 	err = vx.openTty(tgts)
 	if err != nil {
 		return nil, err
@@ -219,6 +223,9 @@ outer:
 				if vx.graphicsProtocol < sixelGraphics {
 					vx.graphicsProtocol = sixelGraphics
 				}
+			case capabilityOsc11:
+				vx.caps.osc11 = true
+				log.Info("[capability] OSC 11 supported")
 			case synchronizedUpdates:
 				log.Info("[capability] Synchronized updates")
 				vx.caps.synchronizedUpdate = true
@@ -921,6 +928,17 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 			vx.PostEvent(kittyGraphics{})
 		}
 	case ansi.OSC:
+		if strings.HasPrefix(string(seq.Payload), "11") {
+			// If we are here and don't know that the host terminal
+			// supports the sequence, it means we are handling the response
+			// to the initial query and thus nobody is expecting its actual
+			// content. In this case, we don't want to fill the channel buffer
+			// as no one will clear it.
+			if vx.CanReportBackgroundColor() {
+				vx.chBg <- string(seq.Payload)
+			}
+			vx.PostEvent(capabilityOsc11{})
+		}
 		if strings.HasPrefix(string(seq.Payload), "52") {
 			vals := strings.Split(string(seq.Payload), ";")
 			if len(vals) != 3 {
@@ -940,6 +958,29 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 			}
 		}
 	}
+}
+
+// QueryBackground queries the host terminal for background color and returns
+// it as an instance of vaxis.Color. If the host terminal doesn't support this,
+// Color(0) is returned instead. Make sure not to run this in the same
+// goroutine as Vaxis runs in or deadlock will occur.
+func (vx *Vaxis) QueryBackground() Color {
+	if !vx.CanReportBackgroundColor() {
+		return Color(0)
+	}
+	vx.tw.WriteString(osc11)
+	resp := <-vx.chBg
+	var r, g, b int
+	_, err := fmt.Sscanf(resp, "11;rgb:%x/%x/%x", &r, &g, &b)
+	if err != nil {
+		log.Error("QueryBackground: failed to parse the OSC 11 response: %s", err)
+		return Color(0)
+	}
+	// The returned value can in principle be 16 bits per channel, however
+	// we are not aware of any terminal that would do this, foot for
+	// instance just repeats the same 8 bits twice. Hence we only take the
+	// lower 8 bits.
+	return RGBColor(uint8(r), uint8(g), uint8(b))
 }
 
 func (vx *Vaxis) sendQueries() {
@@ -966,6 +1007,8 @@ func (vx *Vaxis) sendQueries() {
 	// Query some terminfo capabilities
 	// Just another way to see if we have RGB support
 	_, _ = vx.tw.WriteString(xtgettcap("RGB"))
+	// Does the terminal respond to OSC 11 queries?
+	_, _ = vx.tw.WriteString(osc11)
 	// We request Smulx to check for styled underlines. Technically, Smulx
 	// only means the terminal supports different underline types (curly,
 	// dashed, etc), but we'll assume the terminal also suppports underline
@@ -1311,6 +1354,10 @@ func (vx *Vaxis) CanKittyGraphics() bool {
 
 func (vx *Vaxis) CanSixel() bool {
 	return vx.caps.sixels
+}
+
+func (vx *Vaxis) CanReportBackgroundColor() bool {
+	return vx.caps.osc11
 }
 
 func (vx *Vaxis) CanDisplayGraphics() bool {

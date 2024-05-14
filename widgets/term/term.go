@@ -36,6 +36,8 @@ type Model struct {
 
 	mu sync.Mutex
 
+	vx *vaxis.Vaxis
+
 	activeScreen  [][]cell
 	altScreen     [][]cell
 	primaryScreen [][]cell
@@ -549,6 +551,7 @@ func (vt *Model) Draw(win vaxis.Window) {
 		win.ShowCursor(int(vt.cursor.col), int(vt.cursor.row), vt.cursor.style)
 	}
 	vx := win.Vx
+	vt.vx = vx
 outer:
 	for _, img := range vt.graphics {
 		for _, imgVx := range img.vaxii {
