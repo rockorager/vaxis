@@ -52,8 +52,6 @@ type Model struct {
 	primaryState cursorState
 	altState     cursorState
 
-	window *vaxis.Window
-
 	cmd    *exec.Cmd
 	dirty  bool
 	parser *ansi.Parser
