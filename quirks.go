@@ -41,4 +41,7 @@ func (vx *Vaxis) applyQuirks() {
 	if os.Getenv("VAXIS_DISABLE_NOZWJ") != "" {
 		vx.caps.noZWJ = false
 	}
+	if os.Getenv("VAXIS_FORCE_XTWINOPS") != "" {
+		vx.xtwinops = true
+	}
 }

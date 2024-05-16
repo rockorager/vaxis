@@ -113,6 +113,8 @@ type Vaxis struct {
 	disableMouse     bool
 	chBg             chan string
 
+	xtwinops bool
+
 	withTty string
 
 	termID terminalID
