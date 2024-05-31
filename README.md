@@ -71,6 +71,7 @@ most dank TUI library
 | Bracketed Paste                |  ✅   |  ✅   |    ❌     |    ❌     |
 | Kitty Keyboard                 |  ✅   |  ❌   |    ❌     |    ✅     |
 | Styled Underlines              |  ✅   |  ❌   |    ❌     |    ✅     |
+| Application IDs (OSC 176)      |  ✅   |  ❌   |    ❌     |    ❌     |
 | Background color query (OSC 11)|  ✅   |  ❌   |    ❌     |    ✅     |
 | Mouse Shapes (OSC 22)          |  ✅   |  ❌   |    ❌     |    ❌     |
 | System Clipboard (OSC 52)      |  ✅   |  ❌   |    ❌     |    ❌     |

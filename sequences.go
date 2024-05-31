@@ -34,6 +34,8 @@ const (
 	osc9notify   = "\x1b]9;%s\x1b\\"
 	osc777notify = "\x1b]777;notify;%s;%s\x1b\\"
 	setTitle     = "\x1b]2;%s\x1b\\"
+	getAppID     = "\x1b]176;?\x1b\\"
+	setAppID     = "\x1b]176;%s\x1b\\"
 	mouseShape   = "\x1b]22;%s\x1b\\"
 
 	// SGR

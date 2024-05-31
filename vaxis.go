@@ -33,6 +33,7 @@ type capabilities struct {
 	reportSizeChars    bool
 	reportSizePixels   bool
 	osc11              bool
+	osc176             bool
 }
 
 type cursorState struct {
@@ -91,6 +92,7 @@ type Vaxis struct {
 	graphicsLast     []*placement
 	mouseShapeNext   MouseShape
 	mouseShapeLast   MouseShape
+	appIDLast        appID
 	pastePending     bool
 	chClipboard      chan string
 	chSigWinSz       chan os.Signal
@@ -261,6 +263,10 @@ outer:
 			case textAreaChar:
 				vx.caps.reportSizeChars = true
 				log.Info("[capability] Report screen size: characters")
+			case appID:
+				vx.caps.osc176 = true
+				vx.appIDLast = ev
+				log.Info("[capability] OSC 176 supported")
 			case terminalID:
 				vx.termID = ev
 			}
@@ -959,6 +965,14 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 			case <-ctx.Done():
 			}
 		}
+		if strings.HasPrefix(string(seq.Payload), "176") {
+			vals := strings.Split(string(seq.Payload), ";")
+			if len(vals) != 2 {
+				log.Error("invalid OSC 176 payload")
+				return
+			}
+			vx.PostEvent(appID(vals[1]))
+		}
 	}
 }
 
@@ -1011,6 +1025,8 @@ func (vx *Vaxis) sendQueries() {
 	_, _ = vx.tw.WriteString(xtgettcap("RGB"))
 	// Does the terminal respond to OSC 11 queries?
 	_, _ = vx.tw.WriteString(osc11)
+	// Back up the current app ID
+	_, _ = vx.tw.WriteString(getAppID)
 	// We request Smulx to check for styled underlines. Technically, Smulx
 	// only means the terminal supports different underline types (curly,
 	// dashed, etc), but we'll assume the terminal also suppports underline
@@ -1082,6 +1098,9 @@ func (vx *Vaxis) disableModes() {
 	}
 	if vx.caps.colorThemeUpdates {
 		_, _ = vx.tw.WriteString(decrst(colorThemeUpdates))
+	}
+	if vx.caps.osc176 {
+		_, _ = vx.tw.WriteString(tparm(setAppID, vx.appIDLast))
 	}
 	// Most terminals default to "text" mouse shape
 	_, _ = vx.tw.WriteString(tparm(mouseShape, MouseShapeTextInput))
@@ -1294,6 +1313,11 @@ func (vx *Vaxis) SetTitle(s string) {
 	_, _ = io.WriteString(vx.console, tparm(setTitle, s))
 }
 
+// SetAppID sets the terminal's application ID via OSC 176
+func (vx *Vaxis) SetAppID(s string) {
+	_, _ = io.WriteString(vx.console, tparm(setAppID, s))
+}
+
 // Bell sends a BEL control signal to the terminal
 func (vx *Vaxis) Bell() {
 	_, _ = vx.console.Write([]byte{0x07})
@@ -1364,6 +1388,10 @@ func (vx *Vaxis) CanReportBackgroundColor() bool {
 
 func (vx *Vaxis) CanDisplayGraphics() bool {
 	return vx.caps.sixels || vx.caps.kittyGraphics
+}
+
+func (vx *Vaxis) CanSetAppID() bool {
+	return vx.caps.osc176
 }
 
 func (vx *Vaxis) nextGraphicID() uint64 {
