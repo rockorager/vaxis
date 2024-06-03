@@ -1067,9 +1067,13 @@ func (vx *Vaxis) enableModes() {
 	_, _ = vx.tw.WriteString(decset(bracketedPaste)) // bracketed paste
 	_, _ = vx.tw.WriteString(decset(cursorKeys))     // application cursor keys
 	_, _ = vx.tw.WriteString(applicationMode)        // application cursor keys mode
-	// TODO: Query for mouse modes or just hope for the best?
 
+	// TODO: Query for mouse modes or just hope for the best? In the
+	// meantime, we enable button events, then all events. Terminals which
+	// support both will enable the latter. Terminals which support only the
+	// first will enable button events, then ignore the all events mode.
 	if !vx.disableMouse {
+		_, _ = vx.tw.WriteString(decset(mouseButtonEvents))
 		_, _ = vx.tw.WriteString(decset(mouseAllEvents))
 		_, _ = vx.tw.WriteString(decset(mouseFocusEvents))
 		_, _ = vx.tw.WriteString(decset(mouseSGR))
@@ -1086,6 +1090,7 @@ func (vx *Vaxis) disableModes() {
 	_, _ = vx.tw.WriteString(decrst(cursorKeys))
 	_, _ = vx.tw.WriteString(numericMode)
 	if !vx.disableMouse {
+		_, _ = vx.tw.WriteString(decrst(mouseButtonEvents))
 		_, _ = vx.tw.WriteString(decrst(mouseAllEvents))
 		_, _ = vx.tw.WriteString(decrst(mouseFocusEvents))
 		_, _ = vx.tw.WriteString(decrst(mouseSGR))

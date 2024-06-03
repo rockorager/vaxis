@@ -78,6 +78,7 @@ const (
 	// Private Modes
 	cursorKeys         = 1
 	cursorVisibility   = 25
+	mouseButtonEvents  = 1002
 	mouseAllEvents     = 1003
 	mouseFocusEvents   = 1004
 	mouseSGR           = 1006
