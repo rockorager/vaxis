@@ -284,7 +284,9 @@ func decodeKey(seq ansi.Sequence) Key {
 			// It's a shifted character
 			key.Modifiers = ModShift
 		}
-		key.Text = seq.Grapheme
+		if key.Keycode != KeyBackspace {
+			key.Text = seq.Grapheme
+		}
 		// NOTE: we don't set baselayout code on printed keys. In legacy
 		// encodings, this is meaningless. In kitty, this is best used to map
 		// keybinds and we should only get ansi.Print types when a paste occurs
@@ -391,8 +393,13 @@ func decodeKey(seq ansi.Sequence) Key {
 				}
 			case 2:
 				// text-as-codepoint
-				for _, p := range pm {
-					key.Text += string(rune(p))
+				if key.Keycode == 27 && seq.Final == '~' && len(pm) > 0 {
+					// Special case: Ctrl+Enter, Ctrl+Tab, ... are sent as 27;mods;key~
+					key.Keycode = rune(pm[0])
+				} else {
+					for _, p := range pm {
+						key.Text += string(rune(p))
+					}
 				}
 			}
 		}
