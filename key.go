@@ -552,6 +552,36 @@ const (
 	KeyRightMeta
 	KeyL3Shift
 	KeyL5Shift
+	// Numerical pad keys, also generally only kitty kbp
+	KeyKeyPad0
+	KeyKeyPad1
+	KeyKeyPad2
+	KeyKeyPad3
+	KeyKeyPad4
+	KeyKeyPad5
+	KeyKeyPad6
+	KeyKeyPad7
+	KeyKeyPad8
+	KeyKeyPad9
+	KeyKeyPadDecimal
+	KeyKeyPadDivide
+	KeyKeyPadMultiply
+	KeyKeyPadSubtract
+	KeyKeyPadAdd
+	KeyKeyPadEnter
+	KeyKeyPadEqual
+	KeyKeyPadSeparator
+	KeyKeyPadLeft
+	KeyKeyPadRight
+	KeyKeyPadUp
+	KeyKeyPadDown
+	KeyKeyPadPageUp
+	KeyKeyPadPageDown
+	KeyKeyPadHome
+	KeyKeyPadEnd
+	KeyKeyPadInsert
+	KeyKeyPadDelete
+	KeyKeyPadBegin
 
 	// Aliases
 	KeyEnter     = 0x0D
@@ -634,7 +664,36 @@ var specialsKeys = map[specialKey]rune{
 	{57396, 'u'}: KeyF33,
 	{57397, 'u'}: KeyF34,
 	{57398, 'u'}: KeyF35,
-	// Skip the keypad keys
+	{57399, 'u'}: KeyKeyPad0,
+	{57400, 'u'}: KeyKeyPad1,
+	{57401, 'u'}: KeyKeyPad2,
+	{57402, 'u'}: KeyKeyPad3,
+	{57403, 'u'}: KeyKeyPad4,
+	{57404, 'u'}: KeyKeyPad5,
+	{57405, 'u'}: KeyKeyPad6,
+	{57406, 'u'}: KeyKeyPad7,
+	{57407, 'u'}: KeyKeyPad8,
+	{57408, 'u'}: KeyKeyPad9,
+	{57409, 'u'}: KeyKeyPadDecimal,
+	{57410, 'u'}: KeyKeyPadDivide,
+	{57411, 'u'}: KeyKeyPadMultiply,
+	{57412, 'u'}: KeyKeyPadSubtract,
+	{57413, 'u'}: KeyKeyPadAdd,
+	{57414, 'u'}: KeyKeyPadEnter,
+	{57415, 'u'}: KeyKeyPadEqual,
+	{57416, 'u'}: KeyKeyPadSeparator,
+	{57417, 'u'}: KeyKeyPadLeft,
+	{57418, 'u'}: KeyKeyPadRight,
+	{57419, 'u'}: KeyKeyPadUp,
+	{57420, 'u'}: KeyKeyPadDown,
+	{57421, 'u'}: KeyKeyPadPageUp,
+	{57422, 'u'}: KeyKeyPadPageDown,
+	{57423, 'u'}: KeyKeyPadHome,
+	{57424, 'u'}: KeyKeyPadEnd,
+	{57425, 'u'}: KeyKeyPadInsert,
+	{57426, 'u'}: KeyKeyPadDelete,
+	{1, 'E'}:     KeyKeyPadBegin,
+	{57427, '~'}: KeyKeyPadBegin,
 	{57428, 'u'}: KeyMediaPlay,
 	{57429, 'u'}: KeyMediaPause,
 	{57430, 'u'}: KeyMediaPlayPause,
