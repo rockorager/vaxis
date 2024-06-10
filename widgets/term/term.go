@@ -257,7 +257,13 @@ func (vt *Model) update(seq ansi.Sequence) {
 		vt.osc(string(seq.Payload))
 	case ansi.DCS:
 		switch seq.Final {
-		case 'q': // sixel
+		case 'q': // mayb sixel
+			if len(seq.Intermediate) > 0 {
+				return
+			}
+			if len(seq.Parameters) > 0 {
+				return
+			}
 			// Write the raw sequence to the writer
 			buf := bytes.NewBuffer(nil)
 			// DCS
