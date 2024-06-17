@@ -19,12 +19,7 @@ type (
 	textAreaPix            struct{}
 	textAreaChar           struct{}
 	appID                  string
-	terminalID             int
-)
-
-const (
-	// used to apply quirks for specific terminals
-	termKitty terminalID = iota + 1
+	terminalID             string
 )
 
 // Resize is delivered whenever a window size change is detected (likely via

@@ -8,8 +8,9 @@ import (
 )
 
 func (vx *Vaxis) applyQuirks() {
-	switch vx.termID {
-	case termKitty:
+	id := string(vx.termID)
+	switch {
+	case strings.HasPrefix(id, "kitty"):
 		log.Debug("kitty identified. applying quirks")
 		vx.caps.noZWJ = true
 	}

@@ -923,9 +923,7 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 					vx.PostEvent(styledUnderlines{})
 				}
 			case '>':
-				if strings.Contains(string(seq.Data), "kitty") {
-					vx.PostEvent(terminalID(termKitty))
-				}
+				vx.PostEvent(terminalID(seq.Data))
 			}
 		}
 	case ansi.APC:
@@ -1377,6 +1375,14 @@ func (vx *Vaxis) characterWidth(s string) int {
 // SetMouseShape sets the shape of the mouse
 func (vx *Vaxis) SetMouseShape(shape MouseShape) {
 	vx.mouseShapeNext = shape
+}
+
+// TerminalID returns the terminal name and version advertised by the terminal,
+// if supported. The actual format is implementation-defined, but it is safe to
+// assume that the ID will start with the terminal name.
+// Some examples: "foot(1.17.2)"; "WezTerm 20210502-154244-3f7122cb"
+func (vx *Vaxis) TerminalID() string {
+	return string(vx.termID)
 }
 
 func (vx *Vaxis) CanKittyGraphics() bool {
