@@ -494,7 +494,7 @@ func (vt *Model) print(seq ansi.Print) {
 	default:
 		vt.cursor.col += column(w)
 	}
-	if vt.cursor.col >= vt.margin.right && vt.mode.decawm {
+	if vt.cursor.col >= vt.margin.right+1 && vt.mode.decawm {
 		vt.lastCol = true
 	}
 }
