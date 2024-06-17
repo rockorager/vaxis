@@ -423,16 +423,31 @@ func (vt *Model) print(seq ansi.Print) {
 		vt.charsets.selected = vt.charsets.saved
 	}
 
-	if vt.cursor.col == vt.margin.right && vt.lastCol {
-		col := vt.cursor.col
-		rw := vt.cursor.row
-		vt.activeScreen[rw][col].wrapped = true
+	w := seq.Width
+
+	// handle wrapping
+	var wrap bool
+	// We printed in the last column last time
+	if vt.lastCol {
+		wrap = true
+	}
+	// We don't have room for this character so wrap
+	if vt.cursor.col+column(w)-1 > vt.margin.right {
+		wrap = true
+	}
+	// We aren't in wrap mode, never wrap
+	if !vt.mode.decawm {
+		wrap = false
+	}
+
+	if wrap {
+		vt.lastCol = false
+		vt.activeScreen[vt.cursor.row][vt.width()-1].wrapped = true
 		vt.nel()
 	}
 
 	col := vt.cursor.col
 	rw := vt.cursor.row
-	w := seq.Width
 
 	if vt.mode.irm {
 		line := vt.activeScreen[rw]
@@ -475,12 +490,12 @@ func (vt *Model) print(seq ansi.Print) {
 	}
 
 	switch {
-	case vt.mode.decawm && col == vt.margin.right:
-		vt.lastCol = true
-	case col == vt.margin.right:
-		// don't move the cursor
+	case !vt.mode.decawm && vt.cursor.col+column(w) > vt.margin.right:
 	default:
 		vt.cursor.col += column(w)
+	}
+	if vt.cursor.col >= vt.margin.right && vt.mode.decawm {
+		vt.lastCol = true
 	}
 }
 
