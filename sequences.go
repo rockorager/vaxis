@@ -87,6 +87,7 @@ const (
 	synchronizedUpdate = 2026
 	unicodeCore        = 2027
 	colorThemeUpdates  = 2031
+	inBandResize       = 2048
 	sixelScrolling     = 8452
 
 	// dsr requests/responses

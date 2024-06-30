@@ -34,6 +34,7 @@ type capabilities struct {
 	reportSizePixels   bool
 	osc11              bool
 	osc176             bool
+	inBandResize       bool
 }
 
 type cursorState struct {
@@ -269,6 +270,8 @@ outer:
 				log.Info("[capability] OSC 176 supported")
 			case terminalID:
 				vx.termID = ev
+			case inBandResizeEvents:
+				vx.caps.inBandResize = true
 			}
 		}
 	}
@@ -876,6 +879,26 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 					return
 				}
 				vx.chSizeDone <- true
+			case 48:
+				// CSI <type> ; <height> ; <width> ; <height_pix> ; <width_pix> t
+				switch len(seq.Parameters) {
+				case 3:
+					atomicStore(&vx.resize, true)
+					vx.nextSize.Cols = w
+					vx.nextSize.Rows = h
+					if !vx.caps.inBandResize {
+						vx.PostEvent(inBandResizeEvents{})
+					}
+				case 5:
+					atomicStore(&vx.resize, true)
+					vx.nextSize.Cols = w
+					vx.nextSize.Rows = h
+					vx.nextSize.YPixel = seq.Parameters[3][0]
+					vx.nextSize.XPixel = seq.Parameters[4][0]
+					if !vx.caps.inBandResize {
+						vx.PostEvent(inBandResizeEvents{})
+					}
+				}
 			}
 			return
 		}
@@ -1011,6 +1034,9 @@ func (vx *Vaxis) sendQueries() {
 	_, _ = vx.tw.WriteString(decrqm(synchronizedUpdate))
 	_, _ = vx.tw.WriteString(decrqm(unicodeCore))
 	_, _ = vx.tw.WriteString(decrqm(colorThemeUpdates))
+	// We blindly enable in band resize. We get a response immediately if it
+	// is supported
+	_, _ = vx.tw.WriteString(decset(inBandResize))
 	_, _ = vx.tw.WriteString(xtversion)
 	_, _ = vx.tw.WriteString(kittyKBQuery)
 	_, _ = vx.tw.WriteString(kittyGquery)
@@ -1060,6 +1086,9 @@ func (vx *Vaxis) enableModes() {
 		// Let's query the current mode also
 		_, _ = vx.tw.WriteString(tparm(dsr, colorThemeReq))
 	}
+	if vx.caps.inBandResize {
+		_, _ = vx.tw.WriteString(decset(inBandResize))
+	}
 
 	// TODO: query for bracketed paste support?
 	_, _ = vx.tw.WriteString(decset(bracketedPaste)) // bracketed paste
@@ -1104,6 +1133,9 @@ func (vx *Vaxis) disableModes() {
 	}
 	if vx.caps.osc176 {
 		_, _ = vx.tw.WriteString(tparm(setAppID, vx.appIDLast))
+	}
+	if vx.caps.inBandResize {
+		_, _ = vx.tw.WriteString(decrst(inBandResize))
 	}
 	// Most terminals default to "text" mouse shape
 	_, _ = vx.tw.WriteString(tparm(mouseShape, MouseShapeTextInput))

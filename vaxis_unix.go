@@ -14,9 +14,11 @@ import (
 )
 
 func (vx *Vaxis) setupSignals() {
-	signal.Notify(vx.chSigWinSz,
-		syscall.SIGWINCH,
-	)
+	if !vx.caps.inBandResize {
+		signal.Notify(vx.chSigWinSz,
+			syscall.SIGWINCH,
+		)
+	}
 	signal.Notify(vx.chSigKill,
 		// kill signals
 		syscall.SIGABRT,
@@ -32,6 +34,10 @@ func (vx *Vaxis) setupSignals() {
 
 // reportWinsize
 func (vx *Vaxis) reportWinsize() (Resize, error) {
+	if vx.caps.inBandResize {
+		// We already received the size if we have in band reports
+		return vx.nextSize, nil
+	}
 	if vx.xtwinops && vx.caps.reportSizeChars && vx.caps.reportSizePixels {
 		log.Trace("requesting screen size from terminal")
 		io.WriteString(vx.console, textAreaSize)

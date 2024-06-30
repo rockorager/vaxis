@@ -18,6 +18,7 @@ type (
 	notifyColorChange      struct{}
 	textAreaPix            struct{}
 	textAreaChar           struct{}
+	inBandResizeEvents     struct{}
 	appID                  string
 	terminalID             string
 )
