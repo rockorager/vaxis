@@ -267,6 +267,9 @@ func (s *Sixel) Resize(w int, h int) {
 
 // CellSize is the current cell size of the encoded image
 func (s *Sixel) CellSize() (w int, h int) {
+	if atomicLoad(&s.encoding) {
+		return
+	}
 	return s.w, s.h
 }
 
