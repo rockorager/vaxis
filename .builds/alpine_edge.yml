@@ -1,9 +1,14 @@
 ---
 image: alpine/edge
 packages:
+  - git
   - go
 sources:
   - "https://git.sr.ht/~rockorager/vaxis"
+secrets:
+  - d48e3c42-9d65-452f-9693-68653a855858 # ssh key for mirroring
+environment:
+  GIT_SSH_COMMAND: ssh -o StrictHostKeyChecking=no
 tasks:
   - build: |
       cd vaxis
@@ -11,3 +16,16 @@ tasks:
   - test: |
       cd vaxis
       go test ./...
+  - mirror: |
+      # Don't run on GitHub PRs
+      if [ "$BUILD_REASON" = 'github-pr' ]; then
+          exit
+      fi
+
+      # Don't run on patchsets
+      if [ "$BUILD_REASON" = 'patchset' ]; then
+          exit
+      fi
+
+      cd vaxis
+      git push --force --mirror git@github.com:rockorager/vaxis
