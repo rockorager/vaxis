@@ -10,6 +10,8 @@ import (
 	"io"
 
 	"git.sr.ht/~rockorager/vaxis/log"
+	"git.sr.ht/~rockorager/vaxis/octreequant"
+
 	"github.com/mattn/go-sixel"
 	"golang.org/x/image/draw"
 )
@@ -256,7 +258,14 @@ func (s *Sixel) Resize(w int, h int) {
 		}
 		// Re-encode the image
 		s.buf.Reset()
-		err := sixel.NewEncoder(s.buf).Encode(img)
+		var paletted image.Image
+		if p, ok := img.(*image.Paletted); ok && len(p.Palette) < 255 {
+			// fast-path for paletted images: pass through to sixel
+			paletted = p
+		} else {
+			paletted = octreequant.Paletted(img, 254)
+		}
+		err := sixel.NewEncoder(s.buf).Encode(paletted)
 		if err != nil {
 			log.Error("couldn't encode sixel: %v", err)
 			return
