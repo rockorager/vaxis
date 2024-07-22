@@ -849,7 +849,7 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 			}
 			return
 		case 't':
-			if len(seq.Parameters) != 3 {
+			if len(seq.Parameters) < 3 {
 				log.Error("[CSI] unknown sequence: %s", seq)
 				return
 			}
