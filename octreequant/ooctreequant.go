@@ -15,6 +15,7 @@ type color struct {
 	r int
 	g int
 	b int
+	a0 bool // true if transparent
 }
 
 func (c color) color() imagecolor.RGBA {
@@ -29,6 +30,11 @@ func (c color) color() imagecolor.RGBA {
 func newColor(c imagecolor.Color) color {
 	cr, cg, cb, ca := c.RGBA()
 	var r, g, b int
+	if ca == 0 {
+		return color{
+			a0: true,
+		}
+	}
 	if ca == 0xFFFF {
 		r = int(cr) >> 8
 		g = int(cg) >> 8
@@ -156,6 +162,9 @@ func newNode(level int, parent *tree) *node {
 type tree struct {
 	levels [][]*node
 	root   *node
+
+	count int // size of palette
+	a0 bool // true if any color is transparent
 }
 
 func (t *tree) leaves() []*node {
@@ -167,6 +176,7 @@ func (t *tree) addNode(level int, n *node) {
 }
 
 func (t *tree) addColor(color color) {
+	t.a0 = t.a0 || color.a0
 	t.root.addColor(color, 0, t)
 }
 
@@ -174,6 +184,10 @@ func (t *tree) makePalette(count int) imagecolor.Palette {
 	palette := make(imagecolor.Palette, 0, count)
 	i := 0
 	c := len(t.leaves())
+
+	if t.a0 {
+		count--
+	}
 
 	for level := maxDepth - 1; level >= 0; level-- {
 		if len(t.levels[level]) == 0 {
@@ -201,10 +215,18 @@ func (t *tree) makePalette(count int) imagecolor.Palette {
 		n.i = i
 		i++
 	}
+
+	if t.a0 {
+		palette = append(palette, imagecolor.RGBA{})
+	}
+	t.count = len(palette)
 	return palette
 }
 
 func (t *tree) paletteIndex(color color) int {
+	if color.a0 {
+		return t.count-1
+	}
 	return t.root.paletteIndex(color, 0)
 }
 
