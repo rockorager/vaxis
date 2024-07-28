@@ -13,6 +13,10 @@ func (vx *Vaxis) applyQuirks() {
 	case strings.HasPrefix(id, "kitty"):
 		log.Debug("kitty identified. applying quirks")
 		vx.caps.noZWJ = true
+	case id == "tmux 3.4":
+		// tmux 3.4 has unicode support, but doesn't advertise via 2027
+		vx.caps.unicodeCore = true
+
 	}
 
 	if os.Getenv("ASCIINEMA_REC") != "" {
