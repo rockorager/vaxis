@@ -168,7 +168,7 @@ func (k *KittyImage) Resize(w int, h int) {
 			}
 			fmt.Fprintf(k.buf, "\x1B_Gf=100,i=%d,m=%d;%s\x1B\\", k.id, m, string(b[:n]))
 		}
-		k.vx.PostEvent(Redraw{})
+		k.vx.PostEventBlocking(Redraw{})
 	}()
 }
 
@@ -270,7 +270,7 @@ func (s *Sixel) Resize(w int, h int) {
 			log.Error("couldn't encode sixel: %v", err)
 			return
 		}
-		s.vx.PostEvent(Redraw{})
+		s.vx.PostEventBlocking(Redraw{})
 	}()
 }
 

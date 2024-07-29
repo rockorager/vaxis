@@ -328,6 +328,13 @@ func (vx *Vaxis) PostEvent(ev Event) {
 	}
 }
 
+// PostEventBlocking inserts an event into the [Vaxis] event loop. The call will
+// block if the queue is full. This method should only be used from a different
+// goroutine than the main thread.
+func (vx *Vaxis) PostEventBlocking(ev Event) {
+	vx.queue <- ev
+}
+
 // SyncFunc queues a function to be called from the main thread. vaxis will call
 // the function when the event is received in the main thread either through
 // PollEvent or Events. A Redraw event will be sent to the host application
@@ -700,25 +707,25 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 		if vx.pastePending {
 			key.EventType = EventPaste
 		}
-		vx.PostEvent(key)
+		vx.PostEventBlocking(key)
 	case ansi.C0:
 		key := decodeKey(seq)
 		if vx.pastePending {
 			key.EventType = EventPaste
 		}
-		vx.PostEvent(key)
+		vx.PostEventBlocking(key)
 	case ansi.ESC:
 		key := decodeKey(seq)
 		if vx.pastePending {
 			key.EventType = EventPaste
 		}
-		vx.PostEvent(key)
+		vx.PostEventBlocking(key)
 	case ansi.SS3:
 		key := decodeKey(seq)
 		if vx.pastePending {
 			key.EventType = EventPaste
 		}
-		vx.PostEvent(key)
+		vx.PostEventBlocking(key)
 	case ansi.CSI:
 		switch seq.Final {
 		case 'c':
@@ -726,17 +733,17 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 				for _, ps := range seq.Parameters {
 					switch ps[0] {
 					case 4:
-						vx.PostEvent(capabilitySixel{})
+						vx.PostEventBlocking(capabilitySixel{})
 					}
 				}
-				vx.PostEvent(primaryDeviceAttribute{})
+				vx.PostEventBlocking(primaryDeviceAttribute{})
 				return
 			}
 		case 'I':
-			vx.PostEvent(FocusIn{})
+			vx.PostEventBlocking(FocusIn{})
 			return
 		case 'O':
-			vx.PostEvent(FocusOut{})
+			vx.PostEventBlocking(FocusOut{})
 			return
 		case 'R':
 			// KeyF1 or DSRCPR
@@ -765,7 +772,7 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 				switch seq.Parameters[0][0] {
 				case 2:
 					if seq.Parameters[1][0] == 0 {
-						vx.PostEvent(capabilitySixel{})
+						vx.PostEventBlocking(capabilitySixel{})
 					}
 				}
 				return
@@ -778,7 +785,7 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 				switch seq.Parameters[0][0] {
 				case colorThemeResp: // 997
 					m := ColorThemeMode(seq.Parameters[1][0])
-					vx.PostEvent(ColorThemeUpdate{
+					vx.PostEventBlocking(ColorThemeUpdate{
 						Mode: m,
 					})
 				}
@@ -798,7 +805,7 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 				}
 				switch seq.Parameters[1][0] {
 				case 1, 2:
-					vx.PostEvent(synchronizedUpdates{})
+					vx.PostEventBlocking(synchronizedUpdates{})
 				}
 			case 2027:
 				if len(seq.Parameters) < 2 {
@@ -807,7 +814,7 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 				}
 				switch seq.Parameters[1][0] {
 				case 1, 2:
-					vx.PostEvent(unicodeCoreCap{})
+					vx.PostEventBlocking(unicodeCoreCap{})
 				}
 			case 2031:
 				if len(seq.Parameters) < 2 {
@@ -816,13 +823,13 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 				}
 				switch seq.Parameters[1][0] {
 				case 1, 2:
-					vx.PostEvent(notifyColorChange{})
+					vx.PostEventBlocking(notifyColorChange{})
 				}
 			}
 			return
 		case 'u':
 			if len(seq.Intermediate) == 1 && seq.Intermediate[0] == '?' {
-				vx.PostEvent(kittyKeyboard{})
+				vx.PostEventBlocking(kittyKeyboard{})
 				return
 			}
 		case '~':
@@ -834,18 +841,18 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 				switch seq.Parameters[0][0] {
 				case 200:
 					vx.pastePending = true
-					vx.PostEvent(PasteStartEvent{})
+					vx.PostEventBlocking(PasteStartEvent{})
 					return
 				case 201:
 					vx.pastePending = false
-					vx.PostEvent(PasteEndEvent{})
+					vx.PostEventBlocking(PasteEndEvent{})
 					return
 				}
 			}
 		case 'M', 'm':
 			mouse, ok := parseMouseEvent(seq)
 			if ok {
-				vx.PostEvent(mouse)
+				vx.PostEventBlocking(mouse)
 			}
 			return
 		case 't':
@@ -864,7 +871,7 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 				if !vx.caps.reportSizePixels {
 					// Gate on this so we only report this
 					// once at startup
-					vx.PostEvent(textAreaPix{})
+					vx.PostEventBlocking(textAreaPix{})
 					return
 				}
 			case 8:
@@ -875,7 +882,7 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 					// once at startup. This also means we
 					// can set the size directly and won't
 					// have race conditions
-					vx.PostEvent(textAreaChar{})
+					vx.PostEventBlocking(textAreaChar{})
 					return
 				}
 				vx.chSizeDone <- true
@@ -889,7 +896,7 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 					vx.nextSize.YPixel = seq.Parameters[3][0]
 					vx.nextSize.XPixel = seq.Parameters[4][0]
 					if !vx.caps.inBandResize {
-						vx.PostEvent(inBandResizeEvents{})
+						vx.PostEventBlocking(inBandResizeEvents{})
 					}
 					vx.Resize()
 				}
@@ -901,7 +908,7 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 		if vx.pastePending {
 			key.EventType = EventPaste
 		}
-		vx.PostEvent(key)
+		vx.PostEventBlocking(key)
 	case ansi.DCS:
 		switch seq.Final {
 		case 'r':
@@ -923,9 +930,9 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 				}
 				switch vals[0] {
 				case hexEncode("Smulx"):
-					vx.PostEvent(styledUnderlines{})
+					vx.PostEventBlocking(styledUnderlines{})
 				case hexEncode("RGB"):
-					vx.PostEvent(truecolor{})
+					vx.PostEventBlocking(truecolor{})
 				}
 			}
 		case '|':
@@ -937,10 +944,10 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 				if string(seq.Data) == hexEncode("~VTE") {
 					// VTE supports styled underlines but
 					// doesn't respond to XTGETTCAP
-					vx.PostEvent(styledUnderlines{})
+					vx.PostEventBlocking(styledUnderlines{})
 				}
 			case '>':
-				vx.PostEvent(terminalID(seq.Data))
+				vx.PostEventBlocking(terminalID(seq.Data))
 			}
 		}
 	case ansi.APC:
@@ -948,7 +955,7 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 			return
 		}
 		if strings.HasPrefix(seq.Data, "G") {
-			vx.PostEvent(kittyGraphics{})
+			vx.PostEventBlocking(kittyGraphics{})
 		}
 	case ansi.OSC:
 		if strings.HasPrefix(string(seq.Payload), "11") {
@@ -960,7 +967,7 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 			if vx.CanReportBackgroundColor() {
 				vx.chBg <- string(seq.Payload)
 			}
-			vx.PostEvent(capabilityOsc11{})
+			vx.PostEventBlocking(capabilityOsc11{})
 		}
 		if strings.HasPrefix(string(seq.Payload), "52") {
 			vals := strings.Split(string(seq.Payload), ";")
@@ -1212,7 +1219,7 @@ func (vx *Vaxis) openTty(tgts []*os.File) error {
 				}
 			case <-vx.chSigWinSz:
 				atomicStore(&vx.resize, true)
-				vx.PostEvent(Redraw{})
+				vx.PostEventBlocking(Redraw{})
 			case <-vx.chSigKill:
 				vx.Close()
 				return
