@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"sync"
 )
 
 // writer is a buffered writer for a terminal. If the terminal supports
@@ -13,6 +14,7 @@ type writer struct {
 	buf *bytes.Buffer
 	w   io.Writer
 	vx  *Vaxis
+	mut sync.Mutex
 }
 
 func newWriter(vx *Vaxis) *writer {
@@ -66,6 +68,15 @@ func (w *writer) Len() int {
 	return w.buf.Len()
 }
 
+// WriteStringLocked writes to the underlying terminal while the mutex is held.
+// This does not handle any mouse nor synchronization state and is intended to
+// be used for one-off synchronized sequence writes to the terminal
+func (w *writer) WriteStringLocked(s string) (n int, err error) {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+	return w.w.Write([]byte(s))
+}
+
 func (w *writer) Flush() (n int, err error) {
 	if w.buf.Len() == 0 {
 		// If we didn't write any visual changes, make sure we make any
@@ -95,5 +106,7 @@ func (w *writer) Flush() (n int, err error) {
 	if w.vx.caps.synchronizedUpdate {
 		w.buf.WriteString(decrst(synchronizedUpdate))
 	}
+	w.mut.Lock()
+	defer w.mut.Unlock()
 	return w.w.Write(w.buf.Bytes())
 }

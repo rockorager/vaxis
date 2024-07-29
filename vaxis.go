@@ -1006,7 +1006,7 @@ func (vx *Vaxis) QueryBackground() Color {
 	if !vx.CanReportBackgroundColor() {
 		return Color(0)
 	}
-	vx.tw.WriteString(osc11)
+	vx.tw.WriteStringLocked(osc11)
 	resp := <-vx.chBg
 	var r, g, b int
 	_, err := fmt.Sscanf(resp, "11;rgb:%x/%x/%x", &r, &g, &b)
