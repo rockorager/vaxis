@@ -882,13 +882,6 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 			case 48:
 				// CSI <type> ; <height> ; <width> ; <height_pix> ; <width_pix> t
 				switch len(seq.Parameters) {
-				case 3:
-					atomicStore(&vx.resize, true)
-					vx.nextSize.Cols = w
-					vx.nextSize.Rows = h
-					if !vx.caps.inBandResize {
-						vx.PostEvent(inBandResizeEvents{})
-					}
 				case 5:
 					atomicStore(&vx.resize, true)
 					vx.nextSize.Cols = w
@@ -898,6 +891,7 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 					if !vx.caps.inBandResize {
 						vx.PostEvent(inBandResizeEvents{})
 					}
+					vx.Resize()
 				}
 			}
 			return
