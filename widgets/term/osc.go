@@ -25,6 +25,9 @@ func (vt *Model) osc(data string) {
 	case "9":
 		vt.postEvent(EventNotify{Body: val})
 	case "11":
+		if vt.vx == nil {
+			return
+		}
 		go func() {
 			rgb := vt.vx.QueryBackground().Params()
 			if len(rgb) == 0 {
