@@ -1153,6 +1153,7 @@ func (vx *Vaxis) enterAltScreen() {
 func (vx *Vaxis) exitAltScreen() {
 	vx.HideCursor()
 	_, _ = vx.tw.WriteString(decset(cursorVisibility))
+	_, _ = vx.tw.WriteString(clear)
 	_, _ = vx.tw.WriteString(decrst(alternateScreen))
 	_, _ = vx.tw.Flush()
 }
