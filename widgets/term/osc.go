@@ -28,14 +28,12 @@ func (vt *Model) osc(data string) {
 		if vt.vx == nil {
 			return
 		}
-		go func() {
-			rgb := vt.vx.QueryBackground().Params()
-			if len(rgb) == 0 {
-				return
-			}
-			resp := fmt.Sprintf("\x1b]11;rgb:%02x/%02x/%02x\x07", rgb[0], rgb[1], rgb[2])
-			vt.pty.WriteString(resp)
-		}()
+		rgb := vt.vx.QueryBackground().Params()
+		if len(rgb) == 0 {
+			return
+		}
+		resp := fmt.Sprintf("\x1b]11;rgb:%02x/%02x/%02x\x07", rgb[0], rgb[1], rgb[2])
+		vt.pty.WriteString(resp)
 	case "777":
 		selector, val, found := cutString(val, ";")
 		if !found {
