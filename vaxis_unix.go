@@ -36,6 +36,8 @@ func (vx *Vaxis) setupSignals() {
 func (vx *Vaxis) reportWinsize() (Resize, error) {
 	if vx.caps.inBandResize {
 		// We already received the size if we have in band reports
+		vx.mu.Lock()
+		defer vx.mu.Unlock()
 		return vx.nextSize, nil
 	}
 	if vx.xtwinops && vx.caps.reportSizeChars && vx.caps.reportSizePixels {
@@ -46,12 +48,22 @@ func (vx *Vaxis) reportWinsize() (Resize, error) {
 		case <-deadline.C:
 			return Resize{}, fmt.Errorf("screen size request deadline exceeded")
 		case <-vx.chSizeDone:
+			vx.mu.Lock()
+			defer vx.mu.Unlock()
 			return vx.nextSize, nil
 		}
 	}
 	log.Trace("requesting screen size from ioctl")
 	ws, err := unix.IoctlGetWinsize(int(vx.console.Fd()), unix.TIOCGWINSZ)
 	if err != nil {
+		cws, err := vx.console.Size()
+		if err == nil {
+			return Resize{
+				Cols: int(cws.Width),
+				Rows: int(cws.Height),
+			}, nil
+		}
+
 		return Resize{}, err
 	}
 	return Resize{

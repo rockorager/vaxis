@@ -70,6 +70,9 @@ type Options struct {
 	// CSIuBitMask is the bit mask to use for CSIu key encoding, when
 	// available. This has no effect if DisableKittyKeyboard is true
 	CSIuBitMask CSIuBitMask
+
+	// WithConsole provides the ability to use a custom console.
+	WithConsole console.Console
 }
 
 type CSIuBitMask int
@@ -118,7 +121,8 @@ type Vaxis struct {
 
 	xtwinops bool
 
-	withTty string
+	withTty     string
+	withConsole console.Console
 
 	termID terminalID
 
@@ -178,21 +182,24 @@ func New(opts Options) (*Vaxis, error) {
 	}
 
 	var tgts []*os.File
-	switch opts.WithTTY {
-	case "":
-		f, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
-		if err != nil {
-			tgts = []*os.File{os.Stderr, os.Stdout, os.Stdin}
-			break
-		}
-		tgts = []*os.File{f, os.Stderr, os.Stdout, os.Stdin}
-	default:
+
+	switch {
+	case opts.WithConsole != nil:
+		vx.withConsole = opts.WithConsole
+	case opts.WithTTY != "":
 		vx.withTty = opts.WithTTY
 		f, err := os.OpenFile(opts.WithTTY, os.O_RDWR, 0)
 		if err != nil {
 			return nil, err
 		}
 		tgts = []*os.File{f}
+	default:
+		f, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
+		if err != nil {
+			tgts = []*os.File{os.Stderr, os.Stdout, os.Stdin}
+			break
+		}
+		tgts = []*os.File{f, os.Stderr, os.Stdout, os.Stdin}
 	}
 
 	vx.queue = make(chan Event, opts.EventQueueSize)
@@ -206,6 +213,7 @@ func New(opts Options) (*Vaxis, error) {
 	vx.chSizeDone = make(chan bool, 1)
 	vx.charCache = make(map[string]int, 256)
 	vx.chBg = make(chan string, 1)
+
 	err = vx.openTty(tgts)
 	if err != nil {
 		return nil, err
@@ -224,54 +232,82 @@ outer:
 				break outer
 			case capabilitySixel:
 				log.Info("[capability] Sixel graphics")
+				vx.mu.Lock()
 				vx.caps.sixels = true
 				if vx.graphicsProtocol < sixelGraphics {
 					vx.graphicsProtocol = sixelGraphics
 				}
+				vx.mu.Unlock()
 			case capabilityOsc11:
-				vx.caps.osc11 = true
 				log.Info("[capability] OSC 11 supported")
+				vx.mu.Lock()
+				vx.caps.osc11 = true
+				vx.mu.Unlock()
 			case synchronizedUpdates:
 				log.Info("[capability] Synchronized updates")
+				vx.mu.Lock()
 				vx.caps.synchronizedUpdate = true
+				vx.mu.Unlock()
 			case unicodeCoreCap:
 				log.Info("[capability] Unicode core")
+				vx.mu.Lock()
 				vx.caps.unicodeCore = true
+				vx.mu.Unlock()
 			case notifyColorChange:
 				log.Info("[capability] Color theme notifications")
+				vx.mu.Lock()
 				vx.caps.colorThemeUpdates = true
+				vx.mu.Unlock()
 			case kittyKeyboard:
 				log.Info("[capability] Kitty keyboard")
 				if opts.DisableKittyKeyboard {
 					continue
 				}
+				vx.mu.Lock()
 				vx.caps.kittyKeyboard = true
+				vx.mu.Unlock()
 			case styledUnderlines:
-				vx.caps.styledUnderlines = true
 				log.Info("[capability] Styled underlines")
+				vx.mu.Lock()
+				vx.caps.styledUnderlines = true
+				vx.mu.Unlock()
 			case truecolor:
-				vx.caps.rgb = true
 				log.Info("[capability] RGB")
+				vx.mu.Lock()
+				vx.caps.rgb = true
+				vx.mu.Unlock()
 			case kittyGraphics:
 				log.Info("[capability] Kitty graphics supported")
+				vx.mu.Lock()
 				vx.caps.kittyGraphics = true
 				if vx.graphicsProtocol < kitty {
 					vx.graphicsProtocol = kitty
 				}
+				vx.mu.Unlock()
 			case textAreaPix:
-				vx.caps.reportSizePixels = true
 				log.Info("[capability] Report screen size: pixels")
+				vx.mu.Lock()
+				vx.caps.reportSizePixels = true
+				vx.mu.Unlock()
 			case textAreaChar:
-				vx.caps.reportSizeChars = true
 				log.Info("[capability] Report screen size: characters")
+				vx.mu.Lock()
+				vx.caps.reportSizeChars = true
+				vx.mu.Unlock()
 			case appID:
+				log.Info("[capability] OSC 176 supported")
+				vx.mu.Lock()
 				vx.caps.osc176 = true
 				vx.appIDLast = ev
-				log.Info("[capability] OSC 176 supported")
+				vx.mu.Unlock()
 			case terminalID:
+				vx.mu.Lock()
 				vx.termID = ev
+				vx.mu.Unlock()
 			case inBandResizeEvents:
+				vx.mu.Lock()
 				vx.caps.inBandResize = true
+				vx.mu.Unlock()
 			}
 		}
 	}
@@ -866,18 +902,24 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 			w := seq.Parameters[2][0]
 			switch typ {
 			case 4:
+				vx.mu.Lock()
 				vx.nextSize.XPixel = w
 				vx.nextSize.YPixel = h
-				if !vx.caps.reportSizePixels {
+				report := vx.caps.reportSizePixels
+				vx.mu.Unlock()
+				if !report {
 					// Gate on this so we only report this
 					// once at startup
 					vx.PostEventBlocking(textAreaPix{})
 					return
 				}
 			case 8:
+				vx.mu.Lock()
 				vx.nextSize.Cols = w
 				vx.nextSize.Rows = h
-				if !vx.caps.reportSizeChars {
+				report := vx.caps.reportSizeChars
+				vx.mu.Unlock()
+				if !report {
 					// Gate on this so we only report this
 					// once at startup. This also means we
 					// can set the size directly and won't
@@ -891,11 +933,14 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 				switch len(seq.Parameters) {
 				case 5:
 					atomicStore(&vx.resize, true)
+					vx.mu.Lock()
 					vx.nextSize.Cols = w
 					vx.nextSize.Rows = h
 					vx.nextSize.YPixel = seq.Parameters[3][0]
 					vx.nextSize.XPixel = seq.Parameters[4][0]
-					if !vx.caps.inBandResize {
+					resize := vx.caps.inBandResize
+					vx.mu.Unlock()
+					if !resize {
 						vx.PostEventBlocking(inBandResizeEvents{})
 					}
 					vx.Resize()
@@ -1186,21 +1231,29 @@ func (vx *Vaxis) Suspend() error {
 
 // openTty opens the /dev/tty device, makes it raw, and starts an input parser
 func (vx *Vaxis) openTty(tgts []*os.File) error {
-	for _, s := range tgts {
-		if c, err := console.ConsoleFromFile(s); err == nil {
-			vx.console = c
-			break
+	if vx.withConsole != nil {
+		vx.console = vx.withConsole
+	} else {
+		for _, s := range tgts {
+			if c, err := console.ConsoleFromFile(s); err == nil {
+				vx.console = c
+				break
+			}
 		}
 	}
+
 	if vx.console == nil {
 		return console.ErrNotAConsole
 	}
+
 	err := vx.console.SetRaw()
 	if err != nil {
 		return err
 	}
+
 	vx.tw = newWriter(vx)
 	vx.parser = ansi.NewParser(vx.console)
+
 	go func() {
 		defer func() {
 			if err := recover(); err != nil {
@@ -1234,18 +1287,24 @@ func (vx *Vaxis) openTty(tgts []*os.File) error {
 // and reenables input parsing. Upon resuming, a Resize event will be delivered.
 // It is entirely possible the terminal was resized while suspended.
 func (vx *Vaxis) Resume() error {
-	tgts := []*os.File{os.Stderr, os.Stdout, os.Stdin}
-	if vx.withTty != "" {
-		f, err := os.OpenFile(vx.withTty, os.O_RDWR, 0)
-		if err != nil {
-			return err
+	var tgts []*os.File
+	if vx.withConsole == nil {
+		tgts = []*os.File{os.Stderr, os.Stdout, os.Stdin}
+
+		if vx.withTty != "" {
+			f, err := os.OpenFile(vx.withTty, os.O_RDWR, 0)
+			if err != nil {
+				return err
+			}
+			tgts = []*os.File{f}
 		}
-		tgts = []*os.File{f}
 	}
+
 	err := vx.openTty(tgts)
 	if err != nil {
 		return err
 	}
+
 	vx.enterAltScreen()
 	vx.enableModes()
 	vx.setupSignals()
