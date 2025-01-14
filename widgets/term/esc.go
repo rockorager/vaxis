@@ -141,6 +141,9 @@ func (vt *Model) decrc() {
 	}
 	vt.mode.decawm = state.decawm
 	vt.mode.decom = state.decom
+
+	// Reset wrap state
+	vt.lastCol = false
 }
 
 // Reset Initial State (RIS) ESC-c
