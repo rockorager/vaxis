@@ -1,6 +1,7 @@
 package vxfw
 
 import (
+	"math"
 	"sort"
 	"time"
 
@@ -23,8 +24,8 @@ type (
 type DrawContext struct {
 	// The minimum size the widget must render as
 	Min Size
-	// The maximum size the widget must render as. A negative value in
-	// either dimension means that dimension has no limit
+	// The maximum size the widget must render as. A value of math.MaxUint16
+	// in either dimension means that dimension has no limit
 	Max Size
 	// Function to turn a string into a slice of characters. This splits the
 	// string into graphemes and measures each grapheme
@@ -34,6 +35,14 @@ type DrawContext struct {
 type Size struct {
 	Width  uint16
 	Height uint16
+}
+
+func (s Size) UnboundedWidth() bool {
+	return s.Width == math.MaxUint16
+}
+
+func (s Size) UnboundedHeight() bool {
+	return s.Height == math.MaxUint16
 }
 
 // EventPhase is the phase of the event during the event handling process.
