@@ -80,7 +80,7 @@ func NewSurface(width uint16, height uint16, w Widget) Surface {
 	}
 }
 
-func (s *Surface) AddChild(col int32, row int32, child Surface) {
+func (s *Surface) AddChild(col int, row int, child Surface) {
 	ss := NewSubSurface(col, row, child)
 	s.Children = append(s.Children, ss)
 }
@@ -131,7 +131,7 @@ type SubSurface struct {
 	ZIndex  int
 }
 
-func NewSubSurface(col int32, row int32, s Surface) SubSurface {
+func NewSubSurface(col int, row int, s Surface) SubSurface {
 	return SubSurface{
 		Origin: RelativePoint{
 			Row: row,
@@ -143,8 +143,8 @@ func NewSubSurface(col int32, row int32, s Surface) SubSurface {
 }
 
 type RelativePoint struct {
-	Row int32
-	Col int32
+	Row int
+	Col int
 }
 
 type focusHandler struct {
