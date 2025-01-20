@@ -1498,6 +1498,10 @@ func (vx *Vaxis) CanSetAppID() bool {
 	return vx.caps.osc176
 }
 
+func (vx *Vaxis) CanUnicodeCore() bool {
+	return vx.caps.unicodeCore
+}
+
 func (vx *Vaxis) nextGraphicID() uint64 {
 	vx.graphicsIDNext += 1
 	return vx.graphicsIDNext
