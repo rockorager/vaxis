@@ -16,7 +16,7 @@ func (a *App) HandleEvent(ev vaxis.Event, phase vxfw.EventPhase) (vxfw.Command, 
 	switch ev := ev.(type) {
 	case vaxis.Key:
 		if ev.Matches('c', vaxis.ModCtrl) {
-			return vxfw.BatchCmd{vxfw.QuitCmd{}}, nil
+			return vxfw.QuitCmd{}, nil
 		}
 	}
 	return nil, nil
