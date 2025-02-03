@@ -166,7 +166,7 @@ func (win Window) Print(segs ...Segment) (col int, row int) {
 			if row > rows {
 				return col, row
 			}
-			if !win.Vx.caps.unicodeCore {
+			if !win.Vx.caps.unicodeCore || !win.Vx.caps.explicitWidth {
 				// characterWidth will cache the result
 				char.Width = win.Vx.characterWidth(char.Grapheme)
 			}
@@ -203,7 +203,7 @@ func (win Window) PrintTruncate(row int, segs ...Segment) {
 	}
 	for _, seg := range segs {
 		for _, char := range Characters(seg.Text) {
-			if !win.Vx.caps.unicodeCore {
+			if !win.Vx.caps.unicodeCore || !win.Vx.caps.explicitWidth {
 				// characterWidth will cache the result
 				char.Width = win.Vx.characterWidth(char.Grapheme)
 			}
@@ -237,17 +237,13 @@ func (win Window) Println(row int, segs ...Segment) {
 	col := 0
 	for _, seg := range segs {
 		for _, char := range Characters(seg.Text) {
-			if !win.Vx.caps.unicodeCore {
+			if !win.Vx.caps.unicodeCore || !win.Vx.caps.explicitWidth {
 				// characterWidth will cache the result
 				char.Width = win.Vx.characterWidth(char.Grapheme)
 			}
 			w := char.Width
 			if col+w > cols {
 				return
-			}
-			if !win.Vx.caps.unicodeCore {
-				// characterWidth will cache the result
-				win.Vx.characterWidth(char.Grapheme)
 			}
 			cell := Cell{
 				Character: char,
@@ -277,7 +273,7 @@ func (win Window) Wrap(segs ...Segment) (col int, row int) {
 			chars := Characters(segment)
 			total := 0
 			for _, char := range chars {
-				if !win.Vx.caps.unicodeCore {
+				if !win.Vx.caps.unicodeCore || !win.Vx.caps.explicitWidth {
 					// characterWidth will cache the result
 					char.Width = win.Vx.characterWidth(char.Grapheme)
 				}

@@ -80,6 +80,7 @@ most dank TUI library
 | Synchronized Output (DEC 2026) |  ✅   |  ❌   |    ❌     |    ✅     |
 | Unicode Core (DEC 2027)        |  ✅   |  ❌   |    ❌     |    ❌     |
 | Color Mode Updates (DEC 2031)  |  ✅   |  ❌   |    ❌     |    ❌     |
+| Explicit Width                 |  ✅   |  ❌   |    ❌     |    ❌     |
 | Images (full/space)            |  ✅   |  ❌   |    ❌     |    ✅     |
 | Images (half block)            |  ✅   |  ❌   |    ❌     |    ✅     |
 | Images (quadrant)              |  ❌   |  ❌   |    ❌     |    ✅     |

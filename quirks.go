@@ -31,12 +31,14 @@ func (vx *Vaxis) applyQuirks() {
 	}
 	if os.Getenv("VAXIS_FORCE_WCWIDTH") != "" {
 		vx.caps.unicodeCore = false
+		vx.caps.explicitWidth = false
 	}
 	if os.Getenv("VAXIS_FORCE_UNICODE") != "" {
 		vx.caps.unicodeCore = true
 	}
 	if os.Getenv("VAXIS_FORCE_NOZWJ") != "" {
 		vx.caps.noZWJ = true
+		vx.caps.explicitWidth = false
 	}
 	if os.Getenv("VAXIS_DISABLE_NOZWJ") != "" {
 		vx.caps.noZWJ = false

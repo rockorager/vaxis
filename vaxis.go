@@ -35,6 +35,7 @@ type capabilities struct {
 	osc11              bool
 	osc176             bool
 	inBandResize       bool
+	explicitWidth      bool
 }
 
 type cursorState struct {
@@ -710,9 +711,11 @@ outerNew:
 				next.Width = vx.characterWidth(next.Grapheme)
 			}
 
-			switch next.Width {
-			case 0:
+			switch {
+			case next.Width == 0:
 				_, _ = vx.tw.WriteString(" ")
+			case next.Width > 1 && vx.caps.explicitWidth:
+				_, _ = fmt.Fprintf(vx.tw, explicitWidth, next.Width, next.Grapheme)
 			default:
 				_, _ = vx.tw.WriteString(next.Grapheme)
 			}
@@ -1090,6 +1093,17 @@ func (vx *Vaxis) sendQueries() {
 	// Can the terminal report it's own size?
 	_, _ = vx.tw.WriteString(textAreaSize)
 
+	// Explici width query
+	_, _ = vx.tw.WriteString("\x1b[H")
+	_, _ = fmt.Fprintf(vx.tw, explicitWidth, 1, " ")
+	_, col := vx.CursorPosition()
+	if col == 1 {
+		log.Debug("[capability] explicit width supported")
+		vx.mu.Lock()
+		vx.caps.explicitWidth = true
+		vx.mu.Unlock()
+	}
+
 	// Query some terminfo capabilities
 	// Just another way to see if we have RGB support
 	_, _ = vx.tw.WriteString(xtgettcap("RGB"))
@@ -1121,8 +1135,9 @@ func (vx *Vaxis) enableModes() {
 	if vx.caps.sixels {
 		_, _ = vx.tw.WriteString(decset(sixelScrolling))
 	}
-	// Mode 2027, unicode segmentation (for correct emoji/wc widths)
-	if vx.caps.unicodeCore {
+	// Mode 2027, unicode segmentation (for correct emoji/wc widths). We
+	// only enable if we don't also have explicitWidth
+	if vx.caps.unicodeCore && !vx.caps.explicitWidth {
 		_, _ = vx.tw.WriteString(decset(unicodeCore))
 	}
 
@@ -1171,7 +1186,7 @@ func (vx *Vaxis) disableModes() {
 	if vx.caps.sixels {
 		_, _ = vx.tw.WriteString(decrst(sixelScrolling))
 	}
-	if vx.caps.unicodeCore {
+	if vx.caps.unicodeCore && !vx.caps.explicitWidth {
 		_, _ = vx.tw.WriteString(decrst(unicodeCore))
 	}
 	if vx.caps.colorThemeUpdates {
@@ -1442,10 +1457,11 @@ func (vx *Vaxis) advance(cell Cell) int {
 // This call can be expensive, callers should consider caching the result for
 // strings or characters which will need to be measured frequently
 func (vx *Vaxis) RenderedWidth(s string) int {
-	if vx.caps.unicodeCore {
+	if vx.caps.unicodeCore || vx.caps.explicitWidth {
 		return gwidth(s, unicodeStd)
 	}
 	if vx.caps.noZWJ {
+		log.Debug("nozwj")
 		return gwidth(s, noZWJ)
 	}
 	return gwidth(s, wcwidth)
@@ -1500,6 +1516,10 @@ func (vx *Vaxis) CanSetAppID() bool {
 
 func (vx *Vaxis) CanUnicodeCore() bool {
 	return vx.caps.unicodeCore
+}
+
+func (vx *Vaxis) CanExplicitWidth() bool {
+	return vx.caps.explicitWidth
 }
 
 func (vx *Vaxis) nextGraphicID() uint64 {

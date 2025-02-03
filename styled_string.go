@@ -201,7 +201,7 @@ func (vx *Vaxis) NewStyledString(s string, defaultStyle Style) *StyledString {
 		default:
 			grapheme, s, width, _ = uniseg.FirstGraphemeClusterInString(s, -1)
 			switch {
-			case vx.caps.unicodeCore:
+			case vx.caps.unicodeCore || vx.caps.explicitWidth:
 				// we're done
 			case vx.caps.noZWJ:
 				width = gwidth(grapheme, noZWJ)
