@@ -1,7 +1,9 @@
 package term
 
 import (
+	"encoding/base64"
 	"fmt"
+	"git.sr.ht/~rockorager/vaxis/log"
 	"strings"
 )
 
@@ -34,6 +36,14 @@ func (vt *Model) osc(data string) {
 		}
 		resp := fmt.Sprintf("\x1b]11;rgb:%02x/%02x/%02x\x07", rgb[0], rgb[1], rgb[2])
 		vt.pty.WriteString(resp)
+	case "52":
+		_, val, _ := cutString(val, ";")
+		decodedBytes, err := base64.StdEncoding.DecodeString(val)
+		if err != nil {
+			log.Error("[term] error decoding Base64")
+			return
+		}
+		vt.vx.ClipboardPush(string(decodedBytes))
 	case "777":
 		selector, val, found := cutString(val, ";")
 		if !found {
