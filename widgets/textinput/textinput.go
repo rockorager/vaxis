@@ -168,6 +168,32 @@ func (m *Model) Update(msg vaxis.Event) {
 				m.content = append(m.content[:m.cursor-1], m.content[m.cursor:]...)
 			}
 			m.cursor -= 1
+		case "Ctrl+w":
+			if m.cursor == 0 {
+				return
+			}
+
+			originalCursor := m.cursor
+
+			// skip non-alphanumerics backwards
+			for i := m.cursor - 1; i >= 0; i-- {
+				if !isAlphaNumeric(m.content[i]) {
+					m.cursor--
+					continue
+				}
+				break
+			}
+
+			// skip alphanumerics backwards
+			for i := m.cursor - 1; i >= 0; i-- {
+				if isAlphaNumeric(m.content[i]) {
+					m.cursor--
+					continue
+				}
+				break
+			}
+
+			m.content = append(m.content[:m.cursor], m.content[originalCursor:]...)
 		default:
 			if msg.Modifiers&vaxis.ModCtrl != 0 {
 				return
