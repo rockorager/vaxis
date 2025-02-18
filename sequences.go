@@ -23,6 +23,8 @@ const (
 	kittyGquery = "\x1b_Gi=1,a=q\x1b\\"
 	// sixel query XTSMGRAPHICS
 	xtsmSixelGeom = "\x1b[?2;1;0S"
+	// DECRQSS for DECSCUSR (query cursor style)
+	userCursorStyle = "\x1bP$q q\x1b\\"
 
 	// Misc
 	clear         = "\x1b[H\x1b[2J"

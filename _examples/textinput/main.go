@@ -43,6 +43,8 @@ func main() {
 			switch ev.String() {
 			case "Ctrl+c":
 				return
+			case "Ctrl+z":
+				vx.Suspend()
 			}
 		}
 		ti.Update(ev)

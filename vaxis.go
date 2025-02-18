@@ -119,6 +119,7 @@ type Vaxis struct {
 	kittyFlags       int
 	disableMouse     bool
 	chBg             chan string
+	userCursorStyle  CursorStyle
 
 	xtwinops bool
 
@@ -350,6 +351,8 @@ outer:
 	vx.screenNext.resize(ws.Cols, ws.Rows)
 	vx.screenLast.resize(ws.Cols, ws.Rows)
 	vx.winSize = ws
+	// Set the next style to be a CursorBlock by default.
+	vx.cursorNext.style = CursorBlock
 	vx.PostEvent(vx.winSize)
 	return vx, nil
 }
@@ -982,6 +985,25 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 				case hexEncode("RGB"):
 					vx.PostEventBlocking(truecolor{})
 				}
+			case '$':
+				// DECRQSS response (DECRPSS)
+
+				// DECSCUSR (user cursor style)
+				if strings.HasSuffix(string(seq.Data), " q") {
+					// Convert the rune into a digit
+					cursorStyle := seq.Data[0]
+					// Valid cursor styles are 0-6
+					if cursorStyle < '0' || cursorStyle > '6' {
+						log.Warn("invalid DECSCUSR: %d", cursorStyle)
+						return
+					}
+					log.Debug("User cursor style discovered: %v",
+						CursorStyle(cursorStyle-0x30))
+					vx.mu.Lock()
+					vx.userCursorStyle = CursorStyle(cursorStyle - 0x30)
+					vx.mu.Unlock()
+				}
+
 			}
 		case '|':
 			if len(seq.Intermediate) < 1 {
@@ -1080,6 +1102,7 @@ func (vx *Vaxis) sendQueries() {
 		vx.PostEvent(truecolor{})
 	}
 
+	_, _ = vx.tw.WriteString(userCursorStyle)
 	_, _ = vx.tw.WriteString(decrqm(synchronizedUpdate))
 	_, _ = vx.tw.WriteString(decrqm(unicodeCore))
 	_, _ = vx.tw.WriteString(decrqm(colorThemeUpdates))
@@ -1238,6 +1261,15 @@ func (vx *Vaxis) Suspend() error {
 
 	vx.disableModes()
 	vx.exitAltScreen()
+
+	// Reset to user value, or CursorDefault.
+	_, _ = vx.tw.WriteString(tparm(cursorStyleSet, int(vx.userCursorStyle)))
+	// Always show the cursor on exit
+	_, _ = vx.tw.WriteString(decset(cursorVisibility))
+	// Reset internal state to match reality
+	vx.cursorLast.style = vx.userCursorStyle
+
+	vx.tw.vx.tw.Flush()
 	signal.Stop(vx.chSigKill)
 	signal.Stop(vx.chSigWinSz)
 	vx.console.Reset()
@@ -1381,10 +1413,6 @@ const (
 )
 
 func (vx *Vaxis) cursorStyle() string {
-	if vx.cursorNext.style == CursorDefault {
-		// Cursor block is the default
-		return tparm(cursorStyleSet, int(CursorBlock))
-	}
 	return tparm(cursorStyleSet, int(vx.cursorNext.style))
 }
 
