@@ -8,6 +8,7 @@ type Event interface{}
 type (
 	primaryDeviceAttribute struct{}
 	capabilitySixel        struct{}
+	capabilityOsc4         struct{}
 	capabilityOsc11        struct{}
 	synchronizedUpdates    struct{}
 	unicodeCoreCap         struct{}

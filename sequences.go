@@ -29,6 +29,7 @@ const (
 	// Misc
 	clear         = "\x1b[H\x1b[2J"
 	cup           = "\x1B[%d;%dH"
+	osc4          = "\x1b]4;%d;?\x1b\\"
 	osc8          = "\x1b]8;%s;%s\x1b\\"
 	osc11         = "\x1b]11;?\x07"
 	osc52put      = "\x1b]52;c;%s\x1b\\"

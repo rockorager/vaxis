@@ -32,6 +32,7 @@ type capabilities struct {
 	colorThemeUpdates  bool
 	reportSizeChars    bool
 	reportSizePixels   bool
+	osc4               bool
 	osc11              bool
 	osc176             bool
 	inBandResize       bool
@@ -119,6 +120,7 @@ type Vaxis struct {
 	kittyFlags       int
 	disableMouse     bool
 	chBg             chan string
+	chColor          chan string
 	userCursorStyle  CursorStyle
 
 	xtwinops bool
@@ -215,6 +217,7 @@ func New(opts Options) (*Vaxis, error) {
 	vx.chSizeDone = make(chan bool, 1)
 	vx.charCache = make(map[string]int, 256)
 	vx.chBg = make(chan string, 1)
+	vx.chColor = make(chan string, 1)
 
 	err = vx.openTty(tgts)
 	if err != nil {
@@ -239,6 +242,11 @@ outer:
 				if vx.graphicsProtocol < sixelGraphics {
 					vx.graphicsProtocol = sixelGraphics
 				}
+				vx.mu.Unlock()
+			case capabilityOsc4:
+				log.Info("[capability] OSC 4 supported")
+				vx.mu.Lock()
+				vx.caps.osc4 = true
 				vx.mu.Unlock()
 			case capabilityOsc11:
 				log.Info("[capability] OSC 11 supported")
@@ -1028,12 +1036,19 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 			vx.PostEventBlocking(kittyGraphics{})
 		}
 	case ansi.OSC:
-		if strings.HasPrefix(string(seq.Payload), "11") {
+		if strings.HasPrefix(string(seq.Payload), "4") {
 			// If we are here and don't know that the host terminal
 			// supports the sequence, it means we are handling the response
 			// to the initial query and thus nobody is expecting its actual
 			// content. In this case, we don't want to fill the channel buffer
 			// as no one will clear it.
+			if vx.CanReportColor() {
+				vx.chColor <- string(seq.Payload)
+			}
+			vx.PostEventBlocking(capabilityOsc4{})
+		}
+		if strings.HasPrefix(string(seq.Payload), "11") {
+			// Similar to OSC 4
 			if vx.CanReportBackgroundColor() {
 				vx.chBg <- string(seq.Payload)
 			}
@@ -1068,6 +1083,38 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 	}
 }
 
+// QueryColor queries the host terminal for an indexed color and returns
+// it as an instance of an RGB vaxis.Color. If the host terminal doesn't
+// support this, Color(0) is returned instead. Make sure not to run this
+// in the same goroutine as Vaxis runs in or deadlock will occur.
+func (vx *Vaxis) QueryColor(c Color) Color {
+	if !vx.CanReportColor() {
+		return Color(0)
+	}
+	p := c.Params()
+	if len(p) == 3 {
+		// If an RGB color was passed, return it as is.
+		return c
+	}
+	if len(p) != 1 {
+		return Color(0)
+	}
+	vx.tw.WriteStringLocked(tparm(osc4, p[0]))
+	resp := <-vx.chColor
+	var r, g, b int
+	prefix := fmt.Sprintf("4;%v;", p[0])
+	_, err := fmt.Sscanf(resp, prefix+"rgb:%x/%x/%x", &r, &g, &b)
+	if err != nil {
+		log.Error("QueryColor: failed to parse the OSC 4 response: %s", err)
+		return Color(0)
+	}
+	// The returned value can in principle be 16 bits per channel, however
+	// we are not aware of any terminal that would do this, foot for
+	// instance just repeats the same 8 bits twice. Hence we only take the
+	// lower 8 bits.
+	return RGBColor(uint8(r), uint8(g), uint8(b))
+}
+
 // QueryBackground queries the host terminal for background color and returns
 // it as an instance of vaxis.Color. If the host terminal doesn't support this,
 // Color(0) is returned instead. Make sure not to run this in the same
@@ -1084,10 +1131,7 @@ func (vx *Vaxis) QueryBackground() Color {
 		log.Error("QueryBackground: failed to parse the OSC 11 response: %s", err)
 		return Color(0)
 	}
-	// The returned value can in principle be 16 bits per channel, however
-	// we are not aware of any terminal that would do this, foot for
-	// instance just repeats the same 8 bits twice. Hence we only take the
-	// lower 8 bits.
+	// Similar to QueryColor above.
 	return RGBColor(uint8(r), uint8(g), uint8(b))
 }
 
@@ -1113,10 +1157,10 @@ func (vx *Vaxis) sendQueries() {
 	_, _ = vx.tw.WriteString(kittyKBQuery)
 	_, _ = vx.tw.WriteString(kittyGquery)
 	_, _ = vx.tw.WriteString(xtsmSixelGeom)
-	// Can the terminal report it's own size?
+	// Can the terminal report its own size?
 	_, _ = vx.tw.WriteString(textAreaSize)
 
-	// Explici width query
+	// Explicit width query
 	_, _ = vx.tw.WriteString("\x1b[H")
 	_, _ = fmt.Fprintf(vx.tw, explicitWidth, 1, " ")
 	_, col := vx.CursorPosition()
@@ -1130,7 +1174,8 @@ func (vx *Vaxis) sendQueries() {
 	// Query some terminfo capabilities
 	// Just another way to see if we have RGB support
 	_, _ = vx.tw.WriteString(xtgettcap("RGB"))
-	// Does the terminal respond to OSC 11 queries?
+	// Does the terminal respond to OSC 4/11 queries?
+	_, _ = vx.tw.WriteString(tparm(osc4, 1))
 	_, _ = vx.tw.WriteString(osc11)
 	// Back up the current app ID
 	_, _ = vx.tw.WriteString(getAppID)
@@ -1528,6 +1573,10 @@ func (vx *Vaxis) CanKittyGraphics() bool {
 
 func (vx *Vaxis) CanSixel() bool {
 	return vx.caps.sixels
+}
+
+func (vx *Vaxis) CanReportColor() bool {
+	return vx.caps.osc4
 }
 
 func (vx *Vaxis) CanReportBackgroundColor() bool {
