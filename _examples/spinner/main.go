@@ -24,6 +24,8 @@ func main() {
 			case "space":
 				spinner.Toggle()
 			}
+		case vaxis.SyncFunc:
+			ev()
 		}
 		win := vx.Window()
 		win.Clear()
