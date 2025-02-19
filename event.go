@@ -52,10 +52,9 @@ type FocusOut struct{}
 // redraw. These are always issued after a SyncFunc has been called
 type Redraw struct{}
 
-// SyncFunc is a function which will be called in the main thread. vaxis will
-// call the function and send an empty SyncFunc event to the application to
-// signal that something has been updated (probably the application needs to
-// redraw itself)
+// SyncFunc is a function which must be called in the main thread. Applications
+// should check for SyncFunc events, and when one is found it is safe to call.
+// Applications should assume that a redraw must occur after a SyncFunc
 type SyncFunc func()
 
 // QuitEvent is sent when the application is closing. It is emitted when the
