@@ -1,7 +1,6 @@
 package richtext
 
 import (
-	"log"
 	"unicode"
 	"unicode/utf8"
 
@@ -245,11 +244,9 @@ func (s *SoftwrapScanner) Scan() bool {
 		trSpace := seg[len(word):]
 		for _, ch := range word {
 			wordLen += uint16(ch.Width)
-			log.Printf("ch=%q", ch.Grapheme)
 		}
 		for _, ch := range trSpace {
 			spaceLen += uint16(ch.Width)
-			log.Printf("space=%q", ch.Grapheme)
 		}
 
 		// This word is longer than the line. We have to break on
