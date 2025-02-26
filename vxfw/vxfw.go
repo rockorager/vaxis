@@ -320,13 +320,8 @@ type App struct {
 	fh        focusHandler
 }
 
-func NewApp() (*App, error) {
-	vx, err := vaxis.New(vaxis.Options{
-		CSIuBitMask: vaxis.CSIuDisambiguate |
-			vaxis.CSIuAlternateKeys |
-			vaxis.CSIuAllKeys |
-			vaxis.CSIuAlternateKeys,
-	})
+func NewApp(opts vaxis.Options) (*App, error) {
+	vx, err := vaxis.New(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -446,7 +441,6 @@ func (a *App) Run(w Widget) error {
 			// Update the mouse last frame
 			mh.lastFrame = s
 		}
-
 	}
 }
 
@@ -683,5 +677,4 @@ func hitTest(s Surface, hits []hitResult, col uint16, row uint16) []hitResult {
 	}
 
 	return hits
-
 }
