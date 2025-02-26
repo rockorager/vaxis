@@ -1,6 +1,6 @@
 module git.sr.ht/~rockorager/vaxis
 
-go 1.18
+go 1.21
 
 require (
 	github.com/containerd/console v1.0.3

@@ -103,13 +103,22 @@ func NewSurface(width uint16, height uint16, w Widget) Surface {
 			Height: height,
 		},
 		Widget: w,
-		Buffer: make([]vaxis.Cell, 0, height*width),
+		Buffer: make([]vaxis.Cell, height*width),
 	}
 }
 
 func (s *Surface) AddChild(col int, row int, child Surface) {
 	ss := NewSubSurface(col, row, child)
 	s.Children = append(s.Children, ss)
+}
+
+func (s *Surface) WriteCell(col uint16, row uint16, cell vaxis.Cell) {
+	if col >= s.Size.Width ||
+		row > s.Size.Height {
+		return
+	}
+	i := (row * s.Size.Width) + col
+	s.Buffer[i] = cell
 }
 
 func (s Surface) render(win vaxis.Window, focused Widget) {

@@ -2,7 +2,7 @@ package vaxis_test
 
 import "git.sr.ht/~rockorager/vaxis"
 
-func ExampleText() {
+func ExampleSegment() {
 	vx, _ := vaxis.New(vaxis.Options{})
 	c := vaxis.Cell{
 		Character: vaxis.Character{
