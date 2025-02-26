@@ -14,6 +14,8 @@ type App struct {
 
 func (a *App) HandleEvent(ev vaxis.Event, phase vxfw.EventPhase) (vxfw.Command, error) {
 	switch ev := ev.(type) {
+	case vxfw.Init:
+		return vxfw.RedrawCmd{}, nil
 	case vaxis.Key:
 		if ev.Matches('c', vaxis.ModCtrl) {
 			return vxfw.QuitCmd{}, nil

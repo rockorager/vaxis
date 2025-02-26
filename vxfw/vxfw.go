@@ -2,10 +2,12 @@ package vxfw
 
 import (
 	"math"
+	"slices"
 	"sort"
 	"time"
 
 	"git.sr.ht/~rockorager/vaxis"
+	"git.sr.ht/~rockorager/vaxis/log"
 )
 
 type Widget interface {
@@ -13,12 +15,35 @@ type Widget interface {
 	Draw(DrawContext) (Surface, error)
 }
 
+// EventCapturer is a Widget which can capture events before they are delivered
+// to the target widget. To capture an event, the EventCapturer must be an
+// ancestor of the target widget
+type EventCapturer interface {
+	CaptureEvent(vaxis.Event) (Command, error)
+}
+
+type Event interface{}
+
+type (
+	// Sent as the first event to the root widget
+	Init struct{}
+)
+
 type Command interface{}
 
 type (
+	// RedrawCmd tells the UI to redraw
 	RedrawCmd struct{}
-	QuitCmd   struct{}
-	BatchCmd  []Command
+	// QuitCmd tells the application to exit
+	QuitCmd struct{}
+	// ConsumeEventCmd tells the application to stop the event propagation
+	ConsumeEventCmd struct{}
+	// BatchCmd is a batch of other commands
+	BatchCmd []Command
+	// SyncFuncCmd is a function which will be run in the main goroutine
+	SyncFuncCmd func()
+	// Sets the focus to this Widget
+	FocusWidgetCmd Widget
 )
 
 type DrawContext struct {
@@ -148,14 +173,130 @@ type RelativePoint struct {
 }
 
 type focusHandler struct {
-	// Current focused widget
-	widget Widget
+	// Current focused focused
+	focused Widget
+
+	// Root widget
+	root Widget
+
+	// path is the path to the focused widet
+	path []Widget
+}
+
+func (f *focusHandler) handleEvent(app *App, ev vaxis.Event) error {
+	app.consumeEvent = false
+
+	// Capture phase
+	for _, w := range f.path {
+		c, ok := w.(EventCapturer)
+		if !ok {
+			continue
+		}
+		cmd, err := c.CaptureEvent(ev)
+		if err != nil {
+			return err
+		}
+		app.handleCommand(cmd)
+		if app.consumeEvent {
+			app.consumeEvent = false
+			return nil
+		}
+	}
+
+	// Target phase
+	cmd, err := f.focused.HandleEvent(ev, TargetPhase)
+	if err != nil {
+		return err
+	}
+	app.handleCommand(cmd)
+	if app.consumeEvent {
+		app.consumeEvent = false
+		return nil
+	}
+
+	// Bubble phase. We don't bubble to the focused widget (which is the
+	// last one in the list). Hence, - 2
+	for i := len(f.path) - 2; i >= 0; i -= 1 {
+		w := f.path[i]
+		cmd, err := w.HandleEvent(ev, BubblePhase)
+		if err != nil {
+			return err
+		}
+		app.handleCommand(cmd)
+		if app.consumeEvent {
+			app.consumeEvent = false
+			return nil
+		}
+	}
+
+	return nil
+}
+
+func (f *focusHandler) updatePath(root Surface) {
+	// Clear the path
+	f.path = []Widget{}
+
+	ok := f.childHasFocus(root)
+	if !ok {
+		panic("focused widget not found in Surface tree")
+	}
+
+	if f.root != root.Widget {
+		// Make sure that we always add the original root widget as the
+		// last node. We will reverse the list, making this widget the
+		// first one with the opportunity to capture events
+		f.path = append(f.path, f.root)
+	}
+
+	// Reverse the list since it is ordered target to root, and we want the
+	// opposite
+	slices.Reverse(f.path)
+}
+
+func (f *focusHandler) childHasFocus(s Surface) bool {
+	// If s is our focused widget, we add to path and return true
+	if s.Widget == f.focused {
+		f.path = append(f.path, s.Widget)
+		return true
+	}
+
+	// Loop through children to find the focused widget
+	for _, c := range s.Children {
+		if !f.childHasFocus(c.Surface) {
+			continue
+		}
+		f.path = append(f.path, s.Widget)
+		return true
+	}
+
+	return false
+}
+
+func (f *focusHandler) focusWidget(app *App, w Widget) error {
+	if f.focused == w {
+		return nil
+	}
+
+	cmd, err := f.focused.HandleEvent(vaxis.FocusOut{}, TargetPhase)
+	if err != nil {
+		return err
+	}
+	app.handleCommand(cmd)
+	cmd, err = w.HandleEvent(vaxis.FocusIn{}, TargetPhase)
+	if err != nil {
+		return err
+	}
+	app.handleCommand(cmd)
+
+	return nil
 }
 
 type App struct {
-	vx         *vaxis.Vaxis
-	redraw     bool
-	shouldQuit bool
+	vx *vaxis.Vaxis
+
+	redraw       bool
+	shouldQuit   bool
+	consumeEvent bool
 
 	charCache map[string]int
 
@@ -163,7 +304,13 @@ type App struct {
 }
 
 func NewApp() (*App, error) {
-	vx, err := vaxis.New(vaxis.Options{})
+	vx, err := vaxis.New(vaxis.Options{
+		CSIuBitMask: vaxis.CSIuDisambiguate |
+			vaxis.CSIuReportEvents |
+			vaxis.CSIuAlternateKeys |
+			vaxis.CSIuAllKeys |
+			vaxis.CSIuAlternateKeys,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -178,55 +325,63 @@ func NewApp() (*App, error) {
 func (a *App) Run(w Widget) error {
 	defer a.vx.Close()
 
-	// Set root as the current focus
-	a.focus.widget = w
+	// Initialize the focus handler. Our root, focused, and first node of
+	// the path is the root widget at init
+	a.focus = focusHandler{
+		root:    w,
+		focused: w,
+		path:    []Widget{w},
+	}
 
-	var lastRedraw time.Time
+	err := a.focus.handleEvent(a, Init{})
+	if err != nil {
+		return err
+	}
+
 	// This is the main event loop. We first wait for events with an 8ms
 	// timeout. If we have an event, we handle it immediately and process
 	// any commands it returns.
 	//
 	// Then we check if we should quit
-	//
-	// Then, if we need a redraw and it has been more than 8ms since our
-	// last redraw, we redraw.
 	for {
 		select {
 		case ev := <-a.vx.Events():
-			cmd, err := w.HandleEvent(ev, TargetPhase)
+			err := a.focus.handleEvent(a, ev)
 			if err != nil {
 				return err
 			}
-			a.handleCommand(cmd)
+			if a.shouldQuit {
+				return nil
+			}
 		case <-time.After(8 * time.Millisecond):
+			if !a.redraw {
+				continue
+			}
+			a.redraw = false
+
+			win := a.vx.Window()
+			min := Size{Width: 0, Height: 0}
+			max := Size{
+				Width:  uint16(win.Width),
+				Height: uint16(win.Height),
+			}
+			s, err := w.Draw(DrawContext{
+				Min:        min,
+				Max:        max,
+				Characters: a.Characters,
+			})
+			if err != nil {
+				return err
+			}
+
+			win.Clear()
+			s.render(win, a.focus.focused)
+			a.vx.Render()
+
+			// Update focus handler
+			a.focus.updatePath(s)
 		}
 
-		if a.shouldQuit {
-			return nil
-		}
-
-		now := time.Now()
-		if !a.redraw && now.Sub(lastRedraw) < 8*time.Millisecond {
-			continue
-		}
-
-		lastRedraw = now
-		a.redraw = false
-
-		win := a.vx.Window()
-		min := Size{Width: 0, Height: 0}
-		max := Size{Width: uint16(win.Width), Height: uint16(win.Height)}
-		s, err := w.Draw(DrawContext{
-			Min:        min,
-			Max:        max,
-			Characters: a.Characters,
-		})
-		if err != nil {
-			return err
-		}
-
-		s.render(win, a.focus.widget)
-		a.vx.Render()
 	}
 }
 
@@ -244,6 +399,17 @@ func (a *App) handleCommand(cmd Command) {
 		a.redraw = true
 	case QuitCmd:
 		a.shouldQuit = true
+	case ConsumeEventCmd:
+		a.consumeEvent = true
+	case SyncFuncCmd:
+		cmd()
+	case FocusWidgetCmd:
+		err := a.focus.focusWidget(a, cmd)
+		if err != nil {
+			log.Error("focusWidget error: %s", err)
+			return
+		}
+
 	}
 }
 
