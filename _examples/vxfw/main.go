@@ -39,7 +39,7 @@ func (a *App) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 }
 
 func main() {
-	app, err := vxfw.NewApp()
+	app, err := vxfw.NewApp(vaxis.Options{})
 	if err != nil {
 		log.Fatalf("Couldn't create a new app: %v", err)
 	}
