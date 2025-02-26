@@ -2,14 +2,15 @@ package main
 
 import (
 	"log"
+	"math"
 
 	"git.sr.ht/~rockorager/vaxis"
 	"git.sr.ht/~rockorager/vaxis/vxfw"
-	"git.sr.ht/~rockorager/vaxis/vxfw/text"
+	"git.sr.ht/~rockorager/vaxis/vxfw/richtext"
 )
 
 type App struct {
-	t *text.Text
+	t *richtext.RichText
 }
 
 func (a *App) CaptureEvent(ev vaxis.Event) (vxfw.Command, error) {
@@ -27,7 +28,11 @@ func (a *App) HandleEvent(ev vaxis.Event, phase vxfw.EventPhase) (vxfw.Command, 
 }
 
 func (a *App) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
-	s, err := a.t.Draw(ctx)
+	chCtx := vxfw.DrawContext{
+		Max:        vxfw.Size{Width: 4, Height: math.MaxUint16},
+		Characters: ctx.Characters,
+	}
+	s, err := a.t.Draw(chCtx)
 	if err != nil {
 		return vxfw.Surface{}, err
 	}
@@ -45,7 +50,11 @@ func main() {
 	}
 
 	root := &App{
-		t: text.New("Hello, world!"),
+		t: richtext.New([]vaxis.Segment{
+			{Text: "Hello", Style: vaxis.Style{Foreground: vaxis.IndexColor(4)}},
+			{Text: ", "},
+			{Text: "World", Style: vaxis.Style{Foreground: vaxis.IndexColor(3)}},
+		}),
 	}
 
 	app.Run(root)

@@ -98,35 +98,19 @@ func (t *Text) drawSoftwrap(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 			return s, nil
 		}
 		chars := ctx.Characters(scanner.Text())
-	cols:
-		for i, char := range chars {
+		for _, char := range chars {
+			// We should never get here because we softwrapped, but
+			// we check just in case
 			if col >= ctx.Max.Width {
 				break
 			}
 
-			// If this char would get us to or beyond the max width
-			// (and we aren't the last char), then we print an
-			// ellipse
-			if col+uint16(char.Width) >= ctx.Max.Width &&
-				i < len(chars) {
-				cell := vaxis.Cell{
-					Character: vaxis.Character{
-						Grapheme: "…",
-						Width:    1,
-					},
-					Style: t.Style,
-				}
-				s.WriteCell(col, row, cell)
-
-				break cols
-			} else {
-				cell := vaxis.Cell{
-					Character: char,
-					Style:     t.Style,
-				}
-				s.WriteCell(col, row, cell)
-				col += uint16(char.Width)
+			cell := vaxis.Cell{
+				Character: char,
+				Style:     t.Style,
 			}
+			s.WriteCell(col, row, cell)
+			col += uint16(char.Width)
 		}
 		row += 1
 	}
@@ -174,9 +158,6 @@ type SoftwrapScanner struct {
 	rest  []byte
 	token []byte
 	width uint16
-	// true if the last scan resulted in a hard break. We do this so we can
-	// trim leading spaces
-	wasHardBreak bool
 }
 
 func NewSoftwrapScanner(s string, width uint16) SoftwrapScanner {
@@ -188,11 +169,9 @@ func NewSoftwrapScanner(s string, width uint16) SoftwrapScanner {
 }
 
 func (s *SoftwrapScanner) Scan(ctx vxfw.DrawContext) bool {
-	if len(s.rest) == 0 {
+	if len(s.rest) == 0 || s.width == 0 {
 		return false
 	}
-	// Clear hard break flag
-	s.wasHardBreak = false
 	// Clear token
 	s.token = []byte{}
 
@@ -204,12 +183,6 @@ func (s *SoftwrapScanner) Scan(ctx vxfw.DrawContext) bool {
 		word := bytes.TrimRightFunc(seg, unicode.IsSpace)
 		// trailing space
 		trSpace := seg[len(word):]
-
-		// If we last ended on a hard break and our current line width
-		// is 0, we trim leading spaces
-		if s.wasHardBreak && w == 0 {
-			word = bytes.TrimLeftFunc(word, unicode.IsSpace)
-		}
 
 		wordChars := ctx.Characters(string(word))
 		var wordLen uint16
@@ -237,6 +210,9 @@ func (s *SoftwrapScanner) Scan(ctx vxfw.DrawContext) bool {
 				s.token = append(s.token, []byte(char.Grapheme)...)
 				w += uint16(char.Width)
 			}
+			// Append the trailing space
+			s.rest = append(s.rest, trSpace...)
+			// Append the rest...
 			s.rest = append(s.rest, rest...)
 			return true
 		}
@@ -259,7 +235,6 @@ func (s *SoftwrapScanner) Scan(ctx vxfw.DrawContext) bool {
 				seg = seg[:len(seg)-l]
 			}
 			s.token = append(s.token, seg...)
-			s.wasHardBreak = true
 			return true
 		}
 
