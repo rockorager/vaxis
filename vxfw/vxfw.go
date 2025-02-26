@@ -64,11 +64,11 @@ type Size struct {
 	Height uint16
 }
 
-func (s Size) UnboundedWidth() bool {
+func (s Size) HasUnboundedWidth() bool {
 	return s.Width == math.MaxUint16
 }
 
-func (s Size) UnboundedHeight() bool {
+func (s Size) HasUnboundedHeight() bool {
 	return s.Height == math.MaxUint16
 }
 
