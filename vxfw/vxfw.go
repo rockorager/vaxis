@@ -26,7 +26,9 @@ type Event interface{}
 
 type (
 	// Sent as the first event to the root widget
-	Init struct{}
+	Init       struct{}
+	MouseEnter struct{}
+	MouseLeave struct{}
 )
 
 type Command interface{}
@@ -167,6 +169,13 @@ func NewSubSurface(col int, row int, s Surface) SubSurface {
 	}
 }
 
+func (ss *SubSurface) containsPoint(col int, row int) bool {
+	return col >= ss.Origin.Col &&
+		col < (ss.Origin.Col+int(ss.Surface.Size.Width)) &&
+		row >= ss.Origin.Row &&
+		row < (ss.Origin.Row+int(ss.Surface.Size.Height))
+}
+
 type RelativePoint struct {
 	Row int
 	Col int
@@ -299,14 +308,12 @@ type App struct {
 	consumeEvent bool
 
 	charCache map[string]int
-
-	focus focusHandler
+	fh        focusHandler
 }
 
 func NewApp() (*App, error) {
 	vx, err := vaxis.New(vaxis.Options{
 		CSIuBitMask: vaxis.CSIuDisambiguate |
-			vaxis.CSIuReportEvents |
 			vaxis.CSIuAlternateKeys |
 			vaxis.CSIuAllKeys |
 			vaxis.CSIuAlternateKeys,
@@ -327,15 +334,24 @@ func (a *App) Run(w Widget) error {
 
 	// Initialize the focus handler. Our root, focused, and first node of
 	// the path is the root widget at init
-	a.focus = focusHandler{
+	a.fh = focusHandler{
 		root:    w,
 		focused: w,
 		path:    []Widget{w},
 	}
 
-	err := a.focus.handleEvent(a, Init{})
+	err := a.fh.handleEvent(a, Init{})
 	if err != nil {
 		return err
+	}
+
+	s, err := a.layout(w)
+	if err != nil {
+		return err
+	}
+
+	mh := mouseHandler{
+		lastFrame: s,
 	}
 
 	// This is the main event loop. We first wait for events with an 8ms
@@ -346,9 +362,40 @@ func (a *App) Run(w Widget) error {
 	for {
 		select {
 		case ev := <-a.vx.Events():
-			err := a.focus.handleEvent(a, ev)
-			if err != nil {
-				return err
+			switch ev := ev.(type) {
+			case vaxis.Resize:
+				// Trigger a redraw on resize
+				a.redraw = true
+			case vaxis.Mouse:
+				err := mh.handleEvent(a, ev)
+				if err != nil {
+					return err
+				}
+			case vaxis.FocusIn:
+				cmd, err := w.HandleEvent(MouseEnter{}, TargetPhase)
+				if err != nil {
+					return err
+				}
+				a.handleCommand(cmd)
+			case vaxis.FocusOut:
+				mh.mouse = nil
+				err := mh.mouseExit(a)
+				if err != nil {
+					return err
+				}
+			case vaxis.Key:
+				err := a.fh.handleEvent(a, ev)
+				if err != nil {
+					return err
+				}
+			case vaxis.Redraw:
+				a.redraw = true
+			default:
+				// Anything else we let the application handle
+				err := a.fh.handleEvent(a, ev)
+				if err != nil {
+					return err
+				}
 			}
 			if a.shouldQuit {
 				return nil
@@ -359,30 +406,53 @@ func (a *App) Run(w Widget) error {
 			}
 			a.redraw = false
 
-			win := a.vx.Window()
-			min := Size{Width: 0, Height: 0}
-			max := Size{
-				Width:  uint16(win.Width),
-				Height: uint16(win.Height),
-			}
-			s, err := w.Draw(DrawContext{
-				Min:        min,
-				Max:        max,
-				Characters: a.Characters,
-			})
+			s, err := a.layout(w)
 			if err != nil {
 				return err
 			}
 
-			win.Clear()
-			s.render(win, a.focus.focused)
+			// Update mouse
+			err = mh.update(a, s)
+			if err != nil {
+				return err
+			}
+
+			// mh.update can trigger a redraw based on mouse enter /
+			// mouse exit events. check and redo the layout if
+			// needed
+			if a.redraw {
+				a.redraw = false
+				s, err = a.layout(w)
+				if err != nil {
+					return err
+				}
+			}
+
+			win := a.vx.Window()
+			s.render(win, a.fh.focused)
 			a.vx.Render()
 
 			// Update focus handler
-			a.focus.updatePath(s)
+			a.fh.updatePath(s)
+			// Update the mouse last frame
+			mh.lastFrame = s
 		}
 
 	}
+}
+
+func (a *App) layout(root Widget) (Surface, error) {
+	win := a.vx.Window()
+	min := Size{Width: 0, Height: 0}
+	max := Size{
+		Width:  uint16(win.Width),
+		Height: uint16(win.Height),
+	}
+	return root.Draw(DrawContext{
+		Min:        min,
+		Max:        max,
+		Characters: a.Characters,
+	})
 }
 
 func (a *App) handleCommand(cmd Command) {
@@ -404,7 +474,7 @@ func (a *App) handleCommand(cmd Command) {
 	case SyncFuncCmd:
 		cmd()
 	case FocusWidgetCmd:
-		err := a.focus.focusWidget(a, cmd)
+		err := a.fh.focusWidget(a, cmd)
 		if err != nil {
 			log.Error("focusWidget error: %s", err)
 			return
@@ -436,4 +506,173 @@ func (a *App) Characters(s string) []vaxis.Character {
 	}
 
 	return chars
+}
+
+type hitResult struct {
+	col uint16
+	row uint16
+	w   Widget
+}
+
+type mouseHandler struct {
+	lastFrame Surface
+	lastHits  []hitResult
+	mouse     *vaxis.Mouse
+}
+
+func (m *mouseHandler) handleEvent(app *App, ev vaxis.Mouse) error {
+	m.mouse = &ev
+	// Always do an update
+	err := m.update(app, m.lastFrame)
+	if err != nil {
+		return err
+	}
+
+	if len(m.lastHits) == 0 {
+		return nil
+	}
+
+	// Handle the mouse event
+	app.consumeEvent = false
+
+	// Capture phase
+	for _, h := range m.lastHits {
+		c, ok := h.w.(EventCapturer)
+		if !ok {
+			continue
+		}
+		cmd, err := c.CaptureEvent(ev)
+		if err != nil {
+			return err
+		}
+		app.handleCommand(cmd)
+		if app.consumeEvent {
+			app.consumeEvent = false
+			return nil
+		}
+	}
+
+	target := m.lastHits[len(m.lastHits)-1]
+
+	// Target phase
+	cmd, err := target.w.HandleEvent(ev, TargetPhase)
+	if err != nil {
+		return err
+	}
+	app.handleCommand(cmd)
+	if app.consumeEvent {
+		app.consumeEvent = false
+		return nil
+	}
+
+	// Bubble phase. We don't bubble to the focused widget (which is the
+	// last one in the list). Hence, - 2
+	for i := len(m.lastHits) - 2; i >= 0; i -= 1 {
+		h := m.lastHits[i]
+		cmd, err := h.w.HandleEvent(ev, BubblePhase)
+		if err != nil {
+			return err
+		}
+		app.handleCommand(cmd)
+		if app.consumeEvent {
+			app.consumeEvent = false
+			return nil
+		}
+	}
+
+	return nil
+}
+
+// update hit tests s. It delivers mouse leave and mouse enter events to all
+// relevant widgets which are different between the last hit list. The new
+// hitlist is saved to mouseHandler
+func (m *mouseHandler) update(app *App, s Surface) error {
+	// Nothing to do if we don't have a mouse event
+	if m.mouse == nil {
+		return nil
+	}
+
+	hits := []hitResult{}
+
+	ss := NewSubSurface(0, 0, s)
+	if ss.containsPoint(m.mouse.Col, m.mouse.Row) {
+		hits = hitTest(s, hits, uint16(m.mouse.Col), uint16(m.mouse.Row))
+	}
+
+	// Handle mouse exit events. These are widgets in lastHits but not in
+	// hits
+outer_exit:
+	for _, h1 := range m.lastHits {
+		for _, h2 := range hits {
+			if h1 == h2 {
+				continue outer_exit
+			}
+		}
+		log.Debug("mouse leave")
+		// h1 was not found in the new hitlist send it a mouse leave
+		// event
+		cmd, err := h1.w.HandleEvent(MouseLeave{}, TargetPhase)
+		if err != nil {
+			return err
+		}
+		app.handleCommand(cmd)
+	}
+
+	// Handle mouse enter events. These are widgets in hits but not in
+	// lastHits
+outer_enter:
+	for _, h1 := range hits {
+		for _, h2 := range m.lastHits {
+			if h1 == h2 {
+				continue outer_enter
+			}
+		}
+		log.Debug("mouse enter")
+		// h1 was not found in the old hitlist send it a mouse enter
+		// event
+		cmd, err := h1.w.HandleEvent(MouseEnter{}, TargetPhase)
+		if err != nil {
+			return err
+		}
+		app.handleCommand(cmd)
+	}
+
+	// Save this list as our current hit list
+	m.lastHits = hits
+
+	return nil
+}
+
+// mouseExit send a mouseLeave event to each widget in the last hit list
+func (m *mouseHandler) mouseExit(app *App) error {
+	for _, h := range m.lastHits {
+		cmd, err := h.w.HandleEvent(MouseLeave{}, TargetPhase)
+		if err != nil {
+			return err
+		}
+		app.handleCommand(cmd)
+	}
+	// Clear the last hit list
+	m.lastHits = []hitResult{}
+	return nil
+}
+
+func hitTest(s Surface, hits []hitResult, col uint16, row uint16) []hitResult {
+	r := hitResult{
+		col: col,
+		row: row,
+		w:   s.Widget,
+	}
+	hits = append(hits, r)
+	for _, ss := range s.Children {
+		if !ss.containsPoint(int(col), int(row)) {
+			continue
+		}
+		local_col := col - uint16(ss.Origin.Col)
+		local_row := row - uint16(ss.Origin.Row)
+		hits = hitTest(ss.Surface, hits, local_col, local_row)
+	}
+
+	return hits
+
 }

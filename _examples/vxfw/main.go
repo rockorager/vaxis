@@ -12,14 +12,25 @@ type App struct {
 	t *text.Text
 }
 
-func (a *App) HandleEvent(ev vaxis.Event, phase vxfw.EventPhase) (vxfw.Command, error) {
+func (a *App) CaptureEvent(ev vaxis.Event) (vxfw.Command, error) {
 	switch ev := ev.(type) {
-	case vxfw.Init:
-		return vxfw.RedrawCmd{}, nil
 	case vaxis.Key:
 		if ev.Matches('c', vaxis.ModCtrl) {
 			return vxfw.QuitCmd{}, nil
 		}
+	return nil, nil
+}
+
+func (a *App) HandleEvent(ev vaxis.Event, phase vxfw.EventPhase) (vxfw.Command, error) {
+	switch ev := ev.(type) {
+	case vxfw.Init:
+		return vxfw.RedrawCmd{}, nil
+	case vxfw.MouseEnter:
+		a.t.Style.Attribute = vaxis.AttrReverse
+		return vxfw.RedrawCmd{}, nil
+	case vxfw.MouseLeave:
+		a.t.Style.Attribute = vaxis.AttrNone
+		return vxfw.RedrawCmd{}, nil
 	}
 	return nil, nil
 }
@@ -30,7 +41,7 @@ func (a *App) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 		return vxfw.Surface{}, err
 	}
 
-	root := vxfw.NewSurface(ctx.Max.Width, ctx.Max.Height, a)
+	root := vxfw.NewSurface(s.Size.Width, s.Size.Height, a)
 	root.AddChild(0, 0, s)
 
 	return root, nil
