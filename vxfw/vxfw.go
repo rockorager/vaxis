@@ -316,6 +316,7 @@ func (f *focusHandler) focusWidget(app *App, w Widget) error {
 		return err
 	}
 	app.handleCommand(cmd)
+	f.focused = w
 
 	return nil
 }
