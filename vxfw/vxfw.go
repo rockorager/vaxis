@@ -705,3 +705,10 @@ func hitTest(s Surface, hits []hitResult, col uint16, row uint16) []hitResult {
 
 	return hits
 }
+
+func ConsumeAndRedraw() BatchCmd {
+	return []Command{
+		RedrawCmd{},
+		ConsumeEventCmd{},
+	}
+}
