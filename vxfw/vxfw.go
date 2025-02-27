@@ -36,16 +36,27 @@ type Command interface{}
 type (
 	// RedrawCmd tells the UI to redraw
 	RedrawCmd struct{}
+	// RefreshCmd tells the UI to flush a complete redraw
+	RefreshCmd struct{}
 	// QuitCmd tells the application to exit
 	QuitCmd struct{}
 	// ConsumeEventCmd tells the application to stop the event propagation
 	ConsumeEventCmd struct{}
 	// BatchCmd is a batch of other commands
 	BatchCmd []Command
-	// SyncFuncCmd is a function which will be run in the main goroutine
-	SyncFuncCmd func()
-	// Sets the focus to this Widget
+	// FocusWidgetCmd sets the focus to the widget
 	FocusWidgetCmd Widget
+	// SetMouseShapeCmd sets the mouse shape
+	SetMouseShapeCmd vaxis.MouseShape
+	// SetTitleCmd sets the title of the terminal
+	SetTitleCmd string
+	// CopyToClipboard copies the provided string to the host clipboard
+	CopyToClipboardCmd string
+	// SendNotificationCmd sends a system notification
+	SendNotificationCmd struct {
+		Title string
+		Body  string
+	}
 )
 
 type DrawContext struct {
@@ -313,6 +324,7 @@ type App struct {
 	vx *vaxis.Vaxis
 
 	redraw       bool
+	refresh      bool
 	shouldQuit   bool
 	consumeEvent bool
 
@@ -434,7 +446,14 @@ func (a *App) Run(w Widget) error {
 
 			win := a.vx.Window()
 			s.render(win, a.fh.focused)
-			a.vx.Render()
+
+			switch a.refresh {
+			case true:
+				a.vx.Refresh()
+				a.refresh = false
+			case false:
+				a.vx.Render()
+			}
 
 			// Update focus handler
 			a.fh.updatePath(s)
@@ -470,19 +489,26 @@ func (a *App) handleCommand(cmd Command) {
 		}
 	case RedrawCmd:
 		a.redraw = true
+	case RefreshCmd:
+		a.refresh = true
 	case QuitCmd:
 		a.shouldQuit = true
 	case ConsumeEventCmd:
 		a.consumeEvent = true
-	case SyncFuncCmd:
-		cmd()
 	case FocusWidgetCmd:
 		err := a.fh.focusWidget(a, cmd)
 		if err != nil {
 			log.Error("focusWidget error: %s", err)
 			return
 		}
-
+	case SetMouseShapeCmd:
+		a.vx.SetMouseShape(vaxis.MouseShape(cmd))
+	case SetTitleCmd:
+		a.vx.SetTitle(string(cmd))
+	case CopyToClipboardCmd:
+		a.vx.ClipboardPush(string(cmd))
+	case SendNotificationCmd:
+		a.vx.Notify(cmd.Title, cmd.Body)
 	}
 }
 
