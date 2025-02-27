@@ -1,7 +1,6 @@
 package list
 
 import (
-	"log"
 	"math"
 	"slices"
 
@@ -65,6 +64,11 @@ func (d *Dynamic) CaptureEvent(ev vaxis.Event) (vxfw.Command, error) {
 		}
 	}
 	return nil, nil
+}
+
+// Cursor returns the index of the cursor
+func (d *Dynamic) Cursor() uint {
+	return d.cursor
 }
 
 func (d *Dynamic) HandleEvent(ev vaxis.Event, ph vxfw.EventPhase) (vxfw.Command, error) {
@@ -154,7 +158,6 @@ func (d *Dynamic) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 
 		// If we need to draw the cursor, keep going
 		if d.scroll.wantsCursor && i <= d.cursor {
-			log.Printf("top=%d, cursor=%d, i=%d, len=%d", d.scroll.top, d.cursor, i, len(s.Children))
 			continue
 		}
 		// If we have accumulated enough height, we are done
@@ -188,7 +191,6 @@ func (d *Dynamic) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 
 		// Get the index of the cursored widget in our child list
 		idx := d.cursor - d.scroll.top
-		log.Printf("HERE cursor=%d top=%d", d.cursor, d.scroll.top)
 
 		// If our cursor is within the list, we draw a cursor next to it
 		if int(idx) < len(s.Children) {
@@ -220,14 +222,7 @@ func (d *Dynamic) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 	// then the top portion of it is in view
 	if d.scroll.wantsCursor {
 		idx := d.cursor - d.scroll.top
-		log.Printf("cursor=%d, top=%d, idx=%d, len=%d", d.cursor, d.scroll.top, idx, len(s.Children))
 		// Guaranteed we have drawn enough children from above
-		// if int(idx) >= len(s.Children) {
-		// 	log.Printf("cursor=%d, top=%d, idx=%d", d.cursor, d.scroll.top, i)
-		// 	log.Printf("cursor=%d, top=%d, idx=%d", d.cursor, d.scroll.top, i)
-		//
-		// 	// panic("Cursored widget out of range")
-		// }
 		if int(idx) < len(s.Children) {
 			ch := s.Children[idx]
 
