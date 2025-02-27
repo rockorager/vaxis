@@ -27,6 +27,9 @@ func (a *App) CaptureEvent(ev vaxis.Event) (vxfw.Command, error) {
 		if ev.Matches('c', vaxis.ModCtrl) {
 			return vxfw.QuitCmd{}, nil
 		}
+		if ev.Matches('l', vaxis.ModCtrl) {
+			return []vxfw.Command{vxfw.DebugCmd{}, vxfw.RedrawCmd{}}, nil
+		}
 	}
 	return nil, nil
 }

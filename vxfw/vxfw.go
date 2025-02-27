@@ -4,6 +4,7 @@ import (
 	"math"
 	"slices"
 	"sort"
+	"strings"
 	"time"
 
 	"git.sr.ht/~rockorager/vaxis"
@@ -57,6 +58,8 @@ type (
 		Title string
 		Body  string
 	}
+	// DebugCmd tells the runtime to print the Surface tree each render
+	DebugCmd struct{}
 )
 
 type DrawContext struct {
@@ -328,6 +331,7 @@ type App struct {
 	refresh      bool
 	shouldQuit   bool
 	consumeEvent bool
+	debug        bool
 
 	charCache map[string]int
 	fh        focusHandler
@@ -456,6 +460,11 @@ func (a *App) Run(w Widget) error {
 				a.vx.Render()
 			}
 
+			if a.debug {
+				debugPrintWidget(s, 0, a.fh.focused)
+				a.debug = false
+			}
+
 			// Update focus handler
 			a.fh.updatePath(s)
 			// Update the mouse last frame
@@ -510,6 +519,9 @@ func (a *App) handleCommand(cmd Command) {
 		a.vx.ClipboardPush(string(cmd))
 	case SendNotificationCmd:
 		a.vx.Notify(cmd.Title, cmd.Body)
+	case DebugCmd:
+		log.Debug("here")
+		a.debug = true
 	}
 }
 
@@ -638,7 +650,6 @@ outer_exit:
 				continue outer_exit
 			}
 		}
-		log.Debug("mouse leave")
 		// h1 was not found in the new hitlist send it a mouse leave
 		// event
 		cmd, err := h1.w.HandleEvent(MouseLeave{}, TargetPhase)
@@ -657,7 +668,6 @@ outer_enter:
 				continue outer_enter
 			}
 		}
-		log.Debug("mouse enter")
 		// h1 was not found in the old hitlist send it a mouse enter
 		// event
 		cmd, err := h1.w.HandleEvent(MouseEnter{}, TargetPhase)
@@ -704,6 +714,17 @@ func hitTest(s Surface, hits []hitResult, col uint16, row uint16) []hitResult {
 	}
 
 	return hits
+}
+
+func debugPrintWidget(s Surface, indent int, focused Widget) {
+	if s.Widget == focused {
+		log.Info("\x1b[31m%s%T\x1b[m", strings.Repeat(" ", indent*4), s.Widget)
+	} else {
+		log.Info("%s%T", strings.Repeat(" ", indent*4), s.Widget)
+	}
+	for _, ch := range s.Children {
+		debugPrintWidget(ch.Surface, indent+1, focused)
+	}
 }
 
 func ConsumeAndRedraw() BatchCmd {

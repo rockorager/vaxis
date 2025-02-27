@@ -196,7 +196,7 @@ func (d *Dynamic) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 		if int(idx) < len(s.Children) {
 			ch := s.Children[idx]
 			// Create a surface for the cursor
-			cur := vxfw.NewSurface(ctx.Max.Width, ch.Surface.Size.Height, d)
+			cur := vxfw.NewSurface(ctx.Max.Width, ch.Surface.Size.Height, ch.Surface.Widget)
 
 			// Draw the cursor glyph
 			var curRow uint16
