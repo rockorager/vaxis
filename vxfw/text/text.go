@@ -255,3 +255,6 @@ func (s *SoftwrapScanner) Scan(ctx vxfw.DrawContext) bool {
 func (s *SoftwrapScanner) Text() string {
 	return string(s.token)
 }
+
+// Verify we meet the Widget interface
+var _ vxfw.Widget = &Text{}
