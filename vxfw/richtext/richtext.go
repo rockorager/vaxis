@@ -343,3 +343,6 @@ func (h *HardwrapScanner) Scan() bool {
 func (h *HardwrapScanner) Line() []vaxis.Cell {
 	return h.line
 }
+
+// Verify we meet the Widget interface
+var _ vxfw.Widget = &RichText{}
