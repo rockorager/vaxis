@@ -314,12 +314,15 @@ func (f *focusHandler) focusWidget(app *App, w Widget) error {
 		return err
 	}
 	app.handleCommand(cmd)
+	// Change the focused widget before we send the focus in event. If the
+	// newly focused widget changes focus again, we need to set this before
+	// the handleCommand call
+	f.focused = w
 	cmd, err = w.HandleEvent(vaxis.FocusIn{}, TargetPhase)
 	if err != nil {
 		return err
 	}
 	app.handleCommand(cmd)
-	f.focused = w
 
 	return nil
 }
