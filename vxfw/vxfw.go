@@ -520,8 +520,8 @@ func (a *App) handleCommand(cmd Command) {
 	case SendNotificationCmd:
 		a.vx.Notify(cmd.Title, cmd.Body)
 	case DebugCmd:
-		log.Debug("here")
 		a.debug = true
+		a.redraw = true
 	}
 }
 
