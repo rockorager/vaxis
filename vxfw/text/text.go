@@ -134,6 +134,7 @@ func (t *Text) findContainerSize(ctx vxfw.DrawContext) vxfw.Size {
 			// Size is limited to the Max.Width
 			size.Width = min(ctx.Max.Width, max(w, size.Width))
 		}
+		return size
 	}
 	scanner := bufio.NewScanner(strings.NewReader(t.Content))
 	for scanner.Scan() {
