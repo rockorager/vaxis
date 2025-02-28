@@ -460,6 +460,7 @@ func (a *App) Run(w Widget) error {
 
 			win := a.vx.Window()
 			win.Clear()
+			a.vx.HideCursor()
 			s.render(win, a.fh.focused)
 
 			switch a.refresh {
