@@ -135,6 +135,12 @@ func (s *Surface) WriteCell(col uint16, row uint16, cell vaxis.Cell) {
 	s.Buffer[i] = cell
 }
 
+func (s *Surface) Fill(style vaxis.Style) {
+	for i := range s.Buffer {
+		s.Buffer[i].Style = style
+	}
+}
+
 func (s Surface) render(win vaxis.Window, focused Widget) {
 	// Render ourself first
 	for i, cell := range s.Buffer {

@@ -42,6 +42,7 @@ func (t *Text) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 
 	size := t.findContainerSize(ctx)
 	s := vxfw.NewSurface(size.Width, size.Height, t)
+	s.Fill(t.Style)
 
 	scanner := bufio.NewScanner(strings.NewReader(t.Content))
 	var row uint16
@@ -89,6 +90,7 @@ func (t *Text) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 func (t *Text) drawSoftwrap(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 	size := t.findContainerSize(ctx)
 	s := vxfw.NewSurface(size.Width, size.Height, t)
+	s.Fill(t.Style)
 
 	scanner := NewSoftwrapScanner(t.Content, ctx.Max.Width)
 	var row uint16
