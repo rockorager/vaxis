@@ -40,6 +40,11 @@ type scroll struct {
 	wantsCursor bool
 }
 
+func (d *Dynamic) SetCursor(c uint) {
+	d.cursor = c
+	d.ensureScroll()
+}
+
 func (d *Dynamic) CaptureEvent(ev vaxis.Event) (vxfw.Command, error) {
 	if d.DisableEventHandlers {
 		return nil, nil
