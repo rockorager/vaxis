@@ -86,6 +86,20 @@ func (d *Dynamic) HandleEvent(ev vaxis.Event, ph vxfw.EventPhase) (vxfw.Command,
 	if d.DisableEventHandlers {
 		return nil, nil
 	}
+	switch ev := ev.(type) {
+	case vaxis.Mouse:
+		switch ev.Button {
+		case vaxis.MouseWheelDown:
+			d.scroll.pending += 3
+			return vxfw.ConsumeAndRedraw(), nil
+		case vaxis.MouseWheelUp:
+			if d.scroll.offset > 0 && d.scroll.top > 0 {
+				// We can only scroll up if we are at the top
+				d.scroll.pending -= 3
+				return vxfw.ConsumeAndRedraw(), nil
+			}
+		}
+	}
 	return nil, nil
 }
 
