@@ -270,16 +270,17 @@ func (f *focusHandler) handleEvent(app *App, ev vaxis.Event) error {
 	return nil
 }
 
-func (f *focusHandler) updatePath(root Surface) {
+func (f *focusHandler) updatePath(app *App, root Surface) {
 	// Clear the path
 	f.path = []Widget{}
 
 	ok := f.childHasFocus(root)
 	if !ok {
-		panic("focused widget not found in Surface tree")
+		// Best effort refocus
+		_ = f.focusWidget(app, f.root)
 	}
 
-	if f.root != root.Widget {
+	if f.root != root.Widget || len(f.path) == 0 {
 		// Make sure that we always add the original root widget as the
 		// last node. We will reverse the list, making this widget the
 		// first one with the opportunity to capture events
@@ -477,7 +478,7 @@ func (a *App) Run(w Widget) error {
 			}
 
 			// Update focus handler
-			a.fh.updatePath(s)
+			a.fh.updatePath(a, s)
 			// Update the mouse last frame
 			mh.lastFrame = s
 		}
