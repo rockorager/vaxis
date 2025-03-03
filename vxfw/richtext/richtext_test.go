@@ -195,6 +195,16 @@ func TestSoftWrapScanner(t *testing.T) {
 			width: 4,
 		},
 		{
+			name:  "erock: 3 lines",
+			input: "Line 1\nLine 2\nLine 3\n",
+			expected: []string{
+				"Line 1",
+				"Line 2",
+				"Line 3",
+			},
+			width: 6,
+		},
+		{
 			name:  "no soft wrap needed",
 			input: "each line\nfits",
 			expected: []string{

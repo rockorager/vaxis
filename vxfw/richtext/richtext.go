@@ -138,6 +138,7 @@ func (t *RichText) findContainerSize(cells []vaxis.Cell, ctx vxfw.DrawContext) v
 			// Size is limited to the Max.Width
 			size.Width = min(ctx.Max.Width, max(w, size.Width))
 		}
+		return size
 	}
 
 	scanner := NewHardwrapScanner(cells)
