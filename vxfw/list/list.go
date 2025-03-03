@@ -45,6 +45,12 @@ func (d *Dynamic) SetCursor(c uint) {
 	d.ensureScroll()
 }
 
+// SetPendingScroll sets a pending scroll amount, by lines. Positive numbers
+// indicate a scroll down
+func (d *Dynamic) SetPendingScroll(lines int) {
+	d.scroll.pending = lines
+}
+
 func (d *Dynamic) CaptureEvent(ev vaxis.Event) (vxfw.Command, error) {
 	if d.DisableEventHandlers {
 		return nil, nil
