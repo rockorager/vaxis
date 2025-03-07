@@ -9,6 +9,7 @@ type (
 	primaryDeviceAttribute struct{}
 	capabilitySixel        struct{}
 	capabilityOsc4         struct{}
+	capabilityOsc10        struct{}
 	capabilityOsc11        struct{}
 	synchronizedUpdates    struct{}
 	unicodeCoreCap         struct{}

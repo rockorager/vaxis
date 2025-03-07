@@ -31,6 +31,7 @@ const (
 	cup           = "\x1B[%d;%dH"
 	osc4          = "\x1b]4;%d;?\x1b\\"
 	osc8          = "\x1b]8;%s;%s\x1b\\"
+	osc10         = "\x1b]10;?\x07"
 	osc11         = "\x1b]11;?\x07"
 	osc52put      = "\x1b]52;c;%s\x1b\\"
 	osc52pop      = "\x1b]52;c;?\x1b\\"

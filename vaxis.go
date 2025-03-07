@@ -33,6 +33,7 @@ type capabilities struct {
 	reportSizeChars    bool
 	reportSizePixels   bool
 	osc4               bool
+	osc10              bool
 	osc11              bool
 	osc176             bool
 	inBandResize       bool
@@ -119,6 +120,7 @@ type Vaxis struct {
 	refresh          bool
 	kittyFlags       int
 	disableMouse     bool
+	chFg             chan string
 	chBg             chan string
 	chColor          chan string
 	userCursorStyle  CursorStyle
@@ -216,6 +218,7 @@ func New(opts Options) (*Vaxis, error) {
 	vx.chQuit = make(chan bool)
 	vx.chSizeDone = make(chan bool, 1)
 	vx.charCache = make(map[string]int, 256)
+	vx.chFg = make(chan string, 1)
 	vx.chBg = make(chan string, 1)
 	vx.chColor = make(chan string, 1)
 
@@ -247,6 +250,11 @@ outer:
 				log.Info("[capability] OSC 4 supported")
 				vx.mu.Lock()
 				vx.caps.osc4 = true
+				vx.mu.Unlock()
+			case capabilityOsc10:
+				log.Info("[capability] OSC 10 supported")
+				vx.mu.Lock()
+				vx.caps.osc10 = true
 				vx.mu.Unlock()
 			case capabilityOsc11:
 				log.Info("[capability] OSC 11 supported")
@@ -1047,6 +1055,13 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 			}
 			vx.PostEventBlocking(capabilityOsc4{})
 		}
+		if strings.HasPrefix(string(seq.Payload), "10") {
+			// Similar to OSC 4
+			if vx.CanReportForegroundColor() {
+				vx.chFg <- string(seq.Payload)
+			}
+			vx.PostEventBlocking(capabilityOsc10{})
+		}
 		if strings.HasPrefix(string(seq.Payload), "11") {
 			// Similar to OSC 4
 			if vx.CanReportBackgroundColor() {
@@ -1115,6 +1130,26 @@ func (vx *Vaxis) QueryColor(c Color) Color {
 	return RGBColor(uint8(r), uint8(g), uint8(b))
 }
 
+// QueryForeground queries the host terminal for foreground color and returns
+// it as an instance of vaxis.Color. If the host terminal doesn't support this,
+// Color(0) is returned instead. Make sure not to run this in the same
+// goroutine as Vaxis runs in or deadlock will occur.
+func (vx *Vaxis) QueryForeground() Color {
+	if !vx.CanReportForegroundColor() {
+		return Color(0)
+	}
+	vx.tw.WriteStringLocked(osc10)
+	resp := <-vx.chFg
+	var r, g, b int
+	_, err := fmt.Sscanf(resp, "10;rgb:%x/%x/%x", &r, &g, &b)
+	if err != nil {
+		log.Error("QueryForeground: failed to parse the OSC 10 response: %s", err)
+		return Color(0)
+	}
+	// Similar to QueryColor above.
+	return RGBColor(uint8(r), uint8(g), uint8(b))
+}
+
 // QueryBackground queries the host terminal for background color and returns
 // it as an instance of vaxis.Color. If the host terminal doesn't support this,
 // Color(0) is returned instead. Make sure not to run this in the same
@@ -1174,8 +1209,9 @@ func (vx *Vaxis) sendQueries() {
 	// Query some terminfo capabilities
 	// Just another way to see if we have RGB support
 	_, _ = vx.tw.WriteString(xtgettcap("RGB"))
-	// Does the terminal respond to OSC 4/11 queries?
+	// Does the terminal respond to OSC 4/10/11 queries?
 	_, _ = vx.tw.WriteString(tparm(osc4, 1))
+	_, _ = vx.tw.WriteString(osc10)
 	_, _ = vx.tw.WriteString(osc11)
 	// Back up the current app ID
 	_, _ = vx.tw.WriteString(getAppID)
@@ -1577,6 +1613,10 @@ func (vx *Vaxis) CanSixel() bool {
 
 func (vx *Vaxis) CanReportColor() bool {
 	return vx.caps.osc4
+}
+
+func (vx *Vaxis) CanReportForegroundColor() bool {
+	return vx.caps.osc10
 }
 
 func (vx *Vaxis) CanReportBackgroundColor() bool {

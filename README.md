@@ -72,6 +72,7 @@ most dank TUI library
 | Kitty Keyboard                 |  ✅   |  ❌   |    ❌     |    ✅     |
 | Styled Underlines              |  ✅   |  ❌   |    ❌     |    ✅     |
 | Application IDs (OSC 176)      |  ✅   |  ❌   |    ❌     |    ❌     |
+| Foreground color query (OSC 10)|  ✅   |  ❌   |    ❌     |    ✅     |
 | Background color query (OSC 11)|  ✅   |  ❌   |    ❌     |    ✅     |
 | Mouse Shapes (OSC 22)          |  ✅   |  ❌   |    ❌     |    ❌     |
 | System Clipboard (OSC 52)      |  ✅   |  ❌   |    ❌     |    ❌     |
