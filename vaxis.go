@@ -1603,6 +1603,10 @@ func (vx *Vaxis) TerminalID() string {
 	return string(vx.termID)
 }
 
+func (vx *Vaxis) CanRGB() bool {
+	return vx.caps.rgb
+}
+
 func (vx *Vaxis) CanKittyGraphics() bool {
 	return vx.caps.kittyGraphics
 }
