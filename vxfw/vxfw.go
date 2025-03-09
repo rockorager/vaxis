@@ -359,6 +359,14 @@ func NewApp(opts vaxis.Options) (*App, error) {
 	return app, nil
 }
 
+func (a *App) Suspend() error {
+	return a.vx.Suspend()
+}
+
+func (a *App) Resume() error {
+	return a.vx.Resume()
+}
+
 // Run the application
 func (a *App) Run(w Widget) error {
 	defer a.vx.Close()
