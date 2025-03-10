@@ -2,7 +2,6 @@ package vxfw
 
 import (
 	"math"
-	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -289,7 +288,9 @@ func (f *focusHandler) updatePath(app *App, root Surface) {
 
 	// Reverse the list since it is ordered target to root, and we want the
 	// opposite
-	slices.Reverse(f.path)
+	for i := 0; i < len(f.path)/2; i++ {
+		f.path[i], f.path[len(f.path)-1-i] = f.path[len(f.path)-1-i], f.path[i]
+	}
 }
 
 func (f *focusHandler) childHasFocus(s Surface) bool {

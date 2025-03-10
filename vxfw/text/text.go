@@ -134,7 +134,12 @@ func (t *Text) findContainerSize(ctx vxfw.DrawContext) vxfw.Size {
 				w += uint16(char.Width)
 			}
 			// Size is limited to the Max.Width
-			size.Width = min(ctx.Max.Width, max(w, size.Width))
+			if size.Width < w {
+				size.Width = w
+			}
+			if size.Width > ctx.Max.Width {
+				size.Width = ctx.Max.Width
+			}
 		}
 		return size
 	}
@@ -150,7 +155,12 @@ func (t *Text) findContainerSize(ctx vxfw.DrawContext) vxfw.Size {
 			w += uint16(char.Width)
 		}
 		// Size is limited to the Max.Width
-		size.Width = min(ctx.Max.Width, max(w, size.Width))
+		if size.Width < w {
+			size.Width = w
+		}
+		if size.Width > ctx.Max.Width {
+			size.Width = ctx.Max.Width
+		}
 	}
 
 	return size

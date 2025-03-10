@@ -122,7 +122,9 @@ func (tf *TextField) InsertStringAtCursor(s string) vxfw.Command {
 }
 
 func (tf *TextField) CursorTo(i uint) vxfw.Command {
-	i = min(i, tf.n)
+	if i > tf.n {
+		i = tf.n
+	}
 
 	// Nothing to do if state is the same
 	if i == tf.cursor {
@@ -271,7 +273,7 @@ func (tf *TextField) insertStringAtCursor(s string) {
 		// insert the string
 		next.WriteString(s)
 		// advance the cursor
-		tf.cursor = max(tf.cursor, tf.cursor+count)
+		tf.cursor += count
 		next.WriteString(rest)
 		break
 	}
