@@ -27,15 +27,17 @@ func (vt *Model) osc(data string) {
 	case "9":
 		vt.postEvent(EventNotify{Body: val})
 	case "11":
-		if vt.vx == nil {
-			return
+		if val == "?" {
+			if vt.vx == nil {
+				return
+			}
+			rgb := vt.vx.QueryBackground().Params()
+			if len(rgb) == 0 {
+				return
+			}
+			resp := fmt.Sprintf("\x1b]11;rgb:%02x/%02x/%02x\x07", rgb[0], rgb[1], rgb[2])
+			vt.pty.WriteString(resp)
 		}
-		rgb := vt.vx.QueryBackground().Params()
-		if len(rgb) == 0 {
-			return
-		}
-		resp := fmt.Sprintf("\x1b]11;rgb:%02x/%02x/%02x\x07", rgb[0], rgb[1], rgb[2])
-		vt.pty.WriteString(resp)
 	case "52":
 		_, val, _ := cutString(val, ";")
 		decodedBytes, err := base64.StdEncoding.DecodeString(val)
