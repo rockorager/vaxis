@@ -23,6 +23,9 @@ type Dynamic struct {
 	// events. Set this to true to use custom event handlers
 	DisableEventHandlers bool
 
+	// Distance between each list item
+	Gap int
+
 	cursor uint
 	scroll scroll
 }
@@ -180,7 +183,7 @@ func (d *Dynamic) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 		s.AddChild(colOffset, ah, chS)
 
 		// Add our height to accumulated height
-		ah += int(chS.Size.Height)
+		ah += int(chS.Size.Height) + d.Gap
 
 		// If we need to draw the cursor, keep going
 		if d.scroll.wantsCursor && i <= d.cursor {
@@ -195,6 +198,10 @@ func (d *Dynamic) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 	var totalHeight uint16
 	for _, ch := range s.Children {
 		totalHeight += ch.Surface.Size.Height
+	}
+	if d.Gap > 0 && len(s.Children) > 1 {
+		// Add gap for between each child
+		totalHeight += uint16((len(s.Children) - 1) * d.Gap)
 	}
 
 	if d.DrawCursor {
