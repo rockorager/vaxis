@@ -60,14 +60,14 @@ func (d *Dynamic) CaptureEvent(ev vaxis.Event) (vxfw.Command, error) {
 	// We capture key events
 	switch ev := ev.(type) {
 	case vaxis.Key:
-		if ev.Matches('j') {
+		if ev.Matches('j') || ev.Matches(vaxis.KeyDown) {
 			cmd := d.NextItem()
 			if cmd == nil {
 				return nil, nil
 			}
 			return vxfw.ConsumeAndRedraw(), nil
 		}
-		if ev.Matches('k') {
+		if ev.Matches('k') || ev.Matches(vaxis.KeyUp) {
 			cmd := d.PrevItem()
 			if cmd == nil {
 				return nil, nil
