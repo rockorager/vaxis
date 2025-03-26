@@ -86,6 +86,11 @@ func (d *Dynamic) Cursor() uint {
 	return d.cursor
 }
 
+// Offset returns the rendered offset of the list
+func (d *Dynamic) Offset() uint {
+	return d.scroll.offset
+}
+
 func (d *Dynamic) HandleEvent(ev vaxis.Event, ph vxfw.EventPhase) (vxfw.Command, error) {
 	if d.DisableEventHandlers {
 		return nil, nil
