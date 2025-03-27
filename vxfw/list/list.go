@@ -87,7 +87,7 @@ func (d *Dynamic) Cursor() uint {
 }
 
 // Offset returns the rendered offset of the list
-func (d *Dynamic) Offset() uint {
+func (d *Dynamic) Offset() int {
 	return d.scroll.offset
 }
 
