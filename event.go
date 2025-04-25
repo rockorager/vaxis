@@ -21,6 +21,7 @@ type (
 	textAreaPix            struct{}
 	textAreaChar           struct{}
 	inBandResizeEvents     struct{}
+	capabilitySgrPixels    struct{}
 	appID                  string
 	terminalID             string
 )
