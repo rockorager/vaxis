@@ -87,6 +87,7 @@ const (
 	mouseAllEvents     = 1003
 	mouseFocusEvents   = 1004
 	mouseSGR           = 1006
+	mouseSGRPixels     = 1016
 	alternateScreen    = 1049
 	bracketedPaste     = 2004
 	synchronizedUpdate = 2026
