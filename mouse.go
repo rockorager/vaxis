@@ -12,6 +12,8 @@ type Mouse struct {
 	Col       int
 	EventType EventType
 	Modifiers ModifierMask
+	XPixel    int
+	YPixel    int
 }
 
 // MouseButton represents a mouse button
@@ -56,7 +58,14 @@ const (
 	mouseModCtrl  = 0b00010000
 )
 
-func parseMouseEvent(seq ansi.CSI) (Mouse, bool) {
+func pixelToCell(px, length, cells int) int {
+	if length > 0 {
+		return px * cells / length
+	}
+	return 0
+}
+
+func parseMouseEvent(seq ansi.CSI, ws Resize, enableSGRPixels bool) (Mouse, bool) {
 	mouse := Mouse{}
 	if len(seq.Intermediate) != 1 && seq.Intermediate[0] != '<' {
 		log.Error("[CSI] unknown sequence: %s", seq)
@@ -93,8 +102,15 @@ func parseMouseEvent(seq ansi.CSI) (Mouse, bool) {
 		mouse.Modifiers |= ModCtrl
 	}
 
-	mouse.Col = seq.Parameters[1][0] - 1
-	mouse.Row = seq.Parameters[2][0] - 1
+	if enableSGRPixels {
+		mouse.XPixel = seq.Parameters[1][0]
+		mouse.YPixel = seq.Parameters[2][0]
+		mouse.Col = pixelToCell(mouse.XPixel, ws.XPixel, ws.Cols)
+		mouse.Row = pixelToCell(mouse.YPixel, ws.YPixel, ws.Rows)
+	} else {
+		mouse.Col = seq.Parameters[1][0] - 1
+		mouse.Row = seq.Parameters[2][0] - 1
+	}
 
 	return mouse, true
 }

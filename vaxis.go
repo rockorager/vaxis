@@ -76,6 +76,10 @@ type Options struct {
 
 	// WithConsole provides the ability to use a custom console.
 	WithConsole console.Console
+
+	// EnableSGRPixels provides pixel level precision of mouse movement. This has
+	// no effect if DisableMouse is true
+	EnableSGRPixels bool
 }
 
 type CSIuBitMask int
@@ -120,6 +124,7 @@ type Vaxis struct {
 	refresh          bool
 	kittyFlags       int
 	disableMouse     bool
+	enableSGRPixels  bool
 	chFg             chan string
 	chBg             chan string
 	chColor          chan string
@@ -185,6 +190,10 @@ func New(opts Options) (*Vaxis, error) {
 
 	if opts.DisableMouse {
 		vx.disableMouse = true
+	}
+
+	if opts.EnableSGRPixels {
+		vx.enableSGRPixels = true
 	}
 
 	var tgts []*os.File
@@ -908,7 +917,7 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 				}
 			}
 		case 'M', 'm':
-			mouse, ok := parseMouseEvent(seq)
+			mouse, ok := parseMouseEvent(seq, vx.winSize, vx.enableSGRPixels)
 			if ok {
 				vx.PostEventBlocking(mouse)
 			}
@@ -1269,6 +1278,9 @@ func (vx *Vaxis) enableModes() {
 		_, _ = vx.tw.WriteString(decset(mouseAllEvents))
 		_, _ = vx.tw.WriteString(decset(mouseFocusEvents))
 		_, _ = vx.tw.WriteString(decset(mouseSGR))
+		if vx.enableSGRPixels {
+			_, _ = vx.tw.WriteString(decset(mouseSGRPixels))
+		}
 	}
 	_, _ = vx.tw.Flush()
 }
@@ -1286,6 +1298,10 @@ func (vx *Vaxis) disableModes() {
 		_, _ = vx.tw.WriteString(decrst(mouseAllEvents))
 		_, _ = vx.tw.WriteString(decrst(mouseFocusEvents))
 		_, _ = vx.tw.WriteString(decrst(mouseSGR))
+
+		if vx.enableSGRPixels {
+			_, _ = vx.tw.WriteString(decrst(mouseSGRPixels))
+		}
 	}
 	if vx.caps.sixels {
 		_, _ = vx.tw.WriteString(decrst(sixelScrolling))
