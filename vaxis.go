@@ -38,6 +38,7 @@ type capabilities struct {
 	osc176             bool
 	inBandResize       bool
 	explicitWidth      bool
+	sgrPixels          bool
 }
 
 type cursorState struct {
@@ -124,7 +125,6 @@ type Vaxis struct {
 	refresh          bool
 	kittyFlags       int
 	disableMouse     bool
-	enableSGRPixels  bool
 	chFg             chan string
 	chBg             chan string
 	chColor          chan string
@@ -190,10 +190,6 @@ func New(opts Options) (*Vaxis, error) {
 
 	if opts.DisableMouse {
 		vx.disableMouse = true
-	}
-
-	if opts.EnableSGRPixels {
-		vx.enableSGRPixels = true
 	}
 
 	var tgts []*os.File
@@ -334,6 +330,14 @@ outer:
 			case inBandResizeEvents:
 				vx.mu.Lock()
 				vx.caps.inBandResize = true
+				vx.mu.Unlock()
+			case capabilitySgrPixels:
+				log.Info("[capability] SGR Pixels supported")
+				if !opts.EnableSGRPixels {
+					continue
+				}
+				vx.mu.Lock()
+				vx.caps.sgrPixels = true
 				vx.mu.Unlock()
 			}
 		}
@@ -865,6 +869,15 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 				return
 			}
 			switch seq.Parameters[0][0] {
+			case 1016:
+				if len(seq.Parameters) < 2 {
+					log.Error("not enough DECRPM params")
+					return
+				}
+				switch seq.Parameters[1][0] {
+				case 1, 2:
+					vx.PostEventBlocking(capabilitySgrPixels{})
+				}
 			case 2026:
 				if len(seq.Parameters) < 2 {
 					log.Error("not enough DECRPM params")
@@ -917,7 +930,7 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 				}
 			}
 		case 'M', 'm':
-			mouse, ok := parseMouseEvent(seq, vx.winSize, vx.enableSGRPixels)
+			mouse, ok := parseMouseEvent(seq, vx.winSize, vx.caps.sgrPixels)
 			if ok {
 				vx.PostEventBlocking(mouse)
 			}
@@ -1194,6 +1207,7 @@ func (vx *Vaxis) sendQueries() {
 	_, _ = vx.tw.WriteString(decrqm(synchronizedUpdate))
 	_, _ = vx.tw.WriteString(decrqm(unicodeCore))
 	_, _ = vx.tw.WriteString(decrqm(colorThemeUpdates))
+	_, _ = vx.tw.WriteString(decrqm(mouseSGRPixels))
 	// We blindly enable in band resize. We get a response immediately if it
 	// is supported
 	_, _ = vx.tw.WriteString(decset(inBandResize))
@@ -1278,7 +1292,7 @@ func (vx *Vaxis) enableModes() {
 		_, _ = vx.tw.WriteString(decset(mouseAllEvents))
 		_, _ = vx.tw.WriteString(decset(mouseFocusEvents))
 		_, _ = vx.tw.WriteString(decset(mouseSGR))
-		if vx.enableSGRPixels {
+		if vx.caps.sgrPixels {
 			_, _ = vx.tw.WriteString(decset(mouseSGRPixels))
 		}
 	}
@@ -1299,7 +1313,7 @@ func (vx *Vaxis) disableModes() {
 		_, _ = vx.tw.WriteString(decrst(mouseFocusEvents))
 		_, _ = vx.tw.WriteString(decrst(mouseSGR))
 
-		if vx.enableSGRPixels {
+		if vx.caps.sgrPixels {
 			_, _ = vx.tw.WriteString(decrst(mouseSGRPixels))
 		}
 	}
