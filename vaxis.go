@@ -142,6 +142,8 @@ type Vaxis struct {
 
 	mu     sync.Mutex
 	resize int32
+
+	noSignals bool
 }
 
 // New creates a new [Vaxis] instance. Calling New will query the underlying
@@ -190,6 +192,10 @@ func New(opts Options) (*Vaxis, error) {
 
 	if opts.DisableMouse {
 		vx.disableMouse = true
+	}
+
+	if opts.NoSignals {
+		vx.noSignals = true
 	}
 
 	var tgts []*os.File
@@ -345,7 +351,7 @@ outer:
 
 	vx.enterAltScreen()
 	vx.enableModes()
-	if !opts.NoSignals {
+	if !vx.noSignals {
 		vx.setupSignals()
 	}
 	vx.applyQuirks()
@@ -1465,7 +1471,10 @@ func (vx *Vaxis) Resume() error {
 
 	vx.enterAltScreen()
 	vx.enableModes()
-	vx.setupSignals()
+
+	if !vx.noSignals {
+		vx.setupSignals()
+	}
 	atomicStore(&vx.resize, true)
 	return nil
 }
