@@ -1682,6 +1682,10 @@ func (vx *Vaxis) CanExplicitWidth() bool {
 	return vx.caps.explicitWidth
 }
 
+func (vx *Vaxis) CanInBandResize() bool {
+  return vx.caps.inBandResize
+}
+
 func (vx *Vaxis) nextGraphicID() uint64 {
 	vx.graphicsIDNext += 1
 	return vx.graphicsIDNext
