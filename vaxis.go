@@ -194,9 +194,8 @@ func New(opts Options) (*Vaxis, error) {
 		vx.disableMouse = true
 	}
 
-	if opts.NoSignals {
-		vx.noSignals = true
-	}
+	vx.noSignals = opts.NoSignals
+
 
 	var tgts []*os.File
 
