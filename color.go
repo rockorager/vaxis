@@ -11,6 +11,28 @@ const (
 	rgb     Color = 1 << 25
 )
 
+const (
+	// Indexed terminal color constants
+	ColorBlack Color = iota | indexed
+	ColorMaroon
+	ColorGreen
+	ColorOlive
+	ColorNavy
+	ColorPurple
+	ColorTeal
+	ColorSilver
+	ColorGray
+	ColorRed
+	ColorLime
+	ColorYellow
+	ColorBlue
+	ColorFuschia
+	ColorAqua
+	ColorWhite
+
+	ColorDefault Color = 0
+)
+
 // Params returns the TParm parameters for the color, or an empty slice if the
 // color is the default color
 func (c Color) Params() []uint8 {
