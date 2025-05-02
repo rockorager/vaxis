@@ -270,6 +270,13 @@ func (s *Sixel) Resize(w int, h int) {
 			log.Error("couldn't encode sixel: %v", err)
 			return
 		}
+
+		// Foot requires that we set the P2 parameter = 1 in order to
+		// enable transparency. This doesn't seem to affect other sixel
+		// based terminals
+		b := s.buf.Bytes()
+		b[4] = 0x31
+
 		s.vx.PostEventBlocking(Redraw{})
 	}()
 }
