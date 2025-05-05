@@ -123,7 +123,7 @@ func (b *Button) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 	// Rewrite the widget of this surface. We don't really care about the
 	// Center widget anyways, it's just for layout
 	s.Widget = b
-	s.Fill(style)
+	s.FillStyle(style)
 	return s, nil
 }
 
