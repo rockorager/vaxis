@@ -168,13 +168,11 @@ func (d *Dynamic) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 		i += 1
 
 		// Set up constraints
-		chCtx := vxfw.DrawContext{
-			Max: vxfw.Size{
-				Width:  ctx.Max.Width - uint16(colOffset),
-				Height: math.MaxUint16,
-			},
-			Characters: ctx.Characters,
-		}
+		chCtx := ctx.WithMax(vxfw.Size{
+			Width:  ctx.Max.Width - uint16(colOffset),
+			Height: math.MaxUint16,
+		})
+
 		// Draw the child
 		chS, err := ch.Draw(chCtx)
 		if err != nil {
@@ -302,13 +300,10 @@ func (d *Dynamic) insertChildren(ctx vxfw.DrawContext, p *vxfw.Surface, ah int) 
 	}
 
 	for ah > 0 {
-		chCtx := vxfw.DrawContext{
-			Max: vxfw.Size{
-				Width:  ctx.Max.Width - uint16(colOffset),
-				Height: math.MaxUint16,
-			},
-			Characters: ctx.Characters,
-		}
+		chCtx := ctx.WithMax(vxfw.Size{
+			Width:  ctx.Max.Width - uint16(colOffset),
+			Height: math.MaxUint16,
+		})
 		ch := d.Builder(d.scroll.top, d.cursor)
 		// Break if we don't have a widget, really this should never
 		// happen

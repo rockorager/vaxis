@@ -32,10 +32,7 @@ func (a *App) HandleEvent(ev vaxis.Event, phase vxfw.EventPhase) (vxfw.Command, 
 }
 
 func (a *App) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
-	chCtx := vxfw.DrawContext{
-		Max:        vxfw.Size{Width: 24, Height: math.MaxUint16},
-		Characters: ctx.Characters,
-	}
+	chCtx := ctx.WithMax(vxfw.Size{Width: 24, Height: math.MaxUint16})
 	s, err := a.input.Draw(chCtx)
 	if err != nil {
 		return vxfw.Surface{}, err

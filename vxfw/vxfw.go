@@ -72,6 +72,25 @@ type DrawContext struct {
 	Characters func(string) []vaxis.Character
 }
 
+// WithConstraints returns a new DrawContext with the supplied min and max size
+// Use [DrawContext.WithMin] or [DrawContext.WithMax] to change one constraint
+func (ctx DrawContext) WithConstraints(min, max Size) DrawContext {
+	return DrawContext{
+		Min: min, Max: max,
+		Characters: ctx.Characters,
+	}
+}
+
+// WithMin returns a new DrawContext with the minimum size set to min
+func (ctx DrawContext) WithMin(min Size) DrawContext {
+	return ctx.WithConstraints(min, ctx.Max)
+}
+
+// WithMax returns a new DrawContext with the maximum size set to max
+func (ctx DrawContext) WithMax(max Size) DrawContext {
+	return ctx.WithConstraints(ctx.Min, max)
+}
+
 type Size struct {
 	Width  uint16
 	Height uint16

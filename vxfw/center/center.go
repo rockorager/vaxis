@@ -18,11 +18,7 @@ func (c *Center) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 	if ctx.Max.HasUnboundedHeight() || ctx.Max.HasUnboundedWidth() {
 		panic("Center must have bounded constraints")
 	}
-	chCtx := vxfw.DrawContext{
-		Max:        ctx.Max,
-		Characters: ctx.Characters,
-	}
-	chS, err := c.Child.Draw(chCtx)
+	chS, err := c.Child.Draw(ctx)
 	if err != nil {
 		return vxfw.Surface{}, nil
 	}
