@@ -134,9 +134,24 @@ func (s *Surface) WriteCell(col uint16, row uint16, cell vaxis.Cell) {
 	s.Buffer[i] = cell
 }
 
-func (s *Surface) Fill(style vaxis.Style) {
+// FillStyle sets style on all cells in s
+func (s *Surface) FillStyle(style vaxis.Style) {
 	for i := range s.Buffer {
 		s.Buffer[i].Style = style
+	}
+}
+
+// FillCharacter writes ch to all cells in s
+func (s *Surface) FillCharacter(ch vaxis.Character) {
+	for i := range s.Buffer {
+		s.Buffer[i].Character = ch
+	}
+}
+
+// Fill writes cell to all cells in s
+func (s *Surface) Fill(cell vaxis.Cell) {
+	for i := range s.Buffer {
+		s.Buffer[i] = cell
 	}
 }
 
