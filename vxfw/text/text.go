@@ -30,11 +30,6 @@ func New(content string) *Text {
 	}
 }
 
-// Noop for text
-func (t *Text) HandleEvent(ev vaxis.Event, phase vxfw.EventPhase) (vxfw.Command, error) {
-	return nil, nil
-}
-
 func (t *Text) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 	if t.Softwrap {
 		return t.drawSoftwrap(ctx)
