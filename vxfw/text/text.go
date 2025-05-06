@@ -141,6 +141,12 @@ func (t *Text) findContainerSize(ctx vxfw.DrawContext) vxfw.Size {
 				size.Width = ctx.Max.Width
 			}
 		}
+		if size.Width < ctx.Min.Width {
+			size.Width = ctx.Min.Width
+		}
+		if size.Height < ctx.Min.Height {
+			size.Height = ctx.Min.Height
+		}
 		return size
 	}
 	scanner := bufio.NewScanner(strings.NewReader(t.Content))
@@ -161,6 +167,12 @@ func (t *Text) findContainerSize(ctx vxfw.DrawContext) vxfw.Size {
 		if size.Width > ctx.Max.Width {
 			size.Width = ctx.Max.Width
 		}
+	}
+	if size.Width < ctx.Min.Width {
+		size.Width = ctx.Min.Width
+	}
+	if size.Height < ctx.Min.Height {
+		size.Height = ctx.Min.Height
 	}
 
 	return size
