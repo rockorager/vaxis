@@ -11,7 +11,6 @@ import (
 )
 
 type Widget interface {
-	HandleEvent(vaxis.Event, EventPhase) (Command, error)
 	Draw(DrawContext) (Surface, error)
 }
 
@@ -20,6 +19,12 @@ type Widget interface {
 // ancestor of the target widget
 type EventCapturer interface {
 	CaptureEvent(vaxis.Event) (Command, error)
+}
+
+// EventHandler is a Widget which can handle events. It's a separate interface to simplify creating
+// custom [Widget]s that do not require event handling.
+type EventHandler interface {
+	HandleEvent(vaxis.Event, EventPhase) (Command, error)
 }
 
 type Event interface{}
@@ -279,7 +284,7 @@ func (f *focusHandler) handleEvent(app *App, ev vaxis.Event) error {
 	}
 
 	// Target phase
-	cmd, err := f.focused.HandleEvent(ev, TargetPhase)
+	cmd, err := tryHandleEvent(f.focused, ev, TargetPhase)
 	if err != nil {
 		return err
 	}
@@ -289,11 +294,11 @@ func (f *focusHandler) handleEvent(app *App, ev vaxis.Event) error {
 		return nil
 	}
 
-	// Bubble phase. We don't bubble to the focused widget (which is the
-	// last one in the list). Hence, - 2
+	// Bubble phase. We don't bubble to the focused widget (which is the last one in the list).
+	// Hence, - 2
 	for i := len(f.path) - 2; i >= 0; i -= 1 {
 		w := f.path[i]
-		cmd, err := w.HandleEvent(ev, BubblePhase)
+		cmd, err = tryHandleEvent(w, ev, BubblePhase)
 		if err != nil {
 			return err
 		}
@@ -355,22 +360,35 @@ func (f *focusHandler) focusWidget(app *App, w Widget) error {
 		return nil
 	}
 
-	cmd, err := f.focused.HandleEvent(vaxis.FocusOut{}, TargetPhase)
+	cmd, err := tryHandleEvent(f.focused, vaxis.FocusOut{}, TargetPhase)
 	if err != nil {
 		return err
 	}
 	app.handleCommand(cmd)
+
 	// Change the focused widget before we send the focus in event. If the
 	// newly focused widget changes focus again, we need to set this before
 	// the handleCommand call
 	f.focused = w
-	cmd, err = w.HandleEvent(vaxis.FocusIn{}, TargetPhase)
+	cmd, err = tryHandleEvent(w, vaxis.FocusIn{}, TargetPhase)
 	if err != nil {
 		return err
 	}
 	app.handleCommand(cmd)
 
 	return nil
+}
+
+// tryHandleEvent calls HandleEvent on w, if w is an [EventHandler]
+// If w is not an EventHandler, tryHandleEvent returns nil, nil.
+// Otherwise, tryHandleEvent returns the [Command] and error from HandleEvent.
+func tryHandleEvent(w Widget, event vaxis.Event, phase EventPhase) (Command, error) {
+	eh, ok := w.(EventHandler)
+	if !ok {
+		return nil, nil
+	}
+
+	return eh.HandleEvent(event, phase)
 }
 
 type App struct {
@@ -450,7 +468,7 @@ func (a *App) Run(w Widget) error {
 					return err
 				}
 			case vaxis.FocusIn:
-				cmd, err := w.HandleEvent(MouseEnter{}, TargetPhase)
+				cmd, err := tryHandleEvent(w, MouseEnter{}, TargetPhase)
 				if err != nil {
 					return err
 				}
@@ -656,7 +674,7 @@ func (m *mouseHandler) handleEvent(app *App, ev vaxis.Mouse) error {
 	target := m.lastHits[len(m.lastHits)-1]
 
 	// Target phase
-	cmd, err := target.w.HandleEvent(ev, TargetPhase)
+	cmd, err := tryHandleEvent(target.w, ev, TargetPhase)
 	if err != nil {
 		return err
 	}
@@ -670,7 +688,7 @@ func (m *mouseHandler) handleEvent(app *App, ev vaxis.Mouse) error {
 	// last one in the list). Hence, - 2
 	for i := len(m.lastHits) - 2; i >= 0; i -= 1 {
 		h := m.lastHits[i]
-		cmd, err := h.w.HandleEvent(ev, BubblePhase)
+		cmd, err := tryHandleEvent(h.w, ev, BubblePhase)
 		if err != nil {
 			return err
 		}
@@ -711,7 +729,7 @@ outer_exit:
 		}
 		// h1 was not found in the new hitlist send it a mouse leave
 		// event
-		cmd, err := h1.w.HandleEvent(MouseLeave{}, TargetPhase)
+		cmd, err := tryHandleEvent(h1.w, MouseLeave{}, TargetPhase)
 		if err != nil {
 			return err
 		}
@@ -729,7 +747,7 @@ outer_enter:
 		}
 		// h1 was not found in the old hitlist send it a mouse enter
 		// event
-		cmd, err := h1.w.HandleEvent(MouseEnter{}, TargetPhase)
+		cmd, err := tryHandleEvent(h1.w, MouseEnter{}, TargetPhase)
 		if err != nil {
 			return err
 		}
@@ -745,7 +763,7 @@ outer_enter:
 // mouseExit send a mouseLeave event to each widget in the last hit list
 func (m *mouseHandler) mouseExit(app *App) error {
 	for _, h := range m.lastHits {
-		cmd, err := h.w.HandleEvent(MouseLeave{}, TargetPhase)
+		cmd, err := tryHandleEvent(h.w, MouseLeave{}, TargetPhase)
 		if err != nil {
 			return err
 		}

@@ -24,11 +24,6 @@ func New(segments []vaxis.Segment) *RichText {
 	}
 }
 
-// Noop for text
-func (t *RichText) HandleEvent(ev vaxis.Event, phase vxfw.EventPhase) (vxfw.Command, error) {
-	return nil, nil
-}
-
 func (t *RichText) cells(ctx vxfw.DrawContext) []vaxis.Cell {
 	cells := []vaxis.Cell{}
 	for _, seg := range t.Content {

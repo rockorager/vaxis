@@ -1,17 +1,12 @@
 package center
 
 import (
-	"git.sr.ht/~rockorager/vaxis"
 	"git.sr.ht/~rockorager/vaxis/vxfw"
 )
 
 // Center draws the child centered within the space given to Center
 type Center struct {
 	Child vxfw.Widget
-}
-
-func (c *Center) HandleEvent(ev vaxis.Event, ph vxfw.EventPhase) (vxfw.Command, error) {
-	return nil, nil
 }
 
 func (c *Center) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
