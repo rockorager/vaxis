@@ -220,7 +220,12 @@ func (tf *TextField) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 		return vxfw.Surface{}, nil
 	}
 
-	s := vxfw.NewSurface(ctx.Max.Width, 1, tf)
+	height := uint16(1)
+	if ctx.Min.Height < height {
+		height = ctx.Min.Height
+	}
+
+	s := vxfw.NewSurface(ctx.Max.Width, height, tf)
 	s.Cursor = &vxfw.CursorState{
 		Row:   0,
 		Col:   0,

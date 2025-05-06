@@ -143,6 +143,12 @@ func (t *RichText) findContainerSize(cells []vaxis.Cell, ctx vxfw.DrawContext) v
 				size.Width = ctx.Max.Width
 			}
 		}
+		if size.Width < ctx.Min.Width {
+			size.Width = ctx.Min.Width
+		}
+		if size.Height < ctx.Min.Height {
+			size.Height = ctx.Min.Height
+		}
 		return size
 	}
 
@@ -164,6 +170,12 @@ func (t *RichText) findContainerSize(cells []vaxis.Cell, ctx vxfw.DrawContext) v
 		if size.Width > ctx.Max.Width {
 			size.Width = ctx.Max.Width
 		}
+	}
+	if size.Width < ctx.Min.Width {
+		size.Width = ctx.Min.Width
+	}
+	if size.Height < ctx.Min.Height {
+		size.Height = ctx.Min.Height
 	}
 
 	return size
