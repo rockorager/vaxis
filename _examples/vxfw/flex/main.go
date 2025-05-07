@@ -5,6 +5,7 @@ import (
 
 	"git.sr.ht/~rockorager/vaxis"
 	"git.sr.ht/~rockorager/vaxis/vxfw"
+	"git.sr.ht/~rockorager/vaxis/vxfw/center"
 	"git.sr.ht/~rockorager/vaxis/vxfw/richtext"
 	"git.sr.ht/~rockorager/vaxis/vxfw/text"
 	"git.sr.ht/~rockorager/vaxis/vxfw/vxlayout"
@@ -43,11 +44,18 @@ func (a *App) HandleEvent(ev vaxis.Event, phase vxfw.EventPhase) (vxfw.Command, 
 
 func (a *App) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 	root := vxfw.NewSurface(ctx.Max.Width, ctx.Max.Height, a)
-	layout, err := a.layout.Draw(vxfw.DrawContext{
-		Min:        ctx.Min,
-		Max:        vxfw.Size{Width: ctx.Max.Width, Height: ctx.Max.Height - 1},
-		Characters: ctx.Characters,
-	})
+
+	// the example layout should be constrained to a smaller size in the cross dimension, since
+	// otherwise Center will take up everything.
+	layoutCtx := vxfw.DrawContext(ctx)
+	switch a.layout.Direction {
+	case vxlayout.FlexHorizontal:
+		layoutCtx.Max.Height = 1
+	case vxlayout.FlexVertical:
+		layoutCtx.Max.Width = 6
+		layoutCtx.Max.Height -= 1 // leave room for the hint
+	}
+	layout, err := a.layout.Draw(layoutCtx)
 	if err != nil {
 		return vxfw.Surface{}, err
 	}
@@ -72,9 +80,9 @@ func main() {
 		richtext.New([]vaxis.Segment{
 			{Text: "FIRST", Style: vaxis.Style{Background: vaxis.IndexColor(1)}},
 		}),
-		richtext.New([]vaxis.Segment{
+		&center.Center{Child: richtext.New([]vaxis.Segment{
 			{Text: "MIDDLE", Style: vaxis.Style{Background: vaxis.IndexColor(2)}},
-		}),
+		})},
 		richtext.New([]vaxis.Segment{
 			{Text: "LAST", Style: vaxis.Style{Background: vaxis.IndexColor(3)}},
 		}),
