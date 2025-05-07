@@ -1571,6 +1571,11 @@ func (vx *Vaxis) SetTitle(s string) {
 	_, _ = io.WriteString(vx.console, tparm(setTitle, s))
 }
 
+// SetPath sets the terminal's working directory via OSC 7
+func (vx *Vaxis) NotifyWorkingDirectory(s string) {
+	_, _ = io.WriteString(vx.console, tparm(setCWD, s))
+}
+
 // SetAppID sets the terminal's application ID via OSC 176
 func (vx *Vaxis) SetAppID(s string) {
 	_, _ = io.WriteString(vx.console, tparm(setAppID, s))
