@@ -5,7 +5,6 @@ import (
 
 	"git.sr.ht/~rockorager/vaxis"
 	"git.sr.ht/~rockorager/vaxis/vxfw"
-	"git.sr.ht/~rockorager/vaxis/vxfw/center"
 	"git.sr.ht/~rockorager/vaxis/vxfw/richtext"
 	"git.sr.ht/~rockorager/vaxis/vxfw/text"
 	"git.sr.ht/~rockorager/vaxis/vxfw/vxlayout"
@@ -80,9 +79,9 @@ func main() {
 		richtext.New([]vaxis.Segment{
 			{Text: "FIRST", Style: vaxis.Style{Background: vaxis.IndexColor(1)}},
 		}),
-		&center.Center{Child: richtext.New([]vaxis.Segment{
+		richtext.New([]vaxis.Segment{
 			{Text: "MIDDLE", Style: vaxis.Style{Background: vaxis.IndexColor(2)}},
-		})},
+		}),
 		richtext.New([]vaxis.Segment{
 			{Text: "LAST", Style: vaxis.Style{Background: vaxis.IndexColor(3)}},
 		}),
@@ -93,7 +92,9 @@ func main() {
 		layout: &vxlayout.FlexLayout{
 			Children: []*vxlayout.FlexItem{
 				{Widget: widgets[0], Flex: 0},
-				{Widget: widgets[1], Flex: 1},
+				vxlayout.MustSpacer(1),
+				{Widget: widgets[1], Flex: 0},
+				{Widget: vxlayout.Spacer{}, Flex: 1},
 				{Widget: widgets[2], Flex: 0},
 			},
 			Direction: vxlayout.FlexHorizontal,
