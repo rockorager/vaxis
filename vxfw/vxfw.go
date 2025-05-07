@@ -198,11 +198,15 @@ func (s Surface) render(win vaxis.Window, focused Widget) {
 	})
 
 	for _, child := range s.Children {
+		// clip the child window to the minimum of the parent surface or the child surface this
+		// effectively forces clipping at the layout level
+		w := math.Min(float64(child.Surface.Size.Width), float64(int(s.Size.Width)-child.Origin.Col))
+		h := math.Min(float64(child.Surface.Size.Height), float64(int(s.Size.Height)-child.Origin.Row))
 		childWin := win.New(
 			int(child.Origin.Col),
 			int(child.Origin.Row),
-			int(child.Surface.Size.Width),
-			int(child.Surface.Size.Height),
+			int(w),
+			int(h),
 		)
 		child.Surface.render(childWin, focused)
 	}
