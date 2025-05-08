@@ -167,8 +167,7 @@ func (d *Dynamic) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 		// Increment the index
 		i += 1
 
-		// Set up constraints
-		chCtx := ctx.WithMax(vxfw.Size{
+		chCtx := ctx.WithConstraints(vxfw.Size{}, vxfw.Size{
 			Width:  ctx.Max.Width - uint16(colOffset),
 			Height: math.MaxUint16,
 		})
