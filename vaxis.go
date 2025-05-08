@@ -196,7 +196,6 @@ func New(opts Options) (*Vaxis, error) {
 
 	vx.noSignals = opts.NoSignals
 
-
 	var tgts []*os.File
 
 	switch {
@@ -1687,7 +1686,7 @@ func (vx *Vaxis) CanExplicitWidth() bool {
 }
 
 func (vx *Vaxis) CanInBandResize() bool {
-  return vx.caps.inBandResize
+	return vx.caps.inBandResize
 }
 
 func (vx *Vaxis) nextGraphicID() uint64 {

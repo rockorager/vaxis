@@ -68,7 +68,7 @@ func (m *List) PageUp(win vaxis.Window) {
 
 func (m *List) SetItems(items []string) {
 	m.items = items
-	m.index = min(len(items) - 1, m.index)
+	m.index = min(len(items)-1, m.index)
 }
 
 // Returns the index of the currently selected item.
@@ -78,16 +78,16 @@ func (m *List) Index() int {
 
 // Can be deleted once minimal go bumps to 1.21
 func min(a, b int) int {
-    if a < b {
-        return a
-    }
-    return b
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // Can be deleted once minimal go bumps to 1.21
 func max(a, b int) int {
-    if a > b {
-        return a
-    }
-    return b
+	if a > b {
+		return a
+	}
+	return b
 }

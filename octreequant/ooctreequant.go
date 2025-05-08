@@ -12,9 +12,9 @@ import (
 const maxDepth = 8
 
 type color struct {
-	r int
-	g int
-	b int
+	r  int
+	g  int
+	b  int
 	a0 bool // true if transparent
 }
 
@@ -163,8 +163,8 @@ type tree struct {
 	levels [][]*node
 	root   *node
 
-	count int // size of palette
-	a0 bool // true if any color is transparent
+	count int  // size of palette
+	a0    bool // true if any color is transparent
 }
 
 func (t *tree) leaves() []*node {
@@ -225,7 +225,7 @@ func (t *tree) makePalette(count int) imagecolor.Palette {
 
 func (t *tree) paletteIndex(color color) int {
 	if color.a0 {
-		return t.count-1
+		return t.count - 1
 	}
 	return t.root.paletteIndex(color, 0)
 }
