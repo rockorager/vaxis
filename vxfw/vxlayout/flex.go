@@ -1,6 +1,8 @@
 package vxlayout
 
 import (
+	"math"
+
 	"git.sr.ht/~rockorager/vaxis"
 	"git.sr.ht/~rockorager/vaxis/vxfw"
 )
@@ -20,6 +22,20 @@ type FlexItem struct {
 	// Flex of 0 means the widget will be its inherent size.
 	// Remaining space is divided proportionally to all FlexItems with Flex > 0
 	Flex uint8
+}
+
+// unboundedContext takes a [vxfw.DrawContext] and returns a new one, with the main (flex) axis
+// unbound.
+// This context is used during the first layout pass to calculate inherent sizes of flex items.
+func (f FlexDirection) unboundedContext(ctx vxfw.DrawContext) (out vxfw.DrawContext) {
+	out = vxfw.DrawContext(ctx)
+	switch f {
+	case FlexHorizontal:
+		out.Max.Width = math.MaxUint16
+	case FlexVertical:
+		out.Max.Height = math.MaxUint16
+	}
+	return
 }
 
 // flexContext takes a [vxfw.DrawContext] and a size and returns a new DrawContext that
@@ -109,10 +125,11 @@ func (w *FlexLayout) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 	// what size it would be if it was not sharing the space.
 	// We can use this information, plus the number of flex units, to determine how to distribute
 	// the space.
+	unboundedContext := w.Direction.unboundedContext(ctx)
 
 	// Iterate over each child, draw it, and measure the flex direction
 	for i, child := range w.Children {
-		surface, err := child.Draw(ctx)
+		surface, err := child.Draw(unboundedContext)
 		if err != nil {
 			return vxfw.Surface{}, err
 		}
