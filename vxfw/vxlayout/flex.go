@@ -54,19 +54,29 @@ func (f FlexDirection) flexContext(ctx vxfw.DrawContext, size uint16) vxfw.DrawC
 }
 
 // mainAxis takes a size and returns the main axis depending on the direction
-func (f FlexDirection) mainAxis(size vxfw.Size) (main uint16) {
+func (f FlexDirection) mainAxis(size vxfw.Size) (out uint16) {
 	switch f {
 	case FlexHorizontal:
-		main = size.Width
+		out = size.Width
 	case FlexVertical:
-		main = size.Height
+		out = size.Height
 	}
 	return
 }
 
-// max takes a size and a constraint and returns the max of size or constraint depending on the
-// direction
-func (f FlexDirection) max(size vxfw.Size, constraint uint16) uint16 {
+func (f FlexDirection) crossAxis(size vxfw.Size) (out uint16) {
+	switch f {
+	case FlexHorizontal:
+		out = size.Height
+	case FlexVertical:
+		out = size.Width
+	}
+	return
+}
+
+// maxCrossAxis takes a size and a constraint and returns the max of size or constraint on the
+// cross axis.
+func (f FlexDirection) maxCrossAxis(size vxfw.Size, constraint uint16) uint16 {
 	if f == FlexHorizontal && size.Height > constraint {
 		return size.Height
 	} else if f == FlexVertical && size.Width > constraint {
@@ -181,7 +191,7 @@ func (w *FlexLayout) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 		}
 
 		// track the max of the cross axis
-		max_cross_axis = w.Direction.max(surface.Size, max_cross_axis)
+		max_cross_axis = w.Direction.maxCrossAxis(surface.Size, max_cross_axis)
 		second_pass_size += w.Direction.mainAxis(surface.Size)
 	}
 
