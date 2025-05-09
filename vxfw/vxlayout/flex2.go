@@ -152,10 +152,25 @@ func Constrained(widget vxfw.Widget, minSize, maxSize *vxfw.Size) vxfw.Widget {
 // Sized is a [vxfw.Widget] that passes a fixed size to its child widget as long as size fits the
 // incoming constraints. If either axis of size is 0, that size is ignored.
 // This can be used to place a widget that normally cannot be unconstrained (such as an infinite
-// list) into a flexible layout.
+// list) into a flexible layout. See also [Limited].
 // This is a shortcut for Constrained(widget, size, size)
 func Sized(widget vxfw.Widget, size vxfw.Size) vxfw.Widget {
 	return Constrained(widget, &size, &size)
+}
+
+// Limited is a [vxfw.Widget] that limits its child by size only if the incoming constraint is
+// unlimited. If either axis of size is 0, that axis is ignored.
+func Limited(widget vxfw.Widget, size vxfw.Size) vxfw.Widget {
+	return widgetFunc(func(ctx vxfw.DrawContext) (vxfw.Surface, error) {
+		if ctx.Max.HasUnboundedWidth() && size.Width > 0 {
+			ctx.Max.Width = size.Width
+		}
+		if ctx.Max.HasUnboundedHeight() && size.Height > 0 {
+			ctx.Max.Height = size.Height
+		}
+
+		return widget.Draw(ctx)
+	})
 }
 
 type flex struct {
