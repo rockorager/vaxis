@@ -64,7 +64,7 @@ func makeScreen1() vxfw.Widget {
 			text.New("THREE"),
 		}, vxlayout.LayoutOptions{
 			MainAxis: vxlayout.MainAxisSpaceEvenly,
-		}), vxfw.Size{Height: 1}),
+		}), nil, &vxfw.Size{Height: 1}),
 
 		// row 2
 		header("Three widgets center aligned with a 2 col gap."),
@@ -75,7 +75,7 @@ func makeScreen1() vxfw.Widget {
 		}, vxlayout.LayoutOptions{
 			MainAxis: vxlayout.MainAxisCenter,
 			Gap:      2,
-		}), vxfw.Size{Height: 1}),
+		}), nil, &vxfw.Size{Height: 1}),
 
 		// row 3
 		header("Three widgets right aligned with a 2 col gap and a 20 column constrained filler."),
@@ -83,11 +83,11 @@ func makeScreen1() vxfw.Widget {
 			text.New("ONE"),
 			text.New("TWO"),
 			text.New("THREE"),
-			vxlayout.Flex(vxlayout.Constrained(vxlayout.Fill(filler), vxfw.Size{Width: 20}), 1),
+			vxlayout.Flex(vxlayout.Sized(vxlayout.Fill(filler), vxfw.Size{Width: 20}), 1),
 		}, vxlayout.LayoutOptions{
 			MainAxis: vxlayout.MainAxisEnd,
 			Gap:      2,
-		}), vxfw.Size{Height: 1}),
+		}), nil, &vxfw.Size{Height: 1}),
 
 		// row 4
 		header("Three widgets with a 2 col gap and filler in between."),
@@ -99,7 +99,7 @@ func makeScreen1() vxfw.Widget {
 			text.New("THREE"),
 		}, vxlayout.LayoutOptions{
 			Gap: 2,
-		}), vxfw.Size{Height: 1}),
+		}), nil, &vxfw.Size{Height: 1}),
 	}, vxlayout.LayoutOptions{
 		Gap: 1,
 	})
