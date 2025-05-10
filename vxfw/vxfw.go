@@ -14,6 +14,14 @@ type Widget interface {
 	Draw(DrawContext) (Surface, error)
 }
 
+// WidgetFunc is a convenience function for making stateless widgets.
+// It converts a standard Draw function signature into a [Widget].
+type WidgetFunc func(DrawContext) (Surface, error)
+
+func (fn WidgetFunc) Draw(ctx DrawContext) (Surface, error) {
+	return fn(ctx)
+}
+
 // EventCapturer is a Widget which can capture events before they are delivered
 // to the target widget. To capture an event, the EventCapturer must be an
 // ancestor of the target widget
@@ -26,6 +34,16 @@ type EventCapturer interface {
 type EventHandler interface {
 	HandleEvent(vaxis.Event, EventPhase) (Command, error)
 }
+
+// EventHandlerFunc is a convenience function for making stateless event handlers.
+// It can also be used in a [Widget] to define several event handlers for stateless child widgets
+// created with [WidgetFunc]
+type EventHandlerFunc func(vaxis.Event, EventPhase) (Command, error)
+
+func (fn EventHandlerFunc) HandleEvent(event vaxis.Event, phase EventPhase) (Command, error) {
+	return fn(event, phase)
+}
+func (fn EventHandlerFunc) Draw(_ DrawContext) (Surface, error) { return Surface{}, nil }
 
 type Event interface{}
 
