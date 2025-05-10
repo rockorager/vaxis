@@ -1,19 +1,20 @@
 package main
 
 import (
-	"os"
+	"fmt"
+	"strings"
 
 	"git.sr.ht/~rockorager/vaxis"
 	"git.sr.ht/~rockorager/vaxis/log"
 	"git.sr.ht/~rockorager/vaxis/vxfw"
+	"git.sr.ht/~rockorager/vaxis/vxfw/list"
 	"git.sr.ht/~rockorager/vaxis/vxfw/text"
 	"git.sr.ht/~rockorager/vaxis/vxfw/vxlayout"
 )
 
 type App struct {
-	infobar vxfw.Widget
-	screens []vxfw.Widget
 	index   int
+	screens []vxfw.Widget
 }
 
 func (a *App) CaptureEvent(ev vaxis.Event) (vxfw.Command, error) {
@@ -22,7 +23,7 @@ func (a *App) CaptureEvent(ev vaxis.Event) (vxfw.Command, error) {
 		if ev.Matches('c', vaxis.ModCtrl) {
 			return vxfw.QuitCmd{}, nil
 		}
-		if ev.Matches('l') || ev.Matches('L') {
+		if ev.Matches(' ') {
 			a.changeScreen()
 			return vxfw.ConsumeAndRedraw(), nil
 		}
@@ -31,10 +32,9 @@ func (a *App) CaptureEvent(ev vaxis.Event) (vxfw.Command, error) {
 }
 
 func (a *App) changeScreen() {
-	if a.index == len(a.screens)-1 {
+	a.index += 1
+	if a.index == len(a.screens) {
 		a.index = 0
-	} else {
-		a.index += 1
 	}
 }
 
@@ -105,13 +105,50 @@ func makeScreen1() vxfw.Widget {
 	})
 }
 
+func makeScreen2() vxfw.Widget {
+	filler := vaxis.Cell{
+		Character: vaxis.Character{
+			Grapheme: "·", Width: 1,
+		},
+		Style: vaxis.Style{
+			Background: vaxis.ColorNavy,
+		},
+	}
+	defaultopts := vxlayout.LayoutOptions{}
+
+	header := func(s string) vxfw.Widget {
+		t := text.New(s)
+		t.Style.Background = vaxis.ColorGray
+		return vxlayout.Row([]vxfw.Widget{t}, defaultopts)
+	}
+
+	list := list.Dynamic{
+		Builder: func(i, _ uint) vxfw.Widget {
+			t := text.New(strings.Repeat(fmt.Sprintf("XX %d ", i), int(i)))
+			t.Style.Foreground = vaxis.IndexColor(uint8(i) % 16)
+			return t
+		},
+		Gap: 1,
+	}
+
+	return vxlayout.Column([]vxfw.Widget{
+		header("Two spacers surrounding an infinite list widget, capped at 100 rows tall."),
+		vxlayout.Row([]vxfw.Widget{
+			vxlayout.Flex(vxlayout.Fill(filler), 1),
+			vxlayout.Sized(&list, vxfw.Size{Height: 100, Width: 30}),
+			vxlayout.Flex(vxlayout.Fill(filler), 1),
+		}, defaultopts),
+	}, vxlayout.LayoutOptions{Gap: 1})
+}
+
 func (a *App) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 	root := vxfw.NewSurface(ctx.Max.Width, ctx.Max.Height, a)
 
-	infobar, err := a.infobar.Draw(vxfw.DrawContext{
-		Max:        vxfw.Size{Width: ctx.Max.Width, Height: 1},
-		Characters: ctx.Characters,
-	})
+	left := text.New("Ctrl+C to quit, Space to change layouts.")
+	right := text.New(fmt.Sprintf("Currently viewing layout %d of %d.", a.index+1, len(a.screens)))
+	infobar, err := vxlayout.Row([]vxfw.Widget{
+		left, vxlayout.Space(1), right,
+	}, vxlayout.LayoutOptions{}).Draw(ctx.WithMax(vxfw.Size{Width: ctx.Max.Width, Height: 1}))
 	if err != nil {
 		return vxfw.Surface{}, err
 	}
@@ -129,16 +166,13 @@ func (a *App) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 }
 
 func main() {
-	log.SetOutput(os.Stderr)
-	log.SetLevel(log.LevelTrace)
 	app, err := vxfw.NewApp(vaxis.Options{})
 	if err != nil {
 		log.Error("Couldn't create a new app: %v", err)
 	}
 
 	root := &App{
-		infobar: text.New("Ctrl+C to quit, L (or l) to switch layouts."),
-		screens: []vxfw.Widget{makeScreen1()},
+		screens: []vxfw.Widget{makeScreen1(), makeScreen2()},
 	}
 
 	app.Run(root)

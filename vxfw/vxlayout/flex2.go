@@ -1,9 +1,7 @@
 package vxlayout
 
 import (
-	"fmt"
 	"math"
-	"os"
 
 	"git.sr.ht/~rockorager/vaxis"
 	"git.sr.ht/~rockorager/vaxis/vxfw"
@@ -185,15 +183,17 @@ type flex struct {
 var _ vxfw.Widget = flex{}
 
 func (f flex) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
-	fmt.Fprintf(
-		os.Stderr,
-		"flex.render: cons.w=%d, cons.h=%d, gap=%d, starting_used=%d, direction=%d, children=%d\n",
-		ctx.Max.Width, ctx.Max.Height,
-		f.options.Gap,
-		f.options.Gap*uint16(len(f.children)-1),
-		f.direction,
-		len(f.children),
-	)
+	/*
+		fmt.Fprintf(
+			os.Stderr,
+			"flex.render: cons.w=%d, cons.h=%d, gap=%d, starting_used=%d, direction=%d, children=%d\n",
+			ctx.Max.Width, ctx.Max.Height,
+			f.options.Gap,
+			f.options.Gap*uint16(len(f.children)-1),
+			f.direction,
+			len(f.children),
+		)
+	*/
 
 	surfaces := make([]vxfw.Surface, len(f.children))
 	var used_space uint16
@@ -255,11 +255,13 @@ func (f flex) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 			cons = tightenConstraint(cons, f.direction)
 		}
 
-		fmt.Fprintf(
-			os.Stderr,
-			"  flex.render(flexible): child=%d, loose=%t, flex=%d, size=%d\n",
-			i, c.FlexLoose(), c.FlexFactor(), size,
-		)
+		/*
+			fmt.Fprintf(
+				os.Stderr,
+				"  flex.render(flexible): child=%d, loose=%t, flex=%d, size=%d\n",
+				i, c.FlexLoose(), c.FlexFactor(), size,
+			)
+		*/
 
 		surface, err := c.Draw(cons)
 		if err != nil {
@@ -284,7 +286,7 @@ func (f flex) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 		Children: make([]vxfw.SubSurface, len(surfaces)),
 	}
 
-	fmt.Fprintf(os.Stderr, "flex.render: surface.size=%d\n", f.direction.mainAxis(size))
+	// fmt.Fprintf(os.Stderr, "flex.render: surface.size=%d\n", f.direction.mainAxis(size))
 
 	/*
 		Distribution.
@@ -337,7 +339,7 @@ func (f flex) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 		offset = chunk
 	}
 
-	fmt.Fprintf(os.Stderr, "flex.render: offset=%d, gap=%d->%d, remaining=%d\n", offset, f.options.Gap, gap, remaining)
+	// fmt.Fprintf(os.Stderr, "flex.render: offset=%d, gap=%d->%d, remaining=%d\n", offset, f.options.Gap, gap, remaining)
 
 	// Iterate over children, applying spacing and distribution options
 	var cross uint16
@@ -361,17 +363,20 @@ func (f flex) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 			Surface: child,
 		}
 		old_offset := offset
+		_ = old_offset
 		offset += f.direction.mainAxis(child.Size)
 
-		fmt.Fprintf(
-			os.Stderr,
-			" flex.render: child=%d, size=%d, gap=%d, offset=%d->%d\n",
-			i,
-			f.direction.mainAxis(child.Size),
-			gap,
-			old_offset,
-			offset,
-		)
+		/*
+			fmt.Fprintf(
+				os.Stderr,
+				" flex.render: child=%d, size=%d, gap=%d, offset=%d->%d\n",
+				i,
+				f.direction.mainAxis(child.Size),
+				gap,
+				old_offset,
+				offset,
+			)
+		*/
 
 	}
 
