@@ -151,7 +151,7 @@ func (s *Surface) AddChild(col int, row int, child Surface) {
 
 func (s *Surface) WriteCell(col uint16, row uint16, cell vaxis.Cell) {
 	if col >= s.Size.Width ||
-		row > s.Size.Height {
+		row >= s.Size.Height {
 		return
 	}
 	i := (row * s.Size.Width) + col
