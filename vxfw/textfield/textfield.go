@@ -221,7 +221,7 @@ func (tf *TextField) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 	}
 
 	height := uint16(1)
-	if ctx.Min.Height < height {
+	if height < ctx.Min.Height {
 		height = ctx.Min.Height
 	}
 
