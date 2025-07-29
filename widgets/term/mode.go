@@ -61,6 +61,8 @@ type mode struct {
 	mouseSGR bool
 	// Alternate scroll
 	altScroll bool
+	// Focus event tracking
+	focusEvents bool
 }
 
 func (vt *Model) sm(params [][]int) {
@@ -122,6 +124,8 @@ func (vt *Model) decset(params [][]int) {
 			vt.mode.mouseMotion = true
 		case 1006:
 			vt.mode.mouseSGR = true
+		case 1004:
+			vt.mode.focusEvents = true
 		case 1007:
 			vt.mode.altScroll = true
 		case 1049:
@@ -166,6 +170,8 @@ func (vt *Model) decrst(params [][]int) {
 			vt.mode.mouseMotion = false
 		case 1006:
 			vt.mode.mouseSGR = false
+		case 1004:
+			vt.mode.focusEvents = false
 		case 1007:
 			vt.mode.altScroll = false
 		case 1049:
@@ -266,6 +272,13 @@ func (vt *Model) decrqm(pd int) {
 		}
 	case 1006:
 		switch vt.mode.mouseSGR {
+		case true:
+			ps = 1
+		case false:
+			ps = 2
+		}
+	case 1004:
+		switch vt.mode.focusEvents {
 		case true:
 			ps = 1
 		case false:

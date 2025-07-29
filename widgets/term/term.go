@@ -602,11 +602,21 @@ outer:
 }
 
 func (vt *Model) Focus() {
+	vt.mu.Lock()
+	defer vt.mu.Unlock()
 	atomicStore(&vt.focused, true)
+	if vt.mode.focusEvents {
+		vt.pty.WriteString("\x1b[I")
+	}
 }
 
 func (vt *Model) Blur() {
+	vt.mu.Lock()
+	defer vt.mu.Unlock()
 	atomicStore(&vt.focused, false)
+	if vt.mode.focusEvents {
+		vt.pty.WriteString("\x1b[O")
+	}
 }
 
 // func (vt *VT) HandleEvent(e tcell.Event) bool {
