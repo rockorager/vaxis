@@ -63,6 +63,8 @@ type mode struct {
 	altScroll bool
 	// Focus event tracking
 	focusEvents bool
+	// Unsolicited color scheme change notifications
+	colorScheme bool
 }
 
 func (vt *Model) sm(params [][]int) {
@@ -137,6 +139,8 @@ func (vt *Model) decset(params [][]int) {
 			vt.mode.altScroll = true
 		case 2004:
 			vt.mode.paste = true
+		case 2031:
+			vt.mode.colorScheme = true
 		}
 	}
 }
@@ -185,6 +189,8 @@ func (vt *Model) decrst(params [][]int) {
 			vt.decrc()
 		case 2004:
 			vt.mode.paste = false
+		case 2031:
+			vt.mode.colorScheme = false
 		}
 	}
 }
@@ -303,6 +309,12 @@ func (vt *Model) decrqm(pd int) {
 		case true:
 			ps = 1
 		case false:
+			ps = 2
+		}
+	case 2031:
+		if vt.mode.colorScheme {
+			ps = 1
+		} else {
 			ps = 2
 		}
 	}

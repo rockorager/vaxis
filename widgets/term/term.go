@@ -223,6 +223,11 @@ func (vt *Model) Update(msg vaxis.Event) {
 		mouse := vt.handleMouse(msg)
 		vt.pty.WriteString(mouse)
 		return
+	case vaxis.ColorThemeUpdate:
+		if vt.mode.colorScheme {
+			vt.pty.WriteString(fmt.Sprintf("\x1b[?997;%dn", msg.Mode))
+			return
+		}
 	}
 }
 
