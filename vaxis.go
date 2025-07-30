@@ -1282,6 +1282,7 @@ func (vx *Vaxis) enableModes() {
 		_, _ = vx.tw.WriteString(decset(inBandResize))
 	}
 
+	_, _ = vx.tw.WriteString(decset(mouseFocusEvents)) // window focus events
 	// TODO: query for bracketed paste support?
 	_, _ = vx.tw.WriteString(decset(bracketedPaste)) // bracketed paste
 	_, _ = vx.tw.WriteString(decset(cursorKeys))     // application cursor keys
@@ -1294,7 +1295,6 @@ func (vx *Vaxis) enableModes() {
 	if !vx.disableMouse {
 		_, _ = vx.tw.WriteString(decset(mouseButtonEvents))
 		_, _ = vx.tw.WriteString(decset(mouseAllEvents))
-		_, _ = vx.tw.WriteString(decset(mouseFocusEvents))
 		_, _ = vx.tw.WriteString(decset(mouseSGR))
 		if vx.caps.sgrPixels {
 			_, _ = vx.tw.WriteString(decset(mouseSGRPixels))
@@ -1306,6 +1306,7 @@ func (vx *Vaxis) enableModes() {
 func (vx *Vaxis) disableModes() {
 	_, _ = vx.tw.WriteString(sgrReset)               // reset fg, bg, attrs
 	_, _ = vx.tw.WriteString(decrst(bracketedPaste)) // bracketed paste
+	_, _ = vx.tw.WriteString(decrst(mouseFocusEvents))
 	if vx.caps.kittyKeyboard {
 		_, _ = vx.tw.WriteString(kittyKBPop) // kitty keyboard
 	}
@@ -1314,7 +1315,6 @@ func (vx *Vaxis) disableModes() {
 	if !vx.disableMouse {
 		_, _ = vx.tw.WriteString(decrst(mouseButtonEvents))
 		_, _ = vx.tw.WriteString(decrst(mouseAllEvents))
-		_, _ = vx.tw.WriteString(decrst(mouseFocusEvents))
 		_, _ = vx.tw.WriteString(decrst(mouseSGR))
 
 		if vx.caps.sgrPixels {
