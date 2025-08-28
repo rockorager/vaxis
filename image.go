@@ -185,10 +185,10 @@ type Sixel struct {
 // Draw draws the [Image] to the [Window]. The image will not be drawn
 // if it is larger than the window
 func (s *Sixel) Draw(win Window) {
-	if s.buf.Len() == 0 {
+	if atomicLoad(&s.encoding) {
 		return
 	}
-	if atomicLoad(&s.encoding) {
+	if s.buf.Len() == 0 {
 		return
 	}
 	w, h := win.Size()
