@@ -1238,7 +1238,8 @@ func (vx *Vaxis) sendQueries() {
 	// Just another way to see if we have RGB support
 	_, _ = vx.tw.WriteString(xtgettcap("RGB"))
 	// Does the terminal respond to OSC 4/10/11 queries?
-	_, _ = vx.tw.WriteString(tparm(osc4, 1))
+	// Use color index 8 for OSC 4 to ignore buggy implementations that only respond to 0-7.
+	_, _ = vx.tw.WriteString(tparm(osc4, 8))
 	_, _ = vx.tw.WriteString(osc10)
 	_, _ = vx.tw.WriteString(osc11)
 	// Back up the current app ID
