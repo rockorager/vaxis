@@ -2,8 +2,7 @@ package list
 
 import (
 	"math"
-
-	"golang.org/x/exp/slices"
+	"slices"
 
 	"git.sr.ht/~rockorager/vaxis"
 	"git.sr.ht/~rockorager/vaxis/vxfw"

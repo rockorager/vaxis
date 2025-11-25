@@ -1,11 +1,11 @@
 package textinput
 
 import (
+	"slices"
 	"strings"
 	"unicode"
 
 	"git.sr.ht/~rockorager/vaxis"
-	"golang.org/x/exp/slices"
 )
 
 const scrolloff = 4
