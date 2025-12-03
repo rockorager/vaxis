@@ -275,7 +275,9 @@ func (s *Sixel) Resize(w int, h int) {
 		// enable transparency. This doesn't seem to affect other sixel
 		// based terminals
 		b := s.buf.Bytes()
-		b[4] = 0x31
+		if len(b) > 4 {
+			b[4] = 0x31
+		}
 
 		s.vx.PostEventBlocking(Redraw{})
 	}()
