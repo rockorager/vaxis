@@ -58,36 +58,3 @@ func main() {
 Questions are welcome in #vaxis on libera.chat, or on the [mailing list](mailto:~rockorager/vaxis@lists.sr.ht).
 
 Issues can be reported on the [tracker](https://todo.sr.ht/~rockorager/vaxis).
-
-## TUI Library Roundup
-
-Notcurses is included because it's the most advanced, most efficient,
-most dank TUI library
-
-| Feature                        | Vaxis | tcell | bubbletea | notcurses |
-| ------------------------------ | :---: | :---: | :-------: | :-------: |
-| RGB                            |  ✅   |  ✅   |    ✅     |    ✅     |
-| Hyperlinks                     |  ✅   |  ✅   |    ❌     |    ❌     |
-| Bracketed Paste                |  ✅   |  ✅   |    ❌     |    ❌     |
-| Kitty Keyboard                 |  ✅   |  ❌   |    ❌     |    ✅     |
-| Styled Underlines              |  ✅   |  ❌   |    ❌     |    ✅     |
-| Application IDs (OSC 176)      |  ✅   |  ❌   |    ❌     |    ❌     |
-| Foreground color query (OSC 10)|  ✅   |  ❌   |    ❌     |    ✅     |
-| Background color query (OSC 11)|  ✅   |  ❌   |    ❌     |    ✅     |
-| Mouse Shapes (OSC 22)          |  ✅   |  ❌   |    ❌     |    ❌     |
-| System Clipboard (OSC 52)      |  ✅   |  ❌   |    ❌     |    ❌     |
-| System Notifications (OSC 9)   |  ✅   |  ❌   |    ❌     |    ❌     |
-| System Notifications (OSC 777) |  ✅   |  ❌   |    ❌     |    ❌     |
-| Synchronized Output (DEC 2026) |  ✅   |  ❌   |    ❌     |    ✅     |
-| Unicode Core (DEC 2027)        |  ✅   |  ❌   |    ❌     |    ❌     |
-| Color Mode Updates (DEC 2031)  |  ✅   |  ❌   |    ❌     |    ❌     |
-| Explicit Width                 |  ✅   |  ❌   |    ❌     |    ❌     |
-| Images (full/space)            |  ✅   |  ❌   |    ❌     |    ✅     |
-| Images (half block)            |  ✅   |  ❌   |    ❌     |    ✅     |
-| Images (quadrant)              |  ❌   |  ❌   |    ❌     |    ✅     |
-| Images (sextant)               |  ❌   |  ❌   |    ❌     |    ✅     |
-| Images (sixel)                 |  ✅   |  ✅   |    ❌     |    ✅     |
-| Images (kitty)                 |  ✅   |  ❌   |    ❌     |    ✅     |
-| Images (iterm2)                |  ❌   |  ❌   |    ❌     |    ✅     |
-| Video                          |  ❌   |  ❌   |    ❌     |    ✅     |
-| Dank                           |  🆗   |  ❌   |    ❌     |    ✅     |
