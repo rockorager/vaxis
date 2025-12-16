@@ -155,6 +155,9 @@ func (s *Surface) WriteCell(col uint16, row uint16, cell vaxis.Cell) {
 		return
 	}
 	i := (row * s.Size.Width) + col
+	if int(i) >= len(s.Buffer) {
+		return
+	}
 	s.Buffer[i] = cell
 }
 
