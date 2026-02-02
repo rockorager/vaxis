@@ -568,6 +568,7 @@ outerNew:
 			vx.screenLast.buf[row][col] = next
 			if reposition {
 				if cursor.Hyperlink != "" {
+					cursor.Hyperlink = ""
 					_, _ = vx.tw.WriteString(tparm(osc8, "", ""))
 				}
 				_, _ = vx.tw.WriteString(tparm(cup, row+1, col+1))
