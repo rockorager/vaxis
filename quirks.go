@@ -24,6 +24,7 @@ func (vx *Vaxis) applyQuirks() {
 		vx.graphicsProtocol = halfBlock
 	}
 	if os.Getenv("VAXIS_FORCE_LEGACY_SGR") != "" {
+		sgrParamSeparator = ';'
 		fgIndexSet = strings.ReplaceAll(fgIndexSet, ":", ";")
 		fgRGBSet = strings.ReplaceAll(fgRGBSet, ":", ";")
 		bgIndexSet = strings.ReplaceAll(bgIndexSet, ":", ";")

@@ -530,7 +530,7 @@ outerNew:
 				continue outerNew
 			}
 		}
-		_, _ = vx.tw.WriteString(tparm(cup, p1.row+1, p1.col+1))
+		vx.tw.writeCUP(p1.row+1, p1.col+1)
 		p1.writeTo(vx.tw)
 	}
 	// Save this frame as the last frame
@@ -569,9 +569,9 @@ outerNew:
 			if reposition {
 				if cursor.Hyperlink != "" {
 					cursor.Hyperlink = ""
-					_, _ = vx.tw.WriteString(tparm(osc8, "", ""))
+					vx.tw.writeOSC8("", "")
 				}
-				_, _ = vx.tw.WriteString(tparm(cup, row+1, col+1))
+				vx.tw.writeCUP(row+1, col+1)
 				reposition = false
 			}
 			// TODO Optimizations
@@ -595,14 +595,14 @@ outerNew:
 				case 1:
 					switch {
 					case ps[0] < 8:
-						vx.tw.Printf(fgSet, ps[0])
+						_, _ = vx.tw.WriteString(fgIndexedSeq[int(ps[0])])
 					case ps[0] < 16:
-						vx.tw.Printf(fgBrightSet, ps[0]-8)
+						_, _ = vx.tw.WriteString(fgBrightSeq[int(ps[0]-8)])
 					default:
-						vx.tw.Printf(fgIndexSet, ps[0])
+						vx.tw.writeSGRIndexed(38, ps[0])
 					}
 				case 3:
-					vx.tw.Printf(fgRGBSet, ps[0], ps[1], ps[2])
+					vx.tw.writeSGRRGB(38, ps[0], ps[1], ps[2])
 				}
 			}
 
@@ -618,14 +618,14 @@ outerNew:
 				case 1:
 					switch {
 					case ps[0] < 8:
-						vx.tw.Printf(bgSet, ps[0])
+						_, _ = vx.tw.WriteString(bgIndexedSeq[int(ps[0])])
 					case ps[0] < 16:
-						vx.tw.Printf(bgBrightSet, ps[0]-8)
+						_, _ = vx.tw.WriteString(bgBrightSeq[int(ps[0]-8)])
 					default:
-						vx.tw.Printf(bgIndexSet, ps[0])
+						vx.tw.writeSGRIndexed(48, ps[0])
 					}
 				case 3:
-					vx.tw.Printf(bgRGBSet, ps[0], ps[1], ps[2])
+					vx.tw.writeSGRRGB(48, ps[0], ps[1], ps[2])
 				}
 			}
 
@@ -640,9 +640,9 @@ outerNew:
 					case 0:
 						_, _ = vx.tw.WriteString(ulColorReset)
 					case 1:
-						_, _ = vx.tw.Printf(ulIndexSet, ps[0])
+						vx.tw.writeSGRIndexed(58, ps[0])
 					case 3:
-						_, _ = vx.tw.Printf(ulRGBSet, ps[0], ps[1], ps[2])
+						vx.tw.writeSGRRGB(58, ps[0], ps[1], ps[2])
 					}
 				}
 			}
@@ -721,7 +721,7 @@ outerNew:
 				ulStyle := next.UnderlineStyle
 				switch vx.caps.styledUnderlines {
 				case true:
-					_, _ = vx.tw.WriteString(tparm(ulStyleSet, ulStyle))
+					vx.tw.writeUnderlineStyle(ulStyle)
 				case false:
 					switch ulStyle {
 					case UnderlineOff:
@@ -739,7 +739,7 @@ outerNew:
 				if link == "" {
 					linkPs = ""
 				}
-				_, _ = vx.tw.WriteString(tparm(osc8, linkPs, link))
+				vx.tw.writeOSC8(linkPs, link)
 			}
 
 			cursor = next.Style
@@ -752,7 +752,7 @@ outerNew:
 			case next.Width == 0:
 				_, _ = vx.tw.WriteString(" ")
 			case next.Width > 1 && vx.caps.explicitWidth:
-				_, _ = fmt.Fprintf(vx.tw, explicitWidth, next.Width, next.Grapheme)
+				vx.tw.writeExplicitWidth(next.Width, next.Grapheme)
 			default:
 				_, _ = vx.tw.WriteString(next.Grapheme)
 			}
@@ -768,7 +768,7 @@ outerNew:
 		}
 	}
 	if cursor.Hyperlink != "" {
-		_, _ = vx.tw.WriteString(tparm(osc8, "", ""))
+		vx.tw.writeOSC8("", "")
 	}
 	if vx.cursorNext.visible && !vx.cursorLast.visible {
 		_, _ = vx.tw.WriteString(vx.showCursor())
@@ -1225,7 +1225,7 @@ func (vx *Vaxis) sendQueries() {
 
 	// Explicit width query
 	_, _ = vx.tw.WriteString("\x1b[H")
-	_, _ = fmt.Fprintf(vx.tw, explicitWidth, 1, " ")
+	vx.tw.writeExplicitWidth(1, " ")
 	_, col := vx.CursorPosition()
 	if col == 1 {
 		log.Debug("[capability] explicit width supported")

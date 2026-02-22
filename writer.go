@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"strconv"
 	"sync"
 )
 
@@ -19,10 +20,74 @@ type writer struct {
 
 func newWriter(vx *Vaxis) *writer {
 	return &writer{
-		buf: bytes.NewBuffer(make([]byte, 8192)),
+		buf: bytes.NewBuffer(make([]byte, 0, 8192)),
 		w:   vx.console,
 		vx:  vx,
 	}
+}
+
+func (w *writer) writeCUP(row int, col int) {
+	buf := [32]byte{}
+	b := buf[:0]
+	b = append(b, '\x1b', '[')
+	b = strconv.AppendInt(b, int64(row), 10)
+	b = append(b, ';')
+	b = strconv.AppendInt(b, int64(col), 10)
+	b = append(b, 'H')
+	_, _ = w.Write(b)
+}
+
+func (w *writer) writeOSC8(params string, link string) {
+	_, _ = w.WriteString("\x1b]8;")
+	_, _ = w.WriteString(params)
+	_, _ = w.WriteString(";")
+	_, _ = w.WriteString(link)
+	_, _ = w.WriteString("\x1b\\")
+}
+
+func (w *writer) writeExplicitWidth(width int, grapheme string) {
+	_, _ = w.WriteString("\x1b]66;w=")
+	buf := [24]byte{}
+	b := strconv.AppendInt(buf[:0], int64(width), 10)
+	_, _ = w.Write(b)
+	_, _ = w.WriteString(";")
+	_, _ = w.WriteString(grapheme)
+	_, _ = w.WriteString("\x1b\\")
+}
+
+func (w *writer) writeUnderlineStyle(style UnderlineStyle) {
+	buf := [24]byte{}
+	b := buf[:0]
+	b = append(b, '\x1b', '[', '4', sgrParamSeparator)
+	b = strconv.AppendInt(b, int64(style), 10)
+	b = append(b, 'm')
+	_, _ = w.Write(b)
+}
+
+func (w *writer) writeSGRIndexed(param int, val uint8) {
+	buf := [32]byte{}
+	b := buf[:0]
+	b = append(b, '\x1b', '[')
+	b = strconv.AppendInt(b, int64(param), 10)
+	b = append(b, sgrParamSeparator, '5', sgrParamSeparator)
+	b = strconv.AppendInt(b, int64(val), 10)
+	b = append(b, 'm')
+	_, _ = w.Write(b)
+}
+
+func (w *writer) writeSGRRGB(param int, r uint8, g uint8, b2 uint8) {
+	buf := [48]byte{}
+	b := buf[:0]
+	b = append(b, '\x1b', '[')
+	b = strconv.AppendInt(b, int64(param), 10)
+	b = append(b, sgrParamSeparator, '2', sgrParamSeparator)
+	b = strconv.AppendInt(b, int64(r), 10)
+	b = append(b, sgrParamSeparator)
+	b = strconv.AppendInt(b, int64(g), 10)
+	b = append(b, sgrParamSeparator)
+	b = strconv.AppendInt(b, int64(b2), 10)
+	b = append(b, 'm')
+	_, _ = w.Write(b)
 }
 
 func (w *writer) Write(p []byte) (n int, err error) {
@@ -74,7 +139,7 @@ func (w *writer) Len() int {
 func (w *writer) WriteStringLocked(s string) (n int, err error) {
 	w.mut.Lock()
 	defer w.mut.Unlock()
-	return w.w.Write([]byte(s))
+	return io.WriteString(w.w, s)
 }
 
 func (w *writer) Flush() (n int, err error) {
