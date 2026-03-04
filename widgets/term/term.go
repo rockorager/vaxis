@@ -542,7 +542,6 @@ func (vt *Model) Close() {
 	defer vt.mu.Unlock()
 	if vt.cmd != nil && vt.cmd.Process != nil {
 		vt.cmd.Process.Kill()
-		vt.cmd.Wait()
 	}
 	vt.pty.Close()
 }
