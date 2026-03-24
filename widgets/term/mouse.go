@@ -23,12 +23,11 @@ func (vt *Model) handleMouse(msg vaxis.Mouse) string {
 		}
 		return ""
 	}
-	// Return early if we aren't reporting motion
-	if !vt.mode.mouseMotion && msg.EventType == vaxis.EventMotion && msg.Button == vaxis.MouseNoButton {
-		return ""
-	}
-	// Return early if we aren't reporting drags
-	if !vt.mode.mouseDrag && msg.EventType == vaxis.EventMotion {
+	// Return early if event is (pure) motion but we aren't reporting
+	// those (!mouseMotion) or event is drag (motion with pressed button)
+	// but we aren't reporting those either (!mouseMotion && !mouseDrag).
+	if msg.EventType == vaxis.EventMotion && !vt.mode.mouseMotion &&
+	   (msg.Button == vaxis.MouseNoButton || !vt.mode.mouseDrag) {
 		return ""
 	}
 
