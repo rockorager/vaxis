@@ -15,8 +15,7 @@ func (vt *Model) handleMouse(msg vaxis.Mouse) string {
 				vt.pty.WriteString("\x1bOA")
 				vt.pty.WriteString("\x1bOA")
 				vt.pty.WriteString("\x1bOA")
-			}
-			if msg.Button == vaxis.MouseWheelDown {
+			} else if msg.Button == vaxis.MouseWheelDown {
 				vt.pty.WriteString("\x1bOB")
 				vt.pty.WriteString("\x1bOB")
 				vt.pty.WriteString("\x1bOB")
