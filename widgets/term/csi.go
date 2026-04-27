@@ -2,6 +2,7 @@ package term
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"git.sr.ht/~rockorager/vaxis"
@@ -298,17 +299,18 @@ func (vt *Model) cht(ps int) {
 	if ps == 0 {
 		ps = 1
 	}
-	n := 0
-	for _, ts := range vt.tabStop {
-		if n == ps {
-			break
+	// Note: Actually, should stop at the margin only when DECLRMM and
+	// DECOM (methinks) are set.  However, currently we implement neither
+	// and this "margin" is just the absolute boundary of the window.
+	newcol, n := vt.margin.right, len(vt.tabStop)
+	if i, found := slices.BinarySearch(vt.tabStop, vt.cursor.col); i < n {
+		i += ps
+		if !found { i-- } // "i" was already 1 TS past the cursor.
+		if i < n {
+			newcol = min(vt.tabStop[i], vt.margin.right)
 		}
-		if vt.cursor.col > ts {
-			continue
-		}
-		vt.cursor.col = ts
-		n += 1
 	}
+	vt.cursor.col = newcol
 }
 
 // Erase in Display (ED) CSI Ps J
@@ -523,31 +525,24 @@ func (vt *Model) cbt(ps int) {
 	if ps == 0 {
 		ps = 1
 	}
-	n := 0
-	for i := len(vt.tabStop) - 1; i >= 0; i -= 1 {
-		if n == ps {
-			break
+	// Note: Same comment as in "cht".
+	newcol := vt.margin.left
+	if i, _ := slices.BinarySearch(vt.tabStop, vt.cursor.col); i > 0 {
+		i -= ps
+		if i >= 0 {
+			newcol = max(vt.tabStop[i], vt.margin.left)
 		}
-		if vt.cursor.col < vt.tabStop[i] {
-			break
-		}
-		vt.cursor.col = vt.tabStop[i]
-		n += 1
 	}
+	vt.cursor.col = newcol
 }
 
 // Tab Clear (TBC) CSI Ps g
 func (vt *Model) tbc(ps int) {
 	switch ps {
 	case 0:
-		tabs := []column{}
-		for _, tab := range vt.tabStop {
-			if tab == vt.cursor.col {
-				continue
-			}
-			tabs = append(tabs, tab)
+		if i, found := slices.BinarySearch(vt.tabStop, vt.cursor.col); found {
+			slices.Delete(vt.tabStop, i, i+1)
 		}
-		vt.tabStop = tabs
 	case 3:
 		vt.tabStop = []column{}
 	}

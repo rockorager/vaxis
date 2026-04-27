@@ -1,5 +1,9 @@
 package term
 
+import (
+	"slices"
+)
+
 func (vt *Model) esc(esc string) {
 	switch esc {
 	case "7":
@@ -75,7 +79,9 @@ func (vt *Model) nel() {
 
 // Horizontal tab set ESC-H
 func (vt *Model) hts() {
-	vt.tabStop = append(vt.tabStop, vt.cursor.col)
+	if i, found := slices.BinarySearch(vt.tabStop, vt.cursor.col); !found {
+		slices.Insert(vt.tabStop, i, vt.cursor.col)
+	}
 }
 
 // Reverse Index ESC-M
