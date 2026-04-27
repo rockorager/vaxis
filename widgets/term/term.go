@@ -58,8 +58,6 @@ type Model struct {
 	dirty  bool
 	parser *ansi.Parser
 	pty    *os.File
-	rows   int
-	cols   int
 
 	eventHandler func(vaxis.Event)
 	events       chan vaxis.Event
