@@ -83,7 +83,7 @@ func NewParser(r io.Reader) *Parser {
 //	OSC   Execute the OSC sequence
 //	DCS   Execute the DCS sequence
 //	EOF   Sent at end of input
-func (p *Parser) Next() chan Sequence {
+func (p *Parser) Next() <-chan Sequence {
 	return p.sequences
 }
 
