@@ -318,5 +318,5 @@ func (vt *Model) decrqm(pd int) {
 			ps = 2
 		}
 	}
-	fmt.Fprintf(vt.pty, "\x1B[?%d;%d$y", pd, ps)
+	vt.enqueueReplyString(fmt.Sprintf("\x1B[?%d;%d$y", pd, ps))
 }

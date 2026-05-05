@@ -79,10 +79,10 @@ func (vt *Model) csi(csi string, params [][]int) {
 		resp.WriteString("22")
 		// Response terminator
 		resp.WriteString("c")
-		vt.pty.WriteString(resp.String())
+		vt.enqueueReplyString(resp.String())
 	case ">c":
 		// vt220
-		vt.pty.WriteString("\x1b[>1;0;0c")
+		vt.enqueueReplyString("\x1b[>1;0;0c")
 	case "d":
 		vt.vpa(ps(params))
 	case "e":
@@ -107,13 +107,13 @@ func (vt *Model) csi(csi string, params [][]int) {
 		switch ps(params) {
 		case 5:
 			// "Ok"
-			vt.pty.WriteString("\x1B[0n")
+			vt.enqueueReplyString("\x1B[0n")
 		case 6:
 			// report cursor position
 			// This sequence can be identical to a function key?
 			// CSI r ; c R
 			resp := fmt.Sprintf("\x1B[%d;%dR", vt.cursor.row+1, vt.cursor.col+1)
-			vt.pty.WriteString(resp)
+			vt.enqueueReplyString(resp)
 		}
 	case "$p":
 		// TODO: DECRQM for ANSI modes

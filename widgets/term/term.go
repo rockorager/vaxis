@@ -2,6 +2,7 @@ package term
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -64,6 +65,8 @@ type Model struct {
 	focused      int32
 	graphics     []*Image
 	timer        *time.Timer
+	replyQueue   chan termReply
+	replyCancel  context.CancelFunc
 }
 
 type cursorState struct {
@@ -162,6 +165,7 @@ func (vt *Model) StartWithSize(cmd *exec.Cmd, width int, height int) error {
 	}
 
 	vt.resize(width, height)
+	vt.startReplyWorker()
 	vt.parser = ansi.NewParser(vt.pty)
 	go func() {
 		defer vt.recover()
@@ -538,6 +542,7 @@ func (vt *Model) scrollDown(n int) {
 func (vt *Model) Close() {
 	vt.mu.Lock()
 	defer vt.mu.Unlock()
+	vt.stopReplyWorker()
 	if vt.cmd != nil && vt.cmd.Process != nil {
 		vt.cmd.Process.Kill()
 	}

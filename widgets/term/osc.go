@@ -1,6 +1,7 @@
 package term
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"git.sr.ht/~rockorager/vaxis/log"
@@ -28,15 +29,18 @@ func (vt *Model) osc(data string) {
 		vt.postEvent(EventNotify{Body: val})
 	case "11":
 		if val == "?" {
-			if vt.vx == nil {
-				return
-			}
-			rgb := vt.vx.QueryBackground().Params()
-			if len(rgb) == 0 {
-				return
-			}
-			resp := fmt.Sprintf("\x1b]11;rgb:%02x/%02x/%02x\x07", rgb[0], rgb[1], rgb[2])
-			vt.pty.WriteString(resp)
+			vx := vt.vx
+			vt.enqueueReply(func(ctx context.Context) (string, bool) {
+				if vx == nil {
+					return "", false
+				}
+				rgb := vx.QueryBackgroundContext(ctx).Params()
+				if len(rgb) == 0 {
+					return "", false
+				}
+				resp := fmt.Sprintf("\x1b]11;rgb:%02x/%02x/%02x\x07", rgb[0], rgb[1], rgb[2])
+				return resp, true
+			})
 		}
 	case "52":
 		_, val, _ := cutString(val, ";")

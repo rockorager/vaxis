@@ -127,6 +127,7 @@ type Vaxis struct {
 	disableMouse     bool
 	chFg             chan string
 	chBg             chan string
+	chBgMu           sync.Mutex
 	chColor          chan string
 	userCursorStyle  CursorStyle
 
@@ -1090,11 +1091,13 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 			vx.PostEventBlocking(capabilityOsc10{})
 		}
 		if strings.HasPrefix(string(seq.Payload), "11") {
-			// Similar to OSC 4
+			// Similar to OSC 4. Once support is known, deliver responses to
+			// any active query without re-posting capability events.
 			if vx.CanReportBackgroundColor() {
-				vx.chBg <- string(seq.Payload)
+				postQueryResponse(vx.chBg, string(seq.Payload))
+			} else {
+				vx.PostEventBlocking(capabilityOsc11{})
 			}
-			vx.PostEventBlocking(capabilityOsc11{})
 		}
 		if strings.HasPrefix(string(seq.Payload), "52") {
 			vals := strings.Split(string(seq.Payload), ";")
@@ -1182,11 +1185,40 @@ func (vx *Vaxis) QueryForeground() Color {
 // Color(0) is returned instead. Make sure not to run this in the same
 // goroutine as Vaxis runs in or deadlock will occur.
 func (vx *Vaxis) QueryBackground() Color {
+	return vx.QueryBackgroundContext(context.Background())
+}
+
+// QueryBackgroundContext queries the host terminal for background color and
+// waits for the response until ctx is cancelled. If the host terminal doesn't
+// support this or ctx is cancelled first, Color(0) is returned instead. Make
+// sure not to run this in the same goroutine as Vaxis runs in or deadlock will
+// occur.
+func (vx *Vaxis) QueryBackgroundContext(ctx context.Context) Color {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if !vx.CanReportBackgroundColor() {
 		return Color(0)
 	}
+	if ctx.Err() != nil {
+		return Color(0)
+	}
+
+	vx.chBgMu.Lock()
+	defer vx.chBgMu.Unlock()
+	if ctx.Err() != nil {
+		return Color(0)
+	}
+
+	drainQueryResponses(vx.chBg)
 	vx.tw.WriteStringLocked(osc11)
-	resp := <-vx.chBg
+	var resp string
+	select {
+	case resp = <-vx.chBg:
+	case <-ctx.Done():
+		return Color(0)
+	}
+
 	var r, g, b int
 	_, err := fmt.Sscanf(resp, "11;rgb:%x/%x/%x", &r, &g, &b)
 	if err != nil {
@@ -1195,6 +1227,23 @@ func (vx *Vaxis) QueryBackground() Color {
 	}
 	// Similar to QueryColor above.
 	return RGBColor(uint8(r), uint8(g), uint8(b))
+}
+
+func drainQueryResponses(ch chan string) {
+	for {
+		select {
+		case <-ch:
+		default:
+			return
+		}
+	}
+}
+
+func postQueryResponse(ch chan string, resp string) {
+	select {
+	case ch <- resp:
+	default:
+	}
 }
 
 func (vx *Vaxis) sendQueries() {
