@@ -65,6 +65,10 @@ type KittyImage struct {
 	id       uint64
 	w        int
 	h        int
+	reqW     int
+	reqH     int
+	cellPixW int
+	cellPixH int
 	uploaded int32
 	encoding int32
 	buf      *bytes.Buffer
@@ -84,6 +88,10 @@ func (vx *Vaxis) NewKittyGraphic(img image.Image) *KittyImage {
 // Draw draws the [Image] to the [Window].
 func (k *KittyImage) Draw(win Window) {
 	if atomicLoad(&k.encoding) {
+		return
+	}
+	if k.reqW != 0 && k.reqH != 0 && k.cellSizeChanged() {
+		k.Resize(k.reqW, k.reqH)
 		return
 	}
 	col, row := win.Origin()
@@ -123,6 +131,12 @@ func (k *KittyImage) CellSize() (w int, h int) {
 	return k.w, k.h
 }
 
+func (k *KittyImage) cellSizeChanged() bool {
+	cellPixW := k.vx.winSize.XPixel / k.vx.winSize.Cols
+	cellPixH := k.vx.winSize.YPixel / k.vx.winSize.Rows
+	return k.cellPixW != cellPixW || k.cellPixH != cellPixH
+}
+
 // Resizes the image to fit within the wxh area. The image will not be
 // upscaled, nor will it's aspect ratio be changed. Resizing will be done in a
 // separate goroutine. A [Redraw] event will be posted when complete
@@ -130,6 +144,13 @@ func (k *KittyImage) Resize(w int, h int) {
 	// Resize the image
 	cellPixW := k.vx.winSize.XPixel / k.vx.winSize.Cols
 	cellPixH := k.vx.winSize.YPixel / k.vx.winSize.Rows
+	if k.reqW == w && k.reqH == h && k.cellPixW == cellPixW && k.cellPixH == cellPixH && k.buf.Len() == 0 && atomicLoad(&k.uploaded) {
+		return
+	}
+	k.reqW = w
+	k.reqH = h
+	k.cellPixW = cellPixW
+	k.cellPixH = cellPixH
 	img := resizeImage(k.img, w, h, cellPixW, cellPixH)
 
 	// Reupload the image
@@ -179,6 +200,10 @@ type Sixel struct {
 	id       uint64
 	w        int
 	h        int
+	reqW     int
+	reqH     int
+	cellPixW int
+	cellPixH int
 	encoding int32
 }
 
@@ -186,6 +211,10 @@ type Sixel struct {
 // if it is larger than the window
 func (s *Sixel) Draw(win Window) {
 	if atomicLoad(&s.encoding) {
+		return
+	}
+	if s.reqW != 0 && s.reqH != 0 && s.cellSizeChanged() {
+		s.Resize(s.reqW, s.reqH)
 		return
 	}
 	if s.buf.Len() == 0 {
@@ -213,11 +242,13 @@ func (s *Sixel) Draw(win Window) {
 		}
 		w.Write(s.buf.Bytes())
 	}
-	deleteFunc := func(_ io.Writer) {
-		// no-op. we expect users to Clear the screen or just print
-		// cells, which will have the effect of clearing the sixel
-	}
 	col, row := win.Origin()
+	pw, ph := s.w, s.h
+	deleteFunc := func(w io.Writer) {
+		for y := 0; y < ph; y += 1 {
+			fmt.Fprintf(w, "\x1b[%d;%dH%*s", row+y+1, col+1, pw, "")
+		}
+	}
 	log.Trace("placing sixel image at cell %d,%d", col, row)
 	placement := &placement{
 		col:      col,
@@ -240,12 +271,19 @@ func (s *Sixel) Destroy() {
 // upscaled, nor will it's aspect ratio be changed. Resize will be done in a
 // separate gorotuine. A Redraw event will be posted when complete
 func (s *Sixel) Resize(w int, h int) {
+	cellPixW := s.vx.winSize.XPixel / s.vx.winSize.Cols
+	cellPixH := s.vx.winSize.YPixel / s.vx.winSize.Rows
+	if s.reqW == w && s.reqH == h && s.cellPixW == cellPixW && s.cellPixH == cellPixH && s.buf.Len() != 0 {
+		return
+	}
+	s.reqW = w
+	s.reqH = h
+	s.cellPixW = cellPixW
+	s.cellPixH = cellPixH
 	atomicStore(&s.encoding, true)
 	go func() {
 		defer atomicStore(&s.encoding, false)
 		// Resize the image
-		cellPixW := s.vx.winSize.XPixel / s.vx.winSize.Cols
-		cellPixH := s.vx.winSize.YPixel / s.vx.winSize.Rows
 		img := resizeImage(s.img, w, h, cellPixW, cellPixH)
 		max := img.Bounds().Max
 		s.w = max.X / cellPixW
@@ -289,6 +327,12 @@ func (s *Sixel) CellSize() (w int, h int) {
 		return
 	}
 	return s.w, s.h
+}
+
+func (s *Sixel) cellSizeChanged() bool {
+	cellPixW := s.vx.winSize.XPixel / s.vx.winSize.Cols
+	cellPixH := s.vx.winSize.YPixel / s.vx.winSize.Rows
+	return s.cellPixW != cellPixW || s.cellPixH != cellPixH
 }
 
 func (vx *Vaxis) NewSixel(img image.Image) *Sixel {

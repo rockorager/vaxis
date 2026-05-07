@@ -469,9 +469,11 @@ func (vx *Vaxis) Render() {
 			log.Error("couldn't report winsize: %v", err)
 			return
 		}
-		if ws.Cols != vx.winSize.Cols || ws.Rows != vx.winSize.Rows {
-			vx.screenNext.resize(ws.Cols, ws.Rows)
-			vx.screenLast.resize(ws.Cols, ws.Rows)
+		if ws.Cols != vx.winSize.Cols || ws.Rows != vx.winSize.Rows || ws.XPixel != vx.winSize.XPixel || ws.YPixel != vx.winSize.YPixel {
+			if ws.Cols != vx.winSize.Cols || ws.Rows != vx.winSize.Rows {
+				vx.screenNext.resize(ws.Cols, ws.Rows)
+				vx.screenLast.resize(ws.Cols, ws.Rows)
+			}
 			vx.winSize = ws
 			vx.refresh = true
 			vx.PostEvent(vx.winSize)
