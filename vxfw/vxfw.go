@@ -1,6 +1,7 @@
 package vxfw
 
 import (
+	"image"
 	"math"
 	"sort"
 	"strings"
@@ -129,6 +130,7 @@ type Surface struct {
 	Cursor   *CursorState
 	Buffer   []vaxis.Cell
 	Children []SubSurface
+	Render   func(vaxis.Window)
 }
 
 // Creates a new surface. The resulting surface will have a Buffer with capacity
@@ -188,6 +190,10 @@ func (s Surface) render(win vaxis.Window, focused Widget) {
 		row := i / int(s.Size.Width)
 		col := i % int(s.Size.Width)
 		win.SetCell(col, row, cell)
+	}
+
+	if s.Render != nil {
+		s.Render(win)
 	}
 
 	// If we have a cursor state and we are the focused widget, draw the
@@ -425,6 +431,13 @@ func (a *App) Suspend() error {
 
 func (a *App) Resume() error {
 	return a.vx.Resume()
+}
+
+// NewImage creates a new image using the highest quality renderer the terminal
+// is capable of. The returned image can be displayed with the vxfw/image
+// widget.
+func (a *App) NewImage(img image.Image) (vaxis.Image, error) {
+	return a.vx.NewImage(img)
 }
 
 // Run the application
