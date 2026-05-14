@@ -5,8 +5,25 @@ import (
 	"testing"
 
 	"git.sr.ht/~rockorager/vaxis"
+	"git.sr.ht/~rockorager/vaxis/vxfw"
 	"github.com/stretchr/testify/assert"
 )
+
+var testDrawContext = vxfw.DrawContext{
+	Characters: vaxis.Characters,
+}
+
+func testLayout(input string) richTextLayout {
+	return richTextLayoutFromSegments([]vaxis.Segment{{Text: input}})
+}
+
+func cellsString(cells []vaxis.Cell) string {
+	var str strings.Builder
+	for _, cell := range cells {
+		str.WriteString(cell.Grapheme)
+	}
+	return str.String()
+}
 
 func TestHardwrapScanner(t *testing.T) {
 	tests := []struct {
@@ -40,91 +57,30 @@ func TestHardwrapScanner(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			chars := vaxis.Characters(test.input)
-			cells := make([]vaxis.Cell, 0, len(chars))
-			for _, char := range chars {
-				cell := vaxis.Cell{Character: char}
-				cells = append(cells, cell)
-
-			}
-			scanner := NewHardwrapScanner(cells)
+			scanner := newHardwrapScanner(testLayout(test.input))
 			lines := []string{}
 			for scanner.Scan() {
-				str := strings.Builder{}
-				line := scanner.Line()
-				for _, cell := range line {
-					str.WriteString(cell.Grapheme)
-				}
-				lines = append(lines, str.String())
+				lines = append(lines, cellsString(scanner.Line(testDrawContext)))
 			}
 			assert.Equal(t, test.expected, lines)
 		})
 	}
 }
 
-func TestFirstLineSegment(t *testing.T) {
-	tests := []struct {
-		name       string
-		input      string
-		expected   string
-		expectedBr bool
-	}{
-		{
-			name:       "no breaks",
-			input:      "foo",
-			expected:   "foo",
-			expectedBr: true,
-		},
-		{
-			name:       "trailing break",
-			input:      "foo\n",
-			expected:   "foo\n",
-			expectedBr: true,
-		},
-		{
-			name:       "leading break",
-			input:      "\nbar",
-			expected:   "\n",
-			expectedBr: true,
-		},
-		{
-			name:       "middle break",
-			input:      "foo\nbar",
-			expected:   "foo\n",
-			expectedBr: true,
-		},
-		{
-			name:       "word break",
-			input:      "foo bar",
-			expected:   "foo ",
-			expectedBr: false,
-		},
-		{
-			name:       "word break with hard break",
-			input:      "foo \nbar",
-			expected:   "foo \n",
-			expectedBr: true,
-		},
-	}
+func TestLayoutStylesGraphemeFromStartOffset(t *testing.T) {
+	bold := vaxis.Style{Attribute: vaxis.AttrBold}
+	italic := vaxis.Style{Attribute: vaxis.AttrItalic}
+	layout := richTextLayoutFromSegments([]vaxis.Segment{
+		{Text: "e", Style: bold},
+		{Text: "\u0301x", Style: italic},
+	})
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			chars := vaxis.Characters(test.input)
-			cells := make([]vaxis.Cell, 0, len(chars))
-			for _, char := range chars {
-				cell := vaxis.Cell{Character: char}
-				cells = append(cells, cell)
-			}
-
-			seg, br := firstLineSegment(cells)
-			str := strings.Builder{}
-			for _, cell := range seg {
-				str.WriteString(cell.Grapheme)
-			}
-			assert.Equal(t, test.expected, str.String())
-			assert.Equal(t, test.expectedBr, br)
-		})
-	}
+	cells := layout.cells(testDrawContext, 0, len(layout.text))
+	assert.Len(t, cells, 2)
+	assert.Equal(t, "e\u0301", cells[0].Grapheme)
+	assert.Equal(t, bold, cells[0].Style)
+	assert.Equal(t, "x", cells[1].Grapheme)
+	assert.Equal(t, italic, cells[1].Style)
 }
 
 func TestSoftWrapScanner(t *testing.T) {
@@ -217,22 +173,10 @@ func TestSoftWrapScanner(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			chars := vaxis.Characters(test.input)
-			cells := make([]vaxis.Cell, 0, len(chars))
-			for _, char := range chars {
-				cell := vaxis.Cell{Character: char}
-				cells = append(cells, cell)
-			}
-
-			scanner := NewSoftwrapScanner(cells, test.width)
+			scanner := newSoftwrapScanner(testLayout(test.input), test.width)
 			lines := []string{}
-			for scanner.Scan() {
-				line := scanner.Text()
-				str := strings.Builder{}
-				for _, ch := range line {
-					str.WriteString(ch.Grapheme)
-				}
-				lines = append(lines, str.String())
+			for scanner.Scan(testDrawContext) {
+				lines = append(lines, cellsString(scanner.Text(testDrawContext)))
 			}
 
 			assert.Equal(t, test.expected, lines)
