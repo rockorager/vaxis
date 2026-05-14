@@ -2,14 +2,13 @@ package vaxis
 
 import (
 	"fmt"
-	"strings"
 
-	"github.com/rivo/uniseg"
+	"github.com/rockorager/go-uucode"
 )
 
 // segmentWidth calculates the actual display width of a segment.
 func segmentWidth(seg Segment) int {
-	return uniseg.StringWidth(seg.Text)
+	return uucode.StringWidth(seg.Text)
 }
 
 // SegmentWrapper wraps text segments to fit within a specified width,
@@ -85,12 +84,11 @@ func (sw *SegmentWrapper) finishCurrentLine() {
 }
 
 // splitAndAddSegment splits a segment that is too long to fit on one line,
-// using uniseg for proper Unicode boundary breaking.
+// using Unicode line break properties for proper boundary breaking.
 // Returns an error if content cannot be rendered.
 func (sw *SegmentWrapper) splitAndAddSegment(seg Segment) error {
 	remaining := seg.Text
 	style := seg.Style
-	state := -1
 
 	for remaining != "" {
 		availableWidth := sw.width - sw.currentWidth
@@ -101,7 +99,7 @@ func (sw *SegmentWrapper) splitAndAddSegment(seg Segment) error {
 			availableWidth = sw.width
 		}
 
-		chunk, restAfterChunk := findBreakPoint(remaining, availableWidth, &state)
+		chunk, restAfterChunk := findBreakPoint(remaining, availableWidth)
 
 		if chunk != "" {
 			// Found a good break point.
@@ -109,7 +107,7 @@ func (sw *SegmentWrapper) splitAndAddSegment(seg Segment) error {
 			sw.addToCurrentLine(Segment{
 				Text:  chunk,
 				Style: chunkStyle,
-			}, uniseg.StringWidth(chunk))
+			}, uucode.StringWidth(chunk))
 			remaining = restAfterChunk
 		} else {
 			// Can't fit anything into current line.
@@ -126,9 +124,8 @@ func (sw *SegmentWrapper) splitAndAddSegment(seg Segment) error {
 				sw.addToCurrentLine(Segment{
 					Text:  forced,
 					Style: forcedStyle,
-				}, uniseg.StringWidth(forced))
+				}, uucode.StringWidth(forced))
 				remaining = restAfterForced
-				state = -1 // Reset state after forced break
 			} else {
 				// Should never really happen. Is the terminal literally 1 char wide!?
 				// Better handle it than loop forever.
@@ -140,42 +137,30 @@ func (sw *SegmentWrapper) splitAndAddSegment(seg Segment) error {
 	return nil
 }
 
-// findBreakPoint finds a good break point within the available width using uniseg.
+// findBreakPoint finds a good line break point within the available width.
 // Returns the chunk to use and the remaining text, or empty string if nothing fits.
-func findBreakPoint(text string, availableWidth int, state *int) (chunk string, rest string) {
-	var accumulated strings.Builder
+func findBreakPoint(text string, availableWidth int) (chunk string, rest string) {
 	accumulatedWidth := 0
-	var lastGoodBreak string
+	breakAt := 0
 
-	tempRemaining := text
-	tempState := *state
-
-	for tempRemaining != "" {
-		segment, nextRest, _, nextState := uniseg.FirstLineSegmentInString(tempRemaining, tempState)
-		segmentWidth := uniseg.StringWidth(segment)
-
-		if accumulatedWidth+segmentWidth <= availableWidth {
-			// Segment fits.
-			accumulated.WriteString(segment)
-			accumulatedWidth += segmentWidth
-			lastGoodBreak = accumulated.String()
-			tempRemaining = nextRest
-			tempState = nextState
-		} else {
-			// Segment doesn't fit.
+	it := uucode.NewLineIterator(text)
+	for segment, ok := it.Next(); ok; segment, ok = it.Next() {
+		segmentText := text[segment.Start:segment.End]
+		segmentWidth := uucode.StringWidth(segmentText)
+		if accumulatedWidth+segmentWidth > availableWidth {
 			break
 		}
+		accumulatedWidth += segmentWidth
+		breakAt = segment.End
 	}
 
-	if lastGoodBreak != "" {
-		*state = tempState
-		return lastGoodBreak, text[len(lastGoodBreak):]
+	if breakAt > 0 {
+		return text[:breakAt], text[breakAt:]
 	}
-
 	return "", text
 }
 
-// forceBreakByGrapheme forces a break at grapheme boundaries when uniseg can't help.
+// forceBreakByGrapheme forces a break at grapheme boundaries when line breaks are too wide.
 // Returns the forced chunk and remaining text, or empty if first grapheme is too wide.
 func forceBreakByGrapheme(text string, availableWidth int) (chunk string, rest string) {
 	chars := Characters(text)

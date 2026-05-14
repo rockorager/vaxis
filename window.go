@@ -3,7 +3,7 @@ package vaxis
 import (
 	"strings"
 
-	"github.com/rivo/uniseg"
+	"github.com/rockorager/go-uucode"
 )
 
 // Window is a Window with an offset from an optional parent and a specified
@@ -259,17 +259,19 @@ func (win Window) Println(row int, segs ...Segment) {
 // has good results
 func (win Window) Wrap(segs ...Segment) (col int, row int) {
 	cols, rows := win.Size()
-	var (
-		state   = -1
-		segment string
-	)
 	for _, seg := range segs {
 		rest := seg.Text
 		for len(rest) > 0 {
 			if row >= rows {
 				break
 			}
-			segment, rest, _, state = uniseg.FirstLineSegmentInString(rest, state)
+			it := uucode.NewLineIterator(rest)
+			lineSegment, ok := it.Next()
+			if !ok {
+				break
+			}
+			segment := rest[lineSegment.Start:lineSegment.End]
+			rest = rest[lineSegment.End:]
 			chars := Characters(segment)
 			total := 0
 			for _, char := range chars {
@@ -292,7 +294,7 @@ func (win Window) Wrap(segs ...Segment) (col int, row int) {
 				// it fits on our line. Print it
 			}
 			for _, char := range chars {
-				if uniseg.HasTrailingLineBreakInString(char.Grapheme) {
+				if hasTrailingLineBreakInString(char.Grapheme) {
 					row += 1
 					col = 0
 					continue

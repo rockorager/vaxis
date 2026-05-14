@@ -2,14 +2,13 @@ package text
 
 import (
 	"bufio"
-	"bytes"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 
 	"git.sr.ht/~rockorager/vaxis"
 	"git.sr.ht/~rockorager/vaxis/vxfw"
-	"github.com/rivo/uniseg"
+	"github.com/rockorager/go-uucode"
 )
 
 type Text struct {
@@ -174,43 +173,58 @@ func (t *Text) findContainerSize(ctx vxfw.DrawContext) vxfw.Size {
 }
 
 type SoftwrapScanner struct {
-	state int
-	rest  []byte
-	token []byte
+	rest  string
+	token string
 	width uint16
 }
 
 func NewSoftwrapScanner(s string, width uint16) SoftwrapScanner {
 	return SoftwrapScanner{
-		state: -1,
-		rest:  []byte(s),
+		rest:  s,
 		width: width,
 	}
 }
 
+func hasTrailingLineBreak(s string) bool {
+	r, _ := utf8.DecodeLastRuneInString(s)
+	switch uucode.LineBreak(r) {
+	case uucode.LineBreakBK, uucode.LineBreakCR, uucode.LineBreakLF, uucode.LineBreakNL:
+		return true
+	default:
+		return false
+	}
+}
+
 func (s *SoftwrapScanner) Scan(ctx vxfw.DrawContext) bool {
-	if len(s.rest) == 0 || s.width == 0 {
+	if s.rest == "" || s.width == 0 {
 		return false
 	}
 	// Clear token
-	s.token = []byte{}
+	s.token = ""
 
 	var w uint16
 	for {
-		seg, rest, br, state := uniseg.FirstLineSegment(s.rest, s.state)
+		it := uucode.NewLineIterator(s.rest)
+		lineSegment, ok := it.Next()
+		if !ok {
+			return false
+		}
+		seg := s.rest[lineSegment.Start:lineSegment.End]
+		rest := s.rest[lineSegment.End:]
+		br := lineSegment.Break == uucode.LineMustBreak
 
 		// trim trailing whitespace to get our word
-		word := bytes.TrimRightFunc(seg, unicode.IsSpace)
+		word := strings.TrimRightFunc(seg, unicode.IsSpace)
 		// trailing space
 		trSpace := seg[len(word):]
 
-		wordChars := ctx.Characters(string(word))
+		wordChars := ctx.Characters(word)
 		var wordLen uint16
 		for _, char := range wordChars {
 			wordLen += uint16(char.Width)
 		}
 
-		spaceChars := ctx.Characters(string(trSpace))
+		spaceChars := ctx.Characters(trSpace)
 		var spaceLen uint16
 		for _, char := range spaceChars {
 			spaceLen += uint16(char.Width)
@@ -219,21 +233,21 @@ func (s *SoftwrapScanner) Scan(ctx vxfw.DrawContext) bool {
 		// This word is longer than the line. We have to break on
 		// graphemes
 		if wordLen > s.width {
-			s.rest = []byte{}
+			s.rest = ""
 			// Append characters to token until we reach the end
 			for _, char := range wordChars {
 				if w >= s.width {
 					// Append the rest to rest
-					s.rest = append(s.rest, []byte(char.Grapheme)...)
+					s.rest += char.Grapheme
 					continue
 				}
-				s.token = append(s.token, []byte(char.Grapheme)...)
+				s.token += char.Grapheme
 				w += uint16(char.Width)
 			}
 			// Append the trailing space
-			s.rest = append(s.rest, trSpace...)
+			s.rest += trSpace
 			// Append the rest...
-			s.rest = append(s.rest, rest...)
+			s.rest += rest
 			return true
 		}
 
@@ -243,23 +257,22 @@ func (s *SoftwrapScanner) Scan(ctx vxfw.DrawContext) bool {
 		}
 
 		s.rest = rest
-		s.state = state
 
 		// Check if this segment contains a hard break. If it does, we
 		// remove the hard break before adding it to token and then
 		// return
 		if br {
-			if uniseg.HasTrailingLineBreak(seg) {
-				_, l := utf8.DecodeLastRune(seg)
+			if hasTrailingLineBreak(seg) {
+				_, l := utf8.DecodeLastRuneInString(seg)
 				// trim the trailing rune
 				seg = seg[:len(seg)-l]
 			}
-			s.token = append(s.token, seg...)
+			s.token += seg
 			return true
 		}
 
 		// Otherwise, add this word
-		s.token = append(s.token, word...)
+		s.token += word
 		w += wordLen
 
 		// If the space doesn't fit, we return now
@@ -267,13 +280,13 @@ func (s *SoftwrapScanner) Scan(ctx vxfw.DrawContext) bool {
 			return true
 		}
 
-		s.token = append(s.token, trSpace...)
+		s.token += trSpace
 		w += spaceLen
 	}
 }
 
 func (s *SoftwrapScanner) Text() string {
-	return string(s.token)
+	return s.token
 }
 
 // Verify we meet the Widget interface
