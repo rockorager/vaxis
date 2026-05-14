@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/rivo/uniseg"
+	"github.com/rockorager/go-uucode"
 )
 
 const (
@@ -199,7 +199,11 @@ func (vx *Vaxis) NewStyledString(s string, defaultStyle Style) *StyledString {
 				}
 			}
 		default:
-			grapheme, s, width, _ = uniseg.FirstGraphemeClusterInString(s, -1)
+			it := uucode.NewGraphemeIterator(s)
+			g, _ := it.Next()
+			grapheme = s[g.Start:g.End]
+			s = s[g.End:]
+			width = uucode.StringWidth(grapheme)
 			switch {
 			case vx.caps.unicodeCore || vx.caps.explicitWidth:
 				// we're done

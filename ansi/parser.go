@@ -11,7 +11,7 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/rivo/uniseg"
+	"github.com/rockorager/go-uucode"
 )
 
 const eof rune = -1
@@ -178,27 +178,24 @@ func (p *Parser) emit(seq Sequence) {
 func (p *Parser) print(r rune) {
 	bldr := strings.Builder{}
 	bldr.WriteRune(r)
-	// We read until we have consumed the entire grapheme
-	var (
-		rest     string
-		grapheme = bldr.String()
-		w        int
-	)
+
+	prev := r
+	var state uucode.BreakState
 	for p.r.Buffered() > 0 {
-		nextRune, _, _ := p.r.ReadRune()
-		bldr.WriteRune(nextRune)
-		grapheme, rest, w, _ = uniseg.FirstGraphemeClusterInString(bldr.String(), -1)
-		if rest != "" {
+		next, _, err := p.r.ReadRune()
+		if err != nil {
+			break
+		}
+		if uucode.IsBreak(prev, next, &state) {
 			p.r.UnreadRune()
 			break
 		}
+		bldr.WriteRune(next)
+		prev = next
 	}
-	if w == 0 {
-		// If we weren't buffered, we won't have a width. Measure it
-		// here
-		w = uniseg.StringWidth(grapheme)
-	}
-	p.emit(Print{Grapheme: grapheme, Width: w})
+
+	grapheme := bldr.String()
+	p.emit(Print{Grapheme: grapheme, Width: uucode.StringWidth(grapheme)})
 }
 
 // The C0 or C1 control function should be executed, which may have any one of a

@@ -3,8 +3,7 @@ package vaxis
 import (
 	"strings"
 
-	"github.com/mattn/go-runewidth"
-	"github.com/rivo/uniseg"
+	"github.com/rockorager/go-uucode"
 )
 
 type graphemeWidthMethod int
@@ -19,9 +18,9 @@ func gwidth(s string, method graphemeWidthMethod) int {
 	switch method {
 	case noZWJ:
 		s = strings.ReplaceAll(s, "\u200D", "")
-		return uniseg.StringWidth(s)
+		return uucode.StringWidth(s)
 	case unicodeStd:
-		return uniseg.StringWidth(s)
+		return uucode.StringWidth(s)
 	default:
 		total := 0
 		for _, r := range s {
@@ -33,7 +32,7 @@ func gwidth(s string, method graphemeWidthMethod) int {
 				// Variation Selectors 17-256
 				continue
 			}
-			total += runewidth.RuneWidth(r)
+			total += uucode.RuneWidth(r)
 		}
 		return total
 	}

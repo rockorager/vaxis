@@ -5,9 +5,9 @@ go 1.21
 require (
 	github.com/containerd/console v1.0.3
 	github.com/creack/pty v1.1.18
-	github.com/mattn/go-runewidth v0.0.14
 	github.com/mattn/go-sixel v0.0.5
 	github.com/rivo/uniseg v0.4.4
+	github.com/rockorager/go-uucode v1.0.2-0.20260513153634-23abf9e36a6f
 	github.com/stretchr/testify v1.8.3
 	golang.org/x/image v0.9.0
 	golang.org/x/sys v0.10.0

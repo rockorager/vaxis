@@ -1,11 +1,9 @@
 package textfield
 
 import (
-	"strings"
-
 	"git.sr.ht/~rockorager/vaxis"
 	"git.sr.ht/~rockorager/vaxis/vxfw"
-	"github.com/rivo/uniseg"
+	"github.com/rockorager/go-uucode"
 )
 
 const scrolloff = 4
@@ -141,24 +139,9 @@ func (tf *TextField) DeleteCharRightOfCursor() vxfw.Command {
 		return nil
 	}
 
-	var (
-		cluster      = ""
-		rest         = tf.Value
-		state        = -1
-		i       uint = 0
-		next         = strings.Builder{}
-	)
-
-	for len(rest) > 0 {
-		cluster, rest, _, state = uniseg.FirstGraphemeClusterInString(rest, state)
-		if i == tf.cursor {
-			i += 1
-			continue
-		}
-		i += 1
-		next.WriteString(cluster)
-	}
-	tf.Value = next.String()
+	start := graphemeByteOffset(tf.Value, tf.cursor)
+	end := graphemeByteOffset(tf.Value, tf.cursor+1)
+	tf.Value = tf.Value[:start] + tf.Value[end:]
 	return vxfw.ConsumeAndRedraw()
 }
 
@@ -168,24 +151,9 @@ func (tf *TextField) DeleteCharLeftOfCursor() vxfw.Command {
 		return nil
 	}
 
-	var (
-		cluster      = ""
-		rest         = tf.Value
-		state        = -1
-		i       uint = 0
-		next         = strings.Builder{}
-	)
-
-	for len(rest) > 0 {
-		cluster, rest, _, state = uniseg.FirstGraphemeClusterInString(rest, state)
-		i += 1
-		if i == tf.cursor {
-			continue
-		}
-		// insert the string
-		next.WriteString(cluster)
-	}
-	tf.Value = next.String()
+	start := graphemeByteOffset(tf.Value, tf.cursor-1)
+	end := graphemeByteOffset(tf.Value, tf.cursor)
+	tf.Value = tf.Value[:start] + tf.Value[end:]
 	tf.cursor -= 1
 	return vxfw.ConsumeAndRedraw()
 }
@@ -195,23 +163,8 @@ func (tf *TextField) DeleteCursorToEndOfLine() vxfw.Command {
 		return nil
 	}
 
-	var (
-		cluster      = ""
-		rest         = tf.Value
-		state        = -1
-		i       uint = 0
-		next         = strings.Builder{}
-	)
-
-	for len(rest) > 0 {
-		cluster, rest, _, state = uniseg.FirstGraphemeClusterInString(rest, state)
-		if i == tf.cursor {
-			break
-		}
-		i += 1
-		next.WriteString(cluster)
-	}
-	tf.Value = next.String()
+	end := graphemeByteOffset(tf.Value, tf.cursor)
+	tf.Value = tf.Value[:end]
 	return vxfw.ConsumeAndRedraw()
 }
 
@@ -257,44 +210,30 @@ func (tf *TextField) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 }
 
 func (tf *TextField) insertStringAtCursor(s string) {
-	// Find the cursor position
-	var (
-		cluster      = ""
-		rest         = tf.Value
-		state        = -1
-		i       uint = 0
-		next         = strings.Builder{}
-	)
+	pos := graphemeByteOffset(tf.Value, tf.cursor)
+	tf.Value = tf.Value[:pos] + s + tf.Value[pos:]
+	tf.cursor += graphemeCountInString(s)
+}
 
-	count := graphemeCountInString(s)
-
-	for {
-		if len(rest) > 0 && i < tf.cursor {
-			cluster, rest, _, state = uniseg.FirstGraphemeClusterInString(rest, state)
-			next.WriteString(cluster)
-			i += 1
-			continue
-		}
-		// insert the string
-		next.WriteString(s)
-		// advance the cursor
-		tf.cursor += count
-		next.WriteString(rest)
-		break
+func graphemeByteOffset(s string, pos uint) int {
+	if pos == 0 {
+		return 0
 	}
-
-	tf.Value = next.String()
+	var count uint
+	it := uucode.NewGraphemeIterator(s)
+	for g, ok := it.Next(); ok; g, ok = it.Next() {
+		count += 1
+		if count == pos {
+			return g.End
+		}
+	}
+	return len(s)
 }
 
 func graphemeCountInString(s string) uint {
-	var (
-		rest       = s
-		state      = -1
-		count uint = 0
-	)
-
-	for len(rest) > 0 {
-		_, rest, _, state = uniseg.FirstGraphemeClusterInString(rest, state)
+	var count uint
+	it := uucode.NewGraphemeIterator(s)
+	for _, ok := it.Next(); ok; _, ok = it.Next() {
 		count += 1
 	}
 	return count
