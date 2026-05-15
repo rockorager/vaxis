@@ -19,7 +19,7 @@ func (vt *Model) c0(r rune) {
 	case 0x0E:
 		vt.charsets.selected = g1
 	case 0x0F:
-		vt.charsets.selected = g2
+		vt.charsets.selected = g0
 	}
 }
 
@@ -43,7 +43,7 @@ func (vt *Model) ht() {
 	vt.cht(1)
 }
 
-// Linefeed 0x10
+// Linefeed 0x0A
 func (vt *Model) lf() {
 	vt.ind()
 
@@ -53,17 +53,17 @@ func (vt *Model) lf() {
 	vt.cursor.col = vt.margin.left
 }
 
-// Vertical tabulation 0x11
+// Vertical tabulation 0x0B
 func (vt *Model) vt() {
 	vt.lf()
 }
 
-// Form feed 0x12
+// Form feed 0x0C
 func (vt *Model) ff() {
 	vt.lf()
 }
 
-// Carriage return 0x13
+// Carriage return 0x0D
 func (vt *Model) cr() {
 	vt.lastCol = false
 	vt.cursor.col = vt.margin.left

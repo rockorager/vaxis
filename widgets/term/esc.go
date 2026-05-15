@@ -19,9 +19,11 @@ func (vt *Model) esc(esc string) {
 	case "M":
 		vt.ri()
 	case "N":
+		vt.charsets.saved = vt.charsets.selected
 		vt.charsets.singleShift = true
 		vt.charsets.selected = g2
 	case "O":
+		vt.charsets.saved = vt.charsets.selected
 		vt.charsets.singleShift = true
 		vt.charsets.selected = g3
 	case "=":
@@ -156,12 +158,8 @@ func (vt *Model) decrc() {
 func (vt *Model) ris() {
 	w := vt.width()
 	h := vt.height()
-	vt.altScreen = make([][]cell, h)
-	vt.primaryScreen = make([][]cell, h)
-	for i := range vt.altScreen {
-		vt.altScreen[i] = make([]cell, w)
-		vt.primaryScreen[i] = make([]cell, w)
-	}
+	vt.altScreen = newScreenBuffer(w, h)
+	vt.primaryScreen = newScreenBuffer(w, h)
 	vt.margin.bottom = row(h) - 1
 	vt.margin.right = column(w) - 1
 	vt.cursor.row = 0

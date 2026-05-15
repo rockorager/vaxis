@@ -113,6 +113,9 @@ func (vt *Model) decset(params ansi.CSI) {
 		case 5:
 		case 6:
 			vt.mode.decom = true
+			vt.lastCol = false
+			vt.cursor.row = vt.margin.top
+			vt.cursor.col = vt.margin.left
 		case 7:
 			vt.mode.decawm = true
 			vt.lastCol = false
@@ -161,6 +164,9 @@ func (vt *Model) decrst(params ansi.CSI) {
 		case 5:
 		case 6:
 			vt.mode.decom = false
+			vt.lastCol = false
+			vt.cursor.row = 0
+			vt.cursor.col = 0
 		case 7:
 			vt.mode.decawm = false
 			vt.lastCol = false

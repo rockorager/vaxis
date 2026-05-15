@@ -1,13 +1,11 @@
 package term
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"runtime/debug"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -18,7 +16,6 @@ import (
 	"git.sr.ht/~rockorager/vaxis/ansi"
 	"git.sr.ht/~rockorager/vaxis/log"
 	"github.com/creack/pty"
-	"github.com/mattn/go-sixel"
 )
 
 type (
@@ -39,9 +36,9 @@ type Model struct {
 
 	vx *vaxis.Vaxis
 
-	activeScreen  [][]cell
-	altScreen     [][]cell
-	primaryScreen [][]cell
+	activeScreen  screenBuffer
+	altScreen     screenBuffer
+	primaryScreen screenBuffer
 
 	charsets charsets
 	cursor   cursor
@@ -247,78 +244,17 @@ func (vt *Model) invalidate() {
 func (vt *Model) update(seq ansi.Sequence) {
 	vt.mu.Lock()
 	defer vt.mu.Unlock()
-	defer vt.parser.Finish(seq)
-	defer vt.invalidate()
-	switch seq := seq.(type) {
-	case ansi.Print:
-		vt.print(seq)
-	case ansi.C0:
-		vt.c0(rune(seq))
-	case ansi.ESC:
-		esc := append(seq.Intermediates(), seq.Final)
-		vt.esc(string(esc))
-	case ansi.CSI:
-		vt.csi(seq.Command(), seq)
-	case ansi.OSC:
-		vt.osc(string(seq.Payload))
-	case ansi.DCS:
-		switch seq.Final {
-		case 'q': // mayb sixel
-			if seq.NumIntermediate > 0 {
-				return
-			}
-			if seq.NumParameters > 0 {
-				return
-			}
-			// Write the raw sequence to the writer
-			buf := bytes.NewBuffer(nil)
-			// DCS
-			buf.Write([]byte{'\x1B', 'P'})
-			// Params
-			params := seq.Params()
-			for i, p := range params {
-				buf.WriteString(strconv.Itoa(int(p)))
-				if i <= len(params)-1 {
-					buf.WriteByte(';')
-				}
-			}
-			// Final
-			buf.WriteByte('q')
-			// Data
-			buf.WriteString(string(seq.Data))
-			// ST
-			buf.Write([]byte{0x1B, '\\'})
-			// Decode the sixel
-			log.Info("SIXEL %d", buf.Len())
-			dec := sixel.NewDecoder(buf)
-			img := &Image{}
-			img.origin.row = int(vt.cursor.row)
-			img.origin.col = int(vt.cursor.col)
-			err := dec.Decode(&img.img)
-			if err != nil {
-				log.Error("couldn't decode sixel: %v", err)
-				return
-			}
-			vt.graphics = append(vt.graphics, img)
-		}
-	case ansi.APC:
-		vt.postEvent(EventAPC{Payload: seq.Data})
+	if vt.parser != nil {
+		defer vt.parser.Finish(seq)
 	}
+	defer vt.invalidate()
+	applySequence(vt, seq)
 }
 
 func (vt *Model) String() string {
 	vt.mu.Lock()
 	defer vt.mu.Unlock()
-	str := strings.Builder{}
-	for row := range vt.activeScreen {
-		for col := range vt.activeScreen[row] {
-			_, _ = str.WriteString(vt.activeScreen[row][col].rune())
-		}
-		if row < vt.height()-1 {
-			str.WriteRune('\n')
-		}
-	}
-	return str.String()
+	return vt.activeScreen.String()
 }
 
 func (vt *Model) postEvent(ev vaxis.Event) {
@@ -362,12 +298,8 @@ func (vt *Model) Resize(w int, h int) {
 
 func (vt *Model) resize(w int, h int) {
 	primary := vt.primaryScreen
-	vt.altScreen = make([][]cell, h)
-	vt.primaryScreen = make([][]cell, h)
-	for i := range vt.altScreen {
-		vt.altScreen[i] = make([]cell, w)
-		vt.primaryScreen[i] = make([]cell, w)
-	}
+	vt.altScreen = newScreenBuffer(w, h)
+	vt.primaryScreen = newScreenBuffer(w, h)
 	last := vt.cursor.row
 	vt.margin.bottom = row(h) - 1
 	vt.margin.right = column(w) - 1
@@ -381,8 +313,11 @@ func (vt *Model) resize(w int, h int) {
 		if row == int(last) {
 			break
 		}
+		if primary.width() == 0 {
+			continue
+		}
 		wrapped := false
-		for col := 0; col < len(primary[0]); col += 1 {
+		for col := 0; col < primary.width(); col += 1 {
 			cell := primary[row][col]
 			vt.cursor.Style = cell.Style
 			vt.print(ansi.Print{
@@ -404,14 +339,11 @@ func (vt *Model) resize(w int, h int) {
 }
 
 func (vt *Model) width() int {
-	if len(vt.activeScreen) > 0 {
-		return len(vt.activeScreen[0])
-	}
-	return 0
+	return vt.activeScreen.width()
 }
 
 func (vt *Model) height() int {
-	return len(vt.activeScreen)
+	return vt.activeScreen.height()
 }
 
 // print sets the current cell contents to the given rune. The attributes will
@@ -428,6 +360,7 @@ func (vt *Model) print(seq ansi.Print) {
 	// If we are single-shifted, move the previous charset into the current
 	if vt.charsets.singleShift {
 		vt.charsets.selected = vt.charsets.saved
+		vt.charsets.singleShift = false
 	}
 
 	w := seq.Width
@@ -509,34 +442,26 @@ func (vt *Model) print(seq ansi.Print) {
 // scrollUp shifts all text upward by n rows. Semantically, this is backwards -
 // usually scroll up would mean you shift rows down
 func (vt *Model) scrollUp(n int) {
-	for row := range vt.activeScreen {
-		if row > int(vt.margin.bottom) {
-			continue
-		}
-		if row < int(vt.margin.top) {
-			continue
-		}
-		if row+n > int(vt.margin.bottom) {
-			for col := vt.margin.left; col <= vt.margin.right; col += 1 {
-				vt.activeScreen[row][col].erase(vt.cursor.Style.Background)
-			}
-			continue
-		}
-		copy(vt.activeScreen[row], vt.activeScreen[row+n])
-	}
+	vt.activeScreen.scrollUp(
+		vt.margin.top,
+		vt.margin.bottom,
+		vt.margin.left,
+		vt.margin.right,
+		n,
+		vt.cursor.Style.Background,
+	)
 }
 
 // scrollDown shifts all lines down by n rows.
 func (vt *Model) scrollDown(n int) {
-	for r := vt.margin.bottom; r >= vt.margin.top; r -= 1 {
-		if r-row(n) < vt.margin.top {
-			for col := vt.margin.left; col <= vt.margin.right; col += 1 {
-				vt.activeScreen[r][col].erase(vt.cursor.Style.Background)
-			}
-			continue
-		}
-		copy(vt.activeScreen[r], vt.activeScreen[r-row(n)])
-	}
+	vt.activeScreen.scrollDown(
+		vt.margin.top,
+		vt.margin.bottom,
+		vt.margin.left,
+		vt.margin.right,
+		n,
+		vt.cursor.Style.Background,
+	)
 }
 
 func (vt *Model) Close() {
