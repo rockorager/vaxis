@@ -43,7 +43,7 @@ func ParseStyledString(s string) []Cell {
 		case ansi.CSI:
 			switch seq.Final {
 			case 'm':
-				parseSGR(seq.Parameters, &style)
+				parseSGR(seq.ParameterGroups(), &style)
 			}
 		case ansi.OSC:
 			// TODO: OSC8 handling??

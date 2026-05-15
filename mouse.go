@@ -67,12 +67,13 @@ func pixelToCell(px, length, cells int) int {
 
 func parseMouseEvent(seq ansi.CSI, ws Resize, enableSGRPixels bool) (Mouse, bool) {
 	mouse := Mouse{}
-	if len(seq.Intermediate) != 1 && seq.Intermediate[0] != '<' {
+	intermediates := seq.Intermediates()
+	if len(intermediates) != 1 || intermediates[0] != '<' {
 		log.Error("[CSI] unknown sequence: %s", seq)
 		return mouse, false
 	}
 
-	if len(seq.Parameters) != 3 {
+	if seq.NumParameters != 3 {
 		log.Error("[CSI] unknown sequence: %s", seq)
 		return mouse, false
 	}
@@ -85,31 +86,31 @@ func parseMouseEvent(seq ansi.CSI, ws Resize, enableSGRPixels bool) (Mouse, bool
 	}
 
 	// buttons are encoded with the high two and low two bits
-	button := seq.Parameters[0][0] & buttonBits
+	button := seq.Param(0) & buttonBits
 	mouse.Button = MouseButton(button)
 
-	if seq.Parameters[0][0]&motion != 0 {
+	if seq.Param(0)&motion != 0 {
 		mouse.EventType = EventMotion
 	}
 
-	if seq.Parameters[0][0]&mouseModShift != 0 {
+	if seq.Param(0)&mouseModShift != 0 {
 		mouse.Modifiers |= ModShift
 	}
-	if seq.Parameters[0][0]&mouseModAlt != 0 {
+	if seq.Param(0)&mouseModAlt != 0 {
 		mouse.Modifiers |= ModAlt
 	}
-	if seq.Parameters[0][0]&mouseModCtrl != 0 {
+	if seq.Param(0)&mouseModCtrl != 0 {
 		mouse.Modifiers |= ModCtrl
 	}
 
 	if enableSGRPixels {
-		mouse.XPixel = seq.Parameters[1][0]
-		mouse.YPixel = seq.Parameters[2][0]
+		mouse.XPixel = seq.Param(1)
+		mouse.YPixel = seq.Param(2)
 		mouse.Col = pixelToCell(mouse.XPixel, ws.XPixel, ws.Cols)
 		mouse.Row = pixelToCell(mouse.YPixel, ws.YPixel, ws.Rows)
 	} else {
-		mouse.Col = seq.Parameters[1][0] - 1
-		mouse.Row = seq.Parameters[2][0] - 1
+		mouse.Col = seq.Param(1) - 1
+		mouse.Row = seq.Param(2) - 1
 	}
 
 	return mouse, true

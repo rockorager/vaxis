@@ -2,10 +2,12 @@ package term
 
 import (
 	"git.sr.ht/~rockorager/vaxis"
+	"git.sr.ht/~rockorager/vaxis/ansi"
 	"git.sr.ht/~rockorager/vaxis/log"
 )
 
-func (vt *Model) sgr(params [][]int) {
+func (vt *Model) sgr(seq ansi.CSI) {
+	params := seq.ParameterGroups()
 	if len(params) == 0 {
 		params = [][]int{{0}}
 	}

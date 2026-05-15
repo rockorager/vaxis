@@ -6,66 +6,67 @@ import (
 	"strings"
 
 	"git.sr.ht/~rockorager/vaxis"
+	"git.sr.ht/~rockorager/vaxis/ansi"
 )
 
-func (vt *Model) csi(csi string, params [][]int) {
+func (vt *Model) csi(csi string, seq ansi.CSI) {
 	switch csi {
 	case "@":
-		vt.ich(ps(params))
+		vt.ich(ps(seq))
 	case "A":
-		vt.cuu(ps(params))
+		vt.cuu(ps(seq))
 	case "B":
-		vt.cud(ps(params))
+		vt.cud(ps(seq))
 	case "C":
-		vt.cuf(ps(params))
+		vt.cuf(ps(seq))
 	case "D":
-		vt.cub(ps(params))
+		vt.cub(ps(seq))
 	case "E":
-		vt.cnl(ps(params))
+		vt.cnl(ps(seq))
 	case "F":
-		vt.cpl(ps(params))
+		vt.cpl(ps(seq))
 	case "G":
-		vt.cha(ps(params))
+		vt.cha(ps(seq))
 	case "H":
-		vt.cup(params)
+		vt.cup(seq)
 	case "I":
-		vt.cht(ps(params))
+		vt.cht(ps(seq))
 	case "J":
-		vt.ed(ps(params))
+		vt.ed(ps(seq))
 	case "K":
-		vt.el(ps(params))
+		vt.el(ps(seq))
 	case "L":
-		vt.il(ps(params))
+		vt.il(ps(seq))
 	case "M":
-		vt.dl(ps(params))
+		vt.dl(ps(seq))
 	case "P":
-		vt.dch(ps(params))
+		vt.dch(ps(seq))
 	case "S":
-		ps := ps(params)
+		ps := ps(seq)
 		if ps == 0 {
 			ps = 1
 		}
 		vt.scrollUp(ps)
 	case "T":
 		// 5 params is XTHIMOUSE, ignore
-		if len(params) == 5 {
+		if seq.NumParameters == 5 {
 			return
 		}
-		ps := ps(params)
+		ps := ps(seq)
 		if ps == 0 {
 			ps = 1
 		}
 		vt.scrollDown(ps)
 	case "X":
-		vt.ech(ps(params))
+		vt.ech(ps(seq))
 	case "Z":
-		vt.cbt(ps(params))
+		vt.cbt(ps(seq))
 	case "`":
-		vt.hpa(ps(params))
+		vt.hpa(ps(seq))
 	case "a":
-		vt.hpr(ps(params))
+		vt.hpr(ps(seq))
 	case "b":
-		vt.rep(ps(params))
+		vt.rep(ps(seq))
 	case "c":
 		// Send device attributes
 		resp := strings.Builder{}
@@ -84,27 +85,27 @@ func (vt *Model) csi(csi string, params [][]int) {
 		// vt220
 		vt.enqueueReplyString("\x1b[>1;0;0c")
 	case "d":
-		vt.vpa(ps(params))
+		vt.vpa(ps(seq))
 	case "e":
-		vt.vpr(ps(params))
+		vt.vpr(ps(seq))
 	case "f":
 		// Same as CUP
-		vt.cup(params)
+		vt.cup(seq)
 	case "g":
-		vt.tbc(ps(params))
+		vt.tbc(ps(seq))
 	case "h":
-		vt.sm(params)
+		vt.sm(seq)
 	case "?h":
-		vt.decset(params)
+		vt.decset(seq)
 	case "l":
-		vt.rm(params)
+		vt.rm(seq)
 	case "?l":
-		vt.decrst(params)
+		vt.decrst(seq)
 	case "m":
-		vt.sgr(params)
+		vt.sgr(seq)
 	case "n":
 		// Send device status report
-		switch ps(params) {
+		switch ps(seq) {
 		case 5:
 			// "Ok"
 			vt.enqueueReplyString("\x1B[0n")
@@ -119,26 +120,22 @@ func (vt *Model) csi(csi string, params [][]int) {
 		// TODO: DECRQM for ANSI modes
 	case "?$p":
 		// DECRQM
-		vt.decrqm(ps(params))
+		vt.decrqm(ps(seq))
 	case "r":
-		vt.decstbm(params)
+		vt.decstbm(seq)
 	case "s":
 		vt.decsc()
 	case "u":
 		vt.decrc()
 	case " q":
-		vt.cursor.style = vaxis.CursorStyle(ps(params))
+		vt.cursor.style = vaxis.CursorStyle(ps(seq))
 	}
 }
 
 // Returns a single parameter from a slice of parameters, or 0 if the slice is
 // empty
-func ps(params [][]int) int {
-	var ps int
-	if len(params) > 0 {
-		ps = params[0][0]
-	}
-	return ps
+func ps(seq ansi.CSI) int {
+	return seq.Param(0)
 }
 
 // Insert Blank Character (ICH) CSI Ps @
@@ -271,18 +268,18 @@ func (vt *Model) cha(ps int) {
 
 // Cursor Position (CUP) CSI Ps;Ps H
 // Move cursor to the absolute position
-func (vt *Model) cup(pm [][]int) {
+func (vt *Model) cup(pm ansi.CSI) {
 	vt.lastCol = false
-	switch len(pm) {
+	switch pm.NumParameters {
 	case 0:
 		vt.cursor.row = 0
 		vt.cursor.col = 0
 	case 1:
-		vt.cursor.row = row(pm[0][0] - 1)
+		vt.cursor.row = row(pm.Param(0) - 1)
 		vt.cursor.col = 0
-	case 2:
-		vt.cursor.row = row(pm[0][0] - 1)
-		vt.cursor.col = column(pm[1][0] - 1)
+	default:
+		vt.cursor.row = row(pm.Param(0) - 1)
+		vt.cursor.col = column(pm.Param(1) - 1)
 	}
 	if vt.cursor.col > column(vt.width()-1) {
 		vt.cursor.col = column(vt.width() - 1)
@@ -305,7 +302,9 @@ func (vt *Model) cht(ps int) {
 	newcol, n := vt.margin.right, len(vt.tabStop)
 	if i, found := slices.BinarySearch(vt.tabStop, vt.cursor.col); i < n {
 		i += ps
-		if !found { i-- } // "i" was already 1 TS past the cursor.
+		if !found {
+			i--
+		} // "i" was already 1 TS past the cursor.
 		if i < n {
 			newcol = min(vt.tabStop[i], vt.margin.right)
 		}
@@ -623,21 +622,21 @@ func (vt *Model) rep(ps int) {
 }
 
 // Set top and bottom margins CSI Ps ; Ps r
-func (vt *Model) decstbm(pm [][]int) {
+func (vt *Model) decstbm(pm ansi.CSI) {
 	var (
 		top row
 		bot row
 	)
-	switch len(pm) {
+	switch pm.NumParameters {
 	case 0:
 		top = 0
 		bot = row(vt.height()) - 1
 	case 1:
-		top = row(pm[0][0] - 1)
+		top = row(pm.Param(0) - 1)
 		bot = row(vt.height()) - 1
-	case 2:
-		top = row(pm[0][0] - 1)
-		bot = row(pm[1][0] - 1)
+	default:
+		top = row(pm.Param(0) - 1)
+		bot = row(pm.Param(1) - 1)
 	}
 	if top >= bot {
 		return

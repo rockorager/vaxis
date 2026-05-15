@@ -2,6 +2,8 @@ package term
 
 import (
 	"fmt"
+
+	"git.sr.ht/~rockorager/vaxis/ansi"
 )
 
 type mode struct {
@@ -67,9 +69,9 @@ type mode struct {
 	colorScheme bool
 }
 
-func (vt *Model) sm(params [][]int) {
-	for _, param := range params {
-		switch param[0] {
+func (vt *Model) sm(params ansi.CSI) {
+	for _, param := range params.Params() {
+		switch param {
 		case 2:
 			vt.mode.kam = true
 		case 4:
@@ -82,9 +84,9 @@ func (vt *Model) sm(params [][]int) {
 	}
 }
 
-func (vt *Model) rm(params [][]int) {
-	for _, param := range params {
-		switch param[0] {
+func (vt *Model) rm(params ansi.CSI) {
+	for _, param := range params.Params() {
+		switch param {
 		case 2:
 			vt.mode.kam = false
 		case 4:
@@ -97,9 +99,9 @@ func (vt *Model) rm(params [][]int) {
 	}
 }
 
-func (vt *Model) decset(params [][]int) {
-	for _, param := range params {
-		switch param[0] {
+func (vt *Model) decset(params ansi.CSI) {
+	for _, param := range params.Params() {
+		switch param {
 		case 1:
 			vt.mode.decckm = true
 		case 2:
@@ -145,9 +147,9 @@ func (vt *Model) decset(params [][]int) {
 	}
 }
 
-func (vt *Model) decrst(params [][]int) {
-	for _, param := range params {
-		switch param[0] {
+func (vt *Model) decrst(params ansi.CSI) {
+	for _, param := range params.Params() {
+		switch param {
 		case 1:
 			vt.mode.decckm = false
 		case 2:

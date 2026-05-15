@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -15,6 +14,12 @@ import (
 )
 
 const eof rune = -1
+
+const (
+	MaxIntermediate = 4
+	MaxCSIParams    = 24
+	InlineCSIParams = 12
+)
 
 // https://vt100.net/emu/dec_ansi_parser
 //
@@ -26,19 +31,21 @@ const eof rune = -1
 // Many of the comments are directly from Paul Flo Williams description of
 // the parser, licensed undo [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/)
 type Parser struct {
-	close        chan bool
-	closed       chan bool
-	r            *bufio.Reader
-	sequences    chan Sequence
-	state        stateFn
-	exit         func()
-	intermediate []rune
-	params       []rune
-	final        rune
-
-	paramListPool    pool[[][]int]
-	paramPool        pool[[]int]
-	intermediatePool pool[[]rune]
+	close           chan bool
+	closed          chan bool
+	r               *bufio.Reader
+	sequences       chan Sequence
+	state           stateFn
+	exit            func()
+	intermediate    [MaxIntermediate]rune
+	intermediateLen int
+	params          [MaxCSIParams]uint32
+	paramsLen       int
+	paramsColon     uint32
+	paramAcc        uint32
+	paramDigits     int
+	paramEmpty      bool
+	final           rune
 
 	// we turn ignoreST on when we enter a state that can "only" be exited
 	// by ST. This will have the effect of ignore an ST so we don't see
@@ -58,14 +65,11 @@ type Parser struct {
 
 func NewParser(r io.Reader) *Parser {
 	parser := &Parser{
-		close:            make(chan bool, 1),
-		closed:           make(chan bool, 1),
-		r:                bufio.NewReader(r),
-		sequences:        make(chan Sequence, 2),
-		state:            ground,
-		paramListPool:    newPool(newCSIParamList),
-		paramPool:        newPool(newCSIParam),
-		intermediatePool: newPool(newIntermediateSlice),
+		close:     make(chan bool, 1),
+		closed:    make(chan bool, 1),
+		r:         bufio.NewReader(r),
+		sequences: make(chan Sequence, 2),
+		state:     ground,
 	}
 	// Rob Pike didn't use concurrency since he wanted templates to be able
 	// to happen in init() functions, but we don't care about that.
@@ -87,27 +91,9 @@ func (p *Parser) Next() <-chan Sequence {
 	return p.sequences
 }
 
-func (p *Parser) Finish(seq Sequence) {
-	switch seq := seq.(type) {
-	case ESC:
-		if seq.Intermediate != nil {
-			p.intermediatePool.Put(seq.Intermediate)
-		}
-	case CSI:
-		if seq.Parameters != nil {
-			for _, param := range seq.Parameters {
-				p.paramPool.Put(param)
-			}
-			p.paramListPool.Put(seq.Parameters)
-		}
-		if seq.Intermediate != nil {
-			p.intermediatePool.Put(seq.Intermediate)
-		}
-	case DCS:
-		if seq.Intermediate != nil {
-			p.intermediatePool.Put(seq.Intermediate)
-		}
-	}
+// Finish is retained for compatibility with older callers. Sequences no longer
+// hold pooled parser storage, so there is nothing to release.
+func (p *Parser) Finish(Sequence) {
 }
 
 func (p *Parser) run() {
@@ -214,9 +200,13 @@ func (p *Parser) execute(r rune) {
 // csi entry and dcs entry states, so that erroneous sequences like CSI 3 ; 1
 // CSI 2 J are handled correctly.
 func (p *Parser) clear() {
-	p.intermediate = p.intermediate[:0]
 	p.final = rune(0)
-	p.params = p.params[:0]
+	p.intermediateLen = 0
+	p.paramsLen = 0
+	p.paramsColon = 0
+	p.paramAcc = 0
+	p.paramDigits = 0
+	p.paramEmpty = false
 }
 
 // The private marker or intermediate character should be stored for later
@@ -229,7 +219,11 @@ func (p *Parser) clear() {
 // characters arrive, the parser can just flag this so that the dispatch
 // can be turned into a null operation.
 func (p *Parser) collect(r rune) {
-	p.intermediate = append(p.intermediate, r)
+	if p.intermediateLen >= MaxIntermediate {
+		return
+	}
+	p.intermediate[p.intermediateLen] = r
+	p.intermediateLen += 1
 }
 
 // The final character of an escape sequence has arrived, so determined the
@@ -240,10 +234,8 @@ func (p *Parser) escapeDispatch(r rune) {
 	esc := ESC{
 		Final: r,
 	}
-	if len(p.intermediate) > 0 {
-		esc.Intermediate = p.intermediate
-		p.intermediate = p.intermediatePool.Get()
-	}
+	esc.NumIntermediate = p.intermediateLen
+	copy(esc.Intermediate[:], p.intermediate[:p.intermediateLen])
 	p.emit(esc)
 }
 
@@ -252,7 +244,7 @@ func (p *Parser) escapeDispatch(r rune) {
 // characters processed by this action are the digits 0-9 (codes 30-39) and
 // the semicolon (code 3B). The semicolon separates parameters. There is no
 // limit to the number of characters in a parameter string, although a
-// maximum of 16 parameters need be stored. If more than 16 parameters
+// maximum of MaxCSIParams parameters need be stored. If more parameters
 // arrive, all the extra parameters are silently ignored.
 //
 // Most control functions support default values for their parameters. The
@@ -274,7 +266,29 @@ func (p *Parser) escapeDispatch(r rune) {
 // parameters as representing the default, it is worth considering future
 // extensions by distinguishing them internally
 func (p *Parser) param(r rune) {
-	p.params = append(p.params, r)
+	switch r {
+	case ';', ':':
+		p.addParam()
+		if r == ':' && p.paramsLen > 0 {
+			p.paramsColon |= 1 << uint(p.paramsLen-1)
+		}
+		p.paramAcc = 0
+		p.paramDigits = 0
+		p.paramEmpty = true
+	default:
+		p.paramAcc *= 10
+		p.paramAcc += uint32(r) - 0x30
+		p.paramDigits += 1
+		p.paramEmpty = false
+	}
+}
+
+func (p *Parser) addParam() {
+	if p.paramsLen >= MaxCSIParams {
+		return
+	}
+	p.params[p.paramsLen] = p.paramAcc
+	p.paramsLen += 1
 }
 
 // A final character has arrived, so determine the control function to be
@@ -284,42 +298,19 @@ func (p *Parser) csiDispatch(r rune) {
 	csi := CSI{
 		Final: r,
 	}
-	if len(p.intermediate) > 0 {
-		csi.Intermediate = p.intermediate
-		p.intermediate = p.intermediatePool.Get()
+	csi.NumIntermediate = p.intermediateLen
+	copy(csi.Intermediate[:], p.intermediate[:p.intermediateLen])
+	if p.paramDigits > 0 || p.paramEmpty || p.paramsLen > 0 {
+		p.addParam()
 	}
-	if len(p.params) == 0 {
-		p.emit(csi)
-		return
+	csi.NumParameters = p.paramsLen
+	csi.ColonSeparators = p.paramsColon
+	if p.paramsLen <= InlineCSIParams {
+		copy(csi.Parameters[:], p.params[:p.paramsLen])
+	} else {
+		csi.ExtraParameters = make([]uint32, p.paramsLen)
+		copy(csi.ExtraParameters, p.params[:p.paramsLen])
 	}
-
-	// Usually we won't have more than 2
-	csi.Parameters = p.paramListPool.Get()[:0]
-	// csi.Parameters = make([][]int, 0, 4)
-	ps := 0
-	// an rgb sequence will have up to 6 subparams
-	param := p.paramPool.Get()[:0]
-	// param := make([]int, 0, 6)
-	for i := 0; i < len(p.params); i += 1 {
-		b := p.params[i]
-		switch b {
-		case ';':
-			param = append(param, ps)
-			csi.Parameters = append(csi.Parameters, param)
-			// param = make([]int, 0, 6)
-			param = p.paramPool.Get()[:0]
-			ps = 0
-		case ':':
-			param = append(param, ps)
-			ps = 0
-		default:
-			// All of our non ';' and ':' bytes are a digit.
-			ps *= 10
-			ps += int(b) - 0x30
-		}
-	}
-	param = append(param, ps)
-	csi.Parameters = append(csi.Parameters, param)
 	p.emit(csi)
 }
 
@@ -378,28 +369,18 @@ func (p *Parser) hook(r rune) {
 		Final: r,
 		Data:  make([]rune, 0, 128),
 	}
-	if len(p.intermediate) > 0 {
-		p.dcs.Intermediate = p.intermediate
-		p.intermediate = p.intermediatePool.Get()
+	p.dcs.NumIntermediate = p.intermediateLen
+	copy(p.dcs.Intermediate[:], p.intermediate[:p.intermediateLen])
+	if p.paramDigits > 0 || p.paramEmpty || p.paramsLen > 0 {
+		p.addParam()
 	}
-	if len(p.params) == 0 {
-		return
+	p.dcs.NumParameters = p.paramsLen
+	if p.paramsLen <= InlineCSIParams {
+		copy(p.dcs.Parameters[:], p.params[:p.paramsLen])
+	} else {
+		p.dcs.ExtraParameters = make([]uint32, p.paramsLen)
+		copy(p.dcs.ExtraParameters, p.params[:p.paramsLen])
 	}
-	paramStr := strings.Split(string(p.params), ";")
-	params := make([]int, 0, len(paramStr))
-	for _, param := range paramStr {
-		if param == "" {
-			params = append(params, 0)
-			continue
-		}
-		val, err := strconv.Atoi(param)
-		if err != nil {
-			p.emit(fmt.Errorf("hook: %w", err))
-			return
-		}
-		params = append(params, val)
-	}
-	p.dcs.Parameters = params
 }
 
 // This action passes characters from the data string part of a device
@@ -997,14 +978,19 @@ func (seq C0) String() string {
 
 // An escape sequence with intermediate characters
 type ESC struct {
-	Intermediate []rune
-	Final        rune
+	Intermediate    [MaxIntermediate]rune
+	NumIntermediate int
+	Final           rune
+}
+
+func (seq ESC) Intermediates() []rune {
+	return seq.Intermediate[:seq.NumIntermediate]
 }
 
 func (seq ESC) String() string {
 	buf := bytes.NewBuffer(nil)
 	buf.WriteString("ESC")
-	for _, p := range seq.Intermediate {
+	for _, p := range seq.Intermediates() {
 		buf.WriteRune(' ')
 		buf.WriteRune(p)
 	}
@@ -1021,41 +1007,101 @@ func (seq SS3) String() string {
 
 // A CSI Sequence
 type CSI struct {
-	Intermediate []rune
-	Parameters   [][]int
-	Final        rune
+	Intermediate    [MaxIntermediate]rune
+	NumIntermediate int
+	Parameters      [InlineCSIParams]uint32
+	ExtraParameters []uint32
+	NumParameters   int
+	ColonSeparators uint32
+	Final           rune
 }
 
-func newCSIParamList() [][]int {
-	return make([][]int, 0, 4)
+func (seq CSI) Intermediates() []rune {
+	return seq.Intermediate[:seq.NumIntermediate]
 }
 
-func newCSIParam() []int {
-	return make([]int, 0, 6)
+func (seq CSI) Params() []uint32 {
+	if seq.NumParameters <= InlineCSIParams {
+		return seq.Parameters[:seq.NumParameters]
+	}
+	return seq.ExtraParameters
 }
 
-func newIntermediateSlice() []rune {
-	return make([]rune, 0, 2)
+func (seq CSI) Param(i int) int {
+	if i < 0 || i >= seq.NumParameters {
+		return 0
+	}
+	return int(seq.Params()[i])
+}
+
+func (seq CSI) ColonAfter(i int) bool {
+	if i < 0 || i >= MaxCSIParams {
+		return false
+	}
+	return seq.ColonSeparators&(1<<uint(i)) != 0
+}
+
+func (seq CSI) ParamGroup(i int) []uint32 {
+	if i < 0 || i >= seq.NumParameters {
+		return nil
+	}
+	end := i + 1
+	for end < seq.NumParameters && seq.ColonAfter(end-1) {
+		end += 1
+	}
+	return seq.Params()[i:end]
+}
+
+func (seq CSI) ParamGroupAt(i int) ([]uint32, int) {
+	group := seq.ParamGroup(i)
+	return group, i + len(group)
+}
+
+func (seq CSI) ParameterGroups() [][]int {
+	if seq.NumParameters == 0 {
+		return nil
+	}
+	groups := make([][]int, 0, seq.NumParameters)
+	for i := 0; i < seq.NumParameters; {
+		group, next := seq.ParamGroupAt(i)
+		ints := make([]int, len(group))
+		for j, v := range group {
+			ints[j] = int(v)
+		}
+		groups = append(groups, ints)
+		i = next
+	}
+	return groups
+}
+
+func (seq CSI) Command() string {
+	intermediates := seq.Intermediates()
+	buf := make([]rune, 0, len(intermediates)+1)
+	buf = append(buf, intermediates...)
+	buf = append(buf, seq.Final)
+	return string(buf)
 }
 
 func (seq CSI) String() string {
 	segments := make([]string, 0, 9)
 	segments = append(segments, "CSI")
-	if len(seq.Intermediate) > 0 {
-		segments = append(segments, string(seq.Intermediate[0]))
+	intermediates := seq.Intermediates()
+	if len(intermediates) > 0 {
+		segments = append(segments, string(intermediates[0]))
 	}
-	for i, p := range seq.Parameters {
+	params := seq.Params()
+	for i, p := range params {
 		if i > 0 {
-			segments = append(segments, ";")
+			if seq.ColonAfter(i - 1) {
+				segments = append(segments, ":")
+			} else {
+				segments = append(segments, ";")
+			}
 		}
-		param := []string{}
-		for _, sub := range p {
-			param = append(param, fmt.Sprintf("%d", sub))
-		}
-		segments = append(segments, strings.Join(param, ":"))
+		segments = append(segments, fmt.Sprintf("%d", p))
 	}
-	if len(seq.Intermediate) > 1 {
-		segments = append(segments, string(seq.Intermediate[1:]))
+	if len(intermediates) > 1 {
+		segments = append(segments, string(intermediates[1:]))
 	}
 	segments = append(segments, string(seq.Final))
 	return strings.Join(segments, " ")
@@ -1073,26 +1119,41 @@ func (seq OSC) String() string {
 
 // Sent at the beginning of a DCS passthrough sequence.
 type DCS struct {
-	Final        rune
-	Intermediate []rune
-	Parameters   []int
-	Data         []rune
+	Final           rune
+	Intermediate    [MaxIntermediate]rune
+	NumIntermediate int
+	Parameters      [InlineCSIParams]uint32
+	ExtraParameters []uint32
+	NumParameters   int
+	Data            []rune
+}
+
+func (seq DCS) Intermediates() []rune {
+	return seq.Intermediate[:seq.NumIntermediate]
+}
+
+func (seq DCS) Params() []uint32 {
+	if seq.NumParameters <= InlineCSIParams {
+		return seq.Parameters[:seq.NumParameters]
+	}
+	return seq.ExtraParameters
 }
 
 func (seq DCS) String() string {
 	segments := make([]string, 0, 9)
 	segments = append(segments, "DCS")
-	if len(seq.Intermediate) > 0 {
-		segments = append(segments, string(seq.Intermediate[0]))
+	intermediates := seq.Intermediates()
+	if len(intermediates) > 0 {
+		segments = append(segments, string(intermediates[0]))
 	}
-	for i, p := range seq.Parameters {
+	for i, p := range seq.Params() {
 		if i > 0 {
 			segments = append(segments, ";")
 		}
 		segments = append(segments, fmt.Sprintf("%d", p))
 	}
-	if len(seq.Intermediate) > 1 {
-		segments = append(segments, string(seq.Intermediate[1:]))
+	if len(intermediates) > 1 {
+		segments = append(segments, string(intermediates[1:]))
 	}
 	segments = append(segments, string(seq.Final))
 

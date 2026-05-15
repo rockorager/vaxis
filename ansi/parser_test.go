@@ -9,6 +9,56 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func escSeq(final rune, intermediates string) ESC {
+	seq := ESC{Final: final, NumIntermediate: len([]rune(intermediates))}
+	copy(seq.Intermediate[:], []rune(intermediates))
+	return seq
+}
+
+func csiSeq(final rune, intermediates string, params []int, colonAfter ...int) CSI {
+	seq := CSI{
+		Final:           final,
+		NumIntermediate: len([]rune(intermediates)),
+		NumParameters:   len(params),
+	}
+	copy(seq.Intermediate[:], []rune(intermediates))
+	if len(params) <= InlineCSIParams {
+		for i, param := range params {
+			seq.Parameters[i] = uint32(param)
+		}
+	} else {
+		seq.ExtraParameters = make([]uint32, len(params))
+		for i, param := range params {
+			seq.ExtraParameters[i] = uint32(param)
+		}
+	}
+	for _, idx := range colonAfter {
+		seq.ColonSeparators |= 1 << uint(idx)
+	}
+	return seq
+}
+
+func dcsSeq(final rune, intermediates string, params []int, data string) DCS {
+	seq := DCS{
+		Final:           final,
+		NumIntermediate: len([]rune(intermediates)),
+		NumParameters:   len(params),
+		Data:            []rune(data),
+	}
+	copy(seq.Intermediate[:], []rune(intermediates))
+	if len(params) <= InlineCSIParams {
+		for i, param := range params {
+			seq.Parameters[i] = uint32(param)
+		}
+	} else {
+		seq.ExtraParameters = make([]uint32, len(params))
+		for i, param := range params {
+			seq.ExtraParameters[i] = uint32(param)
+		}
+	}
+	return seq
+}
+
 func TestUTF8(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -171,9 +221,7 @@ func TestCSI(t *testing.T) {
 			input: "a\x1b[c",
 			expected: []Sequence{
 				Print{"a", 1},
-				CSI{
-					Final: 'c',
-				},
+				csiSeq('c', "", nil),
 			},
 		},
 		{
@@ -181,10 +229,7 @@ func TestCSI(t *testing.T) {
 			input: "a\x1b[<c",
 			expected: []Sequence{
 				Print{"a", 1},
-				CSI{
-					Final:        'c',
-					Intermediate: []rune{'<'},
-				},
+				csiSeq('c', "<", nil),
 			},
 		},
 		{
@@ -192,12 +237,7 @@ func TestCSI(t *testing.T) {
 			input: "a\x1b[38:2::0:0:0m",
 			expected: []Sequence{
 				Print{"a", 1},
-				CSI{
-					Final: 'm',
-					Parameters: [][]int{
-						{38, 2, 0, 0, 0, 0},
-					},
-				},
+				csiSeq('m', "", []int{38, 2, 0, 0, 0, 0}, 0, 1, 2, 3, 4),
 			},
 		},
 		{
@@ -205,13 +245,7 @@ func TestCSI(t *testing.T) {
 			input: "a\x1b[38:2::0:0:0;48:2::0:0:0m",
 			expected: []Sequence{
 				Print{"a", 1},
-				CSI{
-					Final: 'm',
-					Parameters: [][]int{
-						{38, 2, 0, 0, 0, 0},
-						{48, 2, 0, 0, 0, 0},
-					},
-				},
+				csiSeq('m', "", []int{38, 2, 0, 0, 0, 0, 48, 2, 0, 0, 0, 0}, 0, 1, 2, 3, 4, 6, 7, 8, 9, 10),
 			},
 		},
 		{
@@ -219,10 +253,7 @@ func TestCSI(t *testing.T) {
 			input: "a\x1b[38;2;0;0;0;48;2;0;0;0m",
 			expected: []Sequence{
 				Print{"a", 1},
-				CSI{
-					Final:      'm',
-					Parameters: [][]int{{38}, {2}, {0}, {0}, {0}, {48}, {2}, {0}, {0}, {0}},
-				},
+				csiSeq('m', "", []int{38, 2, 0, 0, 0, 48, 2, 0, 0, 0}),
 			},
 		},
 		{
@@ -230,10 +261,7 @@ func TestCSI(t *testing.T) {
 			input: "a\x1b[0c",
 			expected: []Sequence{
 				Print{"a", 1},
-				CSI{
-					Final:      'c',
-					Parameters: [][]int{{0}},
-				},
+				csiSeq('c', "", []int{0}),
 			},
 		},
 		{
@@ -264,10 +292,7 @@ func TestCSI(t *testing.T) {
 			input: "a\x1b[9999c",
 			expected: []Sequence{
 				Print{"a", 1},
-				CSI{
-					Final:      'c',
-					Parameters: [][]int{{9999}},
-				},
+				csiSeq('c', "", []int{9999}),
 			},
 		},
 		{
@@ -275,10 +300,7 @@ func TestCSI(t *testing.T) {
 			input: "a\x1b[0;0c",
 			expected: []Sequence{
 				Print{"a", 1},
-				CSI{
-					Final:      'c',
-					Parameters: [][]int{{0}, {0}},
-				},
+				csiSeq('c', "", []int{0, 0}),
 			},
 		},
 		{
@@ -286,10 +308,7 @@ func TestCSI(t *testing.T) {
 			input: "a\x1b[;c",
 			expected: []Sequence{
 				Print{"a", 1},
-				CSI{
-					Final:      'c',
-					Parameters: [][]int{{0}, {0}},
-				},
+				csiSeq('c', "", []int{0, 0}),
 			},
 		},
 		{
@@ -297,10 +316,7 @@ func TestCSI(t *testing.T) {
 			input: "a\x1b[;1c",
 			expected: []Sequence{
 				Print{"a", 1},
-				CSI{
-					Final:      'c',
-					Parameters: [][]int{{0}, {1}},
-				},
+				csiSeq('c', "", []int{0, 1}),
 			},
 		},
 		{
@@ -322,10 +338,7 @@ func TestCSI(t *testing.T) {
 			input: "a\x1b[\x20\x20c",
 			expected: []Sequence{
 				Print{"a", 1},
-				CSI{
-					Final:        'c',
-					Intermediate: []rune{' ', ' '},
-				},
+				csiSeq('c', "  ", nil),
 			},
 		},
 		{
@@ -341,10 +354,7 @@ func TestCSI(t *testing.T) {
 			expected: []Sequence{
 				Print{"a", 1},
 				C0(0x00),
-				CSI{
-					Final:        'c',
-					Intermediate: []rune{' ', ' '},
-				},
+				csiSeq('c', "  ", nil),
 			},
 		},
 		{
@@ -352,10 +362,7 @@ func TestCSI(t *testing.T) {
 			input: "a\x1b[\x20\x20\x7Fc",
 			expected: []Sequence{
 				Print{"a", 1},
-				CSI{
-					Final:        'c',
-					Intermediate: []rune{' ', ' '},
-				},
+				csiSeq('c', "  ", nil),
 			},
 		},
 		{
@@ -370,11 +377,7 @@ func TestCSI(t *testing.T) {
 			input: "a\x1b[0\x20\x20c",
 			expected: []Sequence{
 				Print{"a", 1},
-				CSI{
-					Final:        'c',
-					Parameters:   [][]int{{0}},
-					Intermediate: []rune{' ', ' '},
-				},
+				csiSeq('c', "  ", []int{0}),
 			},
 		},
 		{
@@ -454,10 +457,7 @@ func TestDCS(t *testing.T) {
 			input: "a\x1bPq",
 			expected: []Sequence{
 				Print{"a", 1},
-				DCS{
-					Final: 'q',
-					Data:  []rune{},
-				},
+				dcsSeq('q', "", nil, ""),
 			},
 		},
 		{
@@ -465,18 +465,7 @@ func TestDCS(t *testing.T) {
 			input: "a\x1bPq#0;2;0;\x1b\\",
 			expected: []Sequence{
 				Print{"a", 1},
-				DCS{
-					Final: 'q',
-					Data: []rune{
-						'#',
-						'0',
-						';',
-						'2',
-						';',
-						'0',
-						';',
-					},
-				},
+				dcsSeq('q', "", nil, "#0;2;0;"),
 			},
 		},
 	}
@@ -512,9 +501,7 @@ func TestEscape(t *testing.T) {
 			input: "a\x1bDc",
 			expected: []Sequence{
 				Print{"a", 1},
-				ESC{
-					Final: 'D',
-				},
+				escSeq('D', ""),
 				Print{"c", 1},
 			},
 		},
@@ -523,9 +510,7 @@ func TestEscape(t *testing.T) {
 			input: "a\x1bWc",
 			expected: []Sequence{
 				Print{"a", 1},
-				ESC{
-					Final: 'W',
-				},
+				escSeq('W', ""),
 				Print{"c", 1},
 			},
 		},
@@ -535,9 +520,7 @@ func TestEscape(t *testing.T) {
 			expected: []Sequence{
 				Print{"a", 1},
 				C0(0x00),
-				ESC{
-					Final: 'W',
-				},
+				escSeq('W', ""),
 				Print{"c", 1},
 			},
 		},
@@ -546,9 +529,7 @@ func TestEscape(t *testing.T) {
 			input: "a\x1b\x7f",
 			expected: []Sequence{
 				Print{"a", 1},
-				ESC{
-					Final: 0x7F,
-				},
+				escSeq(0x7F, ""),
 			},
 		},
 	}
@@ -583,10 +564,7 @@ func TestEscapeIntermediate(t *testing.T) {
 			input: "a\x1b Fc",
 			expected: []Sequence{
 				Print{"a", 1},
-				ESC{
-					Final:        'F',
-					Intermediate: []rune{' '},
-				},
+				escSeq('F', " "),
 				Print{"c", 1},
 			},
 		},
@@ -595,10 +573,7 @@ func TestEscapeIntermediate(t *testing.T) {
 			input: "a\x1b#3c",
 			expected: []Sequence{
 				Print{"a", 1},
-				ESC{
-					Final:        '3',
-					Intermediate: []rune{'#'},
-				},
+				escSeq('3', "#"),
 				Print{"c", 1},
 			},
 		},
@@ -607,10 +582,7 @@ func TestEscapeIntermediate(t *testing.T) {
 			input: "a\x1b(Bc",
 			expected: []Sequence{
 				Print{"a", 1},
-				ESC{
-					Final:        'B',
-					Intermediate: []rune{'('},
-				},
+				escSeq('B', "("),
 				Print{"c", 1},
 			},
 		},
@@ -620,10 +592,7 @@ func TestEscapeIntermediate(t *testing.T) {
 			expected: []Sequence{
 				Print{"a", 1},
 				C0('\t'),
-				ESC{
-					Final:        'B',
-					Intermediate: []rune{'('},
-				},
+				escSeq('B', "("),
 				Print{"c", 1},
 			},
 		},
@@ -632,10 +601,7 @@ func TestEscapeIntermediate(t *testing.T) {
 			input: "a\x1b(\x7FBc",
 			expected: []Sequence{
 				Print{"a", 1},
-				ESC{
-					Final:        'B',
-					Intermediate: []rune{'('},
-				},
+				escSeq('B', "("),
 				Print{"c", 1},
 			},
 		},
@@ -724,9 +690,7 @@ func TestOSC(t *testing.T) {
 			expected: []Sequence{
 				Print{"a", 1},
 				OSC{},
-				ESC{
-					Final: 0x5C,
-				},
+				escSeq(0x5C, ""),
 			},
 		},
 		{

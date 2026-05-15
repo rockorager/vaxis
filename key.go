@@ -339,12 +339,23 @@ func decodeKey(seq ansi.Sequence) Key {
 			key.Keycode = KeyF04
 		}
 	case ansi.CSI:
-		if len(seq.Parameters) == 0 {
-			seq.Parameters = [][]int{
-				{1},
+		if seq.NumParameters == 0 {
+			sk := specialKey{1, seq.Final}
+			if sk.keycode == 1 && sk.final == 'Z' {
+				key.Keycode = KeyTab
+				key.Modifiers = ModShift
+			} else {
+				var ok bool
+				key.Keycode, ok = specialsKeys[sk]
+				if !ok {
+					key.Keycode = 1
+				}
 			}
+			break
 		}
-		for i, pm := range seq.Parameters {
+		for i, idx := 0, 0; idx < seq.NumParameters; i += 1 {
+			pm, next := seq.ParamGroupAt(idx)
+			idx = next
 			switch i {
 			case 0:
 				for j, ps := range pm {
@@ -381,7 +392,7 @@ func decodeKey(seq ansi.Sequence) Key {
 					switch j {
 					case 0:
 						// Modifiers
-						key.Modifiers = ModifierMask(pm[0] - 1)
+						key.Modifiers = ModifierMask(int(ps) - 1)
 						if key.Modifiers < 0 {
 							key.Modifiers = 0
 						}

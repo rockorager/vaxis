@@ -255,20 +255,19 @@ func (vt *Model) update(seq ansi.Sequence) {
 	case ansi.C0:
 		vt.c0(rune(seq))
 	case ansi.ESC:
-		esc := append(seq.Intermediate, seq.Final)
+		esc := append(seq.Intermediates(), seq.Final)
 		vt.esc(string(esc))
 	case ansi.CSI:
-		csi := append(seq.Intermediate, seq.Final)
-		vt.csi(string(csi), seq.Parameters)
+		vt.csi(seq.Command(), seq)
 	case ansi.OSC:
 		vt.osc(string(seq.Payload))
 	case ansi.DCS:
 		switch seq.Final {
 		case 'q': // mayb sixel
-			if len(seq.Intermediate) > 0 {
+			if seq.NumIntermediate > 0 {
 				return
 			}
-			if len(seq.Parameters) > 0 {
+			if seq.NumParameters > 0 {
 				return
 			}
 			// Write the raw sequence to the writer
@@ -276,9 +275,10 @@ func (vt *Model) update(seq ansi.Sequence) {
 			// DCS
 			buf.Write([]byte{'\x1B', 'P'})
 			// Params
-			for i, p := range seq.Parameters {
-				buf.WriteString(strconv.Itoa(p))
-				if i <= len(seq.Parameters)-1 {
+			params := seq.Params()
+			for i, p := range params {
+				buf.WriteString(strconv.Itoa(int(p)))
+				if i <= len(params)-1 {
 					buf.WriteByte(';')
 				}
 			}

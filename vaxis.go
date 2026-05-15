@@ -806,11 +806,12 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 		}
 		vx.PostEventBlocking(key)
 	case ansi.CSI:
+		intermediates := seq.Intermediates()
 		switch seq.Final {
 		case 'c':
-			if len(seq.Intermediate) == 1 && seq.Intermediate[0] == '?' {
-				for _, ps := range seq.Parameters {
-					switch ps[0] {
+			if len(intermediates) == 1 && intermediates[0] == '?' {
+				for _, ps := range seq.Params() {
+					switch ps {
 					case 4:
 						vx.PostEventBlocking(capabilitySixel{})
 					}
@@ -833,37 +834,37 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 			// hopefully people are using that
 			if atomicLoad(&vx.reqCursorPos) {
 				atomicStore(&vx.reqCursorPos, false)
-				if len(seq.Parameters) != 2 {
+				if seq.NumParameters != 2 {
 					log.Error("not enough DSRCPR params")
 					return
 				}
 				vx.chCursorPos <- [2]int{
-					seq.Parameters[0][0],
-					seq.Parameters[1][0],
+					seq.Param(0),
+					seq.Param(1),
 				}
 				return
 			}
 		case 'S':
-			if len(seq.Intermediate) == 1 && seq.Intermediate[0] == '?' {
-				if len(seq.Parameters) < 3 {
+			if len(intermediates) == 1 && intermediates[0] == '?' {
+				if seq.NumParameters < 3 {
 					break
 				}
-				switch seq.Parameters[0][0] {
+				switch seq.Param(0) {
 				case 2:
-					if seq.Parameters[1][0] == 0 {
+					if seq.Param(1) == 0 {
 						vx.PostEventBlocking(capabilitySixel{})
 					}
 				}
 				return
 			}
 		case 'n':
-			if len(seq.Intermediate) == 1 && seq.Intermediate[0] == '?' {
-				if len(seq.Parameters) != 2 {
+			if len(intermediates) == 1 && intermediates[0] == '?' {
+				if seq.NumParameters != 2 {
 					break
 				}
-				switch seq.Parameters[0][0] {
+				switch seq.Param(0) {
 				case colorThemeResp: // 997
-					m := ColorThemeMode(seq.Parameters[1][0])
+					m := ColorThemeMode(seq.Param(1))
 					vx.PostEventBlocking(ColorThemeUpdate{
 						Mode: m,
 					})
@@ -872,61 +873,61 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 			}
 		case 'y':
 			// DECRPM - DEC Report Mode
-			if len(seq.Parameters) < 1 {
+			if seq.NumParameters < 1 {
 				log.Error("not enough DECRPM params")
 				return
 			}
-			switch seq.Parameters[0][0] {
+			switch seq.Param(0) {
 			case 1016:
-				if len(seq.Parameters) < 2 {
+				if seq.NumParameters < 2 {
 					log.Error("not enough DECRPM params")
 					return
 				}
-				switch seq.Parameters[1][0] {
+				switch seq.Param(1) {
 				case 1, 2:
 					vx.PostEventBlocking(capabilitySgrPixels{})
 				}
 			case 2026:
-				if len(seq.Parameters) < 2 {
+				if seq.NumParameters < 2 {
 					log.Error("not enough DECRPM params")
 					return
 				}
-				switch seq.Parameters[1][0] {
+				switch seq.Param(1) {
 				case 1, 2:
 					vx.PostEventBlocking(synchronizedUpdates{})
 				}
 			case 2027:
-				if len(seq.Parameters) < 2 {
+				if seq.NumParameters < 2 {
 					log.Error("not enough DECRPM params")
 					return
 				}
-				switch seq.Parameters[1][0] {
+				switch seq.Param(1) {
 				case 1, 2:
 					vx.PostEventBlocking(unicodeCoreCap{})
 				}
 			case 2031:
-				if len(seq.Parameters) < 2 {
+				if seq.NumParameters < 2 {
 					log.Error("not enough DECRPM params")
 					return
 				}
-				switch seq.Parameters[1][0] {
+				switch seq.Param(1) {
 				case 1, 2:
 					vx.PostEventBlocking(notifyColorChange{})
 				}
 			}
 			return
 		case 'u':
-			if len(seq.Intermediate) == 1 && seq.Intermediate[0] == '?' {
+			if len(intermediates) == 1 && intermediates[0] == '?' {
 				vx.PostEventBlocking(kittyKeyboard{})
 				return
 			}
 		case '~':
-			if len(seq.Intermediate) == 0 {
-				if len(seq.Parameters) == 0 {
+			if len(intermediates) == 0 {
+				if seq.NumParameters == 0 {
 					log.Error("[CSI] unknown sequence with final '~'")
 					return
 				}
-				switch seq.Parameters[0][0] {
+				switch seq.Param(0) {
 				case 200:
 					vx.pastePending = true
 					vx.PostEventBlocking(PasteStartEvent{})
@@ -944,14 +945,14 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 			}
 			return
 		case 't':
-			if len(seq.Parameters) < 3 {
+			if seq.NumParameters < 3 {
 				log.Error("[CSI] unknown sequence: %s", seq)
 				return
 			}
 			// CSI <type> ; <height> ; <width> t
-			typ := seq.Parameters[0][0]
-			h := seq.Parameters[1][0]
-			w := seq.Parameters[2][0]
+			typ := seq.Param(0)
+			h := seq.Param(1)
+			w := seq.Param(2)
 			switch typ {
 			case 4:
 				vx.mu.Lock()
@@ -982,14 +983,14 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 				vx.chSizeDone <- true
 			case 48:
 				// CSI <type> ; <height> ; <width> ; <height_pix> ; <width_pix> t
-				switch len(seq.Parameters) {
+				switch seq.NumParameters {
 				case 5:
 					atomicStore(&vx.resize, true)
 					vx.mu.Lock()
 					vx.nextSize.Cols = w
 					vx.nextSize.Rows = h
-					vx.nextSize.YPixel = seq.Parameters[3][0]
-					vx.nextSize.XPixel = seq.Parameters[4][0]
+					vx.nextSize.YPixel = seq.Param(3)
+					vx.nextSize.XPixel = seq.Param(4)
 					resize := vx.caps.inBandResize
 					vx.mu.Unlock()
 					if !resize {
@@ -1007,18 +1008,19 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 		}
 		vx.PostEventBlocking(key)
 	case ansi.DCS:
+		intermediates := seq.Intermediates()
 		switch seq.Final {
 		case 'r':
-			if len(seq.Intermediate) < 1 {
+			if len(intermediates) < 1 {
 				return
 			}
-			switch seq.Intermediate[0] {
+			switch intermediates[0] {
 			case '+':
 				// XTGETTCAP response
-				if len(seq.Parameters) < 1 {
+				if seq.NumParameters < 1 {
 					return
 				}
-				if seq.Parameters[0] == 0 {
+				if seq.Params()[0] == 0 {
 					return
 				}
 				vals := strings.Split(string(seq.Data), "=")
@@ -1052,10 +1054,10 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 
 			}
 		case '|':
-			if len(seq.Intermediate) < 1 {
+			if len(intermediates) < 1 {
 				return
 			}
-			switch seq.Intermediate[0] {
+			switch intermediates[0] {
 			case '!':
 				if string(seq.Data) == hexEncode("~VTE") {
 					// VTE supports styled underlines but

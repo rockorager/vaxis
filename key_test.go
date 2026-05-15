@@ -8,6 +8,27 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func testCSI(final rune, params []int, colonAfter ...int) ansi.CSI {
+	seq := ansi.CSI{
+		Final:         final,
+		NumParameters: len(params),
+	}
+	if len(params) <= ansi.InlineCSIParams {
+		for i, param := range params {
+			seq.Parameters[i] = uint32(param)
+		}
+	} else {
+		seq.ExtraParameters = make([]uint32, len(params))
+		for i, param := range params {
+			seq.ExtraParameters[i] = uint32(param)
+		}
+	}
+	for _, idx := range colonAfter {
+		seq.ColonSeparators |= 1 << uint(idx)
+	}
+	return seq
+}
+
 func TestKey(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -325,45 +346,24 @@ func TestKeyDecode(t *testing.T) {
 			},
 		},
 		{
-			name: "kitty: j with event",
-			sequence: ansi.CSI{
-				Final: 'u',
-				Parameters: [][]int{
-					{106},
-					{1, 1},
-					{106},
-				},
-			},
+			name:     "kitty: j with event",
+			sequence: testCSI('u', []int{106, 1, 1, 106}, 1),
 			expected: Key{
 				Keycode: 'j',
 				Text:    "j",
 			},
 		},
 		{
-			name: "kitty: j with minimal",
-			sequence: ansi.CSI{
-				Final: 'u',
-				Parameters: [][]int{
-					{106},
-					{},
-					{106},
-				},
-			},
+			name:     "kitty: j with minimal",
+			sequence: testCSI('u', []int{106, 0, 106}),
 			expected: Key{
 				Keycode: 'j',
 				Text:    "j",
 			},
 		},
 		{
-			name: "kitty: ф",
-			sequence: ansi.CSI{
-				Final: 'u',
-				Parameters: [][]int{
-					{1092, 0, 102},
-					{},
-					{1092},
-				},
-			},
+			name:     "kitty: ф",
+			sequence: testCSI('u', []int{1092, 0, 102, 0, 1092}, 0, 1),
 			expected: Key{
 				Keycode:        'ф',
 				BaseLayoutCode: 'f',
@@ -371,15 +371,8 @@ func TestKeyDecode(t *testing.T) {
 			},
 		},
 		{
-			name: "kitty: multiple codepoints",
-			sequence: ansi.CSI{
-				Final: 'u',
-				Parameters: [][]int{
-					{106},
-					{},
-					{127482, 127480},
-				},
-			},
+			name:     "kitty: multiple codepoints",
+			sequence: testCSI('u', []int{106, 0, 127482, 127480}, 2),
 			expected: Key{
 				Keycode: 'j',
 				Text:    "🇺🇸",
