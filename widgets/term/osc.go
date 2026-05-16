@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+const maxTitleLen = 1024
+
 func (vt *Model) osc(data string) {
 	selector, val, found := cutString(data, ";")
 	if !found {
@@ -15,6 +17,9 @@ func (vt *Model) osc(data string) {
 	}
 	switch selector {
 	case "0", "2":
+		if len(val) > maxTitleLen {
+			val = val[:maxTitleLen]
+		}
 		vt.postEvent(EventTitle(val))
 	case "8":
 		if vt.OSC8 {
