@@ -72,8 +72,16 @@ type mode struct {
 	// Active mouse tracking behavior. The individual bools above remain mode
 	// report state; this mirrors Ghostty's separate active mouse_event flag.
 	mouseEvent mouseEventMode
+	// Mouse UTF-8 coordinate format
+	mouseUTF8 bool
 	// Mouse SGR mode
 	mouseSGR bool
+	// Mouse URXVT format
+	mouseURXVT bool
+	// Mouse SGR-pixels mode
+	mouseSGRPixels bool
+	// Active mouse reporting format.
+	mouseFormat mouseFormatMode
 	// Capture Shift+mouse instead of letting Shift escape mouse reporting.
 	mouseShiftCapture bool
 	// Alternate scroll
@@ -116,6 +124,16 @@ const (
 	mouseEventNormal
 	mouseEventButton
 	mouseEventAny
+)
+
+type mouseFormatMode int
+
+const (
+	mouseFormatX10 mouseFormatMode = iota
+	mouseFormatUTF8
+	mouseFormatSGR
+	mouseFormatURXVT
+	mouseFormatSGRPixels
 )
 
 func (vt *Model) sm(params ansi.CSI) {
@@ -213,12 +231,22 @@ func (vt *Model) setDECMode(param int, enabled bool) {
 	case 1003:
 		vt.mode.mouseMotion = enabled
 		vt.setMouseEventMode(mouseEventAny, enabled)
+	case 1005:
+		vt.mode.mouseUTF8 = enabled
+		vt.setMouseFormatMode(mouseFormatUTF8, enabled)
 	case 1006:
 		vt.mode.mouseSGR = enabled
+		vt.setMouseFormatMode(mouseFormatSGR, enabled)
 	case 1004:
 		vt.mode.focusEvents = enabled
 	case 1007:
 		vt.mode.altScroll = enabled
+	case 1015:
+		vt.mode.mouseURXVT = enabled
+		vt.setMouseFormatMode(mouseFormatURXVT, enabled)
+	case 1016:
+		vt.mode.mouseSGRPixels = enabled
+		vt.setMouseFormatMode(mouseFormatSGRPixels, enabled)
 	case 47:
 		vt.switchAltScreen(47, enabled)
 	case 1048:
@@ -247,6 +275,14 @@ func (vt *Model) setMouseEventMode(mode mouseEventMode, enabled bool) {
 		return
 	}
 	vt.mode.mouseEvent = mouseEventNone
+}
+
+func (vt *Model) setMouseFormatMode(mode mouseFormatMode, enabled bool) {
+	if enabled {
+		vt.mode.mouseFormat = mode
+		return
+	}
+	vt.mode.mouseFormat = mouseFormatX10
 }
 
 func (vt *Model) saveMode(params ansi.CSI) {
@@ -295,12 +331,18 @@ func (vt *Model) decModeValue(param int) bool {
 		return vt.mode.mouseDrag
 	case 1003:
 		return vt.mode.mouseMotion
+	case 1005:
+		return vt.mode.mouseUTF8
 	case 1006:
 		return vt.mode.mouseSGR
 	case 1004:
 		return vt.mode.focusEvents
 	case 1007:
 		return vt.mode.altScroll
+	case 1015:
+		return vt.mode.mouseURXVT
+	case 1016:
+		return vt.mode.mouseSGRPixels
 	case 47, 1047, 1049:
 		return vt.mode.smcup
 	case 1048:
@@ -358,12 +400,18 @@ func savedModeValue(m mode, param int) bool {
 		return m.mouseDrag
 	case 1003:
 		return m.mouseMotion
+	case 1005:
+		return m.mouseUTF8
 	case 1006:
 		return m.mouseSGR
 	case 1004:
 		return m.focusEvents
 	case 1007:
 		return m.altScroll
+	case 1015:
+		return m.mouseURXVT
+	case 1016:
+		return m.mouseSGRPixels
 	case 47, 1047, 1049:
 		return m.smcup
 	case 1048:
@@ -414,12 +462,18 @@ func setModeValue(m *mode, param int, enabled bool) {
 		m.mouseDrag = enabled
 	case 1003:
 		m.mouseMotion = enabled
+	case 1005:
+		m.mouseUTF8 = enabled
 	case 1006:
 		m.mouseSGR = enabled
 	case 1004:
 		m.focusEvents = enabled
 	case 1007:
 		m.altScroll = enabled
+	case 1015:
+		m.mouseURXVT = enabled
+	case 1016:
+		m.mouseSGRPixels = enabled
 	case 47, 1047, 1049:
 		m.smcup = enabled
 	case 1048:
@@ -524,12 +578,18 @@ func (vt *Model) decrqm(pd int, ansiMode bool) {
 		ps = modeReportState(vt.mode.mouseDrag)
 	case 1003:
 		ps = modeReportState(vt.mode.mouseMotion)
+	case 1005:
+		ps = modeReportState(vt.mode.mouseUTF8)
 	case 1006:
 		ps = modeReportState(vt.mode.mouseSGR)
 	case 1004:
 		ps = modeReportState(vt.mode.focusEvents)
 	case 1007:
 		ps = modeReportState(vt.mode.altScroll)
+	case 1015:
+		ps = modeReportState(vt.mode.mouseURXVT)
+	case 1016:
+		ps = modeReportState(vt.mode.mouseSGRPixels)
 	case 47, 1047, 1049:
 		ps = modeReportState(vt.mode.smcup)
 	case 1048:

@@ -45,11 +45,13 @@ func (vt *Model) handleMouse(msg vaxis.Mouse) string {
 		return ""
 	}
 
-	if vt.mode.mouseSGR {
-		button := vt.mouseButtonCode(msg, false)
+	legacyRelease := vt.mode.mouseFormat != mouseFormatSGR && vt.mode.mouseFormat != mouseFormatSGRPixels
+	button := vt.mouseButtonCode(msg, legacyRelease)
+	switch vt.mode.mouseFormat {
+	case mouseFormatSGR:
 		switch msg.EventType {
 		case vaxis.EventMotion:
-			return fmt.Sprintf("\x1b[<%d;%d;%dM", button+32, msg.Col+1, msg.Row+1)
+			return fmt.Sprintf("\x1b[<%d;%d;%dM", button, msg.Col+1, msg.Row+1)
 		case vaxis.EventPress:
 			return fmt.Sprintf("\x1b[<%d;%d;%dM", button, msg.Col+1, msg.Row+1)
 		case vaxis.EventRelease:
@@ -58,13 +60,29 @@ func (vt *Model) handleMouse(msg vaxis.Mouse) string {
 			// unhandled
 			return ""
 		}
+	case mouseFormatURXVT:
+		return fmt.Sprintf("\x1b[%d;%d;%dM", button+32, msg.Col+1, msg.Row+1)
+	case mouseFormatSGRPixels:
+		x, y := msg.XPixel, msg.YPixel
+		return fmt.Sprintf("\x1b[<%d;%d;%d%c", button, x, y, mouseFinal(msg))
 	}
 
 	// legacy encoding
-	encodedCol := 32 + msg.Col + 1
-	encodedRow := 32 + msg.Row + 1
+	encodedCol := string(rune(32 + msg.Col + 1))
+	encodedRow := string(rune(32 + msg.Row + 1))
+	if vt.mode.mouseFormat == mouseFormatUTF8 {
+		encodedCol = string(rune(msg.Col + 33))
+		encodedRow = string(rune(msg.Row + 33))
+	}
 
-	return fmt.Sprintf("\x1b[M%c%c%c", vt.mouseButtonCode(msg, true)+32, encodedCol, encodedRow)
+	return "\x1b[M" + string(rune(button+32)) + encodedCol + encodedRow
+}
+
+func mouseFinal(msg vaxis.Mouse) byte {
+	if msg.EventType == vaxis.EventRelease {
+		return 'm'
+	}
+	return 'M'
 }
 
 func (vt *Model) mouseButtonCode(msg vaxis.Mouse, legacy bool) vaxis.MouseButton {
@@ -83,6 +101,9 @@ func (vt *Model) mouseButtonCode(msg vaxis.Mouse, legacy bool) vaxis.MouseButton
 		if msg.Modifiers&vaxis.ModCtrl != 0 {
 			button += 16
 		}
+	}
+	if msg.EventType == vaxis.EventMotion {
+		button += 32
 	}
 	return button
 }

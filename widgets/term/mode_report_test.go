@@ -1,6 +1,9 @@
 package term
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 func TestModeReportWraparound(t *testing.T) {
 	vt, r := newReplyTestModel(t)
@@ -97,6 +100,26 @@ func TestModeReportAlternateScrollDefaultsSet(t *testing.T) {
 	vt.update(testCSI('p', []uint32{1007}, '?', '$'))
 	if got, want := readReply(t, r, len("\x1B[?1007;2$y")), "\x1B[?1007;2$y"; got != want {
 		t.Fatalf("alternate scroll mode report = %q, want %q", got, want)
+	}
+}
+
+func TestModeReportMouseFormats(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.resize(80, 24)
+
+	for _, mode := range []uint32{1005, 1015, 1016} {
+		vt.update(testCSI('p', []uint32{mode}, '?', '$'))
+		want := fmt.Sprintf("\x1B[?%d;2$y", mode)
+		if got := readReply(t, r, len(want)); got != want {
+			t.Fatalf("mouse format mode %d report = %q, want %q", mode, got, want)
+		}
+
+		vt.update(testCSI('h', []uint32{mode}, '?'))
+		vt.update(testCSI('p', []uint32{mode}, '?', '$'))
+		want = fmt.Sprintf("\x1B[?%d;1$y", mode)
+		if got := readReply(t, r, len(want)); got != want {
+			t.Fatalf("mouse format mode %d report = %q, want %q", mode, got, want)
+		}
 	}
 }
 

@@ -8,7 +8,7 @@ import (
 
 func TestMouseSGRFormatAloneDoesNotReport(t *testing.T) {
 	vt := New()
-	vt.mode.mouseSGR = true
+	vt.update(testCSI('h', []uint32{1006}, '?'))
 
 	got := vt.handleMouse(vaxis.Mouse{
 		Button:    vaxis.MouseLeftButton,
@@ -67,7 +67,7 @@ func TestMouseNormalLegacyReleaseUsesButton3(t *testing.T) {
 func TestMouseSGRReleaseKeepsButtonIdentity(t *testing.T) {
 	vt := New()
 	vt.update(testCSI('h', []uint32{1000}, '?'))
-	vt.mode.mouseSGR = true
+	vt.update(testCSI('h', []uint32{1006}, '?'))
 
 	got := vt.handleMouse(vaxis.Mouse{
 		Button:    vaxis.MouseRightButton,
@@ -84,7 +84,7 @@ func TestMouseSGRReleaseKeepsButtonIdentity(t *testing.T) {
 func TestMouseSGRMotionNoButtonAnyMode(t *testing.T) {
 	vt := New()
 	vt.update(testCSI('h', []uint32{1003}, '?'))
-	vt.mode.mouseSGR = true
+	vt.update(testCSI('h', []uint32{1006}, '?'))
 
 	got := vt.handleMouse(vaxis.Mouse{
 		Button:    vaxis.MouseNoButton,
@@ -98,12 +98,86 @@ func TestMouseSGRMotionNoButtonAnyMode(t *testing.T) {
 	}
 }
 
+func TestMouseUTF8EncodesLargeCoordinates(t *testing.T) {
+	vt := New()
+	vt.update(testCSI('h', []uint32{1000}, '?'))
+	vt.update(testCSI('h', []uint32{1005}, '?'))
+
+	got := vt.handleMouse(vaxis.Mouse{
+		Button:    vaxis.MouseLeftButton,
+		Col:       223,
+		Row:       224,
+		EventType: vaxis.EventPress,
+	})
+
+	if want := "\x1B[M \u0100\u0101"; got != want {
+		t.Fatalf("utf8 mouse report = %q, want %q", got, want)
+	}
+}
+
+func TestMouseURXVTFormat(t *testing.T) {
+	vt := New()
+	vt.update(testCSI('h', []uint32{1000}, '?'))
+	vt.update(testCSI('h', []uint32{1015}, '?'))
+
+	got := vt.handleMouse(vaxis.Mouse{
+		Button:    vaxis.MouseLeftButton,
+		Col:       2,
+		Row:       3,
+		EventType: vaxis.EventPress,
+		Modifiers: vaxis.ModAlt | vaxis.ModCtrl,
+	})
+
+	if want := "\x1B[56;3;4M"; got != want {
+		t.Fatalf("urxvt mouse report = %q, want %q", got, want)
+	}
+}
+
+func TestMouseSGRPixelsFormat(t *testing.T) {
+	vt := New()
+	vt.update(testCSI('h', []uint32{1000}, '?'))
+	vt.update(testCSI('h', []uint32{1016}, '?'))
+
+	got := vt.handleMouse(vaxis.Mouse{
+		Button:    vaxis.MouseLeftButton,
+		XPixel:    50,
+		YPixel:    75,
+		EventType: vaxis.EventPress,
+	})
+
+	if want := "\x1B[<0;50;75M"; got != want {
+		t.Fatalf("sgr-pixels mouse report = %q, want %q", got, want)
+	}
+}
+
+func TestMouseFormatResetClearsActiveFormat(t *testing.T) {
+	vt := New()
+	vt.update(testCSI('h', []uint32{1000}, '?'))
+	vt.update(testCSI('h', []uint32{1006}, '?'))
+	vt.update(testCSI('h', []uint32{1015}, '?'))
+	vt.update(testCSI('l', []uint32{1006}, '?'))
+
+	got := vt.handleMouse(vaxis.Mouse{
+		Button:    vaxis.MouseLeftButton,
+		Col:       2,
+		Row:       3,
+		EventType: vaxis.EventPress,
+	})
+
+	if want := "\x1B[M #$"; got != want {
+		t.Fatalf("mouse report after format reset = %q, want %q", got, want)
+	}
+	if !vt.mode.mouseURXVT {
+		t.Fatal("resetting SGR mouse format cleared report state for URXVT format")
+	}
+}
+
 func TestMouseEventModeResetClearsActiveTracking(t *testing.T) {
 	vt := New()
 	vt.update(testCSI('h', []uint32{1000}, '?'))
 	vt.update(testCSI('h', []uint32{1003}, '?'))
 	vt.update(testCSI('l', []uint32{1000}, '?'))
-	vt.mode.mouseSGR = true
+	vt.update(testCSI('h', []uint32{1006}, '?'))
 
 	got := vt.handleMouse(vaxis.Mouse{
 		Button:    vaxis.MouseNoButton,
@@ -124,7 +198,7 @@ func TestMouseEventModeEnableOverridesActiveTracking(t *testing.T) {
 	vt := New()
 	vt.update(testCSI('h', []uint32{1003}, '?'))
 	vt.update(testCSI('h', []uint32{9}, '?'))
-	vt.mode.mouseSGR = true
+	vt.update(testCSI('h', []uint32{1006}, '?'))
 
 	got := vt.handleMouse(vaxis.Mouse{
 		Button:    vaxis.MouseNoButton,
@@ -144,7 +218,7 @@ func TestMouseEventModeEnableOverridesActiveTracking(t *testing.T) {
 func TestMouseModifiersInNonX10Modes(t *testing.T) {
 	vt := New()
 	vt.update(testCSI('h', []uint32{1000}, '?'))
-	vt.mode.mouseSGR = true
+	vt.update(testCSI('h', []uint32{1006}, '?'))
 
 	got := vt.handleMouse(vaxis.Mouse{
 		Button:    vaxis.MouseLeftButton,
@@ -162,7 +236,7 @@ func TestMouseModifiersInNonX10Modes(t *testing.T) {
 func TestMouseShiftEscapesMouseReportingByDefault(t *testing.T) {
 	vt := New()
 	vt.update(testCSI('h', []uint32{1000}, '?'))
-	vt.mode.mouseSGR = true
+	vt.update(testCSI('h', []uint32{1006}, '?'))
 
 	got := vt.handleMouse(vaxis.Mouse{
 		Button:    vaxis.MouseLeftButton,
@@ -180,7 +254,7 @@ func TestMouseShiftEscapesMouseReportingByDefault(t *testing.T) {
 func TestXTSHIFTESCAPETogglesShiftMouseCapture(t *testing.T) {
 	vt := New()
 	vt.update(testCSI('h', []uint32{1000}, '?'))
-	vt.mode.mouseSGR = true
+	vt.update(testCSI('h', []uint32{1006}, '?'))
 
 	vt.update(testCSI('s', []uint32{1}, '>'))
 	got := vt.handleMouse(vaxis.Mouse{
