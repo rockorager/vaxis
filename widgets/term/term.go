@@ -643,8 +643,11 @@ func (vt *Model) print(seq ansi.Print) {
 
 	if vt.mode.irm {
 		line := vt.activeScreen.line(rw)
-		for i := vt.margin.right; i > col; i -= 1 {
+		for i := vt.margin.right; i >= col+column(w); i -= 1 {
 			line[i] = line[i-column(w)]
+		}
+		if line[vt.margin.right].Character.Width > 1 {
+			line[vt.margin.right].erase(vt.cursor.Style.Background)
 		}
 	}
 	if col > column(vt.width())-1 {
