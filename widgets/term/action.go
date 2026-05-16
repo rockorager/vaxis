@@ -256,7 +256,9 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 		case 'm':
 			vt.sgr(seq)
 		case 'n':
-			vt.deviceStatusReport(ps(seq), false)
+			if ps, ok := deviceStatusParam(seq, false); ok {
+				vt.deviceStatusReport(ps, false)
+			}
 		case 'r':
 			vt.decstbm(seq)
 		case 's':
@@ -311,7 +313,9 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 					vt.el(ps, true)
 				}
 			case 'n':
-				vt.deviceStatusReport(ps(seq), true)
+				if ps, ok := deviceStatusParam(seq, true); ok {
+					vt.deviceStatusReport(ps, true)
+				}
 			case 'r':
 				vt.restoreMode(seq)
 			case 's':
@@ -390,6 +394,22 @@ func eraseLineParam(seq ansi.CSI) (int, bool) {
 	ps := seq.Param(0)
 	switch ps {
 	case 0, 1, 2:
+		return ps, true
+	default:
+		return 0, false
+	}
+}
+
+func deviceStatusParam(seq ansi.CSI, private bool) (int, bool) {
+	if seq.NumParameters != 1 {
+		return 0, false
+	}
+	ps := seq.Param(0)
+	if private {
+		return ps, ps == 996
+	}
+	switch ps {
+	case 5, 6:
 		return ps, true
 	default:
 		return 0, false
