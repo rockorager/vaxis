@@ -46,6 +46,7 @@ type Model struct {
 	margin   margin
 	mode     mode
 	tabStop  []column
+	title    string
 	// lastCol is a flag indicating we printed in the last col
 	lastCol bool
 	// scrollOffset is the number of historical rows above the active screen

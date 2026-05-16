@@ -200,6 +200,8 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 			} else {
 				vt.decsc()
 			}
+		case 't':
+			vt.xtwinops(seq)
 		case 'u':
 			vt.decrc()
 		}
@@ -280,6 +282,18 @@ func (vt *Model) deviceStatusReport(n int) {
 		}
 		resp := fmt.Sprintf("\x1B[%d;%dR", reportRow+1, reportCol+1)
 		vt.enqueueReplyString(resp)
+	}
+}
+
+func (vt *Model) xtwinops(seq ansi.CSI) {
+	if seq.NumParameters != 1 {
+		return
+	}
+	switch ps(seq) {
+	case 18:
+		vt.enqueueReplyString(fmt.Sprintf("\x1B[8;%d;%dt", vt.height(), vt.width()))
+	case 21:
+		vt.enqueueReplyString("\x1B]l" + vt.title + "\x1B\\")
 	}
 }
 

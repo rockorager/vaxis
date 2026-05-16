@@ -20,6 +20,7 @@ func (vt *Model) osc(data string) {
 		if len(val) > maxTitleLen {
 			val = val[:maxTitleLen]
 		}
+		vt.title = val
 		vt.postEvent(EventTitle(val))
 	case "8":
 		if vt.OSC8 {
