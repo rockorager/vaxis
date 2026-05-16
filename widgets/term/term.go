@@ -209,15 +209,15 @@ func (vt *Model) Update(msg vaxis.Event) {
 			return
 		}
 		str := encodeXterm(msg, vt.mode.deckpam, vt.mode.decckm)
-		vt.pty.WriteString(str)
+		vt.writePtyString(str)
 	case vaxis.PasteStartEvent:
 		if vt.mode.paste {
-			vt.pty.WriteString("\x1B[200~")
+			vt.writePtyString("\x1B[200~")
 			return
 		}
 	case vaxis.PasteEndEvent:
 		if vt.mode.paste {
-			vt.pty.WriteString("\x1B[201~")
+			vt.writePtyString("\x1B[201~")
 			return
 		}
 	case vaxis.Mouse:
@@ -225,14 +225,21 @@ func (vt *Model) Update(msg vaxis.Event) {
 			return
 		}
 		mouse := vt.handleMouse(msg)
-		vt.pty.WriteString(mouse)
+		vt.writePtyString(mouse)
 		return
 	case vaxis.ColorThemeUpdate:
 		if vt.mode.colorScheme {
-			vt.pty.WriteString(fmt.Sprintf("\x1b[?997;%dn", msg.Mode))
+			vt.writePtyString(fmt.Sprintf("\x1b[?997;%dn", msg.Mode))
 			return
 		}
 	}
+}
+
+func (vt *Model) writePtyString(s string) {
+	if vt.pty == nil || s == "" {
+		return
+	}
+	_, _ = vt.pty.WriteString(s)
 }
 
 // only call invalidate while a lock is held
@@ -806,7 +813,7 @@ func (vt *Model) Focus() {
 	defer vt.mu.Unlock()
 	atomicStore(&vt.focused, true)
 	if vt.mode.focusEvents {
-		vt.pty.WriteString("\x1b[I")
+		vt.writePtyString("\x1b[I")
 	}
 }
 
@@ -815,7 +822,7 @@ func (vt *Model) Blur() {
 	defer vt.mu.Unlock()
 	atomicStore(&vt.focused, false)
 	if vt.mode.focusEvents {
-		vt.pty.WriteString("\x1b[O")
+		vt.writePtyString("\x1b[O")
 	}
 }
 

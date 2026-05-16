@@ -12,13 +12,13 @@ func (vt *Model) handleMouse(msg vaxis.Mouse) string {
 			// Translate wheel motion into arrows up and down
 			// 3x rows
 			if msg.Button == vaxis.MouseWheelUp {
-				vt.pty.WriteString("\x1bOA")
-				vt.pty.WriteString("\x1bOA")
-				vt.pty.WriteString("\x1bOA")
+				vt.writePtyString("\x1bOA")
+				vt.writePtyString("\x1bOA")
+				vt.writePtyString("\x1bOA")
 			} else if msg.Button == vaxis.MouseWheelDown {
-				vt.pty.WriteString("\x1bOB")
-				vt.pty.WriteString("\x1bOB")
-				vt.pty.WriteString("\x1bOB")
+				vt.writePtyString("\x1bOB")
+				vt.writePtyString("\x1bOB")
+				vt.writePtyString("\x1bOB")
 			}
 		}
 		return ""
@@ -27,7 +27,7 @@ func (vt *Model) handleMouse(msg vaxis.Mouse) string {
 	// those (!mouseMotion) or event is drag (motion with pressed button)
 	// but we aren't reporting those either (!mouseMotion && !mouseDrag).
 	if msg.EventType == vaxis.EventMotion && !vt.mode.mouseMotion &&
-	   (msg.Button == vaxis.MouseNoButton || !vt.mode.mouseDrag) {
+		(msg.Button == vaxis.MouseNoButton || !vt.mode.mouseDrag) {
 		return ""
 	}
 
