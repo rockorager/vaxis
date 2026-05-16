@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"git.sr.ht/~rockorager/vaxis"
+	"git.sr.ht/~rockorager/vaxis/ansi"
 )
 
 func (vt *Model) handleMouse(msg vaxis.Mouse) string {
@@ -21,6 +22,9 @@ func (vt *Model) handleMouse(msg vaxis.Mouse) string {
 				vt.writePtyString("\x1bOB")
 			}
 		}
+		return ""
+	}
+	if msg.Modifiers&vaxis.ModShift != 0 && !vt.mode.mouseShiftCapture {
 		return ""
 	}
 
@@ -81,4 +85,18 @@ func (vt *Model) mouseButtonCode(msg vaxis.Mouse, legacy bool) vaxis.MouseButton
 		}
 	}
 	return button
+}
+
+func (vt *Model) xtshiftescape(seq ansi.CSI) {
+	switch seq.NumParameters {
+	case 0:
+		vt.mode.mouseShiftCapture = false
+	case 1:
+		switch seq.Parameters[0] {
+		case 0:
+			vt.mode.mouseShiftCapture = false
+		case 1:
+			vt.mode.mouseShiftCapture = true
+		}
+	}
 }

@@ -213,6 +213,8 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 				vt.enqueueReplyString("\x1b[>1;0;0c")
 			case 'q':
 				vt.xtversion()
+			case 's':
+				vt.xtshiftescape(seq)
 			case 'u':
 				vt.kittyKeyboardPush(seq)
 			}

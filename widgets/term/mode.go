@@ -65,6 +65,8 @@ type mode struct {
 	mouseMotion bool
 	// Mouse SGR mode
 	mouseSGR bool
+	// Capture Shift+mouse instead of letting Shift escape mouse reporting.
+	mouseShiftCapture bool
 	// Alternate scroll
 	altScroll bool
 	// Save cursor mode

@@ -29,7 +29,6 @@ func TestMouseX10ReportsOnlyBasicPresses(t *testing.T) {
 		Col:       0,
 		Row:       0,
 		EventType: vaxis.EventPress,
-		Modifiers: vaxis.ModShift | vaxis.ModAlt | vaxis.ModCtrl,
 	}), "\x1B[M !!"; got != want {
 		t.Fatalf("x10 press report = %q, want %q", got, want)
 	}
@@ -109,10 +108,73 @@ func TestMouseModifiersInNonX10Modes(t *testing.T) {
 		Col:       2,
 		Row:       3,
 		EventType: vaxis.EventPress,
+		Modifiers: vaxis.ModAlt | vaxis.ModCtrl,
+	})
+
+	if want := "\x1B[<24;3;4M"; got != want {
+		t.Fatalf("sgr modified press report = %q, want %q", got, want)
+	}
+}
+
+func TestMouseShiftEscapesMouseReportingByDefault(t *testing.T) {
+	vt := New()
+	vt.mode.mouseButtons = true
+	vt.mode.mouseSGR = true
+
+	got := vt.handleMouse(vaxis.Mouse{
+		Button:    vaxis.MouseLeftButton,
+		Col:       2,
+		Row:       3,
+		EventType: vaxis.EventPress,
 		Modifiers: vaxis.ModShift | vaxis.ModAlt | vaxis.ModCtrl,
 	})
 
+	if got != "" {
+		t.Fatalf("shift mouse report = %q, want empty", got)
+	}
+}
+
+func TestXTSHIFTESCAPETogglesShiftMouseCapture(t *testing.T) {
+	vt := New()
+	vt.mode.mouseButtons = true
+	vt.mode.mouseSGR = true
+
+	vt.update(testCSI('s', []uint32{1}, '>'))
+	got := vt.handleMouse(vaxis.Mouse{
+		Button:    vaxis.MouseLeftButton,
+		Col:       2,
+		Row:       3,
+		EventType: vaxis.EventPress,
+		Modifiers: vaxis.ModShift | vaxis.ModAlt | vaxis.ModCtrl,
+	})
 	if want := "\x1B[<28;3;4M"; got != want {
-		t.Fatalf("sgr modified press report = %q, want %q", got, want)
+		t.Fatalf("captured shift mouse report = %q, want %q", got, want)
+	}
+
+	vt.update(testCSI('s', []uint32{0}, '>'))
+	got = vt.handleMouse(vaxis.Mouse{
+		Button:    vaxis.MouseLeftButton,
+		Col:       2,
+		Row:       3,
+		EventType: vaxis.EventPress,
+		Modifiers: vaxis.ModShift,
+	})
+	if got != "" {
+		t.Fatalf("disabled shift mouse report = %q, want empty", got)
+	}
+}
+
+func TestXTSHIFTESCAPEIgnoresInvalidParams(t *testing.T) {
+	vt := New()
+
+	vt.update(testCSI('s', []uint32{1}, '>'))
+	if !vt.mode.mouseShiftCapture {
+		t.Fatal("XTSHIFTESCAPE did not enable shift capture")
+	}
+
+	vt.update(testCSI('s', []uint32{2}, '>'))
+	vt.update(testCSI('s', []uint32{1, 1}, '>'))
+	if !vt.mode.mouseShiftCapture {
+		t.Fatal("invalid XTSHIFTESCAPE changed shift capture")
 	}
 }
