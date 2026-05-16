@@ -103,6 +103,50 @@ func TestModeReportAlternateScrollDefaultsSet(t *testing.T) {
 	}
 }
 
+func TestModeReportKeyEncodingDefaults(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.resize(80, 24)
+
+	vt.update(testCSI('p', []uint32{1035}, '?', '$'))
+	if got, want := readReply(t, r, len("\x1B[?1035;1$y")), "\x1B[?1035;1$y"; got != want {
+		t.Fatalf("ignore-keypad mode report = %q, want %q", got, want)
+	}
+	vt.update(testCSI('p', []uint32{1036}, '?', '$'))
+	if got, want := readReply(t, r, len("\x1B[?1036;1$y")), "\x1B[?1036;1$y"; got != want {
+		t.Fatalf("alt-esc-prefix mode report = %q, want %q", got, want)
+	}
+
+	vt.update(testCSI('l', []uint32{1035, 1036}, '?'))
+	vt.update(testCSI('p', []uint32{1035}, '?', '$'))
+	if got, want := readReply(t, r, len("\x1B[?1035;2$y")), "\x1B[?1035;2$y"; got != want {
+		t.Fatalf("ignore-keypad mode report = %q, want %q", got, want)
+	}
+	vt.update(testCSI('p', []uint32{1036}, '?', '$'))
+	if got, want := readReply(t, r, len("\x1B[?1036;2$y")), "\x1B[?1036;2$y"; got != want {
+		t.Fatalf("alt-esc-prefix mode report = %q, want %q", got, want)
+	}
+}
+
+func TestModeReportRecognizedNoOpModes(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.resize(80, 24)
+
+	for _, mode := range []uint32{1039, 2026, 2027, 2048} {
+		vt.update(testCSI('p', []uint32{mode}, '?', '$'))
+		want := fmt.Sprintf("\x1B[?%d;2$y", mode)
+		if got := readReply(t, r, len(want)); got != want {
+			t.Fatalf("recognized no-op mode %d report = %q, want %q", mode, got, want)
+		}
+
+		vt.update(testCSI('h', []uint32{mode}, '?'))
+		vt.update(testCSI('p', []uint32{mode}, '?', '$'))
+		want = fmt.Sprintf("\x1B[?%d;1$y", mode)
+		if got := readReply(t, r, len(want)); got != want {
+			t.Fatalf("recognized no-op mode %d report = %q, want %q", mode, got, want)
+		}
+	}
+}
+
 func TestModeReportMouseFormats(t *testing.T) {
 	vt, r := newReplyTestModel(t)
 	vt.resize(80, 24)

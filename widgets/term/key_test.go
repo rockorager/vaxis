@@ -42,13 +42,32 @@ func TestApplicationKeypadModeCanBeSetByDECMode(t *testing.T) {
 	}
 
 	vt.update(testCSI('h', []uint32{66}, '?'))
+	if got, want := vt.encodeKey(key), "1"; got != want {
+		t.Fatalf("keypad 1 with DECKPAM set and ignore-keypad mode = %q, want %q", got, want)
+	}
+
+	vt.update(testCSI('l', []uint32{1035}, '?'))
 	if got, want := vt.encodeKey(key), "\x1BOq"; got != want {
-		t.Fatalf("keypad 1 with DECKPAM set = %q, want %q", got, want)
+		t.Fatalf("keypad 1 with DECKPAM set and ignore-keypad reset = %q, want %q", got, want)
 	}
 
 	vt.update(testCSI('l', []uint32{66}, '?'))
 	if got, want := vt.encodeKey(key), "1"; got != want {
 		t.Fatalf("keypad 1 with DECKPAM reset again = %q, want %q", got, want)
+	}
+}
+
+func TestAltEscPrefixModeControlsAltTextEncoding(t *testing.T) {
+	vt := New()
+	key := vaxis.Key{Keycode: 'x', Modifiers: vaxis.ModAlt, EventType: vaxis.EventPress}
+
+	if got, want := vt.encodeKey(key), "\x1Bx"; got != want {
+		t.Fatalf("alt text with prefix mode set = %q, want %q", got, want)
+	}
+
+	vt.update(testCSI('l', []uint32{1036}, '?'))
+	if got, want := vt.encodeKey(key), "x"; got != want {
+		t.Fatalf("alt text with prefix mode reset = %q, want %q", got, want)
 	}
 }
 

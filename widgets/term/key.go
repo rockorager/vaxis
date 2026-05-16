@@ -17,7 +17,7 @@ const (
 	kittyKeyboardFlagAssociatedText   = 1 << 4
 )
 
-func encodeXterm(key vaxis.Key, deckpam bool, decckm bool, decbkm bool) string {
+func encodeXterm(key vaxis.Key, deckpam bool, decckm bool, decbkm bool, ignoreKeypadWithNumLock bool, altEscPrefix bool) string {
 	// ignore any kitty mods
 	xtermMods := key.Modifiers & vaxis.ModShift
 	xtermMods |= key.Modifiers & vaxis.ModAlt
@@ -57,6 +57,9 @@ func encodeXterm(key vaxis.Key, deckpam bool, decckm bool, decbkm bool) string {
 			}
 		}
 
+		if ignoreKeypadWithNumLock {
+			deckpam = false
+		}
 		switch deckpam {
 		case true:
 			// Special keys
@@ -86,7 +89,7 @@ func encodeXterm(key vaxis.Key, deckpam bool, decckm bool, decbkm bool) string {
 
 	buf := bytes.NewBuffer(nil)
 	if key.Keycode < unicode.MaxRune {
-		if xtermMods&vaxis.ModAlt != 0 {
+		if xtermMods&vaxis.ModAlt != 0 && altEscPrefix {
 			buf.WriteRune('\x1b')
 		}
 		if xtermMods&vaxis.ModCtrl != 0 {
@@ -147,7 +150,7 @@ func (vt *Model) encodeKey(key vaxis.Key) string {
 			return seq
 		}
 	}
-	return encodeXterm(key, vt.mode.deckpam, vt.mode.decckm, vt.mode.decbkm)
+	return encodeXterm(key, vt.mode.deckpam, vt.mode.decckm, vt.mode.decbkm, vt.mode.ignoreKeypadWithNumLock, vt.mode.altEscPrefix)
 }
 
 func encodeModifyOtherKeys(key vaxis.Key) string {

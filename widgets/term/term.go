@@ -124,10 +124,12 @@ func New(opts ...Option) *Model {
 	m := &Model{
 		OSC8: true,
 		mode: mode{
-			srm:       true,
-			decawm:    true,
-			dectcem:   true,
-			altScroll: true,
+			srm:                     true,
+			decawm:                  true,
+			dectcem:                 true,
+			altScroll:               true,
+			ignoreKeypadWithNumLock: true,
+			altEscPrefix:            true,
 		},
 		primaryState: defaultCursorState(),
 		altState:     defaultCursorState(),

@@ -86,12 +86,24 @@ type mode struct {
 	mouseShiftCapture bool
 	// Alternate scroll
 	altScroll bool
+	// Ignore keypad application mode when Num Lock is active.
+	ignoreKeypadWithNumLock bool
+	// Prefix Alt-modified text keys with ESC.
+	altEscPrefix bool
+	// Alt sends escape mode.
+	altSendsEscape bool
 	// Save cursor mode
 	saveCursor bool
+	// Synchronized output mode.
+	synchronizedOutput bool
+	// Grapheme cluster mode.
+	graphemeCluster bool
 	// Focus event tracking
 	focusEvents bool
 	// Unsolicited color scheme change notifications
 	colorScheme bool
+	// In-band size reports.
+	inBandSizeReports bool
 	// xterm modifyOtherKeys state 2 numeric encoding.
 	modifyOtherKeys2 bool
 
@@ -247,6 +259,12 @@ func (vt *Model) setDECMode(param int, enabled bool) {
 	case 1016:
 		vt.mode.mouseSGRPixels = enabled
 		vt.setMouseFormatMode(mouseFormatSGRPixels, enabled)
+	case 1035:
+		vt.mode.ignoreKeypadWithNumLock = enabled
+	case 1036:
+		vt.mode.altEscPrefix = enabled
+	case 1039:
+		vt.mode.altSendsEscape = enabled
 	case 47:
 		vt.switchAltScreen(47, enabled)
 	case 1048:
@@ -264,8 +282,14 @@ func (vt *Model) setDECMode(param int, enabled bool) {
 		vt.mode.reverseWrapExtended = enabled
 	case 2004:
 		vt.mode.paste = enabled
+	case 2026:
+		vt.mode.synchronizedOutput = enabled
+	case 2027:
+		vt.mode.graphemeCluster = enabled
 	case 2031:
 		vt.mode.colorScheme = enabled
+	case 2048:
+		vt.mode.inBandSizeReports = enabled
 	}
 }
 
@@ -343,6 +367,12 @@ func (vt *Model) decModeValue(param int) bool {
 		return vt.mode.mouseURXVT
 	case 1016:
 		return vt.mode.mouseSGRPixels
+	case 1035:
+		return vt.mode.ignoreKeypadWithNumLock
+	case 1036:
+		return vt.mode.altEscPrefix
+	case 1039:
+		return vt.mode.altSendsEscape
 	case 47, 1047, 1049:
 		return vt.mode.smcup
 	case 1048:
@@ -351,8 +381,14 @@ func (vt *Model) decModeValue(param int) bool {
 		return vt.mode.reverseWrapExtended
 	case 2004:
 		return vt.mode.paste
+	case 2026:
+		return vt.mode.synchronizedOutput
+	case 2027:
+		return vt.mode.graphemeCluster
 	case 2031:
 		return vt.mode.colorScheme
+	case 2048:
+		return vt.mode.inBandSizeReports
 	default:
 		return false
 	}
@@ -412,6 +448,12 @@ func savedModeValue(m mode, param int) bool {
 		return m.mouseURXVT
 	case 1016:
 		return m.mouseSGRPixels
+	case 1035:
+		return m.ignoreKeypadWithNumLock
+	case 1036:
+		return m.altEscPrefix
+	case 1039:
+		return m.altSendsEscape
 	case 47, 1047, 1049:
 		return m.smcup
 	case 1048:
@@ -420,8 +462,14 @@ func savedModeValue(m mode, param int) bool {
 		return m.reverseWrapExtended
 	case 2004:
 		return m.paste
+	case 2026:
+		return m.synchronizedOutput
+	case 2027:
+		return m.graphemeCluster
 	case 2031:
 		return m.colorScheme
+	case 2048:
+		return m.inBandSizeReports
 	default:
 		return false
 	}
@@ -474,6 +522,12 @@ func setModeValue(m *mode, param int, enabled bool) {
 		m.mouseURXVT = enabled
 	case 1016:
 		m.mouseSGRPixels = enabled
+	case 1035:
+		m.ignoreKeypadWithNumLock = enabled
+	case 1036:
+		m.altEscPrefix = enabled
+	case 1039:
+		m.altSendsEscape = enabled
 	case 47, 1047, 1049:
 		m.smcup = enabled
 	case 1048:
@@ -482,8 +536,14 @@ func setModeValue(m *mode, param int, enabled bool) {
 		m.reverseWrapExtended = enabled
 	case 2004:
 		m.paste = enabled
+	case 2026:
+		m.synchronizedOutput = enabled
+	case 2027:
+		m.graphemeCluster = enabled
 	case 2031:
 		m.colorScheme = enabled
+	case 2048:
+		m.inBandSizeReports = enabled
 	}
 }
 
@@ -590,6 +650,12 @@ func (vt *Model) decrqm(pd int, ansiMode bool) {
 		ps = modeReportState(vt.mode.mouseURXVT)
 	case 1016:
 		ps = modeReportState(vt.mode.mouseSGRPixels)
+	case 1035:
+		ps = modeReportState(vt.mode.ignoreKeypadWithNumLock)
+	case 1036:
+		ps = modeReportState(vt.mode.altEscPrefix)
+	case 1039:
+		ps = modeReportState(vt.mode.altSendsEscape)
 	case 47, 1047, 1049:
 		ps = modeReportState(vt.mode.smcup)
 	case 1048:
@@ -598,8 +664,14 @@ func (vt *Model) decrqm(pd int, ansiMode bool) {
 		ps = modeReportState(vt.mode.reverseWrapExtended)
 	case 2004:
 		ps = modeReportState(vt.mode.paste)
+	case 2026:
+		ps = modeReportState(vt.mode.synchronizedOutput)
+	case 2027:
+		ps = modeReportState(vt.mode.graphemeCluster)
 	case 2031:
 		ps = modeReportState(vt.mode.colorScheme)
+	case 2048:
+		ps = modeReportState(vt.mode.inBandSizeReports)
 	}
 	vt.enqueueReplyString(fmt.Sprintf("\x1B[?%d;%d$y", pd, ps))
 }
