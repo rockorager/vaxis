@@ -16,6 +16,7 @@ func ps(seq ansi.CSI) int {
 // Insert Blank Character (ICH) CSI Ps @
 // Insert Ps blank characters. Cursor does not change position.
 func (vt *Model) ich(ps int) {
+	vt.resetWrap()
 	if ps == 0 {
 		ps = 1
 	}
@@ -46,7 +47,7 @@ func (vt *Model) ich(ps int) {
 // Cursur Up (CUU) CSI Ps A
 // Move cursor up in same column, stopping at top margin
 func (vt *Model) cuu(ps int) {
-	vt.lastCol = false
+	vt.resetWrap()
 	if ps == 0 {
 		ps = 1
 	}
@@ -63,7 +64,7 @@ func (vt *Model) cuu(ps int) {
 // Cursur Down (CUD) CSI Ps B
 // Move cursor down in same column, stopping at bottom margin
 func (vt *Model) cud(ps int) {
-	vt.lastCol = false
+	vt.resetWrap()
 	if ps == 0 {
 		ps = 1
 	}
@@ -76,7 +77,7 @@ func (vt *Model) cud(ps int) {
 // Cursur Forward (CUF) CSI Ps C
 // Move cursor forward Ps columns, stopping at the right margin
 func (vt *Model) cuf(ps int) {
-	vt.lastCol = false
+	vt.resetWrap()
 	if ps == 0 {
 		ps = 1
 	}
@@ -89,7 +90,7 @@ func (vt *Model) cuf(ps int) {
 // Cursur Backward (CUB) CSI Ps D
 // Move cursor backward Ps columns, stopping at the left margin
 func (vt *Model) cub(ps int) {
-	vt.lastCol = false
+	vt.resetWrap()
 	if ps == 0 {
 		ps = 1
 	}
@@ -102,7 +103,7 @@ func (vt *Model) cub(ps int) {
 // Cursor Next Line (CNL) CSI Ps E
 // Move cursor to left margin Ps lines down, scrolling if necessary
 func (vt *Model) cnl(ps int) {
-	vt.lastCol = false
+	vt.resetWrap()
 	if ps == 0 {
 		ps = 1
 	}
@@ -114,7 +115,7 @@ func (vt *Model) cnl(ps int) {
 // Cursor Preceding Line (CPL) CSI Ps F
 // Move cursor to left margin Ps lines down, scrolling if necessary
 func (vt *Model) cpl(ps int) {
-	vt.lastCol = false
+	vt.resetWrap()
 	if ps == 0 {
 		ps = 1
 	}
@@ -128,7 +129,7 @@ func (vt *Model) cpl(ps int) {
 // Move cursor to Ps column, stopping at right/left margin. Default is 1, but we
 // default to 0 since our columns our 0 indexed
 func (vt *Model) cha(ps int) {
-	vt.lastCol = false
+	vt.resetWrap()
 	if ps == 0 {
 		ps = 1
 	}
@@ -144,7 +145,7 @@ func (vt *Model) cha(ps int) {
 // Cursor Position (CUP) CSI Ps;Ps H
 // Move cursor to the absolute position
 func (vt *Model) cup(pm ansi.CSI) {
-	vt.lastCol = false
+	vt.resetWrap()
 	switch pm.NumParameters {
 	case 0:
 		vt.cursor.row = 0
@@ -167,7 +168,7 @@ func (vt *Model) cup(pm ansi.CSI) {
 // Cursor Forward Tabulation (CHT) CSI Ps I
 // Move cursor forward Ps tab stops
 func (vt *Model) cht(ps int) {
-	vt.lastCol = false
+	vt.resetWrap()
 	if ps == 0 {
 		ps = 1
 	}
@@ -195,53 +196,47 @@ func (vt *Model) ed(ps int) {
 	// position. Line attribute becomes single-height, single-width for all
 	// completely erased lines.
 	case 0:
-		vt.lastCol = false
-		for r := vt.cursor.row; r < row(vt.height()); r += 1 {
-			for col := column(0); col < column(vt.width()); col += 1 {
-				if r == vt.cursor.row && col < vt.cursor.col {
-					// Don't erase current row before cursor
-					continue
-				}
-				vt.activeScreen.eraseCell(r, col, vt.cursor.Style.Background)
-			}
+		vt.el(0)
+		for r := vt.cursor.row + 1; r < row(vt.height()); r += 1 {
+			vt.activeScreen.eraseRow(r, 0, column(vt.width()-1), vt.cursor.Style.Background)
 		}
 
 	// Erases from the beginning of the screen to the cursor, including the
 	// cursor position. Line attribute becomes single-height, single-width
 	// for all completely erased lines.
 	case 1:
-		vt.lastCol = false
-		for r := row(0); r <= vt.cursor.row; r += 1 {
-			for col := column(0); col < column(vt.width()); col += 1 {
-				if r == vt.cursor.row && col > vt.cursor.col {
-					// Don't erase current row after current
-					// column
-					break
-				}
-				vt.activeScreen.eraseCell(r, col, vt.cursor.Style.Background)
-			}
+		vt.el(1)
+		for r := row(0); r < vt.cursor.row; r += 1 {
+			vt.activeScreen.eraseRow(r, 0, column(vt.width()-1), vt.cursor.Style.Background)
 		}
 
 	// Erases the complete display. All lines are erased and changed to
 	// single-width. The cursor does not move.
 	case 2:
-		vt.lastCol = false
+		vt.resetPendingWrap()
 		for r := row(0); r < row(vt.height()); r += 1 {
 			for col := column(0); col < column(vt.width()); col += 1 {
 				vt.activeScreen.eraseCell(r, col, vt.cursor.Style.Background)
 			}
+			vt.activeScreen.row(r).wrapped = false
+			vt.activeScreen.row(r).wrapContinuation = false
 		}
+
+	// Erases saved lines in the scrollback buffer.
+	case 3:
+		vt.activeScreen.clearScrollback()
+		vt.clampScrollOffset()
 	}
 }
 
 // Erase in Line (EL) CSI Ps K
 func (vt *Model) el(ps int) {
 	r := vt.cursor.row
-	vt.lastCol = false
 	switch ps {
 	// Erases from the cursor to the end of the line, including the cursor
 	// position. Line attribute is not affected.
 	case 0:
+		vt.resetWrap()
 		for col := vt.cursor.col; col < column(vt.width()); col += 1 {
 			vt.activeScreen.eraseCell(r, col, vt.cursor.Style.Background)
 		}
@@ -249,12 +244,14 @@ func (vt *Model) el(ps int) {
 	// Erases from the beginning of the line to the cursor, including the
 	// cursor position. Line attribute is not affected.
 	case 1:
+		vt.resetPendingWrap()
 		for col := column(0); col <= vt.cursor.col; col += 1 {
 			vt.activeScreen.eraseCell(r, col, vt.cursor.Style.Background)
 		}
 
 	// Erases the complete line.
 	case 2:
+		vt.resetPendingWrap()
 		for col := column(0); col < column(vt.width()); col += 1 {
 			vt.activeScreen.eraseCell(r, col, vt.cursor.Style.Background)
 		}
@@ -270,7 +267,7 @@ func (vt *Model) el(ps int) {
 // first column. This sequence is ignored when the cursor is outside the
 // scrolling region.
 func (vt *Model) il(ps int) {
-	vt.lastCol = false
+	vt.resetWrap()
 	if vt.cursor.row < vt.margin.top {
 		return
 	}
@@ -288,20 +285,18 @@ func (vt *Model) il(ps int) {
 		ps = 1
 	}
 
-	if int(vt.margin.bottom-vt.cursor.row) < (ps - 1) {
-		ps = int(vt.margin.bottom - vt.cursor.row)
+	if available := int(vt.margin.bottom-vt.cursor.row) + 1; ps > available {
+		ps = available
 	}
 
 	// move the lines first
 	for r := vt.margin.bottom; r >= (vt.cursor.row + row(ps)); r -= 1 {
-		copy(vt.activeScreen.line(r), vt.activeScreen.line(r-row(ps)))
+		vt.activeScreen.copyRow(r, r-row(ps))
 	}
 
 	// insert the blank lines (we do this by erasing the cells)
 	for r := row(0); r < row(ps); r += 1 {
-		for col := vt.margin.left; col <= vt.margin.right; col += 1 {
-			vt.activeScreen.eraseCell(vt.cursor.row+r, col, vt.cursor.Style.Background)
-		}
+		vt.activeScreen.eraseRow(vt.cursor.row+r, vt.margin.left, vt.margin.right, vt.cursor.Style.Background)
 	}
 	vt.cursor.col = vt.margin.left
 }
@@ -315,7 +310,7 @@ func (vt *Model) il(ps int) {
 // the bottom of the scrolling region. The cursor is reset to the first column.
 // This sequence is ignored when the cursor is outside the scrolling region.
 func (vt *Model) dl(ps int) {
-	vt.lastCol = false
+	vt.resetWrap()
 	if vt.cursor.row < vt.margin.top {
 		return
 	}
@@ -333,18 +328,16 @@ func (vt *Model) dl(ps int) {
 		ps = 1
 	}
 
-	if int(vt.margin.bottom-vt.cursor.row) < (ps - 1) {
-		ps = int(vt.margin.bottom - vt.cursor.row)
+	if available := int(vt.margin.bottom-vt.cursor.row) + 1; ps > available {
+		ps = available
 	}
 
 	for r := vt.cursor.row; r <= vt.margin.bottom; r += 1 {
 		if r <= vt.margin.bottom-row(ps) {
-			copy(vt.activeScreen.line(r), vt.activeScreen.line(r+row(ps)))
+			vt.activeScreen.copyRow(r, r+row(ps))
 			continue
 		}
-		for col := vt.margin.left; col <= vt.margin.right; col += 1 {
-			vt.activeScreen.eraseCell(r, col, vt.cursor.Style.Background)
-		}
+		vt.activeScreen.eraseRow(r, vt.margin.left, vt.margin.right, vt.cursor.Style.Background)
 	}
 	vt.cursor.col = vt.margin.left
 }
@@ -357,7 +350,7 @@ func (vt *Model) dl(ps int) {
 // character deleted. Character attributes move with the characters. The spaces
 // created at the end of the line have all their character attributes off.
 func (vt *Model) dch(ps int) {
-	vt.lastCol = false
+	vt.resetWrap()
 	if ps == 0 {
 		ps = 1
 	}
@@ -378,7 +371,7 @@ func (vt *Model) dch(ps int) {
 // to normal. No reformatting of data on the line occurs. The cursor remains in
 // the same position.
 func (vt *Model) ech(ps int) {
-	vt.lastCol = false
+	vt.resetWrap()
 	if ps == 0 {
 		ps = 1
 	}
@@ -395,7 +388,7 @@ func (vt *Model) ech(ps int) {
 //
 // Move cursor backward Ps tabulations
 func (vt *Model) cbt(ps int) {
-	vt.lastCol = false
+	vt.resetWrap()
 	if ps == 0 {
 		ps = 1
 	}
@@ -426,7 +419,7 @@ func (vt *Model) tbc(ps int) {
 //
 // Move cursor to line Ps
 func (vt *Model) vpa(ps int) {
-	vt.lastCol = false
+	vt.resetWrap()
 	if ps == 0 {
 		ps = 1
 	}
@@ -440,7 +433,7 @@ func (vt *Model) vpa(ps int) {
 //
 // Move down Ps lines
 func (vt *Model) vpr(ps int) {
-	vt.lastCol = false
+	vt.resetWrap()
 	if ps == 0 {
 		ps = 1
 	}
@@ -454,7 +447,7 @@ func (vt *Model) vpr(ps int) {
 //
 // Move cursor to column Ps
 func (vt *Model) hpa(ps int) {
-	vt.lastCol = false
+	vt.resetWrap()
 	if ps == 0 {
 		ps = 1
 	}
@@ -468,7 +461,7 @@ func (vt *Model) hpa(ps int) {
 //
 // Move cursor to the right Ps times
 func (vt *Model) hpr(ps int) {
-	vt.lastCol = false
+	vt.resetWrap()
 	if ps == 0 {
 		ps = 1
 	}
@@ -482,7 +475,7 @@ func (vt *Model) hpr(ps int) {
 //
 // Repeat preceding graphic character Ps times
 func (vt *Model) rep(ps int) {
-	vt.lastCol = false
+	vt.resetWrap()
 	col := vt.cursor.col
 	if col == 0 {
 		return
@@ -516,7 +509,7 @@ func (vt *Model) decstbm(pm ansi.CSI) {
 	if top >= bot {
 		return
 	}
-	vt.lastCol = false
+	vt.resetWrap()
 	vt.margin.top = top
 	vt.margin.bottom = bot
 	vt.cursor.row = 0

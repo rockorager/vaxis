@@ -48,6 +48,9 @@ type Model struct {
 	tabStop  []column
 	// lastCol is a flag indicating we printed in the last col
 	lastCol bool
+	// scrollOffset is the number of historical rows above the active screen
+	// currently visible. Zero means the viewport is pinned to the active screen.
+	scrollOffset int
 
 	primaryState cursorState
 	altState     cursorState
@@ -71,6 +74,7 @@ type cursorState struct {
 	cursor   cursor
 	decawm   bool
 	decom    bool
+	lastCol  bool
 }
 
 type margin struct {
@@ -206,6 +210,9 @@ func (vt *Model) Update(msg vaxis.Event) {
 	vt.invalidate()
 	switch msg := msg.(type) {
 	case vaxis.Key:
+		if vt.handleViewportKey(msg) {
+			return
+		}
 		str := encodeXterm(msg, vt.mode.deckpam, vt.mode.decckm)
 		vt.pty.WriteString(str)
 	case vaxis.PasteStartEvent:
@@ -219,6 +226,9 @@ func (vt *Model) Update(msg vaxis.Event) {
 			return
 		}
 	case vaxis.Mouse:
+		if vt.handleViewportMouse(msg) {
+			return
+		}
 		mouse := vt.handleMouse(msg)
 		vt.pty.WriteString(mouse)
 		return
@@ -255,6 +265,91 @@ func (vt *Model) String() string {
 	vt.mu.Lock()
 	defer vt.mu.Unlock()
 	return vt.activeScreen.String()
+}
+
+func (vt *Model) maxScrollOffset() int {
+	if vt.mode.smcup {
+		return 0
+	}
+	return vt.primaryScreen.scrollbackLen()
+}
+
+func (vt *Model) clampScrollOffset() {
+	maxOffset := vt.maxScrollOffset()
+	if vt.scrollOffset > maxOffset {
+		vt.scrollOffset = maxOffset
+	}
+	if vt.scrollOffset < 0 {
+		vt.scrollOffset = 0
+	}
+}
+
+func (vt *Model) scrollViewport(lines int) bool {
+	if vt.mode.smcup {
+		return false
+	}
+	before := vt.scrollOffset
+	vt.scrollOffset += lines
+	vt.clampScrollOffset()
+	return vt.scrollOffset != before
+}
+
+func (vt *Model) handleViewportKey(msg vaxis.Key) bool {
+	if msg.Modifiers&vaxis.ModShift == 0 {
+		return false
+	}
+	page := max(1, vt.height()-1)
+	switch msg.Keycode {
+	case vaxis.KeyPgUp:
+		vt.scrollViewport(page)
+		return true
+	case vaxis.KeyPgDown:
+		vt.scrollViewport(-page)
+		return true
+	default:
+		return false
+	}
+}
+
+func (vt *Model) handleViewportMouse(msg vaxis.Mouse) bool {
+	if vt.mode.mouseButtons || vt.mode.mouseDrag || vt.mode.mouseMotion || vt.mode.mouseSGR {
+		return false
+	}
+	if vt.mode.smcup {
+		return false
+	}
+	switch msg.Button {
+	case vaxis.MouseWheelUp:
+		vt.scrollViewport(3)
+		return true
+	case vaxis.MouseWheelDown:
+		vt.scrollViewport(-3)
+		return true
+	default:
+		return false
+	}
+}
+
+func (vt *Model) visibleLine(r int) []cell {
+	historyLen := vt.activeScreen.scrollbackLen()
+	if vt.scrollOffset == 0 || historyLen == 0 {
+		return vt.activeScreen.line(row(r))
+	}
+	source := historyLen - vt.scrollOffset + r
+	if source < historyLen {
+		line, ok := vt.activeScreen.scrollbackLine(source)
+		if ok {
+			return line.cells
+		}
+	}
+	activeRow := source - historyLen
+	if activeRow < 0 {
+		activeRow = 0
+	}
+	if activeRow >= vt.height() {
+		activeRow = vt.height() - 1
+	}
+	return vt.activeScreen.line(row(activeRow))
 }
 
 func (vt *Model) postEvent(ev vaxis.Event) {
@@ -346,6 +441,29 @@ func (vt *Model) height() int {
 	return vt.activeScreen.height()
 }
 
+func (vt *Model) resetWrap() {
+	vt.resetPendingWrap()
+	if vt.cursor.row < 0 || vt.cursor.row >= row(vt.height()) {
+		return
+	}
+	r := vt.activeScreen.row(vt.cursor.row)
+	if !r.wrapped {
+		return
+	}
+	r.wrapped = false
+	next := vt.cursor.row + 1
+	if next < row(vt.height()) {
+		vt.activeScreen.row(next).wrapContinuation = false
+	}
+}
+
+func (vt *Model) resetPendingWrap() {
+	vt.lastCol = false
+	if vt.cursor.col > vt.margin.right {
+		vt.cursor.col = vt.margin.right
+	}
+}
+
 // print sets the current cell contents to the given rune. The attributes will
 // be copied from the current cursor attributes
 func (vt *Model) print(seq ansi.Print) {
@@ -383,7 +501,13 @@ func (vt *Model) print(seq ansi.Print) {
 	if wrap {
 		vt.lastCol = false
 		vt.activeScreen.row(vt.cursor.row).wrapped = true
-		vt.nel()
+		if vt.cursor.row == vt.margin.bottom {
+			vt.scrollUp(1)
+		} else if vt.cursor.row < row(vt.height()-1) {
+			vt.cursor.row += 1
+		}
+		vt.cursor.col = vt.margin.left
+		vt.activeScreen.row(vt.cursor.row).wrapContinuation = true
 	}
 
 	col := vt.cursor.col
@@ -443,7 +567,7 @@ func (vt *Model) print(seq ansi.Print) {
 // scrollUp shifts all text upward by n rows. Semantically, this is backwards -
 // usually scroll up would mean you shift rows down
 func (vt *Model) scrollUp(n int) {
-	vt.activeScreen.scrollUp(
+	captured := vt.activeScreen.scrollUp(
 		vt.margin.top,
 		vt.margin.bottom,
 		vt.margin.left,
@@ -451,6 +575,10 @@ func (vt *Model) scrollUp(n int) {
 		n,
 		vt.cursor.Style.Background,
 	)
+	if captured > 0 && vt.scrollOffset > 0 {
+		vt.scrollOffset += captured
+		vt.clampScrollOffset()
+	}
 }
 
 // scrollDown shifts all lines down by n rows.
@@ -486,8 +614,9 @@ func (vt *Model) Draw(win vaxis.Window) {
 		vt.Resize(width, height)
 	}
 	for r := 0; r < vt.height(); r += 1 {
+		line := vt.visibleLine(r)
 		for col := 0; col < vt.width(); {
-			cell := *vt.activeScreen.cell(row(r), column(col))
+			cell := line[col]
 			w := cell.Width
 
 			if cell.Grapheme == "" {
@@ -501,7 +630,7 @@ func (vt *Model) Draw(win vaxis.Window) {
 			col += w
 		}
 	}
-	if vt.mode.dectcem && atomicLoad(&vt.focused) {
+	if vt.scrollOffset == 0 && vt.mode.dectcem && atomicLoad(&vt.focused) {
 		win.ShowCursor(int(vt.cursor.col), int(vt.cursor.row), vt.cursor.style)
 	}
 	vx := win.Vx

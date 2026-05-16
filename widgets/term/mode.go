@@ -113,12 +113,12 @@ func (vt *Model) decset(params ansi.CSI) {
 		case 5:
 		case 6:
 			vt.mode.decom = true
-			vt.lastCol = false
+			vt.resetWrap()
 			vt.cursor.row = vt.margin.top
 			vt.cursor.col = vt.margin.left
 		case 7:
 			vt.mode.decawm = true
-			vt.lastCol = false
+			vt.resetWrap()
 		case 8:
 			vt.mode.decarm = true
 		case 25:
@@ -135,13 +135,12 @@ func (vt *Model) decset(params ansi.CSI) {
 			vt.mode.focusEvents = true
 		case 1007:
 			vt.mode.altScroll = true
+		case 47:
+			vt.switchAltScreen(47, true)
+		case 1047:
+			vt.switchAltScreen(1047, true)
 		case 1049:
-			vt.decsc()
-			vt.activeScreen = vt.altScreen
-			vt.mode.smcup = true
-			// Enable altScroll in the alt screen. This is only used
-			// if the application doesn't enable mouse
-			vt.mode.altScroll = true
+			vt.switchAltScreen(1049, true)
 		case 2004:
 			vt.mode.paste = true
 		case 2031:
@@ -164,12 +163,12 @@ func (vt *Model) decrst(params ansi.CSI) {
 		case 5:
 		case 6:
 			vt.mode.decom = false
-			vt.lastCol = false
+			vt.resetWrap()
 			vt.cursor.row = 0
 			vt.cursor.col = 0
 		case 7:
 			vt.mode.decawm = false
-			vt.lastCol = false
+			vt.resetWrap()
 		case 8:
 			vt.mode.decarm = false
 		case 25:
@@ -186,20 +185,49 @@ func (vt *Model) decrst(params ansi.CSI) {
 			vt.mode.focusEvents = false
 		case 1007:
 			vt.mode.altScroll = false
+		case 47:
+			vt.switchAltScreen(47, false)
+		case 1047:
+			vt.switchAltScreen(1047, false)
 		case 1049:
-			if vt.mode.smcup {
-				// Only clear if we were in the alternate
-				vt.ed(2)
-			}
-			vt.activeScreen = vt.primaryScreen
-			vt.mode.smcup = false
-			vt.mode.altScroll = false
-			vt.decrc()
+			vt.switchAltScreen(1049, false)
 		case 2004:
 			vt.mode.paste = false
 		case 2031:
 			vt.mode.colorScheme = false
 		}
+	}
+}
+
+func (vt *Model) switchAltScreen(mode int, enabled bool) {
+	if mode == 1049 && enabled {
+		vt.decsc()
+	}
+
+	wasAlt := vt.mode.smcup
+	if mode == 1047 && !enabled && wasAlt {
+		vt.ed(2)
+	}
+
+	if enabled {
+		vt.activeScreen = vt.altScreen
+		vt.mode.smcup = true
+		// Enable altScroll in the alt screen. This is only used if the
+		// application doesn't enable mouse.
+		vt.mode.altScroll = true
+		vt.scrollOffset = 0
+		if mode == 1049 {
+			vt.ed(2)
+		}
+		return
+	}
+
+	vt.activeScreen = vt.primaryScreen
+	vt.mode.smcup = false
+	vt.mode.altScroll = false
+	vt.scrollOffset = 0
+	if mode == 1049 && wasAlt {
+		vt.decrc()
 	}
 }
 
@@ -305,7 +333,7 @@ func (vt *Model) decrqm(pd int) {
 		case false:
 			ps = 2
 		}
-	case 1049:
+	case 47, 1047, 1049:
 		switch vt.mode.smcup {
 		case true:
 			ps = 1

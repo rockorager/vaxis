@@ -59,7 +59,7 @@ func (vt *Model) esc(esc string) {
 
 // Index ESC-D
 func (vt *Model) ind() {
-	vt.lastCol = false
+	vt.resetWrap()
 	if vt.cursor.row == vt.margin.bottom {
 		vt.scrollUp(1)
 		return
@@ -88,7 +88,7 @@ func (vt *Model) hts() {
 
 // Reverse Index ESC-M
 func (vt *Model) ri() {
-	vt.lastCol = false
+	vt.resetWrap()
 	if vt.cursor.row < 0 {
 		return
 	}
@@ -102,9 +102,10 @@ func (vt *Model) ri() {
 // Save Cursor DECSC ESC-7
 func (vt *Model) decsc() {
 	state := cursorState{
-		cursor: vt.cursor,
-		decawm: vt.mode.decawm,
-		decom:  vt.mode.decom,
+		cursor:  vt.cursor,
+		decawm:  vt.mode.decawm,
+		decom:   vt.mode.decom,
+		lastCol: vt.lastCol,
 		charsets: charsets{
 			selected: vt.charsets.selected,
 			saved:    vt.charsets.saved,
@@ -149,9 +150,7 @@ func (vt *Model) decrc() {
 	}
 	vt.mode.decawm = state.decawm
 	vt.mode.decom = state.decom
-
-	// Reset wrap state
-	vt.lastCol = false
+	vt.lastCol = state.lastCol
 }
 
 // Reset Initial State (RIS) ESC-c

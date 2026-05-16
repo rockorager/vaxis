@@ -25,7 +25,7 @@ func (vt *Model) c0(r rune) {
 
 // Backspace 0x08
 func (vt *Model) bs() {
-	vt.lastCol = false
+	vt.resetWrap()
 	if vt.cursor.col == vt.margin.left {
 		if vt.cursor.row == vt.margin.top {
 			return
@@ -65,6 +65,6 @@ func (vt *Model) ff() {
 
 // Carriage return 0x0D
 func (vt *Model) cr() {
-	vt.lastCol = false
+	vt.resetWrap()
 	vt.cursor.col = vt.margin.left
 }
