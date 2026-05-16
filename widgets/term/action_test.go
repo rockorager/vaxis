@@ -67,6 +67,25 @@ func TestSingleShiftAppliesToOneGraphicCharacter(t *testing.T) {
 	}
 }
 
+func TestLockingShiftTwoAndThreeSelectGCharsets(t *testing.T) {
+	vt := New()
+	vt.resize(4, 1)
+
+	vt.update(testESC('0', '*'))
+	vt.update(testESC('0', '+'))
+	vt.update(testESC('n'))
+	vt.update(testPrint("q"))
+	vt.update(testESC('o'))
+	vt.update(testPrint("q"))
+
+	if got, want := vt.String(), "──  "; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+	if vt.charsets.selected != g3 {
+		t.Fatalf("LS3 selected %v, want G3", vt.charsets.selected)
+	}
+}
+
 func TestCharsetBritishDesignation(t *testing.T) {
 	vt := New()
 	vt.resize(4, 1)

@@ -76,6 +76,8 @@ func applyESC(vt *Model, seq ansi.ESC) {
 			vt.charsets.saved = vt.charsets.selected
 			vt.charsets.selected = g3
 			vt.charsets.singleShift = true
+		case 'Z':
+			vt.primaryDeviceAttributes()
 		case '=':
 			vt.mode.deckpam = true
 			vt.mode.deckpnm = false
@@ -84,6 +86,10 @@ func applyESC(vt *Model, seq ansi.ESC) {
 			vt.mode.deckpnm = true
 		case 'c':
 			vt.ris()
+		case 'n':
+			vt.charsets.selected = g2
+		case 'o':
+			vt.charsets.selected = g3
 		}
 	case 1:
 		switch seq.Intermediate[0] {

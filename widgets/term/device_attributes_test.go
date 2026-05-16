@@ -13,6 +13,17 @@ func TestPrimaryDeviceAttributes(t *testing.T) {
 	}
 }
 
+func TestDECIDPrimaryDeviceAttributes(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.resize(80, 24)
+
+	vt.update(testESC('Z'))
+
+	if got, want := readReply(t, r, len("\x1B[?62;4;22c")), "\x1B[?62;4;22c"; got != want {
+		t.Fatalf("DECID primary device attributes = %q, want %q", got, want)
+	}
+}
+
 func TestSecondaryDeviceAttributes(t *testing.T) {
 	vt, r := newReplyTestModel(t)
 	vt.resize(80, 24)

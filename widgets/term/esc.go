@@ -28,6 +28,8 @@ func (vt *Model) esc(esc string) {
 		vt.charsets.saved = vt.charsets.selected
 		vt.charsets.singleShift = true
 		vt.charsets.selected = g3
+	case "Z":
+		vt.primaryDeviceAttributes()
 	case "=":
 		vt.mode.deckpam = true
 		vt.mode.deckpnm = false
@@ -36,6 +38,10 @@ func (vt *Model) esc(esc string) {
 		vt.mode.deckpam = false
 	case "c":
 		vt.ris()
+	case "n":
+		vt.charsets.selected = g2
+	case "o":
+		vt.charsets.selected = g3
 	case "(0":
 		vt.charsets.designations[g0] = decSpecialAndLineDrawing
 	case ")0":
