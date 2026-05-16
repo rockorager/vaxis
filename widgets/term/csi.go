@@ -319,7 +319,9 @@ func (vt *Model) el(ps int, forceProtected bool) {
 // first column. This sequence is ignored when the cursor is outside the
 // scrolling region.
 func (vt *Model) il(ps int) {
-	vt.resetWrap()
+	if ps <= 0 {
+		return
+	}
 	if vt.cursor.row < vt.margin.top {
 		return
 	}
@@ -332,10 +334,7 @@ func (vt *Model) il(ps int) {
 	if vt.cursor.col > vt.margin.right {
 		return
 	}
-
-	if ps == 0 {
-		ps = 1
-	}
+	vt.resetWrap()
 
 	if available := int(vt.margin.bottom-vt.cursor.row) + 1; ps > available {
 		ps = available
@@ -362,7 +361,9 @@ func (vt *Model) il(ps int) {
 // the bottom of the scrolling region. The cursor is reset to the first column.
 // This sequence is ignored when the cursor is outside the scrolling region.
 func (vt *Model) dl(ps int) {
-	vt.resetWrap()
+	if ps <= 0 {
+		return
+	}
 	if vt.cursor.row < vt.margin.top {
 		return
 	}
@@ -375,10 +376,7 @@ func (vt *Model) dl(ps int) {
 	if vt.cursor.col > vt.margin.right {
 		return
 	}
-
-	if ps == 0 {
-		ps = 1
-	}
+	vt.resetWrap()
 
 	if available := int(vt.margin.bottom-vt.cursor.row) + 1; ps > available {
 		ps = available

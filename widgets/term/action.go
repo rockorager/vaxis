@@ -180,9 +180,15 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 		case 'K':
 			vt.el(ps(seq), false)
 		case 'L':
-			vt.il(ps(seq))
+			if !validCSIParamCount(seq, 1) {
+				return
+			}
+			vt.il(defaultOneIfMissing(seq))
 		case 'M':
-			vt.dl(ps(seq))
+			if !validCSIParamCount(seq, 1) {
+				return
+			}
+			vt.dl(defaultOneIfMissing(seq))
 		case 'P':
 			if !validCSIParamCount(seq, 1) {
 				return
