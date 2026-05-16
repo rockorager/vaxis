@@ -1,0 +1,118 @@
+package term
+
+import (
+	"testing"
+
+	"git.sr.ht/~rockorager/vaxis"
+)
+
+func TestMouseSGRFormatAloneDoesNotReport(t *testing.T) {
+	vt := New()
+	vt.mode.mouseSGR = true
+
+	got := vt.handleMouse(vaxis.Mouse{
+		Button:    vaxis.MouseLeftButton,
+		EventType: vaxis.EventPress,
+	})
+
+	if got != "" {
+		t.Fatalf("mouse report = %q, want empty", got)
+	}
+}
+
+func TestMouseX10ReportsOnlyBasicPresses(t *testing.T) {
+	vt := New()
+	vt.mode.mouseX10 = true
+
+	if got, want := vt.handleMouse(vaxis.Mouse{
+		Button:    vaxis.MouseLeftButton,
+		Col:       0,
+		Row:       0,
+		EventType: vaxis.EventPress,
+		Modifiers: vaxis.ModShift | vaxis.ModAlt | vaxis.ModCtrl,
+	}), "\x1B[M !!"; got != want {
+		t.Fatalf("x10 press report = %q, want %q", got, want)
+	}
+
+	if got := vt.handleMouse(vaxis.Mouse{
+		Button:    vaxis.MouseLeftButton,
+		EventType: vaxis.EventRelease,
+	}); got != "" {
+		t.Fatalf("x10 release report = %q, want empty", got)
+	}
+
+	if got := vt.handleMouse(vaxis.Mouse{
+		Button:    vaxis.MouseWheelUp,
+		EventType: vaxis.EventPress,
+	}); got != "" {
+		t.Fatalf("x10 wheel report = %q, want empty", got)
+	}
+}
+
+func TestMouseNormalLegacyReleaseUsesButton3(t *testing.T) {
+	vt := New()
+	vt.mode.mouseButtons = true
+
+	got := vt.handleMouse(vaxis.Mouse{
+		Button:    vaxis.MouseRightButton,
+		Col:       2,
+		Row:       3,
+		EventType: vaxis.EventRelease,
+	})
+
+	if want := "\x1B[M##$"; got != want {
+		t.Fatalf("legacy release report = %q, want %q", got, want)
+	}
+}
+
+func TestMouseSGRReleaseKeepsButtonIdentity(t *testing.T) {
+	vt := New()
+	vt.mode.mouseButtons = true
+	vt.mode.mouseSGR = true
+
+	got := vt.handleMouse(vaxis.Mouse{
+		Button:    vaxis.MouseRightButton,
+		Col:       4,
+		Row:       5,
+		EventType: vaxis.EventRelease,
+	})
+
+	if want := "\x1B[<2;5;6m"; got != want {
+		t.Fatalf("sgr release report = %q, want %q", got, want)
+	}
+}
+
+func TestMouseSGRMotionNoButtonAnyMode(t *testing.T) {
+	vt := New()
+	vt.mode.mouseMotion = true
+	vt.mode.mouseSGR = true
+
+	got := vt.handleMouse(vaxis.Mouse{
+		Button:    vaxis.MouseNoButton,
+		Col:       1,
+		Row:       2,
+		EventType: vaxis.EventMotion,
+	})
+
+	if want := "\x1B[<35;2;3M"; got != want {
+		t.Fatalf("sgr motion report = %q, want %q", got, want)
+	}
+}
+
+func TestMouseModifiersInNonX10Modes(t *testing.T) {
+	vt := New()
+	vt.mode.mouseButtons = true
+	vt.mode.mouseSGR = true
+
+	got := vt.handleMouse(vaxis.Mouse{
+		Button:    vaxis.MouseLeftButton,
+		Col:       2,
+		Row:       3,
+		EventType: vaxis.EventPress,
+		Modifiers: vaxis.ModShift | vaxis.ModAlt | vaxis.ModCtrl,
+	})
+
+	if want := "\x1B[<28;3;4M"; got != want {
+		t.Fatalf("sgr modified press report = %q, want %q", got, want)
+	}
+}

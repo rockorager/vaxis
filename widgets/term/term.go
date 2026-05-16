@@ -314,7 +314,7 @@ func (vt *Model) handleViewportKey(msg vaxis.Key) bool {
 }
 
 func (vt *Model) handleViewportMouse(msg vaxis.Mouse) bool {
-	if vt.mode.mouseButtons || vt.mode.mouseDrag || vt.mode.mouseMotion || vt.mode.mouseSGR {
+	if vt.mode.mouseX10 || vt.mode.mouseButtons || vt.mode.mouseDrag || vt.mode.mouseMotion {
 		return false
 	}
 	if vt.mode.smcup {

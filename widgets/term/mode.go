@@ -56,6 +56,8 @@ type mode struct {
 	// Bracketed paste
 	paste bool
 	// vt220 mouse
+	mouseX10 bool
+	// vt220 mouse button events
 	mouseButtons bool
 	// vt220 + drag
 	mouseDrag bool
@@ -129,6 +131,8 @@ func (vt *Model) decset(params ansi.CSI) {
 			vt.mode.dectcem = true
 		case 69:
 			vt.mode.declrmm = true
+		case 9:
+			vt.mode.mouseX10 = true
 		case 1000:
 			vt.mode.mouseButtons = true
 		case 1002:
@@ -186,6 +190,8 @@ func (vt *Model) decrst(params ansi.CSI) {
 			vt.mode.declrmm = false
 			vt.margin.left = 0
 			vt.margin.right = column(vt.width()) - 1
+		case 9:
+			vt.mode.mouseX10 = false
 		case 1000:
 			vt.mode.mouseButtons = false
 		case 1002:
@@ -309,6 +315,13 @@ func (vt *Model) decrqm(pd int) {
 		}
 	case 69:
 		switch vt.mode.declrmm {
+		case true:
+			ps = 1
+		case false:
+			ps = 2
+		}
+	case 9:
+		switch vt.mode.mouseX10 {
 		case true:
 			ps = 1
 		case false:
