@@ -320,6 +320,11 @@ func TestKittyKeyboardReportAlternates(t *testing.T) {
 			want: "\x1B[106:74;2;74u",
 		},
 		{
+			name: "shifted semicolon",
+			key:  vaxis.Key{Keycode: ';', Text: ":", ShiftedCode: ':', Modifiers: vaxis.ModShift, EventType: vaxis.EventPress},
+			want: "\x1B[59:58;2;58u",
+		},
+		{
 			name: "caps lock printable",
 			key:  vaxis.Key{Keycode: 'j', Text: "J", Modifiers: vaxis.ModCapsLock, EventType: vaxis.EventPress},
 			want: "\x1B[106;65;74u",
@@ -348,6 +353,18 @@ func TestKittyKeyboardReportAlternates(t *testing.T) {
 				t.Fatalf("Kitty keyboard alternates %s = %q, want %q", tt.name, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestKittyKeyboardShiftSemicolonWithNeovimFlags(t *testing.T) {
+	vt, r := newReplyTestModel(t, WithKittyKeyboard(true))
+	vt.resize(80, 24)
+
+	vt.update(testCSI('u', []uint32{3}, '>'))
+	vt.Update(vaxis.Key{Keycode: ';', Text: ":", ShiftedCode: ':', Modifiers: vaxis.ModShift, EventType: vaxis.EventPress})
+
+	if got, want := readReply(t, r, len(":")), ":"; got != want {
+		t.Fatalf("Kitty keyboard shift+semicolon with Neovim flags = %q, want %q", got, want)
 	}
 }
 

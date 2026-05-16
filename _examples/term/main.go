@@ -9,12 +9,18 @@ import (
 )
 
 func main() {
-	vx, err := vaxis.New(vaxis.Options{})
+	vx, err := vaxis.New(vaxis.Options{
+		CSIuBitMask: vaxis.CSIuDisambiguate |
+			vaxis.CSIuReportEvents |
+			vaxis.CSIuAlternateKeys |
+			vaxis.CSIuAllKeys |
+			vaxis.CSIuAssociatedText,
+	})
 	if err != nil {
 		panic(err)
 	}
 	defer vx.Close()
-	vt := term.New(term.WithVaxis(vx))
+	vt := term.New(term.WithVaxis(vx), term.WithKittyKeyboard(true))
 	vt.Attach(vx.PostEvent)
 	vt.Focus()
 	err = vt.Start(exec.Command(os.Getenv("SHELL")))

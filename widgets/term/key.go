@@ -419,7 +419,7 @@ func encodeKitty(key vaxis.Key, flags uint8) string {
 		return key.Text
 	}
 
-	if flags&kittyKeyboardFlagReportAll == 0 && key.EventType != vaxis.EventRelease && key.Modifiers == 0 && kittyTextIsPrintable(key.Text) {
+	if flags&kittyKeyboardFlagReportAll == 0 && key.EventType != vaxis.EventRelease && kittyTextIsPlainInput(key) {
 		return key.Text
 	}
 
@@ -515,6 +515,19 @@ func kittyTextIsPrintable(text string) bool {
 		}
 	}
 	return true
+}
+
+func kittyTextIsPlainInput(key vaxis.Key) bool {
+	if !kittyTextIsPrintable(key.Text) {
+		return false
+	}
+	if key.Modifiers == 0 {
+		return true
+	}
+	if key.Modifiers&^vaxis.ModShift != 0 {
+		return false
+	}
+	return key.ShiftedCode > 0 && key.Text == string(key.ShiftedCode)
 }
 
 func kittyModifiersPreventText(mods vaxis.ModifierMask) bool {
