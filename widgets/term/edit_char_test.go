@@ -15,6 +15,32 @@ func TestInsertBlanks(t *testing.T) {
 	}
 }
 
+func TestInsertBlanksZeroParameterInsertsOne(t *testing.T) {
+	vt := New()
+	vt.resize(5, 1)
+	printText(vt, "ABC")
+	vt.update(testCSI('H', []uint32{1, 1}))
+
+	vt.update(testCSI('@', []uint32{0}))
+
+	if got, want := vt.String(), " ABC "; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestInsertBlanksIgnoresMultipleParameters(t *testing.T) {
+	vt := New()
+	vt.resize(5, 1)
+	printText(vt, "ABC")
+	vt.update(testCSI('H', []uint32{1, 1}))
+
+	vt.update(testCSI('@', []uint32{1, 1}))
+
+	if got, want := vt.String(), "ABC  "; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}
+
 func TestInsertBlanksPushesOffEnd(t *testing.T) {
 	vt := New()
 	vt.resize(3, 2)
@@ -107,6 +133,49 @@ func TestDeleteCharsOutsideLeftRightRegionDoesNothing(t *testing.T) {
 	}
 }
 
+func TestDeleteCharsZeroParameterDoesNothing(t *testing.T) {
+	vt := New()
+	vt.resize(5, 1)
+	printText(vt, "ABCDE")
+	vt.update(testCSI('H', []uint32{1, 2}))
+	vt.lastCol = true
+
+	vt.update(testCSI('P', []uint32{0}))
+
+	if got, want := vt.String(), "ABCDE"; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+	if !vt.lastCol {
+		t.Fatal("DCH zero parameter reset pending wrap")
+	}
+}
+
+func TestDeleteCharsDefaultParameterDeletesOne(t *testing.T) {
+	vt := New()
+	vt.resize(5, 1)
+	printText(vt, "ABCDE")
+	vt.update(testCSI('H', []uint32{1, 2}))
+
+	vt.update(testCSI('P', nil))
+
+	if got, want := vt.String(), "ACDE "; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestDeleteCharsIgnoresMultipleParameters(t *testing.T) {
+	vt := New()
+	vt.resize(5, 1)
+	printText(vt, "ABCDE")
+	vt.update(testCSI('H', []uint32{1, 2}))
+
+	vt.update(testCSI('P', []uint32{1, 1}))
+
+	if got, want := vt.String(), "ABCDE"; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}
+
 func TestDeleteCharsInsideLeftRightRegion(t *testing.T) {
 	vt := New()
 	vt.resize(6, 1)
@@ -118,6 +187,19 @@ func TestDeleteCharsInsideLeftRightRegion(t *testing.T) {
 	vt.dch(1)
 
 	if got, want := vt.String(), "ABC2 3"; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestEraseCharsIgnoresMultipleParameters(t *testing.T) {
+	vt := New()
+	vt.resize(5, 1)
+	printText(vt, "ABCDE")
+	vt.update(testCSI('H', []uint32{1, 2}))
+
+	vt.update(testCSI('X', []uint32{1, 1}))
+
+	if got, want := vt.String(), "ABCDE"; got != want {
 		t.Fatalf("screen mismatch: got %q want %q", got, want)
 	}
 }

@@ -129,7 +129,10 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 	case 0:
 		switch seq.Final {
 		case '@':
-			vt.ich(ps(seq))
+			if !validCSIParamCount(seq, 1) {
+				return
+			}
+			vt.ich(defaultOne(ps(seq)))
 		case 'A', 'k':
 			if !validCSIParamCount(seq, 1) {
 				return
@@ -181,7 +184,10 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 		case 'M':
 			vt.dl(ps(seq))
 		case 'P':
-			vt.dch(ps(seq))
+			if !validCSIParamCount(seq, 1) {
+				return
+			}
+			vt.dch(defaultOneIfMissing(seq))
 		case 'S':
 			vt.scrollUp(defaultOne(ps(seq)))
 		case 'T':
@@ -191,6 +197,9 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 		case 'W':
 			vt.ctc(seq, false)
 		case 'X':
+			if !validCSIParamCount(seq, 1) {
+				return
+			}
 			vt.ech(ps(seq))
 		case 'Z':
 			if !validCSIParamCount(seq, 1) {
@@ -325,6 +334,13 @@ func validCSIParamCount(seq ansi.CSI, max int) bool {
 }
 
 func tabCount(seq ansi.CSI) int {
+	if seq.NumParameters == 0 {
+		return 1
+	}
+	return seq.Param(0)
+}
+
+func defaultOneIfMissing(seq ansi.CSI) int {
 	if seq.NumParameters == 0 {
 		return 1
 	}

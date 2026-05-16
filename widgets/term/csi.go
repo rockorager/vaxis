@@ -402,11 +402,11 @@ func (vt *Model) dl(ps int) {
 // character deleted. Character attributes move with the characters. The spaces
 // created at the end of the line have all their character attributes off.
 func (vt *Model) dch(ps int) {
+	if ps <= 0 {
+		return
+	}
 	origCol := vt.cursor.col
 	vt.resetWrap()
-	if ps == 0 {
-		ps = 1
-	}
 	if origCol < vt.margin.left || origCol > vt.margin.right {
 		return
 	}
