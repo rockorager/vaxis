@@ -182,6 +182,64 @@ func TestCursorHiddenDuringSynchronizedOutput(t *testing.T) {
 	}
 }
 
+func TestKeyInputScrollsViewportToBottom(t *testing.T) {
+	vt := New()
+	vt.resize(5, 3)
+	writeViewportLines(vt, "1ABCD", "2EFGH", "3IJKL", "4ABCD")
+	vt.scrollViewport(1)
+
+	vt.Update(vaxis.Key{Keycode: 'x', Text: "x", EventType: vaxis.EventPress})
+
+	if got := vt.scrollOffset; got != 0 {
+		t.Fatalf("scroll offset after key input = %d, want 0", got)
+	}
+}
+
+func TestViewportKeyDoesNotForceBottom(t *testing.T) {
+	vt := New()
+	vt.resize(5, 3)
+	writeViewportLines(vt, "1ABCD", "2EFGH", "3IJKL", "4ABCD", "5EFGH")
+	vt.scrollViewport(1)
+
+	vt.Update(vaxis.Key{Keycode: vaxis.KeyPgUp, Modifiers: vaxis.ModShift})
+
+	if got, want := vt.scrollOffset, 2; got != want {
+		t.Fatalf("scroll offset after viewport key = %d, want %d", got, want)
+	}
+}
+
+func TestBracketedPasteWrappersScrollViewportToBottom(t *testing.T) {
+	vt := New()
+	vt.resize(5, 3)
+	vt.mode.paste = true
+	writeViewportLines(vt, "1ABCD", "2EFGH", "3IJKL", "4ABCD")
+	vt.scrollViewport(1)
+
+	vt.Update(vaxis.PasteStartEvent{})
+	if got := vt.scrollOffset; got != 0 {
+		t.Fatalf("scroll offset after paste start = %d, want 0", got)
+	}
+
+	vt.scrollViewport(1)
+	vt.Update(vaxis.PasteEndEvent{})
+	if got := vt.scrollOffset; got != 0 {
+		t.Fatalf("scroll offset after paste end = %d, want 0", got)
+	}
+}
+
+func TestOutputDoesNotScrollViewportToBottom(t *testing.T) {
+	vt := New()
+	vt.resize(5, 3)
+	writeViewportLines(vt, "1ABCD", "2EFGH", "3IJKL", "4ABCD")
+	vt.scrollViewport(1)
+
+	vt.update(testPrint("x"))
+
+	if got, want := vt.scrollOffset, 1; got != want {
+		t.Fatalf("scroll offset after output = %d, want %d", got, want)
+	}
+}
+
 func TestEraseDisplayClearsScrollback(t *testing.T) {
 	vt := New()
 	vt.resize(5, 3)

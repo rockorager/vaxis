@@ -290,6 +290,9 @@ func (vt *Model) Update(msg vaxis.Event) {
 		vt.clearSelectionLocked()
 		str := vt.encodeKey(msg)
 		str = vt.linefeedModeInput(str)
+		if str != "" {
+			vt.scrollViewportBottom()
+		}
 		pendingWrites = append(pendingWrites, vt.pendingPtyWrite(str))
 	case vaxis.PasteStartEvent:
 		if vt.keyboardActionModeBlocksInput() {
@@ -297,6 +300,7 @@ func (vt *Model) Update(msg vaxis.Event) {
 		}
 		vt.clearSelectionLocked()
 		if vt.mode.paste {
+			vt.scrollViewportBottom()
 			pendingWrites = append(pendingWrites, vt.pendingPtyWrite("\x1B[200~"))
 			return
 		}
@@ -306,6 +310,7 @@ func (vt *Model) Update(msg vaxis.Event) {
 		}
 		vt.clearSelectionLocked()
 		if vt.mode.paste {
+			vt.scrollViewportBottom()
 			pendingWrites = append(pendingWrites, vt.pendingPtyWrite("\x1B[201~"))
 			return
 		}
@@ -440,6 +445,12 @@ func (vt *Model) scrollViewport(lines int) bool {
 	before := vt.scrollOffset
 	vt.scrollOffset += lines
 	vt.clampScrollOffset()
+	return vt.scrollOffset != before
+}
+
+func (vt *Model) scrollViewportBottom() bool {
+	before := vt.scrollOffset
+	vt.scrollOffset = 0
 	return vt.scrollOffset != before
 }
 
