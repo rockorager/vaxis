@@ -211,6 +211,10 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 			switch seq.Final {
 			case 'c':
 				vt.enqueueReplyString("\x1b[>1;0;0c")
+			case 'm':
+				vt.modifyKeyFormat(seq)
+			case 'n':
+				vt.mode.modifyOtherKeys2 = false
 			case 'q':
 				vt.xtversion()
 			case 's':

@@ -75,6 +75,8 @@ type mode struct {
 	focusEvents bool
 	// Unsolicited color scheme change notifications
 	colorScheme bool
+	// xterm modifyOtherKeys state 2 numeric encoding.
+	modifyOtherKeys2 bool
 
 	// Most recent character protection mode. As in Ghostty, DECSCA off clears
 	// the cursor pen but does not reset this because erase semantics depend on

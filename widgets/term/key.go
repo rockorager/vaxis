@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"unicode"
+	"unicode/utf8"
 
 	"git.sr.ht/~rockorager/vaxis"
+	"git.sr.ht/~rockorager/vaxis/ansi"
 )
 
 const (
@@ -123,7 +125,69 @@ func (vt *Model) encodeKey(key vaxis.Key) string {
 	if key.EventType == vaxis.EventRepeat || key.EventType == vaxis.EventRelease {
 		return ""
 	}
+	if vt.mode.modifyOtherKeys2 {
+		if seq := encodeModifyOtherKeys(key); seq != "" {
+			return seq
+		}
+	}
 	return encodeXterm(key, vt.mode.deckpam, vt.mode.decckm)
+}
+
+func encodeModifyOtherKeys(key vaxis.Key) string {
+	codepoint, ok := modifyOtherKeysCodepoint(key)
+	if !ok {
+		return ""
+	}
+	mods := key.Modifiers & (vaxis.ModShift | vaxis.ModAlt | vaxis.ModCtrl | vaxis.ModSuper)
+	if !shouldModifyOtherKey(codepoint, mods) {
+		return ""
+	}
+	return fmt.Sprintf("\x1B[27;%d;%d~", int(mods)+1, codepoint)
+}
+
+func modifyOtherKeysCodepoint(key vaxis.Key) (rune, bool) {
+	if key.Text != "" {
+		r, size := utf8.DecodeRuneInString(key.Text)
+		if r != utf8.RuneError && size == len(key.Text) {
+			return r, true
+		}
+	}
+	if key.Modifiers&vaxis.ModShift != 0 && key.ShiftedCode > 0 {
+		return key.ShiftedCode, true
+	}
+	if key.Keycode < unicode.MaxRune {
+		return key.Keycode, true
+	}
+	return 0, false
+}
+
+func shouldModifyOtherKey(codepoint rune, mods vaxis.ModifierMask) bool {
+	if codepoint >= 0x40 && codepoint <= 0x7F {
+		return true
+	}
+	if mods&^vaxis.ModShift != 0 {
+		return true
+	}
+	return mods == vaxis.ModShift && codepoint == ' '
+}
+
+func (vt *Model) modifyKeyFormat(seq ansi.CSI) {
+	switch seq.NumParameters {
+	case 0:
+		vt.mode.modifyOtherKeys2 = false
+	case 1:
+		switch seq.Parameters[0] {
+		case 0, 1, 2, 4:
+			vt.mode.modifyOtherKeys2 = false
+		}
+	case 2:
+		switch seq.Parameters[0] {
+		case 0, 1, 2:
+			vt.mode.modifyOtherKeys2 = false
+		case 4:
+			vt.mode.modifyOtherKeys2 = seq.Parameters[1] == 2
+		}
+	}
 }
 
 func encodeKitty(key vaxis.Key, flags uint8) string {
