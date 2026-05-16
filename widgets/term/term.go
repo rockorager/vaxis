@@ -41,14 +41,15 @@ type Model struct {
 	altScreen     screenBuffer
 	primaryScreen screenBuffer
 
-	charsets charsets
-	cursor   cursor
-	margin   margin
-	mode     mode
-	tabStop  []column
-	title    string
-	theme    vaxis.ColorThemeMode
-	status   statusDisplay
+	charsets  charsets
+	cursor    cursor
+	margin    margin
+	mode      mode
+	savedMode mode
+	tabStop   []column
+	title     string
+	theme     vaxis.ColorThemeMode
+	status    statusDisplay
 	// lastCol is a flag indicating we printed in the last col
 	lastCol bool
 	// scrollOffset is the number of historical rows above the active screen

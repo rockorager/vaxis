@@ -127,117 +127,240 @@ func (vt *Model) rm(params ansi.CSI) {
 
 func (vt *Model) decset(params ansi.CSI) {
 	for _, param := range params.Params() {
-		switch param {
-		case 1:
-			vt.mode.decckm = true
-		case 2:
-			vt.mode.decanm = true
-		case 3:
-			vt.mode.deccolm = true
-		case 4:
-			vt.mode.decsclm = true
-		case 5:
-		case 6:
-			vt.mode.decom = true
-			vt.resetWrap()
-			vt.cursor.row = vt.margin.top
-			vt.cursor.col = vt.margin.left
-		case 7:
-			vt.mode.decawm = true
-			vt.resetWrap()
-		case 8:
-			vt.mode.decarm = true
-		case 25:
-			vt.mode.dectcem = true
-		case 69:
-			vt.mode.declrmm = true
-		case 9:
-			vt.mode.mouseX10 = true
-		case 1000:
-			vt.mode.mouseButtons = true
-		case 1002:
-			vt.mode.mouseDrag = true
-		case 1003:
-			vt.mode.mouseMotion = true
-		case 1006:
-			vt.mode.mouseSGR = true
-		case 1004:
-			vt.mode.focusEvents = true
-		case 1007:
-			vt.mode.altScroll = true
-		case 47:
-			vt.switchAltScreen(47, true)
-		case 1048:
-			vt.mode.saveCursor = true
-			vt.decsc()
-		case 1047:
-			vt.switchAltScreen(1047, true)
-		case 1049:
-			vt.switchAltScreen(1049, true)
-		case 2004:
-			vt.mode.paste = true
-		case 2031:
-			vt.mode.colorScheme = true
-		}
+		vt.setDECMode(int(param), true)
 	}
 }
 
 func (vt *Model) decrst(params ansi.CSI) {
 	for _, param := range params.Params() {
-		switch param {
-		case 1:
-			vt.mode.decckm = false
-		case 2:
-			vt.mode.decanm = false
-		case 3:
-			vt.mode.deccolm = false
-		case 4:
-			vt.mode.decsclm = false
-		case 5:
-		case 6:
-			vt.mode.decom = false
-			vt.resetWrap()
+		vt.setDECMode(int(param), false)
+	}
+}
+
+func (vt *Model) setDECMode(param int, enabled bool) {
+	switch param {
+	case 1:
+		vt.mode.decckm = enabled
+	case 2:
+		vt.mode.decanm = enabled
+	case 3:
+		vt.mode.deccolm = enabled
+	case 4:
+		vt.mode.decsclm = enabled
+	case 5:
+	case 6:
+		vt.mode.decom = enabled
+		vt.resetWrap()
+		if enabled {
+			vt.cursor.row = vt.margin.top
+			vt.cursor.col = vt.margin.left
+		} else {
 			vt.cursor.row = 0
 			vt.cursor.col = 0
-		case 7:
-			vt.mode.decawm = false
-			vt.resetWrap()
-		case 8:
-			vt.mode.decarm = false
-		case 25:
-			vt.mode.dectcem = false
-		case 69:
-			vt.mode.declrmm = false
+		}
+	case 7:
+		vt.mode.decawm = enabled
+		vt.resetWrap()
+	case 8:
+		vt.mode.decarm = enabled
+	case 25:
+		vt.mode.dectcem = enabled
+	case 69:
+		vt.mode.declrmm = enabled
+		if !enabled {
 			vt.margin.left = 0
 			vt.margin.right = column(vt.width()) - 1
-		case 9:
-			vt.mode.mouseX10 = false
-		case 1000:
-			vt.mode.mouseButtons = false
-		case 1002:
-			vt.mode.mouseDrag = false
-		case 1003:
-			vt.mode.mouseMotion = false
-		case 1006:
-			vt.mode.mouseSGR = false
-		case 1004:
-			vt.mode.focusEvents = false
-		case 1007:
-			vt.mode.altScroll = false
-		case 47:
-			vt.switchAltScreen(47, false)
-		case 1048:
-			vt.mode.saveCursor = false
-			vt.decrc()
-		case 1047:
-			vt.switchAltScreen(1047, false)
-		case 1049:
-			vt.switchAltScreen(1049, false)
-		case 2004:
-			vt.mode.paste = false
-		case 2031:
-			vt.mode.colorScheme = false
 		}
+	case 9:
+		vt.mode.mouseX10 = enabled
+	case 1000:
+		vt.mode.mouseButtons = enabled
+	case 1002:
+		vt.mode.mouseDrag = enabled
+	case 1003:
+		vt.mode.mouseMotion = enabled
+	case 1006:
+		vt.mode.mouseSGR = enabled
+	case 1004:
+		vt.mode.focusEvents = enabled
+	case 1007:
+		vt.mode.altScroll = enabled
+	case 47:
+		vt.switchAltScreen(47, enabled)
+	case 1048:
+		vt.mode.saveCursor = enabled
+		if enabled {
+			vt.decsc()
+		} else {
+			vt.decrc()
+		}
+	case 1047:
+		vt.switchAltScreen(1047, enabled)
+	case 1049:
+		vt.switchAltScreen(1049, enabled)
+	case 2004:
+		vt.mode.paste = enabled
+	case 2031:
+		vt.mode.colorScheme = enabled
+	}
+}
+
+func (vt *Model) saveMode(params ansi.CSI) {
+	for _, param := range params.Params() {
+		vt.setSavedDECMode(int(param), vt.decModeValue(int(param)))
+	}
+}
+
+func (vt *Model) restoreMode(params ansi.CSI) {
+	for _, param := range params.Params() {
+		vt.setDECMode(int(param), vt.savedDECModeValue(int(param)))
+	}
+}
+
+func (vt *Model) decModeValue(param int) bool {
+	switch param {
+	case 1:
+		return vt.mode.decckm
+	case 2:
+		return vt.mode.decanm
+	case 3:
+		return vt.mode.deccolm
+	case 4:
+		return vt.mode.decsclm
+	case 6:
+		return vt.mode.decom
+	case 7:
+		return vt.mode.decawm
+	case 8:
+		return vt.mode.decarm
+	case 25:
+		return vt.mode.dectcem
+	case 69:
+		return vt.mode.declrmm
+	case 9:
+		return vt.mode.mouseX10
+	case 1000:
+		return vt.mode.mouseButtons
+	case 1002:
+		return vt.mode.mouseDrag
+	case 1003:
+		return vt.mode.mouseMotion
+	case 1006:
+		return vt.mode.mouseSGR
+	case 1004:
+		return vt.mode.focusEvents
+	case 1007:
+		return vt.mode.altScroll
+	case 47, 1047, 1049:
+		return vt.mode.smcup
+	case 1048:
+		return vt.mode.saveCursor
+	case 2004:
+		return vt.mode.paste
+	case 2031:
+		return vt.mode.colorScheme
+	default:
+		return false
+	}
+}
+
+func (vt *Model) savedDECModeValue(param int) bool {
+	return savedModeValue(vt.savedMode, param)
+}
+
+func (vt *Model) setSavedDECMode(param int, enabled bool) {
+	setModeValue(&vt.savedMode, param, enabled)
+}
+
+func savedModeValue(m mode, param int) bool {
+	switch param {
+	case 1:
+		return m.decckm
+	case 2:
+		return m.decanm
+	case 3:
+		return m.deccolm
+	case 4:
+		return m.decsclm
+	case 6:
+		return m.decom
+	case 7:
+		return m.decawm
+	case 8:
+		return m.decarm
+	case 25:
+		return m.dectcem
+	case 69:
+		return m.declrmm
+	case 9:
+		return m.mouseX10
+	case 1000:
+		return m.mouseButtons
+	case 1002:
+		return m.mouseDrag
+	case 1003:
+		return m.mouseMotion
+	case 1006:
+		return m.mouseSGR
+	case 1004:
+		return m.focusEvents
+	case 1007:
+		return m.altScroll
+	case 47, 1047, 1049:
+		return m.smcup
+	case 1048:
+		return m.saveCursor
+	case 2004:
+		return m.paste
+	case 2031:
+		return m.colorScheme
+	default:
+		return false
+	}
+}
+
+func setModeValue(m *mode, param int, enabled bool) {
+	switch param {
+	case 1:
+		m.decckm = enabled
+	case 2:
+		m.decanm = enabled
+	case 3:
+		m.deccolm = enabled
+	case 4:
+		m.decsclm = enabled
+	case 6:
+		m.decom = enabled
+	case 7:
+		m.decawm = enabled
+	case 8:
+		m.decarm = enabled
+	case 25:
+		m.dectcem = enabled
+	case 69:
+		m.declrmm = enabled
+	case 9:
+		m.mouseX10 = enabled
+	case 1000:
+		m.mouseButtons = enabled
+	case 1002:
+		m.mouseDrag = enabled
+	case 1003:
+		m.mouseMotion = enabled
+	case 1006:
+		m.mouseSGR = enabled
+	case 1004:
+		m.focusEvents = enabled
+	case 1007:
+		m.altScroll = enabled
+	case 47, 1047, 1049:
+		m.smcup = enabled
+	case 1048:
+		m.saveCursor = enabled
+	case 2004:
+		m.paste = enabled
+	case 2031:
+		m.colorScheme = enabled
 	}
 }
 

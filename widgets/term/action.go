@@ -228,6 +228,10 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 				vt.el(ps(seq), true)
 			case 'n':
 				vt.deviceStatusReport(ps(seq), true)
+			case 'r':
+				vt.restoreMode(seq)
+			case 's':
+				vt.saveMode(seq)
 			case 'W':
 				vt.ctc(seq, true)
 			case 'l':

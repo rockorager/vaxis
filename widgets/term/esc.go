@@ -218,6 +218,7 @@ func (vt *Model) ris() {
 		decawm:  true,
 		dectcem: true,
 	}
+	vt.savedMode = mode{}
 	vt.primaryState = defaultCursorState()
 	vt.altState = defaultCursorState()
 	vt.setDefaultTabStops()
