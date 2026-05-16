@@ -111,6 +111,8 @@ type Option func(*Model)
 
 var synchronizedOutputResetDelay = time.Second
 
+func noopEventHandler(vaxis.Event) {}
+
 // WithVaxis attaches the host Vaxis instance used to render this terminal.
 // Kitty keyboard passthrough is enabled only when the host terminal advertised
 // support to Vaxis.
@@ -157,7 +159,7 @@ func New(opts ...Option) *Model {
 		mode:         defaultMode(),
 		primaryState: defaultCursorState(),
 		altState:     defaultCursorState(),
-		eventHandler: func(ev vaxis.Event) {},
+		eventHandler: noopEventHandler,
 		// Buffering to 2 events. If there is ever a case where one
 		// sequence can trigger two events, this should be increased
 		events:     make(chan vaxis.Event, 2),
@@ -229,7 +231,7 @@ func (vt *Model) StartWithSize(cmd *exec.Cmd, width int, height int) error {
 				switch seq := seq.(type) {
 				case ansi.EOF:
 					err := cmd.Wait()
-					vt.eventHandler(EventClosed{
+					vt.dispatchEvent(EventClosed{
 						Term:  vt,
 						Error: err,
 					})
@@ -238,12 +240,12 @@ func (vt *Model) StartWithSize(cmd *exec.Cmd, width int, height int) error {
 					vt.update(seq)
 				}
 			case ev := <-vt.events:
-				vt.eventHandler(ev)
+				vt.dispatchEvent(ev)
 			case <-vt.timer.C:
 				vt.mu.Lock()
 				vt.timer.Stop()
 				vt.mu.Unlock()
-				vt.eventHandler(vaxis.Redraw{})
+				vt.dispatchEvent(vaxis.Redraw{})
 			}
 		}
 	}()
@@ -476,7 +478,11 @@ func (vt *Model) visibleLine(r int) []cell {
 }
 
 func (vt *Model) postEvent(ev vaxis.Event) {
-	vt.events <- ev
+	select {
+	case vt.events <- ev:
+	default:
+		log.Warn("[term] event queue full; dropping %T", ev)
+	}
 }
 
 func (vt *Model) setMouseShape(shape vaxis.MouseShape) {
@@ -488,6 +494,9 @@ func (vt *Model) setMouseShape(shape vaxis.MouseShape) {
 }
 
 func (vt *Model) Attach(fn func(ev vaxis.Event)) {
+	if fn == nil {
+		fn = noopEventHandler
+	}
 	vt.mu.Lock()
 	defer vt.mu.Unlock()
 	vt.eventHandler = fn
@@ -496,7 +505,17 @@ func (vt *Model) Attach(fn func(ev vaxis.Event)) {
 func (vt *Model) Detach() {
 	vt.mu.Lock()
 	defer vt.mu.Unlock()
-	vt.eventHandler = func(ev vaxis.Event) {}
+	vt.eventHandler = noopEventHandler
+}
+
+func (vt *Model) dispatchEvent(ev vaxis.Event) {
+	vt.mu.Lock()
+	handler := vt.eventHandler
+	vt.mu.Unlock()
+	if handler == nil {
+		handler = noopEventHandler
+	}
+	handler(ev)
 }
 
 func (vt *Model) recover() {
