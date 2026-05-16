@@ -1708,6 +1708,10 @@ func (vx *Vaxis) CanKittyGraphics() bool {
 	return vx.caps.kittyGraphics
 }
 
+func (vx *Vaxis) CanKittyKeyboard() bool {
+	return vx.caps.kittyKeyboard
+}
+
 func (vx *Vaxis) CanSixel() bool {
 	return vx.caps.sixels
 }

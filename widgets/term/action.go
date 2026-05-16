@@ -213,10 +213,19 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 				vt.enqueueReplyString("\x1b[>1;0;0c")
 			case 'q':
 				vt.xtversion()
+			case 'u':
+				vt.kittyKeyboardPush(seq)
+			}
+		case '<':
+			if seq.Final == 'u' {
+				vt.kittyKeyboardPop(seq)
 			}
 		case '=':
-			if seq.Final == 'c' {
+			switch seq.Final {
+			case 'c':
 				vt.tertiaryDeviceAttributes()
+			case 'u':
+				vt.kittyKeyboardSet(seq)
 			}
 		case '?':
 			switch seq.Final {
@@ -236,6 +245,8 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 				vt.ctc(seq, true)
 			case 'l':
 				vt.decrst(seq)
+			case 'u':
+				vt.kittyKeyboardQuery()
 			}
 		case ' ':
 			if seq.Final == 'q' {

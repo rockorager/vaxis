@@ -8,13 +8,13 @@ import (
 	"time"
 )
 
-func newReplyTestModel(t *testing.T) (*Model, *os.File) {
+func newReplyTestModel(t *testing.T, opts ...Option) (*Model, *os.File) {
 	t.Helper()
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatalf("os.Pipe: %v", err)
 	}
-	vt := New()
+	vt := New(opts...)
 	vt.pty = w
 	vt.startReplyWorker()
 	t.Cleanup(func() {

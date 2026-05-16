@@ -8,6 +8,13 @@ import (
 	"git.sr.ht/~rockorager/vaxis"
 )
 
+const (
+	kittyKeyboardFlagReportEvents     = 1 << 1
+	kittyKeyboardFlagReportAlternates = 1 << 2
+	kittyKeyboardFlagReportAll        = 1 << 3
+	kittyKeyboardFlagAssociatedText   = 1 << 4
+)
+
 // TODO we assume it's always application keys. Add in the right modes and
 // encode properly
 func encodeXterm(key vaxis.Key, deckpam bool, decckm bool) string {
@@ -103,6 +110,79 @@ func encodeXterm(key vaxis.Key, deckpam bool, decckm bool) string {
 		return buf.String()
 	}
 	return ""
+}
+
+func (vt *Model) encodeKey(key vaxis.Key) string {
+	flags := uint8(0)
+	if vt.EnableKittyKeyboard {
+		flags = vt.activeKittyKeyboard().current()
+	}
+	if seq := encodeKitty(key, flags); seq != "" {
+		return seq
+	}
+	if key.EventType == vaxis.EventRepeat || key.EventType == vaxis.EventRelease {
+		return ""
+	}
+	return encodeXterm(key, vt.mode.deckpam, vt.mode.decckm)
+}
+
+func encodeKitty(key vaxis.Key, flags uint8) string {
+	if flags == 0 {
+		return ""
+	}
+	if key.EventType == vaxis.EventRepeat || key.EventType == vaxis.EventRelease {
+		if flags&kittyKeyboardFlagReportEvents == 0 {
+			return ""
+		}
+	}
+
+	if val, ok := xtermKeymap[key.Keycode]; ok {
+		if flags&kittyKeyboardFlagReportEvents != 0 {
+			return fmt.Sprintf("\x1B[%d;%d:%d%c", val.number, int(key.Modifiers)+1, int(key.EventType)+1, val.final)
+		}
+		return ""
+	}
+
+	if key.Keycode >= unicode.MaxRune {
+		return ""
+	}
+
+	needsKitty := flags&kittyKeyboardFlagReportAll != 0 ||
+		key.Modifiers != 0 ||
+		key.EventType == vaxis.EventRepeat ||
+		key.EventType == vaxis.EventRelease ||
+		key.Keycode == vaxis.KeyEsc ||
+		key.Keycode == vaxis.KeyEnter ||
+		key.Keycode == vaxis.KeyTab ||
+		key.Keycode == vaxis.KeyBackspace
+	if !needsKitty {
+		return ""
+	}
+
+	buf := bytes.NewBuffer(nil)
+	fmt.Fprintf(buf, "\x1B[%d", key.Keycode)
+	if flags&kittyKeyboardFlagReportAlternates != 0 {
+		switch {
+		case key.ShiftedCode > 0 && key.BaseLayoutCode > 0:
+			fmt.Fprintf(buf, ":%d:%d", key.ShiftedCode, key.BaseLayoutCode)
+		case key.ShiftedCode > 0:
+			fmt.Fprintf(buf, ":%d", key.ShiftedCode)
+		case key.BaseLayoutCode > 0:
+			fmt.Fprintf(buf, ":0:%d", key.BaseLayoutCode)
+		}
+	}
+
+	fmt.Fprintf(buf, ";%d", int(key.Modifiers)+1)
+	if flags&kittyKeyboardFlagReportEvents != 0 {
+		fmt.Fprintf(buf, ":%d", int(key.EventType)+1)
+	}
+	if flags&kittyKeyboardFlagAssociatedText != 0 && key.Text != "" {
+		for _, r := range key.Text {
+			fmt.Fprintf(buf, ";%d", r)
+		}
+	}
+	buf.WriteRune('u')
+	return buf.String()
 }
 
 type keycode struct {

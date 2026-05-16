@@ -32,6 +32,10 @@ type Model struct {
 	// Set the TERM environment variable to be passed to the command's
 	// environment. If not set, xterm-256color will be used
 	TERM string
+	// EnableKittyKeyboard allows child applications to negotiate Kitty keyboard
+	// protocol state through the terminal widget. Only enable this when the
+	// host terminal supports Kitty keyboard encoding.
+	EnableKittyKeyboard bool
 
 	mu sync.Mutex
 
@@ -50,6 +54,9 @@ type Model struct {
 	title     string
 	theme     vaxis.ColorThemeMode
 	status    statusDisplay
+
+	primaryKittyKeyboard kittyKeyboardStack
+	altKittyKeyboard     kittyKeyboardStack
 	// lastCol is a flag indicating we printed in the last col
 	lastCol bool
 	// scrollOffset is the number of historical rows above the active screen
@@ -82,6 +89,14 @@ type cursorState struct {
 	saved    bool
 }
 
+type Option func(*Model)
+
+func WithKittyKeyboard(enabled bool) Option {
+	return func(m *Model) {
+		m.EnableKittyKeyboard = enabled
+	}
+}
+
 type margin struct {
 	top    row
 	bottom row
@@ -89,7 +104,7 @@ type margin struct {
 	right  column
 }
 
-func New() *Model {
+func New(opts ...Option) *Model {
 	m := &Model{
 		OSC8: true,
 		mode: mode{
@@ -103,6 +118,9 @@ func New() *Model {
 		// sequence can trigger two events, this should be increased
 		events: make(chan vaxis.Event, 2),
 		timer:  time.NewTimer(0),
+	}
+	for _, opt := range opts {
+		opt(m)
 	}
 	m.setDefaultTabStops()
 	return m
@@ -196,7 +214,7 @@ func (vt *Model) Update(msg vaxis.Event) {
 		if vt.handleViewportKey(msg) {
 			return
 		}
-		str := encodeXterm(msg, vt.mode.deckpam, vt.mode.decckm)
+		str := vt.encodeKey(msg)
 		vt.writePtyString(str)
 	case vaxis.PasteStartEvent:
 		if vt.mode.paste {

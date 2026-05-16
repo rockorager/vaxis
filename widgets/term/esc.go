@@ -221,6 +221,8 @@ func (vt *Model) ris() {
 	vt.savedMode = mode{}
 	vt.primaryState = defaultCursorState()
 	vt.altState = defaultCursorState()
+	vt.primaryKittyKeyboard = kittyKeyboardStack{}
+	vt.altKittyKeyboard = kittyKeyboardStack{}
 	vt.setDefaultTabStops()
 }
 
