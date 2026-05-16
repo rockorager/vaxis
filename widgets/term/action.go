@@ -176,9 +176,13 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 			}
 			vt.cht(tabCount(seq))
 		case 'J':
-			vt.ed(ps(seq), false)
+			if ps, ok := eraseDisplayParam(seq); ok {
+				vt.ed(ps, false)
+			}
 		case 'K':
-			vt.el(ps(seq), false)
+			if ps, ok := eraseLineParam(seq); ok {
+				vt.el(ps, false)
+			}
 		case 'L':
 			if !validCSIParamCount(seq, 1) {
 				return
@@ -296,9 +300,13 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 			case 'h':
 				vt.decset(seq)
 			case 'J':
-				vt.ed(ps(seq), true)
+				if ps, ok := eraseDisplayParam(seq); ok {
+					vt.ed(ps, true)
+				}
 			case 'K':
-				vt.el(ps(seq), true)
+				if ps, ok := eraseLineParam(seq); ok {
+					vt.el(ps, true)
+				}
 			case 'n':
 				vt.deviceStatusReport(ps(seq), true)
 			case 'r':
@@ -351,6 +359,38 @@ func defaultOneIfMissing(seq ansi.CSI) int {
 		return 1
 	}
 	return seq.Param(0)
+}
+
+func eraseDisplayParam(seq ansi.CSI) (int, bool) {
+	if seq.NumParameters == 0 {
+		return 0, true
+	}
+	if seq.NumParameters != 1 {
+		return 0, false
+	}
+	ps := seq.Param(0)
+	switch ps {
+	case 0, 1, 2, 3, 22:
+		return ps, true
+	default:
+		return 0, false
+	}
+}
+
+func eraseLineParam(seq ansi.CSI) (int, bool) {
+	if seq.NumParameters == 0 {
+		return 0, true
+	}
+	if seq.NumParameters != 1 {
+		return 0, false
+	}
+	ps := seq.Param(0)
+	switch ps {
+	case 0, 1, 2:
+		return ps, true
+	default:
+		return 0, false
+	}
 }
 
 func defaultOne(n int) int {

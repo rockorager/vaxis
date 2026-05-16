@@ -277,6 +277,15 @@ func (vt *Model) ed(ps int, forceProtected bool) {
 	case 3:
 		vt.activeScreen.clearScrollback()
 		vt.clampScrollOffset()
+
+	// Erases the complete display and scrollback.
+	case 22:
+		vt.activeScreen.clearScrollback()
+		vt.clampScrollOffset()
+		vt.resetPendingWrap()
+		for r := row(0); r < row(vt.height()); r += 1 {
+			vt.activeScreen.eraseRowProtected(r, 0, column(vt.width()-1), vt.cursor.Style.Background, protect)
+		}
 	}
 }
 
