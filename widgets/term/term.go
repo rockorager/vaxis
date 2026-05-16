@@ -270,6 +270,12 @@ func (vt *Model) Update(msg vaxis.Event) {
 			write.apply()
 		}
 	}()
+	if resize, ok := msg.(vaxis.Resize); ok {
+		var pendingWrite ptyWrite
+		pendingResize, pendingWrite = vt.updateResize(resize)
+		pendingWrites = append(pendingWrites, pendingWrite)
+		return
+	}
 	vt.invalidate()
 	switch msg := msg.(type) {
 	case vaxis.Key:
@@ -314,16 +320,6 @@ func (vt *Model) Update(msg vaxis.Event) {
 		if vt.mode.colorScheme {
 			pendingWrites = append(pendingWrites, vt.pendingPtyWrite(colorSchemeReport(msg.Mode)))
 			return
-		}
-	case vaxis.Resize:
-		if vt.size != msg {
-			vt.setSynchronizedOutput(false)
-		}
-		vt.size = msg
-		vt.resize(msg.Cols, msg.Rows)
-		pendingResize = vt.pendingPtyResize(msg.Cols, msg.Rows)
-		if vt.mode.inBandSizeReports {
-			vt.inBandSizeReport()
 		}
 	case vaxis.FocusIn:
 		atomicStore(&vt.focused, true)
@@ -555,16 +551,50 @@ func (vt *Model) recover() {
 
 func (vt *Model) Resize(w int, h int) {
 	vt.mu.Lock()
-	vt.resize(w, h)
-	pendingResize := vt.pendingPtyResize(w, h)
+	pendingResize, pendingWrite := vt.updateResize(vaxis.Resize{Cols: w, Rows: h})
 	vt.mu.Unlock()
 	pendingResize.apply()
+	pendingWrite.apply()
+}
+
+func (vt *Model) updateResize(msg vaxis.Resize) (ptyResize, ptyWrite) {
+	msg = vt.resizeWithKnownPixels(msg)
+	if vt.size == msg {
+		return ptyResize{}, ptyWrite{}
+	}
+	vt.invalidate()
+	vt.setSynchronizedOutput(false)
+	vt.size = msg
+	if vt.width() == msg.Cols && vt.height() == msg.Rows {
+		return ptyResize{}, vt.pendingInBandSizeReport()
+	}
+	vt.resize(msg.Cols, msg.Rows)
+	return vt.pendingPtyResize(msg), vt.pendingInBandSizeReport()
+}
+
+func (vt *Model) resizeWithKnownPixels(size vaxis.Resize) vaxis.Resize {
+	if size.Cols <= 0 || size.Rows <= 0 {
+		return size
+	}
+	if size.XPixel == 0 && vt.size.XPixel > 0 && vt.size.Cols > 0 {
+		size.XPixel = size.Cols * vt.size.XPixel / vt.size.Cols
+	}
+	if size.YPixel == 0 && vt.size.YPixel > 0 && vt.size.Rows > 0 {
+		size.YPixel = size.Rows * vt.size.YPixel / vt.size.Rows
+	}
+	return size
+}
+
+func (vt *Model) pendingInBandSizeReport() ptyWrite {
+	if !vt.mode.inBandSizeReports {
+		return ptyWrite{}
+	}
+	return vt.pendingPtyWrite(vt.inBandSizeReportString())
 }
 
 type ptyResize struct {
-	pty *os.File
-	w   int
-	h   int
+	pty  *os.File
+	size vaxis.Resize
 }
 
 func (resize ptyResize) apply() {
@@ -572,16 +602,18 @@ func (resize ptyResize) apply() {
 		return
 	}
 	_ = pty.Setsize(resize.pty, &pty.Winsize{
-		Cols: uint16(resize.w),
-		Rows: uint16(resize.h),
+		Cols: uint16(resize.size.Cols),
+		Rows: uint16(resize.size.Rows),
+		X:    uint16(resize.size.XPixel),
+		Y:    uint16(resize.size.YPixel),
 	})
 }
 
-func (vt *Model) pendingPtyResize(w int, h int) ptyResize {
+func (vt *Model) pendingPtyResize(size vaxis.Resize) ptyResize {
 	if vt.pty == nil {
 		return ptyResize{}
 	}
-	return ptyResize{pty: vt.pty, w: w, h: h}
+	return ptyResize{pty: vt.pty, size: size}
 }
 
 type drawSnapshot struct {
@@ -1226,20 +1258,11 @@ func (vt *Model) Close() {
 }
 
 func (vt *Model) Draw(win vaxis.Window) {
-	var pendingResize ptyResize
 	var snapshot drawSnapshot
 	vt.mu.Lock()
 	vt.dirty = false
-	width, height := win.Size()
-	if int(width) != vt.width() || int(height) != vt.height() {
-		win.Width = width
-		win.Height = height
-		vt.resize(width, height)
-		pendingResize = vt.pendingPtyResize(width, height)
-	}
 	snapshot = vt.snapshotDraw(win.Vx)
 	vt.mu.Unlock()
-	pendingResize.apply()
 
 	for _, cell := range snapshot.cells {
 		win.SetCell(cell.col, cell.row, cell.cell)

@@ -395,6 +395,22 @@ func TestInBandSizeReportOnResizeUpdate(t *testing.T) {
 	}
 }
 
+func TestInBandSizeReportOnCellOnlyResizeUsesKnownCellPixels(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.resize(80, 24)
+	vt.Update(vaxis.Resize{Cols: 80, Rows: 24, XPixel: 720, YPixel: 432})
+	vt.update(testCSI('h', []uint32{2048}, '?'))
+	if got, want := readReply(t, r, len("\x1B[48;24;80;432;720t")), "\x1B[48;24;80;432;720t"; got != want {
+		t.Fatalf("initial in-band size report = %q, want %q", got, want)
+	}
+
+	vt.Resize(100, 30)
+
+	if got, want := readReply(t, r, len("\x1B[48;30;100;540;900t")), "\x1B[48;30;100;540;900t"; got != want {
+		t.Fatalf("resize in-band size report = %q, want %q", got, want)
+	}
+}
+
 func TestInBandSizeReportDisabledOnResizeUpdate(t *testing.T) {
 	vt, r := newReplyTestModel(t)
 	vt.resize(80, 24)

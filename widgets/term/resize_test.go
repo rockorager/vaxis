@@ -1077,6 +1077,23 @@ func TestResizeDisablesSynchronizedOutput(t *testing.T) {
 	}
 }
 
+func TestResizeSameSizeIsNoop(t *testing.T) {
+	vt := New()
+	vt.resize(80, 24)
+	vt.size = vaxis.Resize{Cols: 80, Rows: 24}
+	vt.update(testCSI('h', []uint32{2026}, '?'))
+	vt.dirty = false
+
+	vt.Resize(80, 24)
+
+	if !vt.mode.synchronizedOutput {
+		t.Fatal("same-size resize disabled synchronized output mode")
+	}
+	if vt.dirty {
+		t.Fatal("same-size resize invalidated the model")
+	}
+}
+
 func TestResizeEventDisablesSynchronizedOutput(t *testing.T) {
 	vt := New()
 	vt.resize(80, 24)
@@ -1085,6 +1102,23 @@ func TestResizeEventDisablesSynchronizedOutput(t *testing.T) {
 	vt.Update(vaxis.Resize{Cols: 100, Rows: 40, XPixel: 900, YPixel: 720})
 	if vt.mode.synchronizedOutput {
 		t.Fatal("resize event did not disable synchronized output mode")
+	}
+}
+
+func TestResizeEventSameSizeIsNoop(t *testing.T) {
+	vt := New()
+	vt.resize(80, 24)
+	vt.size = vaxis.Resize{Cols: 80, Rows: 24}
+	vt.update(testCSI('h', []uint32{2026}, '?'))
+	vt.dirty = false
+
+	vt.Update(vaxis.Resize{Cols: 80, Rows: 24})
+
+	if !vt.mode.synchronizedOutput {
+		t.Fatal("same-size resize event disabled synchronized output mode")
+	}
+	if vt.dirty {
+		t.Fatal("same-size resize event invalidated the model")
 	}
 }
 
@@ -1099,6 +1133,43 @@ func TestResizeEventResizesModelWithoutPty(t *testing.T) {
 	}
 	if got, want := vt.height(), 8; got != want {
 		t.Fatalf("height after resize event = %d, want %d", got, want)
+	}
+}
+
+func TestResizeMatchesResizeEvent(t *testing.T) {
+	fromMethod := New()
+	fromEvent := New()
+	fromMethod.resize(80, 24)
+	fromEvent.resize(80, 24)
+	printText(fromMethod, "abcdef")
+	printText(fromEvent, "abcdef")
+
+	fromMethod.Resize(3, 4)
+	fromEvent.Update(vaxis.Resize{Cols: 3, Rows: 4})
+
+	if fromMethod.size != fromEvent.size {
+		t.Fatalf("size = %#v, want %#v", fromMethod.size, fromEvent.size)
+	}
+	if fromMethod.width() != fromEvent.width() || fromMethod.height() != fromEvent.height() {
+		t.Fatalf("dimensions = %dx%d, want %dx%d", fromMethod.width(), fromMethod.height(), fromEvent.width(), fromEvent.height())
+	}
+	if got, want := fromMethod.String(), fromEvent.String(); got != want {
+		t.Fatalf("screen = %q, want %q", got, want)
+	}
+}
+
+func TestDrawDoesNotResizeModel(t *testing.T) {
+	vt := New()
+
+	withoutPanic(t, func() {
+		vt.Draw(vaxis.Window{Width: 20, Height: 8})
+	})
+
+	if got := vt.width(); got != 0 {
+		t.Fatalf("width after draw = %d, want unchanged zero", got)
+	}
+	if got := vt.height(); got != 0 {
+		t.Fatalf("height after draw = %d, want unchanged zero", got)
 	}
 }
 

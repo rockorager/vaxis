@@ -349,16 +349,20 @@ func (vt *Model) deccolm(enabled bool) {
 }
 
 func (vt *Model) inBandSizeReport() {
+	vt.enqueueReplyString(vt.inBandSizeReportString())
+}
+
+func (vt *Model) inBandSizeReportString() string {
 	if vt.size.Cols <= 0 || vt.size.Rows <= 0 || vt.size.XPixel <= 0 || vt.size.YPixel <= 0 {
-		return
+		return ""
 	}
-	vt.enqueueReplyString(fmt.Sprintf(
+	return fmt.Sprintf(
 		"\x1B[48;%d;%d;%d;%dt",
 		vt.size.Rows,
 		vt.size.Cols,
 		vt.size.YPixel,
 		vt.size.XPixel,
-	))
+	)
 }
 
 func (vt *Model) saveMode(params ansi.CSI) {
