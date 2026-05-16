@@ -2,9 +2,11 @@ package ansi
 
 import (
 	"bytes"
+	"io"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -13,6 +15,55 @@ func escSeq(final rune, intermediates string) ESC {
 	seq := ESC{Final: final, NumIntermediate: len([]rune(intermediates))}
 	copy(seq.Intermediate[:], []rune(intermediates))
 	return seq
+}
+
+func TestParserInputModeEmitsBareEscapeAfterTimeout(t *testing.T) {
+	r, w := io.Pipe()
+	parse := NewParser(r, ParserModeInput)
+	defer r.Close()
+	defer w.Close()
+
+	if _, err := w.Write([]byte{0x1B}); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case seq := <-parse.Next():
+		if got, ok := seq.(C0); !ok || got != C0(0x1B) {
+			t.Fatalf("sequence = %#v, want ESC C0", seq)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("timed out waiting for input ESC timeout")
+	}
+}
+
+func TestParserOutputModeDoesNotEmitBareEscapeAfterTimeout(t *testing.T) {
+	r, w := io.Pipe()
+	parse := NewParser(r, ParserModeOutput)
+	defer r.Close()
+	defer w.Close()
+
+	if _, err := w.Write([]byte{0x1B}); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case seq := <-parse.Next():
+		t.Fatalf("unexpected sequence before output EOF: %#v", seq)
+	case <-time.After(30 * time.Millisecond):
+	}
+
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case seq := <-parse.Next():
+		if _, ok := seq.(EOF); !ok {
+			t.Fatalf("sequence after output close = %#v, want EOF", seq)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("timed out waiting for output parser EOF")
+	}
 }
 
 func csiSeq(final rune, intermediates string, params []int, colonAfter ...int) CSI {

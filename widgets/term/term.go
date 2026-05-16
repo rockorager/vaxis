@@ -146,7 +146,7 @@ func (vt *Model) StartWithSize(cmd *exec.Cmd, width int, height int) error {
 
 	vt.resize(width, height)
 	vt.startReplyWorker()
-	vt.parser = ansi.NewParser(vt.pty)
+	vt.parser = ansi.NewParser(vt.pty, ansi.ParserModeOutput)
 	go func() {
 		defer vt.recover()
 		for {

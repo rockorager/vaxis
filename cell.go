@@ -26,7 +26,7 @@ type Cell struct {
 // terminals capabilities or set the widths to 0 to enable vaxis to measure them
 func ParseStyledString(s string) []Cell {
 	r := strings.NewReader(s)
-	parser := ansi.NewParser(r)
+	parser := ansi.NewParser(r, ansi.ParserModeOutput)
 	defer parser.Close()
 	cells := make([]Cell, 0, len(s)/2) // best effort
 	style := Style{}

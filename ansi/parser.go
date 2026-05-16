@@ -36,6 +36,7 @@ type Parser struct {
 	r               *bufio.Reader
 	sequences       chan Sequence
 	state           stateFn
+	mode            ParserMode
 	exit            func()
 	intermediate    [MaxIntermediate]rune
 	intermediateLen int
@@ -63,13 +64,30 @@ type Parser struct {
 	dcs DCS
 }
 
-func NewParser(r io.Reader) *Parser {
+// ParserMode controls how ambiguous parser input is interpreted.
+type ParserMode int
+
+const (
+	// ParserModeInput parses terminal input, where a bare ESC keypress must be
+	// disambiguated from the start of a longer escape sequence.
+	ParserModeInput ParserMode = iota
+	// ParserModeOutput parses application output, where ESC always starts an
+	// output control sequence and should not be emitted by a timer.
+	ParserModeOutput
+)
+
+func NewParser(r io.Reader, modes ...ParserMode) *Parser {
+	mode := ParserModeInput
+	if len(modes) > 0 {
+		mode = modes[0]
+	}
 	parser := &Parser{
 		close:     make(chan bool, 1),
 		closed:    make(chan bool, 1),
 		r:         bufio.NewReader(r),
 		sequences: make(chan Sequence, 2),
 		state:     ground,
+		mode:      mode,
 	}
 	// Rob Pike didn't use concurrency since he wanted templates to be able
 	// to happen in init() functions, but we don't care about that.
@@ -440,12 +458,14 @@ func anywhere(r rune, p *Parser) stateFn {
 			p.exit = nil
 		}
 		p.clear()
-		p.escTimeout = time.AfterFunc(10*time.Millisecond, func() {
-			p.emit(C0(0x1B))
-			p.mu.Lock()
-			p.state = ground
-			p.mu.Unlock()
-		})
+		if p.mode == ParserModeInput {
+			p.escTimeout = time.AfterFunc(10*time.Millisecond, func() {
+				p.emit(C0(0x1B))
+				p.mu.Lock()
+				p.state = ground
+				p.mu.Unlock()
+			})
+		}
 		return escape
 	default:
 		return p.state(r, p)

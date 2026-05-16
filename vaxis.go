@@ -1469,7 +1469,7 @@ func (vx *Vaxis) openTty(tgts []*os.File) error {
 	}
 
 	vx.tw = newWriter(vx)
-	vx.parser = ansi.NewParser(vx.console)
+	vx.parser = ansi.NewParser(vx.console, ansi.ParserModeInput)
 
 	go func() {
 		defer func() {
