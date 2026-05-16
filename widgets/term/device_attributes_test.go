@@ -45,3 +45,14 @@ func TestTertiaryDeviceAttributes(t *testing.T) {
 		t.Fatalf("tertiary device attributes = %q, want %q", got, want)
 	}
 }
+
+func TestXTVERSION(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.resize(80, 24)
+
+	vt.update(testCSI('q', []uint32{0}, '>'))
+
+	if got, want := readReply(t, r, len("\x1BP>|vaxis\x1B\\")), "\x1BP>|vaxis\x1B\\"; got != want {
+		t.Fatalf("XTVERSION = %q, want %q", got, want)
+	}
+}

@@ -208,8 +208,11 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 	case 1:
 		switch seq.Intermediate[0] {
 		case '>':
-			if seq.Final == 'c' {
+			switch seq.Final {
+			case 'c':
 				vt.enqueueReplyString("\x1b[>1;0;0c")
+			case 'q':
+				vt.xtversion()
 			}
 		case '=':
 			if seq.Final == 'c' {
@@ -307,6 +310,10 @@ func (vt *Model) xtwinops(seq ansi.CSI) {
 	case 21:
 		vt.enqueueReplyString("\x1B]l" + vt.title + "\x1B\\")
 	}
+}
+
+func (vt *Model) xtversion() {
+	vt.enqueueReplyString("\x1BP>|vaxis\x1B\\")
 }
 
 type sixelAction struct{ seq ansi.DCS }
