@@ -21,6 +21,14 @@ const (
 	InlineCSIParams = 12
 )
 
+var asciiPrint [128]Print
+
+func init() {
+	for r := rune(0x20); r < 0x7f; r++ {
+		asciiPrint[r] = Print{Grapheme: string(r), Width: 1}
+	}
+}
+
 // https://vt100.net/emu/dec_ansi_parser
 //
 // parser is an implementation of Paul Flo Williams' VT500-series
@@ -43,6 +51,7 @@ type Parser struct {
 	params          [MaxCSIParams]uint32
 	paramsLen       int
 	paramsColon     uint32
+	paramsOverflow  bool
 	paramAcc        uint32
 	paramDigits     int
 	paramEmpty      bool
@@ -58,10 +67,12 @@ type Parser struct {
 	escTimeout *time.Timer
 	mu         sync.Mutex
 
-	oscData []rune
-	apcData []rune
+	oscData        []rune
+	oscInvalidUTF8 bool
+	apcData        []rune
 
-	dcs DCS
+	dcs             DCS
+	lastRuneInvalid bool
 }
 
 // ParserMode controls how ambiguous parser input is interpreted.
@@ -148,6 +159,7 @@ func (p *Parser) WaitClose() {
 }
 
 func (p *Parser) readRune() rune {
+	p.lastRuneInvalid = false
 	r, _, err := p.r.ReadRune()
 	if p.escTimeout != nil {
 		p.escTimeout.Stop()
@@ -164,6 +176,7 @@ func (p *Parser) readRune() rune {
 			return eof
 		}
 		r = rune(b)
+		p.lastRuneInvalid = true
 	}
 	if err != nil {
 		return eof
@@ -180,6 +193,44 @@ func (p *Parser) emit(seq Sequence) {
 // and that glyph should be displayed. 20 (SP) and 7F (DEL) have special
 // behaviour in later VT series, as described in ground.
 func (p *Parser) print(r rune) {
+	if r >= 0x20 && r < 0x7f {
+		if p.r.Buffered() == 0 {
+			p.emit(asciiPrint[r])
+			return
+		}
+		var state uucode.BreakState
+		next, _, err := p.r.ReadRune()
+		if err != nil {
+			p.emit(asciiPrint[r])
+			return
+		}
+		if uucode.IsBreak(r, next, &state) {
+			p.r.UnreadRune()
+			p.emit(asciiPrint[r])
+			return
+		}
+
+		bldr := strings.Builder{}
+		bldr.WriteRune(r)
+		bldr.WriteRune(next)
+		prev := next
+		for p.r.Buffered() > 0 {
+			next, _, err := p.r.ReadRune()
+			if err != nil {
+				break
+			}
+			if uucode.IsBreak(prev, next, &state) {
+				p.r.UnreadRune()
+				break
+			}
+			bldr.WriteRune(next)
+			prev = next
+		}
+		grapheme := bldr.String()
+		p.emit(Print{Grapheme: grapheme, Width: uucode.StringWidth(grapheme)})
+		return
+	}
+
 	bldr := strings.Builder{}
 	bldr.WriteRune(r)
 
@@ -222,6 +273,7 @@ func (p *Parser) clear() {
 	p.intermediateLen = 0
 	p.paramsLen = 0
 	p.paramsColon = 0
+	p.paramsOverflow = false
 	p.paramAcc = 0
 	p.paramDigits = 0
 	p.paramEmpty = false
@@ -294,8 +346,13 @@ func (p *Parser) param(r rune) {
 		p.paramDigits = 0
 		p.paramEmpty = true
 	default:
-		p.paramAcc *= 10
-		p.paramAcc += uint32(r) - 0x30
+		digit := uint32(r) - 0x30
+		if p.paramAcc > (^uint32(0)-digit)/10 {
+			p.paramAcc = ^uint32(0)
+		} else {
+			p.paramAcc *= 10
+			p.paramAcc += digit
+		}
 		p.paramDigits += 1
 		p.paramEmpty = false
 	}
@@ -303,6 +360,7 @@ func (p *Parser) param(r rune) {
 
 func (p *Parser) addParam() {
 	if p.paramsLen >= MaxCSIParams {
+		p.paramsOverflow = true
 		return
 	}
 	p.params[p.paramsLen] = p.paramAcc
@@ -320,6 +378,12 @@ func (p *Parser) csiDispatch(r rune) {
 	copy(csi.Intermediate[:], p.intermediate[:p.intermediateLen])
 	if p.paramDigits > 0 || p.paramEmpty || p.paramsLen > 0 {
 		p.addParam()
+	}
+	if p.paramsOverflow {
+		return
+	}
+	if p.mode == ParserModeOutput && p.paramsColon != 0 && r != 'm' {
+		return
 	}
 	csi.NumParameters = p.paramsLen
 	csi.ColonSeparators = p.paramsColon
@@ -342,6 +406,8 @@ func (p *Parser) csiDispatch(r rune) {
 // the state moves from oscString to any other state
 func (p *Parser) oscStart() {
 	// p.emit(OSCStart{})
+	p.oscInvalidUTF8 = false
+	p.ignoreST = true
 	p.exit = p.oscEnd
 }
 
@@ -349,6 +415,9 @@ func (p *Parser) oscStart() {
 // as they arrive. There is therefore no need to buffer characters until
 // the end of the control string is recognised.
 func (p *Parser) oscPut(r rune) {
+	if p.lastRuneInvalid {
+		p.oscInvalidUTF8 = true
+	}
 	p.oscData = append(p.oscData, r)
 	// p.emit(OSCData(r))
 }
@@ -357,11 +426,13 @@ func (p *Parser) oscPut(r rune) {
 // or ESC, to allow the OSC handler to finish neatly.
 func (p *Parser) oscEnd() {
 	p.emit(OSC{
-		Payload: p.oscData,
+		Payload:     p.oscData,
+		InvalidUTF8: p.oscInvalidUTF8,
 	})
 	// OSC will usually be a hyperlink or pasted text, these can be pretty
 	// large so we'll initialize with 128
 	p.oscData = make([]rune, 0, 128)
+	p.oscInvalidUTF8 = false
 }
 
 // This action is invoked when a final character arrives in the first part
@@ -380,8 +451,17 @@ func (p *Parser) oscEnd() {
 // ReGIS.
 //
 // hook registers unhook as the exit function. This will be called on when
-// the state moves from dcsPassthrough to any other state
-func (p *Parser) hook(r rune) {
+// the state moves from dcsPassthrough to any other state.
+func (p *Parser) hook(r rune) stateFn {
+	if p.paramDigits > 0 || p.paramEmpty || p.paramsLen > 0 {
+		p.addParam()
+	}
+	if p.paramsOverflow {
+		p.dcs = DCS{}
+		return dcsIgnore
+	}
+
+	p.ignoreST = true
 	p.exit = p.unhook
 	p.dcs = DCS{
 		Final: r,
@@ -389,9 +469,6 @@ func (p *Parser) hook(r rune) {
 	}
 	p.dcs.NumIntermediate = p.intermediateLen
 	copy(p.dcs.Intermediate[:], p.intermediate[:p.intermediateLen])
-	if p.paramDigits > 0 || p.paramEmpty || p.paramsLen > 0 {
-		p.addParam()
-	}
 	p.dcs.NumParameters = p.paramsLen
 	if p.paramsLen <= InlineCSIParams {
 		copy(p.dcs.Parameters[:], p.params[:p.paramsLen])
@@ -399,6 +476,7 @@ func (p *Parser) hook(r rune) {
 		p.dcs.ExtraParameters = make([]uint32, p.paramsLen)
 		copy(p.dcs.ExtraParameters, p.params[:p.paramsLen])
 	}
+	return dcsPassthrough
 }
 
 // This action passes characters from the data string part of a device
@@ -452,6 +530,8 @@ func anywhere(r rune, p *Parser) stateFn {
 		}
 		p.execute(r)
 		return ground
+	case in(r, 0x80, 0x9F):
+		return c1Control(r, p)
 	case r == 0x1B:
 		if p.exit != nil {
 			p.exit()
@@ -469,6 +549,37 @@ func anywhere(r rune, p *Parser) stateFn {
 		return escape
 	default:
 		return p.state(r, p)
+	}
+}
+
+func c1Control(r rune, p *Parser) stateFn {
+	if p.exit != nil {
+		p.exit()
+		p.exit = nil
+	}
+	p.ignoreST = false
+	p.clear()
+
+	switch r {
+	case 0x90: // DCS
+		return dcsEntry
+	case 0x98, 0x9E: // SOS, PM
+		p.ignoreST = true
+		return sosPm
+	case 0x9B: // CSI
+		return csiEntry
+	case 0x9C: // ST
+		return ground
+	case 0x9D: // OSC
+		p.oscStart()
+		return oscString
+	case 0x9F: // APC
+		p.ignoreST = true
+		p.exit = p.apcUnhook
+		return apc
+	default:
+		p.escapeDispatch(r - 0x40)
+		return ground
 	}
 }
 
@@ -643,11 +754,9 @@ func dcsEntry(r rune, p *Parser) stateFn {
 		p.collect(r)
 		return dcsParam
 	case in(r, 0x40, 0x7E):
-		p.hook(r)
-		return dcsPassthrough
+		return p.hook(r)
 	default:
-		p.hook(r)
-		return dcsPassthrough
+		return p.hook(r)
 	}
 }
 
@@ -670,8 +779,7 @@ func dcsIntermediate(r rune, p *Parser) stateFn {
 	case in(r, 0x30, 0x3F):
 		return dcsIgnore
 	case in(r, 0x40, 0x7E):
-		p.hook(r)
-		return dcsPassthrough
+		return p.hook(r)
 	default:
 		// Return to ground on unexpected characters
 		p.emit(fmt.Errorf("unexpected characted: %c", r))
@@ -701,8 +809,7 @@ func dcsParam(r rune, p *Parser) stateFn {
 	case r == 0x3A, in(r, 0x3C, 0x3F):
 		return dcsIgnore
 	case in(r, 0x40, 0x7E):
-		p.hook(r)
-		return dcsPassthrough
+		return p.hook(r)
 	default:
 		// Return to ground on unexpected characters
 		p.emit(fmt.Errorf("unexpected characted: %c", r))
@@ -797,15 +904,14 @@ func dcsPassthrough(r rune, p *Parser) stateFn {
 // that enabled me to derive this state diagram have been as subtle as
 // that.
 func escape(r rune, p *Parser) stateFn {
-	defer func() {
-		p.ignoreST = false
-	}()
 	switch {
 	case in(r, 0x00, 0x17), r == 0x19, in(r, 0x1C, 0x1F):
 		p.execute(r)
+		p.ignoreST = false
 		return escape
 	case in(r, 0x20, 0x2F):
 		p.collect(r)
+		p.ignoreST = false
 		return escapeIntermediate
 	case in(r, 0x30, 0x4E),
 		in(r, 0x51, 0x57),
@@ -813,31 +919,40 @@ func escape(r rune, p *Parser) stateFn {
 		r == 0x5A,
 		in(r, 0x60, 0x7F): // 0x7F is included here to allow for Alt+BackSpace inputs
 		p.escapeDispatch(r)
+		p.ignoreST = false
 		return ground
 	case r == 0x5C:
 		if p.ignoreST {
+			p.ignoreST = false
 			return ground
 		}
 		p.escapeDispatch(r)
+		p.ignoreST = false
 		return ground
 	case r == 0x4F:
+		p.ignoreST = false
 		return ss3
 	case r == 0x50:
 		p.clear()
+		p.ignoreST = false
 		return dcsEntry
 	case r == 0x58, r == 0x5E:
+		p.ignoreST = true
 		return sosPm
 	case r == 0x5F:
+		p.ignoreST = true
 		p.exit = p.apcUnhook
 		return apc
 	case r == 0x5B:
 		p.clear()
+		p.ignoreST = false
 		return csiEntry
 	case r == 0x5D:
 		p.oscStart()
 		return oscString
 	default:
 		// Return to ground on unexpected characters
+		p.ignoreST = false
 		return ground
 	}
 }
@@ -1130,7 +1245,8 @@ func (seq CSI) String() string {
 // An OSC sequence. The Payload is the raw runes received, and must be parsed
 // externally
 type OSC struct {
-	Payload []rune
+	Payload     []rune
+	InvalidUTF8 bool
 }
 
 func (seq OSC) String() string {

@@ -126,9 +126,11 @@ type Vaxis struct {
 	kittyFlags       int
 	disableMouse     bool
 	chFg             chan string
+	chFgMu           sync.Mutex
 	chBg             chan string
 	chBgMu           sync.Mutex
 	chColor          chan string
+	chColorMu        sync.Mutex
 	userCursorStyle  CursorStyle
 
 	xtwinops bool
@@ -679,6 +681,9 @@ outerNew:
 				if on&AttrStrikethrough != 0 {
 					_, _ = vx.tw.WriteString(strikethroughSet)
 				}
+				if on&AttrOverline != 0 {
+					_, _ = vx.tw.WriteString(overlineSet)
+				}
 
 				// If the bit is changed and is in previous, it
 				// was turned off
@@ -717,6 +722,9 @@ outerNew:
 				}
 				if off&AttrStrikethrough != 0 {
 					_, _ = vx.tw.WriteString(strikethroughReset)
+				}
+				if off&AttrOverline != 0 {
+					_, _ = vx.tw.WriteString(overlineReset)
 				}
 			}
 
@@ -1076,27 +1084,24 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 			vx.PostEventBlocking(kittyGraphics{})
 		}
 	case ansi.OSC:
+		if seq.InvalidUTF8 {
+			return
+		}
 		if strings.HasPrefix(string(seq.Payload), "4") {
-			// If we are here and don't know that the host terminal
-			// supports the sequence, it means we are handling the response
-			// to the initial query and thus nobody is expecting its actual
-			// content. In this case, we don't want to fill the channel buffer
-			// as no one will clear it.
 			if vx.CanReportColor() {
-				vx.chColor <- string(seq.Payload)
+				postQueryResponse(vx.chColor, string(seq.Payload))
+			} else {
+				vx.PostEventBlocking(capabilityOsc4{})
 			}
-			vx.PostEventBlocking(capabilityOsc4{})
 		}
 		if strings.HasPrefix(string(seq.Payload), "10") {
-			// Similar to OSC 4
 			if vx.CanReportForegroundColor() {
-				vx.chFg <- string(seq.Payload)
+				postQueryResponse(vx.chFg, string(seq.Payload))
+			} else {
+				vx.PostEventBlocking(capabilityOsc10{})
 			}
-			vx.PostEventBlocking(capabilityOsc10{})
 		}
 		if strings.HasPrefix(string(seq.Payload), "11") {
-			// Similar to OSC 4. Once support is known, deliver responses to
-			// any active query without re-posting capability events.
 			if vx.CanReportBackgroundColor() {
 				postQueryResponse(vx.chBg, string(seq.Payload))
 			} else {
@@ -1137,6 +1142,18 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 // support this, Color(0) is returned instead. Make sure not to run this
 // in the same goroutine as Vaxis runs in or deadlock will occur.
 func (vx *Vaxis) QueryColor(c Color) Color {
+	return vx.QueryColorContext(context.Background(), c)
+}
+
+// QueryColorContext queries the host terminal for an indexed color and waits
+// for the response until ctx is cancelled. If the host terminal doesn't
+// support this or ctx is cancelled first, Color(0) is returned instead. Make
+// sure not to run this in the same goroutine as Vaxis runs in or deadlock will
+// occur.
+func (vx *Vaxis) QueryColorContext(ctx context.Context, c Color) Color {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if !vx.CanReportColor() {
 		return Color(0)
 	}
@@ -1148,8 +1165,25 @@ func (vx *Vaxis) QueryColor(c Color) Color {
 	if len(p) != 1 {
 		return Color(0)
 	}
+	if ctx.Err() != nil {
+		return Color(0)
+	}
+
+	vx.chColorMu.Lock()
+	defer vx.chColorMu.Unlock()
+	if ctx.Err() != nil {
+		return Color(0)
+	}
+
+	drainQueryResponses(vx.chColor)
 	vx.tw.WriteStringLocked(tparm(osc4, p[0]))
-	resp := <-vx.chColor
+	var resp string
+	select {
+	case resp = <-vx.chColor:
+	case <-ctx.Done():
+		return Color(0)
+	}
+
 	var r, g, b int
 	prefix := fmt.Sprintf("4;%v;", p[0])
 	_, err := fmt.Sscanf(resp, prefix+"rgb:%x/%x/%x", &r, &g, &b)
@@ -1169,11 +1203,40 @@ func (vx *Vaxis) QueryColor(c Color) Color {
 // Color(0) is returned instead. Make sure not to run this in the same
 // goroutine as Vaxis runs in or deadlock will occur.
 func (vx *Vaxis) QueryForeground() Color {
+	return vx.QueryForegroundContext(context.Background())
+}
+
+// QueryForegroundContext queries the host terminal for foreground color and
+// waits for the response until ctx is cancelled. If the host terminal doesn't
+// support this or ctx is cancelled first, Color(0) is returned instead. Make
+// sure not to run this in the same goroutine as Vaxis runs in or deadlock will
+// occur.
+func (vx *Vaxis) QueryForegroundContext(ctx context.Context) Color {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if !vx.CanReportForegroundColor() {
 		return Color(0)
 	}
+	if ctx.Err() != nil {
+		return Color(0)
+	}
+
+	vx.chFgMu.Lock()
+	defer vx.chFgMu.Unlock()
+	if ctx.Err() != nil {
+		return Color(0)
+	}
+
+	drainQueryResponses(vx.chFg)
 	vx.tw.WriteStringLocked(osc10)
-	resp := <-vx.chFg
+	var resp string
+	select {
+	case resp = <-vx.chFg:
+	case <-ctx.Done():
+		return Color(0)
+	}
+
 	var r, g, b int
 	_, err := fmt.Sscanf(resp, "10;rgb:%x/%x/%x", &r, &g, &b)
 	if err != nil {

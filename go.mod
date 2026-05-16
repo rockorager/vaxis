@@ -6,7 +6,7 @@ require (
 	github.com/containerd/console v1.0.3
 	github.com/creack/pty v1.1.18
 	github.com/mattn/go-sixel v0.0.5
-	github.com/rockorager/go-uucode v1.0.2
+	github.com/rockorager/go-uucode v1.1.0
 	github.com/stretchr/testify v1.8.3
 	golang.org/x/image v0.9.0
 	golang.org/x/sys v0.10.0

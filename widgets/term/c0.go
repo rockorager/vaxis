@@ -2,6 +2,8 @@ package term
 
 func (vt *Model) c0(r rune) {
 	switch r {
+	case 0x05:
+		vt.enquiry()
 	case 0x07:
 		vt.postEvent(EventBell{})
 	case 0x08:
@@ -23,6 +25,10 @@ func (vt *Model) c0(r rune) {
 	}
 }
 
+func (vt *Model) enquiry() {
+	vt.enqueueReplyString(vt.EnquiryResponse)
+}
+
 // Backspace 0x08
 func (vt *Model) bs() {
 	vt.cub(1)
@@ -36,11 +42,12 @@ func (vt *Model) ht() {
 // Linefeed 0x0A
 func (vt *Model) lf() {
 	vt.ind()
+	vt.markSemanticContinuation()
 
 	if !vt.mode.lnm {
 		return
 	}
-	vt.cursor.col = vt.margin.left
+	vt.cr()
 }
 
 // Vertical tabulation 0x0B
@@ -55,7 +62,7 @@ func (vt *Model) ff() {
 
 // Carriage return 0x0D
 func (vt *Model) cr() {
-	vt.resetWrap()
+	vt.resetPendingWrap()
 	if vt.mode.decom || vt.cursor.col >= vt.margin.left {
 		vt.cursor.col = vt.margin.left
 		return

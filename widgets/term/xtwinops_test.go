@@ -79,6 +79,49 @@ func TestRISClearsTitle(t *testing.T) {
 	}
 }
 
+func TestXTWINOPSTitleStackOpsAreAcceptedNoops(t *testing.T) {
+	tests := []struct {
+		name   string
+		params []uint32
+	}{
+		{name: "push default target", params: []uint32{22, 0}},
+		{name: "push window target", params: []uint32{22, 2}},
+		{name: "push with index", params: []uint32{22, 0, 5}},
+		{name: "pop default target", params: []uint32{23, 0}},
+		{name: "pop window target", params: []uint32{23, 2}},
+		{name: "pop with index", params: []uint32{23, 0, 5}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vt, r := newReplyTestModel(t)
+			vt.resize(80, 24)
+			vt.title = "current"
+
+			vt.update(testCSI('t', tt.params))
+
+			if got, want := vt.title, "current"; got != want {
+				t.Fatalf("title = %q, want %q", got, want)
+			}
+			assertNoReply(t, r)
+		})
+	}
+}
+
+func TestXTWINOPSTitleStackOpsIgnoreIconTarget(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.resize(80, 24)
+	vt.title = "current"
+
+	vt.update(testCSI('t', []uint32{22, 1}))
+	vt.update(testCSI('t', []uint32{23, 1}))
+
+	if got, want := vt.title, "current"; got != want {
+		t.Fatalf("title = %q, want %q", got, want)
+	}
+	assertNoReply(t, r)
+}
+
 func TestXTWINOPSIgnoresUnknownReports(t *testing.T) {
 	vt, r := newReplyTestModel(t)
 	vt.resize(80, 24)
@@ -86,6 +129,31 @@ func TestXTWINOPSIgnoresUnknownReports(t *testing.T) {
 	vt.update(testCSI('t', []uint32{19}))
 
 	assertNoReply(t, r)
+}
+
+func TestXTWINOPSReportsRejectExtraParameters(t *testing.T) {
+	tests := []struct {
+		name   string
+		params []uint32
+	}{
+		{name: "text area pixels", params: []uint32{14, 1}},
+		{name: "cell pixels", params: []uint32{16, 1}},
+		{name: "text area characters", params: []uint32{18, 1}},
+		{name: "title", params: []uint32{21, 1}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vt, r := newReplyTestModel(t)
+			vt.resize(80, 24)
+			vt.Update(vaxis.Resize{Cols: 80, Rows: 24, XPixel: 720, YPixel: 432})
+			vt.title = "current"
+
+			vt.update(testCSI('t', tt.params))
+
+			assertNoReply(t, r)
+		})
+	}
 }
 
 func assertNoReply(t *testing.T, r *os.File) {

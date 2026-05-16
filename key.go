@@ -706,7 +706,7 @@ var specialsKeys = map[specialKey]rune{
 	{57425, 'u'}: KeyKeyPadInsert,
 	{57426, 'u'}: KeyKeyPadDelete,
 	{1, 'E'}:     KeyKeyPadBegin,
-	{57427, '~'}: KeyKeyPadBegin,
+	{57427, 'u'}: KeyKeyPadBegin,
 	{57428, 'u'}: KeyMediaPlay,
 	{57429, 'u'}: KeyMediaPause,
 	{57430, 'u'}: KeyMediaPlayPause,

@@ -27,7 +27,7 @@ type Style struct {
 }
 
 // AttributeMask represents a bitmask of boolean attributes to style a cell
-type AttributeMask uint8
+type AttributeMask uint16
 
 const (
 	AttrNone               = 0
@@ -38,6 +38,7 @@ const (
 	AttrReverse
 	AttrInvisible
 	AttrStrikethrough
+	AttrOverline
 )
 
 // UnderlineStyle represents the style of underline to apply

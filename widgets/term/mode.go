@@ -3,6 +3,7 @@ package term
 import (
 	"fmt"
 
+	"git.sr.ht/~rockorager/vaxis"
 	"git.sr.ht/~rockorager/vaxis/ansi"
 )
 
@@ -22,8 +23,6 @@ type mode struct {
 	//
 	// Cursor Key mode
 	decckm bool
-	// ANSI/VT52 mode
-	decanm bool
 	// Column mode
 	deccolm bool
 	// Scroll mode
@@ -211,27 +210,20 @@ func (vt *Model) setDECMode(param int, enabled bool) {
 	switch param {
 	case 1:
 		vt.mode.decckm = enabled
-	case 2:
-		vt.mode.decanm = enabled
 	case 3:
-		vt.mode.deccolm = enabled
+		vt.deccolm(enabled)
 	case 4:
 		vt.mode.decsclm = enabled
 	case 5:
 		vt.mode.decscnm = enabled
 	case 6:
 		vt.mode.decom = enabled
-		vt.resetWrap()
-		if enabled {
-			vt.cursor.row = vt.margin.top
-			vt.cursor.col = vt.margin.left
-		} else {
-			vt.cursor.row = 0
-			vt.cursor.col = 0
-		}
+		vt.setCursorPos(1, 1)
 	case 7:
 		vt.mode.decawm = enabled
-		vt.resetWrap()
+		if !enabled && vt.lastCol && vt.cursor.col > vt.margin.right {
+			vt.cursor.col = vt.margin.right
+		}
 	case 8:
 		vt.mode.decarm = enabled
 	case 45:
@@ -273,6 +265,9 @@ func (vt *Model) setDECMode(param int, enabled bool) {
 		vt.setMouseFormatMode(mouseFormatSGR, enabled)
 	case 1004:
 		vt.mode.focusEvents = enabled
+		if enabled {
+			vt.reportFocus()
+		}
 	case 1007:
 		vt.mode.altScroll = enabled
 	case 1015:
@@ -305,22 +300,27 @@ func (vt *Model) setDECMode(param int, enabled bool) {
 	case 2004:
 		vt.mode.paste = enabled
 	case 2026:
-		vt.mode.synchronizedOutput = enabled
+		vt.setSynchronizedOutput(enabled)
 	case 2027:
 		vt.mode.graphemeCluster = enabled
 	case 2031:
 		vt.mode.colorScheme = enabled
 	case 2048:
 		vt.mode.inBandSizeReports = enabled
+		if enabled {
+			vt.inBandSizeReport()
+		}
 	}
 }
 
 func (vt *Model) setMouseEventMode(mode mouseEventMode, enabled bool) {
 	if enabled {
 		vt.mode.mouseEvent = mode
+		vt.setMouseShape(vaxis.MouseShapeDefault)
 		return
 	}
 	vt.mode.mouseEvent = mouseEventNone
+	vt.setMouseShape(vaxis.MouseShapeTextInput)
 }
 
 func (vt *Model) setMouseFormatMode(mode mouseFormatMode, enabled bool) {
@@ -329,6 +329,36 @@ func (vt *Model) setMouseFormatMode(mode mouseFormatMode, enabled bool) {
 		return
 	}
 	vt.mode.mouseFormat = mouseFormatX10
+}
+
+func (vt *Model) deccolm(enabled bool) {
+	if !vt.mode.enableMode3 {
+		vt.mode.deccolm = false
+		return
+	}
+
+	width := 80
+	if enabled {
+		width = 132
+	}
+	vt.mode.deccolm = enabled
+	vt.resize(width, vt.height())
+	vt.ed(2, false)
+	vt.cursor.row = 0
+	vt.cursor.col = 0
+}
+
+func (vt *Model) inBandSizeReport() {
+	if vt.size.Cols <= 0 || vt.size.Rows <= 0 || vt.size.XPixel <= 0 || vt.size.YPixel <= 0 {
+		return
+	}
+	vt.enqueueReplyString(fmt.Sprintf(
+		"\x1B[48;%d;%d;%d;%dt",
+		vt.size.Rows,
+		vt.size.Cols,
+		vt.size.YPixel,
+		vt.size.XPixel,
+	))
 }
 
 func (vt *Model) saveMode(params ansi.CSI) {
@@ -347,8 +377,6 @@ func (vt *Model) decModeValue(param int) bool {
 	switch param {
 	case 1:
 		return vt.mode.decckm
-	case 2:
-		return vt.mode.decanm
 	case 3:
 		return vt.mode.deccolm
 	case 4:
@@ -434,8 +462,6 @@ func savedModeValue(m mode, param int) bool {
 	switch param {
 	case 1:
 		return m.decckm
-	case 2:
-		return m.decanm
 	case 3:
 		return m.deccolm
 	case 4:
@@ -513,8 +539,6 @@ func setModeValue(m *mode, param int, enabled bool) {
 	switch param {
 	case 1:
 		m.decckm = enabled
-	case 2:
-		m.decanm = enabled
 	case 3:
 		m.deccolm = enabled
 	case 4:
@@ -647,8 +671,6 @@ func (vt *Model) decrqm(pd int, ansiMode bool) {
 	switch pd {
 	case 1:
 		ps = modeReportState(vt.mode.decckm)
-	case 2:
-		ps = modeReportState(vt.mode.decanm)
 	case 3:
 		ps = modeReportState(vt.mode.deccolm)
 	case 4:

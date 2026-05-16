@@ -68,11 +68,13 @@ func (vx *Vaxis) NewStyledString(s string, defaultStyle Style) *StyledString {
 							style.UnderlineStyle = UnderlineDotted
 						case "5":
 							style.UnderlineStyle = UnderlineDashed
+						default:
+							style.UnderlineStyle = UnderlineSingle
 						}
 					} else {
 						style.UnderlineStyle = UnderlineSingle
 					}
-				case "5":
+				case "5", "6":
 					style.Attribute |= AttrBlink
 				case "7":
 					style.Attribute |= AttrReverse
@@ -80,6 +82,8 @@ func (vx *Vaxis) NewStyledString(s string, defaultStyle Style) *StyledString {
 					style.Attribute |= AttrInvisible
 				case "9":
 					style.Attribute |= AttrStrikethrough
+				case "21":
+					style.UnderlineStyle = UnderlineDouble
 				case "22":
 					style.Attribute &^= AttrBold
 					style.Attribute &^= AttrDim
@@ -153,6 +157,10 @@ func (vx *Vaxis) NewStyledString(s string, defaultStyle Style) *StyledString {
 					}
 				case "49":
 					style.Background = 0
+				case "53":
+					style.Attribute |= AttrOverline
+				case "55":
+					style.Attribute &^= AttrOverline
 				case "58":
 					switch len(subs) {
 					case 3:
@@ -164,6 +172,8 @@ func (vx *Vaxis) NewStyledString(s string, defaultStyle Style) *StyledString {
 						b, _ := strconv.Atoi(subs[4])
 						style.UnderlineColor = RGBColor(uint8(r), uint8(g), uint8(b))
 					}
+				case "59":
+					style.UnderlineColor = 0
 				case "90":
 					style.Foreground = IndexColor(8)
 				case "91":
@@ -320,6 +330,9 @@ func (ss *StyledString) Encode() string {
 			if on&AttrStrikethrough != 0 {
 				_, _ = bldr.WriteString(strikethroughSet)
 			}
+			if on&AttrOverline != 0 {
+				_, _ = bldr.WriteString(overlineSet)
+			}
 
 			// If the bit is changed and is in previous, it
 			// was turned off
@@ -358,6 +371,9 @@ func (ss *StyledString) Encode() string {
 			}
 			if off&AttrStrikethrough != 0 {
 				_, _ = bldr.WriteString(strikethroughReset)
+			}
+			if off&AttrOverline != 0 {
+				_, _ = bldr.WriteString(overlineReset)
 			}
 		}
 

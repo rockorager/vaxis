@@ -378,6 +378,11 @@ func TestKeyDecode(t *testing.T) {
 				Text:    "🇺🇸",
 			},
 		},
+		{
+			name:     "kitty: keypad begin",
+			sequence: testCSI('u', []int{57427}),
+			expected: Key{Keycode: KeyKeyPadBegin},
+		},
 	}
 
 	for _, test := range tests {

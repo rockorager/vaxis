@@ -19,7 +19,11 @@ func testCSI(final rune, params []uint32, intermediates ...rune) ansi.CSI {
 	var seq ansi.CSI
 	seq.Final = final
 	seq.NumParameters = len(params)
-	copy(seq.Parameters[:], params)
+	if len(params) <= len(seq.Parameters) {
+		copy(seq.Parameters[:], params)
+	} else {
+		seq.ExtraParameters = append([]uint32(nil), params...)
+	}
 	seq.NumIntermediate = len(intermediates)
 	copy(seq.Intermediate[:], intermediates)
 	return seq
@@ -65,6 +69,26 @@ func TestSingleShiftAppliesToOneGraphicCharacter(t *testing.T) {
 	}
 	if vt.charsets.singleShift {
 		t.Fatal("single shift remained active after printing one graphic character")
+	}
+}
+
+func TestSS3AppliesG3ToOneGraphicCharacter(t *testing.T) {
+	vt := New()
+	vt.resize(4, 1)
+
+	vt.update(testPrint("q"))
+	vt.update(testESC('0', '+'))
+	vt.update(ansi.SS3('q'))
+	vt.update(testPrint("q"))
+
+	if got, want := vt.String(), "q─q "; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+	if vt.charsets.selected != g0 {
+		t.Fatalf("SS3 restored %v, want G0", vt.charsets.selected)
+	}
+	if vt.charsets.singleShift {
+		t.Fatal("SS3 single shift remained active after printing one graphic character")
 	}
 }
 
@@ -131,6 +155,68 @@ func TestCursorStyleIgnoresInvalidValues(t *testing.T) {
 	}
 }
 
+func TestCursorStyleRequiresSpaceIntermediate(t *testing.T) {
+	vt := New()
+	vt.cursor.style = vaxis.CursorBlock
+
+	vt.update(testCSI('q', nil))
+	vt.update(testCSI('q', []uint32{5}))
+
+	if got, want := vt.cursor.style, vaxis.CursorStyle(vaxis.CursorBlock); got != want {
+		t.Fatalf("cursor style = %d, want %d", got, want)
+	}
+}
+
+func TestCursorStyleDefaultMapsToSteadyBlock(t *testing.T) {
+	tests := []struct {
+		name   string
+		params []uint32
+	}{
+		{name: "missing"},
+		{name: "zero", params: []uint32{0}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vt := New()
+			vt.cursor.style = vaxis.CursorBeamBlinking
+			vt.mode.cursorBlinking = true
+
+			vt.update(testCSI('q', tt.params, ' '))
+
+			if got, want := vt.cursor.style, vaxis.CursorStyle(vaxis.CursorBlock); got != want {
+				t.Fatalf("cursor style = %d, want %d", got, want)
+			}
+			if vt.mode.cursorBlinking {
+				t.Fatal("default cursor style kept blink mode")
+			}
+		})
+	}
+}
+
+func TestEffectiveCursorStyleFollowsBlinkMode(t *testing.T) {
+	tests := []struct {
+		name     string
+		style    vaxis.CursorStyle
+		blinking bool
+		want     vaxis.CursorStyle
+	}{
+		{name: "default steady", style: vaxis.CursorDefault, want: vaxis.CursorDefault},
+		{name: "default blinking", style: vaxis.CursorDefault, blinking: true, want: vaxis.CursorBlockBlinking},
+		{name: "block steady", style: vaxis.CursorBlockBlinking, want: vaxis.CursorBlock},
+		{name: "underline blinking", style: vaxis.CursorUnderline, blinking: true, want: vaxis.CursorUnderlineBlinking},
+		{name: "beam steady", style: vaxis.CursorBeamBlinking, want: vaxis.CursorBeam},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := cursorStyleWithBlink(tt.style, tt.blinking); got != tt.want {
+				t.Fatalf("cursor style = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestRISClearsCursorPen(t *testing.T) {
 	vt := New()
 	vt.resize(4, 1)
@@ -166,6 +252,63 @@ func TestRISClearsSavedCursorPen(t *testing.T) {
 	}
 	if vt.cursor.style != vaxis.CursorDefault {
 		t.Fatalf("restored cursor style after RIS = %d, want default", vt.cursor.style)
+	}
+}
+
+func TestRestoreCursorDoesNotRestoreVisualCursorStyle(t *testing.T) {
+	vt := New()
+	vt.resize(4, 1)
+
+	vt.update(testCSI('q', []uint32{5}, ' '))
+	vt.update(testESC('7'))
+	vt.update(testCSI('q', []uint32{6}, ' '))
+	vt.update(testESC('8'))
+
+	if got, want := vt.cursor.style, vaxis.CursorStyle(vaxis.CursorBeam); got != want {
+		t.Fatalf("visual cursor style after DECRC = %d, want %d", got, want)
+	}
+	if vt.mode.cursorBlinking {
+		t.Fatal("DECRC restored cursor blinking mode")
+	}
+}
+
+func TestSaveRestoreCursorRestoresSGRPenAndOriginMode(t *testing.T) {
+	vt := New()
+	vt.resize(8, 4)
+	vt.margin.top = 1
+	vt.margin.bottom = 3
+
+	vt.update(testCSI('m', []uint32{1, 31, 44}))
+	vt.update(testCSI('h', []uint32{6}, '?'))
+	vt.update(testESC('7'))
+	vt.update(testCSI('m', nil))
+	vt.update(testCSI('l', []uint32{6}, '?'))
+	vt.update(testESC('8'))
+
+	if vt.cursor.Attribute&vaxis.AttrBold == 0 {
+		t.Fatal("DECRC did not restore bold SGR pen")
+	}
+	if got, want := vt.cursor.Foreground, vaxis.IndexColor(1); got != want {
+		t.Fatalf("DECRC foreground = %v, want %v", got, want)
+	}
+	if got, want := vt.cursor.Background, vaxis.IndexColor(4); got != want {
+		t.Fatalf("DECRC background = %v, want %v", got, want)
+	}
+	if !vt.mode.decom {
+		t.Fatal("DECRC did not restore origin mode")
+	}
+}
+
+func TestSaveRestoreCursorDoesNotRestoreWraparoundMode(t *testing.T) {
+	vt := New()
+	vt.resize(4, 1)
+
+	vt.update(testESC('7'))
+	vt.update(testCSI('l', []uint32{7}, '?'))
+	vt.update(testESC('8'))
+
+	if vt.mode.decawm {
+		t.Fatal("DECRC restored wraparound mode")
 	}
 }
 

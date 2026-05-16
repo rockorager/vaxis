@@ -6,7 +6,8 @@ import (
 
 type cell struct {
 	vaxis.Cell
-	protected bool
+	protected       bool
+	semanticContent semanticContent
 }
 
 func (c *cell) rune() string {
@@ -29,9 +30,11 @@ func (c *cell) erase(bg vaxis.Color) {
 	c.HyperlinkParams = ""
 	c.Width = 0
 	c.protected = false
+	c.semanticContent = semanticOutput
 }
 
 // selectiveErase removes the cell content, but keeps the attributes
 func (c *cell) selectiveErase() {
 	c.Grapheme = " "
+	c.semanticContent = semanticOutput
 }

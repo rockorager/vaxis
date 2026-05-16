@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"git.sr.ht/~rockorager/vaxis/ansi"
-	"git.sr.ht/~rockorager/vaxis/log"
 )
 
 // Cell represents a single cell in a terminal window. It contains a [Character]
@@ -141,6 +140,9 @@ func EncodeCells(cells []Cell) string {
 			if on&AttrStrikethrough != 0 {
 				_, _ = bldr.WriteString(strikethroughSet)
 			}
+			if on&AttrOverline != 0 {
+				_, _ = bldr.WriteString(overlineSet)
+			}
 
 			// If the bit is changed and is in previous, it
 			// was turned off
@@ -180,6 +182,9 @@ func EncodeCells(cells []Cell) string {
 			if off&AttrStrikethrough != 0 {
 				_, _ = bldr.WriteString(strikethroughReset)
 			}
+			if off&AttrOverline != 0 {
+				_, _ = bldr.WriteString(overlineReset)
+			}
 		}
 
 		if cursor.UnderlineStyle != next.UnderlineStyle {
@@ -211,6 +216,13 @@ func parseSGR(params [][]int, style *Style) {
 		params = [][]int{{0}}
 	}
 	for i := 0; i < len(params); i += 1 {
+		if len(params[i]) > 1 {
+			switch params[i][0] {
+			case 4, 38, 48, 58:
+			default:
+				continue
+			}
+		}
 		switch params[i][0] {
 		case 0:
 			style.Attribute = 0
@@ -244,9 +256,11 @@ func parseSGR(params [][]int, style *Style) {
 					style.UnderlineStyle = UnderlineDotted
 				case 5:
 					style.UnderlineStyle = UnderlineDashed
+				default:
+					style.UnderlineStyle = UnderlineSingle
 				}
 			}
-		case 5:
+		case 5, 6:
 			style.Attribute |= AttrBlink
 		case 7:
 			style.Attribute |= AttrReverse
@@ -255,7 +269,7 @@ func parseSGR(params [][]int, style *Style) {
 		case 9:
 			style.Attribute |= AttrStrikethrough
 		case 21:
-			// Double underlined, not supported
+			style.UnderlineStyle = UnderlineDouble
 		case 22:
 			style.Attribute &^= AttrBold
 			style.Attribute &^= AttrDim
@@ -277,14 +291,12 @@ func parseSGR(params [][]int, style *Style) {
 			switch len(params[i]) {
 			case 1:
 				if len(params[i:]) < 3 {
-					log.Error("[term] malformed SGR sequence")
-					return
+					continue
 				}
 				switch params[i+1][0] {
 				case 2:
 					if len(params[i:]) < 5 {
-						log.Error("[term] malformed SGR sequence")
-						return
+						continue
 					}
 					style.Foreground = RGBColor(
 						uint8(params[i+2][0]),
@@ -296,19 +308,16 @@ func parseSGR(params [][]int, style *Style) {
 					style.Foreground = IndexColor(uint8(params[i+2][0]))
 					i += 2
 				default:
-					log.Error("[term] malformed SGR sequence")
-					return
+					continue
 				}
 			case 3:
 				if params[i][1] != 5 {
-					log.Error("[term] malformed SGR sequence")
-					return
+					continue
 				}
 				style.Foreground = IndexColor(uint8(params[i][2]))
 			case 5:
 				if params[i][1] != 2 {
-					log.Error("[term] malformed SGR sequence")
-					return
+					continue
 				}
 				style.Foreground = RGBColor(
 					uint8(params[i][2]),
@@ -317,8 +326,7 @@ func parseSGR(params [][]int, style *Style) {
 				)
 			case 6:
 				if params[i][1] != 2 {
-					log.Error("[term] malformed SGR sequence")
-					return
+					continue
 				}
 				style.Foreground = RGBColor(
 					uint8(params[i][3]),
@@ -334,14 +342,12 @@ func parseSGR(params [][]int, style *Style) {
 			switch len(params[i]) {
 			case 1:
 				if len(params[i:]) < 3 {
-					log.Error("[term] malformed SGR sequence")
-					return
+					continue
 				}
 				switch params[i+1][0] {
 				case 2:
 					if len(params[i:]) < 5 {
-						log.Error("[term] malformed SGR sequence")
-						return
+						continue
 					}
 					style.Background = RGBColor(
 						uint8(params[i+2][0]),
@@ -353,19 +359,16 @@ func parseSGR(params [][]int, style *Style) {
 					style.Background = IndexColor(uint8(params[i+2][0]))
 					i += 2
 				default:
-					log.Error("[term] malformed SGR sequence")
-					return
+					continue
 				}
 			case 3:
 				if params[i][1] != 5 {
-					log.Error("[term] malformed SGR sequence")
-					return
+					continue
 				}
 				style.Background = IndexColor(uint8(params[i][2]))
 			case 5:
 				if params[i][1] != 2 {
-					log.Error("[term] malformed SGR sequence")
-					return
+					continue
 				}
 				style.Background = RGBColor(
 					uint8(params[i][2]),
@@ -374,8 +377,7 @@ func parseSGR(params [][]int, style *Style) {
 				)
 			case 6:
 				if params[i][1] != 2 {
-					log.Error("[term] malformed SGR sequence")
-					return
+					continue
 				}
 				style.Background = RGBColor(
 					uint8(params[i][3]),
@@ -385,18 +387,20 @@ func parseSGR(params [][]int, style *Style) {
 			}
 		case 49:
 			style.Background = 0
+		case 53:
+			style.Attribute |= AttrOverline
+		case 55:
+			style.Attribute &^= AttrOverline
 		case 58:
 			switch len(params[i]) {
 			case 1:
 				if len(params[i:]) < 3 {
-					log.Error("[term] malformed SGR sequence")
-					return
+					continue
 				}
 				switch params[i+1][0] {
 				case 2:
 					if len(params[i:]) < 5 {
-						log.Error("[term] malformed SGR sequence")
-						return
+						continue
 					}
 					style.UnderlineColor = RGBColor(
 						uint8(params[i+2][0]),
@@ -408,19 +412,16 @@ func parseSGR(params [][]int, style *Style) {
 					style.UnderlineColor = IndexColor(uint8(params[i+2][0]))
 					i += 2
 				default:
-					log.Error("[term] malformed SGR sequence")
-					return
+					continue
 				}
 			case 3:
 				if params[i][1] != 5 {
-					log.Error("[term] malformed SGR sequence")
-					return
+					continue
 				}
 				style.UnderlineColor = IndexColor(uint8(params[i][2]))
 			case 5:
 				if params[i][1] != 2 {
-					log.Error("[term] malformed SGR sequence")
-					return
+					continue
 				}
 				style.UnderlineColor = RGBColor(
 					uint8(params[i][2]),
@@ -429,8 +430,7 @@ func parseSGR(params [][]int, style *Style) {
 				)
 			case 6:
 				if params[i][1] != 2 {
-					log.Error("[term] malformed SGR sequence")
-					return
+					continue
 				}
 				style.UnderlineColor = RGBColor(
 					uint8(params[i][3]),

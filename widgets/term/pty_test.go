@@ -20,6 +20,41 @@ func TestInputWithoutPtyDoesNotPanic(t *testing.T) {
 	})
 }
 
+func TestKeyboardActionModeDoesNotSuppressInputByDefault(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+
+	vt.update(testCSI('h', []uint32{2}))
+	vt.Update(vaxis.Key{Keycode: 'x', Text: "x", EventType: vaxis.EventPress})
+
+	if got, want := readReply(t, r, len("x")), "x"; got != want {
+		t.Fatalf("KAM default input = %q, want %q", got, want)
+	}
+}
+
+func TestKeyboardActionModeSuppressesInputWhenAllowed(t *testing.T) {
+	vt, r := newReplyTestModel(t, WithKeyboardActionMode(true))
+	vt.mode.paste = true
+
+	vt.update(testCSI('h', []uint32{2}))
+	vt.Update(vaxis.Key{Keycode: 'x', Text: "x", EventType: vaxis.EventPress})
+	vt.Update(vaxis.PasteStartEvent{})
+	vt.Update(vaxis.PasteEndEvent{})
+
+	assertNoReply(t, r)
+}
+
+func TestKeyboardActionModeResetAllowsInput(t *testing.T) {
+	vt, r := newReplyTestModel(t, WithKeyboardActionMode(true))
+
+	vt.update(testCSI('h', []uint32{2}))
+	vt.update(testCSI('l', []uint32{2}))
+	vt.Update(vaxis.Key{Keycode: 'x', Text: "x", EventType: vaxis.EventPress})
+
+	if got, want := readReply(t, r, len("x")), "x"; got != want {
+		t.Fatalf("input after KAM reset = %q, want %q", got, want)
+	}
+}
+
 func TestFocusWithoutPtyDoesNotPanic(t *testing.T) {
 	vt := New()
 	vt.mode.focusEvents = true
@@ -27,7 +62,48 @@ func TestFocusWithoutPtyDoesNotPanic(t *testing.T) {
 	withoutPanic(t, func() {
 		vt.Focus()
 		vt.Blur()
+		vt.Update(vaxis.FocusIn{})
+		vt.Update(vaxis.FocusOut{})
 	})
+}
+
+func TestEnableFocusEventsReportsCurrentFocusedState(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.Focus()
+
+	vt.update(testCSI('h', []uint32{1004}, '?'))
+
+	if got, want := readReply(t, r, len("\x1B[I")), "\x1B[I"; got != want {
+		t.Fatalf("focus report on enable = %q, want %q", got, want)
+	}
+}
+
+func TestEnableFocusEventsReportsCurrentBlurredState(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+
+	vt.update(testCSI('h', []uint32{1004}, '?'))
+
+	if got, want := readReply(t, r, len("\x1B[O")), "\x1B[O"; got != want {
+		t.Fatalf("blur report on enable = %q, want %q", got, want)
+	}
+}
+
+func TestFocusEventsReportThroughUpdate(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.update(testCSI('h', []uint32{1004}, '?'))
+	if got, want := readReply(t, r, len("\x1B[O")), "\x1B[O"; got != want {
+		t.Fatalf("initial focus report = %q, want %q", got, want)
+	}
+
+	vt.Update(vaxis.FocusIn{})
+	if got, want := readReply(t, r, len("\x1B[I")), "\x1B[I"; got != want {
+		t.Fatalf("focus-in report = %q, want %q", got, want)
+	}
+
+	vt.Update(vaxis.FocusOut{})
+	if got, want := readReply(t, r, len("\x1B[O")), "\x1B[O"; got != want {
+		t.Fatalf("focus-out report = %q, want %q", got, want)
+	}
 }
 
 func TestAltScrollWithoutPtyDoesNotPanic(t *testing.T) {

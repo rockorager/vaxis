@@ -86,6 +86,25 @@ func TestViewportGhosttyScrollbackDoesNotMoveWhenNotAtBottom(t *testing.T) {
 	}
 }
 
+func TestViewportGhosttyScrollbackMultiRowDelta(t *testing.T) {
+	vt := New()
+	vt.resize(5, 3)
+	writeViewportLines(vt, "1ABCD", "2EFGH", "3IJKL", "4ABCD", "5EFGH", "6IJKL")
+
+	vt.scrollViewport(3)
+	if got, want := viewportString(vt), "1ABCD\n2EFGH\n3IJKL"; got != want {
+		t.Fatalf("top viewport = %q, want %q", got, want)
+	}
+
+	vt.scrollViewport(-5)
+	if got, want := vt.scrollOffset, 0; got != want {
+		t.Fatalf("scroll offset after multi-row down = %d, want %d", got, want)
+	}
+	if got, want := viewportString(vt), "4ABCD\n5EFGH\n6IJKL"; got != want {
+		t.Fatalf("active viewport = %q, want %q", got, want)
+	}
+}
+
 func TestViewportClampsWhenScrollbackPruned(t *testing.T) {
 	vt := New()
 	vt.resize(5, 3)

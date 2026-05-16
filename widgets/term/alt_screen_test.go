@@ -1,6 +1,10 @@
 package term
 
-import "testing"
+import (
+	"testing"
+
+	"git.sr.ht/~rockorager/vaxis"
+)
 
 func TestMode47AltScreenRetainsContent(t *testing.T) {
 	vt := New()
@@ -34,6 +38,38 @@ func TestMode47AltScreenRetainsContent(t *testing.T) {
 	}
 }
 
+func TestMode47CopiesCursorStateBothDirections(t *testing.T) {
+	vt := New()
+	vt.resize(5, 2)
+	primaryFG := vaxis.RGBColor(0xff, 0, 0x7f)
+	altFG := vaxis.RGBColor(0, 0xff, 0)
+	vt.cursor.Foreground = primaryFG
+	vt.cursor.Style.Foreground = primaryFG
+	vt.cursor.row = 1
+	vt.cursor.col = 2
+
+	vt.decset(testCSI('h', []uint32{47}, '?'))
+	if vt.cursor.row != 1 || vt.cursor.col != 2 {
+		t.Fatalf("alternate cursor = %d,%d, want copied 1,2", vt.cursor.row, vt.cursor.col)
+	}
+	if got := vt.cursor.Foreground; got != primaryFG {
+		t.Fatalf("alternate cursor fg = %v, want %v", got, primaryFG)
+	}
+
+	vt.cursor.Foreground = altFG
+	vt.cursor.Style.Foreground = altFG
+	vt.cursor.row = 0
+	vt.cursor.col = 4
+
+	vt.decrst(testCSI('l', []uint32{47}, '?'))
+	if vt.cursor.row != 0 || vt.cursor.col != 4 {
+		t.Fatalf("primary cursor = %d,%d, want copied 0,4", vt.cursor.row, vt.cursor.col)
+	}
+	if got := vt.cursor.Foreground; got != altFG {
+		t.Fatalf("primary cursor fg = %v, want %v", got, altFG)
+	}
+}
+
 func TestMode1047ClearsAltScreenOnExit(t *testing.T) {
 	vt := New()
 	vt.resize(5, 2)
@@ -46,6 +82,38 @@ func TestMode1047ClearsAltScreenOnExit(t *testing.T) {
 
 	if got, want := vt.String(), "     \n     "; got != want {
 		t.Fatalf("mode 1047 did not clear alternate content: got %q want %q", got, want)
+	}
+}
+
+func TestMode1047CopiesCursorStateBothDirections(t *testing.T) {
+	vt := New()
+	vt.resize(5, 2)
+	primaryFG := vaxis.RGBColor(0xff, 0, 0x7f)
+	altFG := vaxis.RGBColor(0, 0xff, 0)
+	vt.cursor.Foreground = primaryFG
+	vt.cursor.Style.Foreground = primaryFG
+	vt.cursor.row = 1
+	vt.cursor.col = 2
+
+	vt.decset(testCSI('h', []uint32{1047}, '?'))
+	if vt.cursor.row != 1 || vt.cursor.col != 2 {
+		t.Fatalf("alternate cursor = %d,%d, want copied 1,2", vt.cursor.row, vt.cursor.col)
+	}
+	if got := vt.cursor.Foreground; got != primaryFG {
+		t.Fatalf("alternate cursor fg = %v, want %v", got, primaryFG)
+	}
+
+	vt.cursor.Foreground = altFG
+	vt.cursor.Style.Foreground = altFG
+	vt.cursor.row = 0
+	vt.cursor.col = 4
+
+	vt.decrst(testCSI('l', []uint32{1047}, '?'))
+	if vt.cursor.row != 0 || vt.cursor.col != 4 {
+		t.Fatalf("primary cursor = %d,%d, want copied 0,4", vt.cursor.row, vt.cursor.col)
+	}
+	if got := vt.cursor.Foreground; got != altFG {
+		t.Fatalf("primary cursor fg = %v, want %v", got, altFG)
 	}
 }
 
@@ -69,6 +137,24 @@ func TestMode1049RestoresPrimaryCursorAndClearsAltOnEntry(t *testing.T) {
 	vt.decset(testCSI('h', []uint32{1049}, '?'))
 	if got, want := vt.String(), "     \n     "; got != want {
 		t.Fatalf("mode 1049 did not clear alternate content on entry: got %q want %q", got, want)
+	}
+}
+
+func TestMode1049RepeatedEnableDoesNotClobberPrimarySavedCursor(t *testing.T) {
+	vt := New()
+	vt.resize(5, 2)
+	printText(vt, "1A")
+
+	vt.decset(testCSI('h', []uint32{1049}, '?'))
+	vt.cursor.row = 1
+	vt.cursor.col = 4
+	vt.decset(testCSI('h', []uint32{1049}, '?'))
+
+	vt.decrst(testCSI('l', []uint32{1049}, '?'))
+	vt.update(testPrint("C"))
+
+	if got, want := vt.String(), "1AC  \n     "; got != want {
+		t.Fatalf("primary screen after repeated 1049 restore = %q, want %q", got, want)
 	}
 }
 

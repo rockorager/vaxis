@@ -130,6 +130,14 @@ func TestUTF8(t *testing.T) {
 				Print{"👩‍🚀", 2},
 			},
 		},
+		{
+			name:  "ASCII with combining mark",
+			input: "a\u0301b",
+			expected: []Sequence{
+				Print{"a\u0301", 1},
+				Print{"b", 1},
+			},
+		},
 	}
 
 	for _, test := range tests {
@@ -148,6 +156,352 @@ func TestUTF8(t *testing.T) {
 				}
 				i += 1
 			}
+		})
+	}
+}
+
+func TestC1Controls(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []Sequence
+	}{
+		{
+			name:  "CSI",
+			input: "a\u009b2J",
+			expected: []Sequence{
+				Print{"a", 1},
+				csiSeq('J', "", []int{2}),
+			},
+		},
+		{
+			name:  "CSI raw byte",
+			input: "a\x9b2J",
+			expected: []Sequence{
+				Print{"a", 1},
+				csiSeq('J', "", []int{2}),
+			},
+		},
+		{
+			name:  "OSC",
+			input: "a\u009d2;hi\u009c",
+			expected: []Sequence{
+				Print{"a", 1},
+				OSC{Payload: []rune("2;hi")},
+			},
+		},
+		{
+			name:  "OSC raw byte",
+			input: "a\x9d2;hi\x9c",
+			expected: []Sequence{
+				Print{"a", 1},
+				OSC{Payload: []rune("2;hi")},
+			},
+		},
+		{
+			name:  "OSC invalid UTF-8",
+			input: "a\x1b]2;abc\xc0\x1b\\",
+			expected: []Sequence{
+				Print{"a", 1},
+				OSC{Payload: []rune{'2', ';', 'a', 'b', 'c', 0xC0}, InvalidUTF8: true},
+			},
+		},
+		{
+			name:  "ST clears string state",
+			input: "\u009d2;hi\u009c\x1b\\",
+			expected: []Sequence{
+				OSC{Payload: []rune("2;hi")},
+				escSeq('\\', ""),
+			},
+		},
+		{
+			name:  "DCS",
+			input: "a\u0090+qdata\u009c",
+			expected: []Sequence{
+				Print{"a", 1},
+				dcsSeq('q', "+", nil, "data"),
+			},
+		},
+		{
+			name:  "APC",
+			input: "a\u009fdata\u009c",
+			expected: []Sequence{
+				Print{"a", 1},
+				APC{Data: "data"},
+			},
+		},
+		{
+			name:  "APC empty ST consumed",
+			input: "a\x1b_\x1b\\b",
+			expected: []Sequence{
+				Print{"a", 1},
+				APC{},
+				Print{"b", 1},
+			},
+		},
+		{
+			name:  "NEL",
+			input: "a\u0085",
+			expected: []Sequence{
+				Print{"a", 1},
+				escSeq('E', ""),
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			r := strings.NewReader(test.input)
+			parse := NewParser(r, ParserModeOutput)
+			i := 0
+			for {
+				seq := <-parse.Next()
+				if _, ok := seq.(EOF); ok {
+					assert.Equal(t, len(test.expected), i, "wrong amount of sequences")
+					break
+				}
+				if i < len(test.expected) {
+					assert.Equal(t, test.expected[i], seq)
+				}
+				i += 1
+			}
+		})
+	}
+}
+
+func TestSOSPMControlStringsAreIgnored(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{
+			name:  "C1 PM",
+			input: "\x9eignored\x9ca\x19",
+		},
+		{
+			name:  "C1 SOS",
+			input: "\x98ignored\x9ca\x19",
+		},
+		{
+			name:  "7-bit PM",
+			input: "\x1b^ignored\x1b\\a\x19",
+		},
+		{
+			name:  "7-bit SOS",
+			input: "\x1bXignored\x1b\\a\x19",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			parse := NewParser(strings.NewReader(test.input), ParserModeOutput)
+			expected := []Sequence{
+				Print{"a", 1},
+				C0(0x19),
+			}
+
+			i := 0
+			for {
+				seq := <-parse.Next()
+				if _, ok := seq.(EOF); ok {
+					assert.Equal(t, len(expected), i, "wrong amount of sequences")
+					break
+				}
+				if i < len(expected) {
+					assert.Equal(t, expected[i], seq)
+				}
+				i += 1
+			}
+		})
+	}
+}
+
+func TestCSIWithManySGRParameters(t *testing.T) {
+	parse := NewParser(strings.NewReader("\x1b[4:3;38;2;51;51;51;48;2;170;170;170;58;2;255;97;136;0m"), ParserModeOutput)
+
+	seq := <-parse.Next()
+	csi, ok := seq.(CSI)
+	if !ok {
+		t.Fatalf("sequence = %T, want CSI", seq)
+	}
+	if got, want := csi.Final, rune('m'); got != want {
+		t.Fatalf("final = %q, want %q", got, want)
+	}
+	if got, want := csi.NumParameters, 18; got != want {
+		t.Fatalf("parameter count = %d, want %d", got, want)
+	}
+	want := []uint32{4, 3, 38, 2, 51, 51, 51, 48, 2, 170, 170, 170, 58, 2, 255, 97, 136, 0}
+	if got := csi.Params(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("params = %v, want %v", got, want)
+	}
+	if !csi.ColonAfter(0) {
+		t.Fatal("colon separator after first SGR parameter was not preserved")
+	}
+}
+
+func TestCSISGRColonParameterVariants(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      string
+		params     []int
+		colonAfter []int
+	}{
+		{
+			name:       "foreground mode",
+			input:      "\x1b[38:2m",
+			params:     []int{38, 2},
+			colonAfter: []int{0},
+		},
+		{
+			name:       "indexed foreground and background",
+			input:      "\x1b[38:5:1;48:5:0m",
+			params:     []int{38, 5, 1, 48, 5, 0},
+			colonAfter: []int{0, 1, 3, 4},
+		},
+		{
+			name:       "direct background",
+			input:      "\x1b[48:2:240:143:104m",
+			params:     []int{48, 2, 240, 143, 104},
+			colonAfter: []int{0, 1, 2, 3},
+		},
+		{
+			name:       "underline style",
+			input:      "\x1b[4:3m",
+			params:     []int{4, 3},
+			colonAfter: []int{0},
+		},
+		{
+			name:       "blank color space",
+			input:      "\x1b[58:2::240:143:104m",
+			params:     []int{58, 2, 0, 240, 143, 104},
+			colonAfter: []int{0, 1, 2, 3, 4},
+		},
+		{
+			name:       "mixed blank and semicolon",
+			input:      "\x1b[;4:3;38;2;175;175;215;58:2::190:80:70m",
+			params:     []int{0, 4, 3, 38, 2, 175, 175, 215, 58, 2, 0, 190, 80, 70},
+			colonAfter: []int{1, 8, 9, 10, 11, 12},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parse := NewParser(strings.NewReader(tt.input), ParserModeOutput)
+
+			seq := <-parse.Next()
+			csi, ok := seq.(CSI)
+			if !ok {
+				t.Fatalf("sequence = %T, want CSI", seq)
+			}
+			if got, want := csi.Final, rune('m'); got != want {
+				t.Fatalf("final = %q, want %q", got, want)
+			}
+			if got, want := csi.NumParameters, len(tt.params); got != want {
+				t.Fatalf("parameter count = %d, want %d", got, want)
+			}
+			wantParams := make([]uint32, len(tt.params))
+			for i, param := range tt.params {
+				wantParams[i] = uint32(param)
+			}
+			if got := csi.Params(); !reflect.DeepEqual(got, wantParams) {
+				t.Fatalf("params = %v, want %v", got, wantParams)
+			}
+			for _, idx := range tt.colonAfter {
+				if !csi.ColonAfter(idx) {
+					t.Fatalf("colon separator after param %d was not preserved", idx)
+				}
+			}
+		})
+	}
+}
+
+func TestCSIColonParametersWithNonSGRFinalAreIgnored(t *testing.T) {
+	parse := NewParser(strings.NewReader("\x1b[38:2h"), ParserModeOutput)
+
+	for {
+		seq := <-parse.Next()
+		switch seq.(type) {
+		case CSI:
+			t.Fatalf("unexpected CSI sequence with colon parameters and non-SGR final: %#v", seq)
+		case EOF:
+			return
+		}
+	}
+}
+
+func TestCSIParameterSaturatesWhenTooLong(t *testing.T) {
+	parse := NewParser(strings.NewReader("\x1b[999999999999999999999999999999999999999999999999999999999999999C"), ParserModeOutput)
+
+	seq := <-parse.Next()
+	csi, ok := seq.(CSI)
+	if !ok {
+		t.Fatalf("sequence = %#v, want CSI", seq)
+	}
+	if got, want := csi.Param(0), int(^uint32(0)); got != want {
+		t.Fatalf("CSI param = %d, want saturated %d", got, want)
+	}
+}
+
+func TestCSIWithMaxParametersDispatches(t *testing.T) {
+	input := "\x1b[" + strings.Repeat("1;", MaxCSIParams-1) + "2H"
+	parse := NewParser(strings.NewReader(input), ParserModeOutput)
+
+	seq := <-parse.Next()
+	csi, ok := seq.(CSI)
+	if !ok {
+		t.Fatalf("sequence = %T, want CSI", seq)
+	}
+	if got, want := csi.NumParameters, MaxCSIParams; got != want {
+		t.Fatalf("parameter count = %d, want %d", got, want)
+	}
+	if got, want := csi.Param(MaxCSIParams-1), 2; got != want {
+		t.Fatalf("last parameter = %d, want %d", got, want)
+	}
+}
+
+func TestCSIWithTooManyParametersIsIgnored(t *testing.T) {
+	input := "\x1b[" + strings.Repeat("1;", MaxCSIParams) + "2H"
+	parse := NewParser(strings.NewReader(input), ParserModeOutput)
+
+	for {
+		seq := <-parse.Next()
+		switch seq.(type) {
+		case CSI:
+			t.Fatalf("unexpected CSI sequence after parameter overflow: %#v", seq)
+		case EOF:
+			return
+		}
+	}
+}
+
+func TestCSIGhosttyParserShapes(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected CSI
+	}{
+		{
+			name:     "DECRQM",
+			input:    "\x1b[?2026$p",
+			expected: csiSeq('p', "?$", []int{2026}),
+		},
+		{
+			name:     "cursor style",
+			input:    "\x1b[3 q",
+			expected: csiSeq('q', " ", []int{3}),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			parse := NewParser(strings.NewReader(test.input), ParserModeOutput)
+
+			seq := <-parse.Next()
+			csi, ok := seq.(CSI)
+			if !ok {
+				t.Fatalf("sequence = %#v, want CSI", seq)
+			}
+			assert.Equal(t, test.expected, csi)
 		})
 	}
 }
@@ -519,6 +873,15 @@ func TestDCS(t *testing.T) {
 				dcsSeq('q', "", nil, "#0;2;0;"),
 			},
 		},
+		{
+			name:  "DCS empty ST consumed",
+			input: "a\x1bPq\x1b\\b",
+			expected: []Sequence{
+				Print{"a", 1},
+				dcsSeq('q', "", nil, ""),
+				Print{"b", 1},
+			},
+		},
 	}
 
 	for _, test := range tests {
@@ -537,6 +900,53 @@ func TestDCS(t *testing.T) {
 				}
 				i += 1
 			}
+		})
+	}
+}
+
+func TestDCSWithTooManyParametersIsIgnored(t *testing.T) {
+	input := "\x1bP6" + strings.Repeat(";", MaxCSIParams) + "7pignored\x1b\\"
+	parser := NewParser(strings.NewReader(input))
+
+	for {
+		seq := <-parser.Next()
+		switch seq.(type) {
+		case DCS:
+			t.Fatalf("unexpected DCS sequence after parameter overflow: %#v", seq)
+		case EOF:
+			return
+		}
+	}
+}
+
+func TestDCSGhosttyParserShapes(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected DCS
+	}{
+		{
+			name:     "XTGETTCAP",
+			input:    "\x1bP+q\x1b\\",
+			expected: dcsSeq('q', "+", nil, ""),
+		},
+		{
+			name:     "params",
+			input:    "\x1bP1000p\x1b\\",
+			expected: dcsSeq('p', "", []int{1000}, ""),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			parse := NewParser(strings.NewReader(test.input), ParserModeOutput)
+
+			seq := <-parse.Next()
+			dcs, ok := seq.(DCS)
+			if !ok {
+				t.Fatalf("sequence = %#v, want DCS", seq)
+			}
+			assert.Equal(t, test.expected, dcs)
 		})
 	}
 }
@@ -741,7 +1151,6 @@ func TestOSC(t *testing.T) {
 			expected: []Sequence{
 				Print{"a", 1},
 				OSC{},
-				escSeq(0x5C, ""),
 			},
 		},
 		{

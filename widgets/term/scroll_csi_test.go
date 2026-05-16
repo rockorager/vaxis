@@ -50,6 +50,42 @@ func TestScrollUpDownDefaultParameterScrollsOnce(t *testing.T) {
 	}
 }
 
+func TestScrollUpPreservesPendingWrap(t *testing.T) {
+	vt := New()
+	vt.resize(5, 5)
+	vt.setCursorPos(1, 5)
+	printText(vt, "A")
+	vt.setCursorPos(2, 5)
+	printText(vt, "B")
+	vt.setCursorPos(3, 5)
+	printText(vt, "C")
+
+	vt.scrollUp(1)
+	printText(vt, "X")
+
+	if got, want := trimScreenString(vt.String()), "    B\n    C\n\nX"; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestScrollDownPreservesPendingWrap(t *testing.T) {
+	vt := New()
+	vt.resize(5, 5)
+	vt.setCursorPos(1, 5)
+	printText(vt, "A")
+	vt.setCursorPos(2, 5)
+	printText(vt, "B")
+	vt.setCursorPos(3, 5)
+	printText(vt, "C")
+
+	vt.scrollDown(1)
+	printText(vt, "X")
+
+	if got, want := trimScreenString(vt.String()), "\n    A\n    B\nX   C"; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}
+
 func TestScrollUpDownIgnoreMultipleParameters(t *testing.T) {
 	tests := []struct {
 		name   string

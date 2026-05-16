@@ -167,6 +167,48 @@ func TestDECSLRMClampsZeroAndOversizedMargins(t *testing.T) {
 	}
 }
 
+func TestDECSLRMLeftOnlyDefaultsRightMarginToScreenEdge(t *testing.T) {
+	vt := New()
+	vt.resize(5, 3)
+	vt.update(testCSI('h', []uint32{69}, '?'))
+	vt.cursor.row = 1
+	vt.cursor.col = 1
+
+	vt.update(testCSI('s', []uint32{3}))
+
+	if got, want := vt.margin.left, column(2); got != want {
+		t.Fatalf("left margin = %d, want %d", got, want)
+	}
+	if got, want := vt.margin.right, column(4); got != want {
+		t.Fatalf("right margin = %d, want %d", got, want)
+	}
+	if vt.cursor.row != 0 || vt.cursor.col != 0 {
+		t.Fatalf("cursor = %d,%d, want 0,0", vt.cursor.row, vt.cursor.col)
+	}
+}
+
+func TestDECSLRMIgnoresEqualMargins(t *testing.T) {
+	vt := New()
+	vt.resize(5, 3)
+	vt.update(testCSI('h', []uint32{69}, '?'))
+	vt.margin.left = 1
+	vt.margin.right = 4
+	vt.cursor.row = 1
+	vt.cursor.col = 2
+
+	vt.update(testCSI('s', []uint32{2, 2}))
+
+	if got, want := vt.margin.left, column(1); got != want {
+		t.Fatalf("left margin = %d, want %d", got, want)
+	}
+	if got, want := vt.margin.right, column(4); got != want {
+		t.Fatalf("right margin = %d, want %d", got, want)
+	}
+	if vt.cursor.row != 1 || vt.cursor.col != 2 {
+		t.Fatalf("cursor = %d,%d, want unchanged 1,2", vt.cursor.row, vt.cursor.col)
+	}
+}
+
 func TestDECSLRMIgnoresTooManyParams(t *testing.T) {
 	vt := New()
 	vt.resize(5, 3)

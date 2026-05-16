@@ -13,4 +13,7 @@ type cursor struct {
 	col column // 0-indexed
 
 	protected bool
+
+	semanticContent  semanticContent
+	semanticClearEOL bool
 }

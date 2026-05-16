@@ -1,6 +1,10 @@
 package term
 
-import "testing"
+import (
+	"testing"
+
+	"git.sr.ht/~rockorager/vaxis"
+)
 
 func TestSaveRestorePrivateMode(t *testing.T) {
 	vt := New()
@@ -50,6 +54,34 @@ func TestRestorePrivateOriginModeAppliesSideEffects(t *testing.T) {
 	}
 	if vt.cursor.row != vt.margin.top || vt.cursor.col != vt.margin.left {
 		t.Fatalf("cursor after origin restore = %d,%d, want %d,%d", vt.cursor.row, vt.cursor.col, vt.margin.top, vt.margin.left)
+	}
+}
+
+func TestRestorePrivateCursorBlinkModePreservesCursorShape(t *testing.T) {
+	vt := New()
+	vt.resize(5, 1)
+
+	vt.update(testCSI('q', []uint32{5}, ' '))
+	if !vt.mode.cursorBlinking || vt.cursor.style != vaxis.CursorBeamBlinking {
+		t.Fatalf("cursor after blinking beam = style:%v blink:%v, want blinking beam", vt.cursor.style, vt.mode.cursorBlinking)
+	}
+
+	vt.update(testCSI('s', []uint32{12}, '?'))
+	vt.update(testCSI('q', []uint32{6}, ' '))
+	if vt.mode.cursorBlinking || vt.cursor.style != vaxis.CursorBeam {
+		t.Fatalf("cursor after steady beam = style:%v blink:%v, want steady beam", vt.cursor.style, vt.mode.cursorBlinking)
+	}
+
+	vt.update(testCSI('r', []uint32{12}, '?'))
+
+	if !vt.mode.cursorBlinking {
+		t.Fatal("cursor blinking mode was not restored")
+	}
+	if vt.cursor.style != vaxis.CursorBeam {
+		t.Fatalf("cursor shape after blink-mode restore = %v, want steady beam shape", vt.cursor.style)
+	}
+	if got := vt.effectiveCursorStyle(); got != vaxis.CursorBeamBlinking {
+		t.Fatalf("effective cursor style after blink-mode restore = %v, want blinking beam", got)
 	}
 }
 

@@ -46,6 +46,12 @@ func (vt *Model) esc(esc string) {
 		vt.charsets.selected = g2
 	case "o":
 		vt.charsets.selected = g3
+	case "~":
+		vt.charsets.gr = g1
+	case "}":
+		vt.charsets.gr = g2
+	case "|":
+		vt.charsets.gr = g3
 	case "(0":
 		vt.charsets.designations[g0] = decSpecialAndLineDrawing
 	case ")0":
@@ -90,8 +96,11 @@ func (vt *Model) setProtectedMode(mode protectedMode) {
 
 // Index ESC-D
 func (vt *Model) ind() {
-	vt.resetWrap()
+	vt.resetPendingWrap()
 	if vt.cursor.row == vt.margin.bottom {
+		if !vt.cursorInHorizontalMargins() {
+			return
+		}
 		vt.scrollUp(1)
 		return
 	}
@@ -107,7 +116,7 @@ func (vt *Model) ind() {
 // Moves cursor to the left margin of the next line, scrolling if necessary
 func (vt *Model) nel() {
 	vt.ind()
-	vt.cursor.col = vt.margin.left
+	vt.cr()
 }
 
 // Horizontal tab set ESC-H
@@ -119,15 +128,18 @@ func (vt *Model) hts() {
 
 // Reverse Index ESC-M
 func (vt *Model) ri() {
-	vt.resetWrap()
-	if vt.cursor.row < 0 {
-		return
-	}
-	if vt.cursor.row == vt.margin.top {
+	if vt.cursor.row == vt.margin.top && vt.cursorInHorizontalMargins() {
 		vt.scrollDown(1)
 		return
 	}
-	vt.cursor.row -= 1
+	vt.cuu(1)
+}
+
+func (vt *Model) cursorInHorizontalMargins() bool {
+	if vt.lastCol && vt.cursor.col == vt.margin.right+1 {
+		return true
+	}
+	return vt.cursor.col >= vt.margin.left && vt.cursor.col <= vt.margin.right
 }
 
 func (vt *Model) decaln() {
@@ -141,6 +153,10 @@ func (vt *Model) decaln() {
 	vt.cursor.row = 0
 	vt.cursor.col = 0
 	vt.lastCol = false
+	vt.cursor.Style = vaxis.Style{
+		Foreground: vt.cursor.Foreground,
+		Background: vt.cursor.Background,
+	}
 
 	fill := cell{
 		Cell: vaxis.Cell{
@@ -163,7 +179,6 @@ func (vt *Model) decaln() {
 func (vt *Model) decsc() {
 	state := cursorState{
 		cursor:   vt.cursor,
-		decawm:   vt.mode.decawm,
 		decom:    vt.mode.decom,
 		lastCol:  vt.lastCol,
 		saved:    true,
@@ -192,9 +207,18 @@ func (vt *Model) decrc() {
 		state = defaultCursorState()
 	}
 
+	style := vt.cursor.style
+	hyperlink := vt.cursor.Hyperlink
+	hyperlinkParams := vt.cursor.HyperlinkParams
+	semanticContent := vt.cursor.semanticContent
+	semanticClearEOL := vt.cursor.semanticClearEOL
 	vt.cursor = state.cursor
+	vt.cursor.style = style
+	vt.cursor.Hyperlink = hyperlink
+	vt.cursor.HyperlinkParams = hyperlinkParams
+	vt.cursor.semanticContent = semanticContent
+	vt.cursor.semanticClearEOL = semanticClearEOL
 	vt.charsets = state.charsets
-	vt.mode.decawm = state.decawm
 	vt.mode.decom = state.decom
 	vt.clampCursor()
 	vt.lastCol = state.lastCol && vt.cursor.col >= vt.margin.right
@@ -214,11 +238,18 @@ func (vt *Model) ris() {
 	vt.lastCol = false
 	vt.scrollOffset = 0
 	vt.activeScreen = vt.primaryScreen
-	vt.charsets = charsets{}
+	vt.charsets = defaultCharsets()
 	vt.title = ""
+	vt.workingDirectoryURL = ""
+	vt.colors = terminalColors{}
+	vt.setMouseShape(vaxis.MouseShapeTextInput)
+	vt.shellRedrawsPrompt = semanticPromptRedrawTrue
+	vt.semanticPromptClick = semanticPromptClickNone
 	vt.status = statusDisplayMain
 	vt.previousChar = vaxis.Character{}
 	vt.hasPreviousChar = false
+	vt.graphics = nil
+	vt.setSynchronizedOutput(false)
 	vt.mode = defaultMode()
 	vt.savedMode = mode{}
 	vt.primaryState = defaultCursorState()

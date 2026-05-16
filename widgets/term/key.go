@@ -22,23 +22,55 @@ func encodeXterm(key vaxis.Key, deckpam bool, decckm bool, decbkm bool, ignoreKe
 	xtermMods := key.Modifiers & vaxis.ModShift
 	xtermMods |= key.Modifiers & vaxis.ModAlt
 	xtermMods |= key.Modifiers & vaxis.ModCtrl
+	xtermMods |= key.Modifiers & vaxis.ModSuper
 
 	if key.Keycode == vaxis.KeyBackspace {
-		seq := "\x7f"
-		if decbkm {
-			seq = "\x08"
-		}
-		if xtermMods&vaxis.ModCtrl != 0 {
-			if decbkm {
-				seq = "\x7f"
-			} else {
-				seq = "\x08"
+		return encodeLegacyBackspace(xtermMods, decbkm)
+	}
+
+	if key.Keycode == vaxis.KeyTab && xtermMods != 0 {
+		switch xtermMods {
+		case vaxis.ModShift:
+			return "\x1B[Z"
+		case vaxis.ModAlt:
+			return "\x1B\t"
+		case vaxis.ModShift | vaxis.ModAlt:
+			return "\x1B[27;4;9~"
+		default:
+			if seq := modifyKeySequence(key.Keycode, xtermMods); seq != "" {
+				return seq
 			}
 		}
-		if xtermMods&vaxis.ModAlt != 0 {
-			return "\x1b" + seq
+	}
+
+	if key.Keycode == vaxis.KeyEnter && xtermMods != 0 {
+		switch xtermMods {
+		case vaxis.ModAlt:
+			return "\x1B\r"
+		case vaxis.ModShift:
+			return "\x1B[27;2;13~"
+		case vaxis.ModShift | vaxis.ModAlt:
+			return "\x1B[27;4;13~"
+		default:
+			if seq := modifyKeySequence(key.Keycode, xtermMods); seq != "" {
+				return seq
+			}
 		}
-		return seq
+	}
+
+	if key.Keycode == vaxis.KeyEsc && xtermMods != 0 {
+		switch xtermMods {
+		case vaxis.ModAlt:
+			return "\x1B\x1B"
+		case vaxis.ModShift:
+			return "\x1B[27;2;27~"
+		case vaxis.ModShift | vaxis.ModAlt:
+			return "\x1B[27;4;27~"
+		default:
+			if seq := modifyKeySequence(key.Keycode, xtermMods); seq != "" {
+				return seq
+			}
+		}
 	}
 
 	if xtermMods == 0 {
@@ -73,6 +105,9 @@ func encodeXterm(key vaxis.Key, deckpam bool, decckm bool, decbkm bool, ignoreKe
 			}
 		}
 
+		if key.Text != "" {
+			return key.Text
+		}
 		if key.Keycode < unicode.MaxRune {
 			// Unicode keys
 			return string(key.Keycode)
@@ -89,36 +124,20 @@ func encodeXterm(key vaxis.Key, deckpam bool, decckm bool, decbkm bool, ignoreKe
 
 	buf := bytes.NewBuffer(nil)
 	if key.Keycode < unicode.MaxRune {
-		if xtermMods&vaxis.ModAlt != 0 && altEscPrefix {
-			buf.WriteRune('\x1b')
-		}
 		if xtermMods&vaxis.ModCtrl != 0 {
-			if unicode.IsLower(key.Keycode) {
-				buf.WriteRune(key.Keycode - 0x60)
+			if code, ok := controlKeyCode(key); ok {
+				if xtermMods&vaxis.ModAlt != 0 {
+					buf.WriteRune('\x1b')
+				}
+				buf.WriteRune(code)
 				return buf.String()
 			}
-			switch key.Keycode {
-			case '1':
-				buf.WriteRune('1')
-			case '2':
-				buf.WriteRune(0x00)
-			case '3':
-				buf.WriteRune(0x1b)
-			case '4':
-				buf.WriteRune(0x1c)
-			case '5':
-				buf.WriteRune(0x1d)
-			case '6':
-				buf.WriteRune(0x1e)
-			case '7':
-				buf.WriteRune(0x1f)
-			case '8':
-				buf.WriteRune(0x7f)
-			case '9':
-			default:
-				buf.WriteRune(key.Keycode - 0x40)
+			if seq := encodeCSIu(key); seq != "" {
+				return seq
 			}
-			return buf.String()
+		}
+		if xtermMods&vaxis.ModAlt != 0 && altEscPrefix {
+			buf.WriteRune('\x1b')
 		}
 		if xtermMods&vaxis.ModShift != 0 {
 			if key.ShiftedCode > 0 {
@@ -134,15 +153,164 @@ func encodeXterm(key vaxis.Key, deckpam bool, decckm bool, decbkm bool, ignoreKe
 	return ""
 }
 
+func encodeLegacyBackspace(mods vaxis.ModifierMask, decbkm bool) string {
+	switch mods {
+	case 0:
+		if decbkm {
+			return "\x08"
+		}
+		return "\x7f"
+	case vaxis.ModCtrl:
+		if decbkm {
+			return "\x7f"
+		}
+		return "\x08"
+	case vaxis.ModShift,
+		vaxis.ModSuper,
+		vaxis.ModShift | vaxis.ModSuper:
+		return "\x7f"
+	case vaxis.ModAlt,
+		vaxis.ModAlt | vaxis.ModShift,
+		vaxis.ModAlt | vaxis.ModSuper,
+		vaxis.ModAlt | vaxis.ModShift | vaxis.ModSuper:
+		return "\x1b\x7f"
+	case vaxis.ModCtrl | vaxis.ModShift,
+		vaxis.ModCtrl | vaxis.ModSuper,
+		vaxis.ModCtrl | vaxis.ModShift | vaxis.ModSuper:
+		return "\x08"
+	case vaxis.ModAlt | vaxis.ModCtrl,
+		vaxis.ModAlt | vaxis.ModCtrl | vaxis.ModSuper,
+		vaxis.ModAlt | vaxis.ModCtrl | vaxis.ModShift | vaxis.ModSuper:
+		return "\x1b\x08"
+	default:
+		return ""
+	}
+}
+
+func modifyKeySequence(keycode rune, mods vaxis.ModifierMask) string {
+	if mods == 0 {
+		return ""
+	}
+	return fmt.Sprintf("\x1B[27;%d;%d~", int(mods)+1, keycode)
+}
+
+func controlKeyCode(key vaxis.Key) (rune, bool) {
+	ch := key.Keycode
+	shiftedText := false
+	if key.Text != "" {
+		r, size := utf8.DecodeRuneInString(key.Text)
+		if r != utf8.RuneError && size == len(key.Text) {
+			ch = r
+			shiftedText = key.Modifiers&vaxis.ModShift != 0
+		}
+	} else if key.Modifiers&vaxis.ModShift != 0 && key.ShiftedCode > 0 {
+		ch = key.ShiftedCode
+		shiftedText = true
+	}
+	if shiftedText && ch >= 'A' && ch <= 'Z' {
+		return 0, false
+	}
+	if shiftedText && ch == '@' {
+		return 0, false
+	}
+	if ch >= 'A' && ch <= 'Z' {
+		ch += 'a' - 'A'
+	}
+
+	switch ch {
+	case ' ':
+		return 0, true
+	case '/':
+		return 31, true
+	case '0':
+		return '0', true
+	case '1':
+		return '1', true
+	case '2':
+		return 0, true
+	case '3':
+		return 27, true
+	case '4':
+		return 28, true
+	case '5':
+		return 29, true
+	case '6':
+		return 30, true
+	case '7':
+		return 31, true
+	case '8':
+		return 127, true
+	case '9':
+		return '9', true
+	case '?':
+		return 127, true
+	case '@':
+		return 0, true
+	case '\\':
+		return 28, true
+	case ']':
+		return 29, true
+	case '^':
+		return 30, true
+	case '_':
+		return 31, true
+	case '~':
+		return 30, true
+	}
+	switch ch {
+	case 'i', 'm', '[':
+		return 0, false
+	}
+	if ch >= 'a' && ch <= 'z' {
+		return ch - 0x60, true
+	}
+	return 0, false
+}
+
+func encodeCSIu(key vaxis.Key) string {
+	codepoint, ok := csiuCodepoint(key)
+	if !ok {
+		return ""
+	}
+	mods := key.Modifiers & (vaxis.ModShift | vaxis.ModAlt | vaxis.ModCtrl)
+	if key.Modifiers&vaxis.ModShift != 0 && key.Keycode > 0 && key.Keycode != codepoint {
+		if codepoint >= 'A' && codepoint <= 'Z' && key.Keycode == codepoint+'a'-'A' {
+			codepoint = key.Keycode
+		} else {
+			mods &^= vaxis.ModShift
+		}
+	}
+	return fmt.Sprintf("\x1B[%d;%du", codepoint, int(mods)+1)
+}
+
+func csiuCodepoint(key vaxis.Key) (rune, bool) {
+	if key.Text != "" {
+		r, size := utf8.DecodeRuneInString(key.Text)
+		if r != utf8.RuneError && size == len(key.Text) {
+			return r, true
+		}
+	}
+	if key.Modifiers&vaxis.ModShift != 0 && key.ShiftedCode > 0 {
+		return key.ShiftedCode, true
+	}
+	if key.Keycode < unicode.MaxRune {
+		return key.Keycode, true
+	}
+	return 0, false
+}
+
 func (vt *Model) encodeKey(key vaxis.Key) string {
 	flags := uint8(0)
 	if vt.EnableKittyKeyboard {
 		flags = vt.activeKittyKeyboard().current()
 	}
+	if flags != 0 && key.EventType != vaxis.EventRelease && key.Text != "" && !kittyTextIsSingleControl(key.Text) && key.Keycode == vaxis.KeyBackspace {
+		return ""
+	}
 	if seq := encodeKitty(key, flags); seq != "" {
 		return seq
 	}
-	if key.EventType == vaxis.EventRepeat || key.EventType == vaxis.EventRelease {
+	if key.EventType == vaxis.EventRelease {
 		return ""
 	}
 	if vt.mode.modifyOtherKeys2 {
@@ -182,7 +350,13 @@ func modifyOtherKeysCodepoint(key vaxis.Key) (rune, bool) {
 }
 
 func shouldModifyOtherKey(codepoint rune, mods vaxis.ModifierMask) bool {
+	if codepoint == vaxis.KeyBackspace {
+		return mods != 0 && mods != vaxis.ModCtrl
+	}
 	if codepoint >= 0x40 && codepoint <= 0x7F {
+		return true
+	}
+	if (codepoint == vaxis.KeyTab || codepoint == vaxis.KeyEnter) && mods != 0 {
 		return true
 	}
 	if mods&^vaxis.ModShift != 0 {
@@ -214,10 +388,46 @@ func encodeKitty(key vaxis.Key, flags uint8) string {
 	if flags == 0 {
 		return ""
 	}
-	if key.EventType == vaxis.EventRepeat || key.EventType == vaxis.EventRelease {
+	if key.EventType == vaxis.EventRelease {
 		if flags&kittyKeyboardFlagReportEvents == 0 {
 			return ""
 		}
+		if flags&kittyKeyboardFlagReportAll == 0 {
+			switch key.Keycode {
+			case vaxis.KeyEnter, vaxis.KeyBackspace, vaxis.KeyTab:
+				return ""
+			}
+		}
+	}
+
+	if key.EventType != vaxis.EventRelease && key.Text != "" && !kittyTextIsSingleControl(key.Text) && key.Keycode == vaxis.KeyEnter {
+		return key.Text
+	}
+
+	if flags&kittyKeyboardFlagReportAll == 0 && key.EventType != vaxis.EventRelease && key.Modifiers == 0 {
+		switch key.Keycode {
+		case vaxis.KeyEnter:
+			return "\r"
+		case vaxis.KeyBackspace:
+			return "\x7f"
+		case vaxis.KeyTab:
+			return "\t"
+		}
+	}
+
+	if key.Keycode == 0 && key.Text != "" && key.EventType != vaxis.EventRelease && key.Modifiers == 0 {
+		return key.Text
+	}
+
+	if flags&kittyKeyboardFlagReportAll == 0 && key.EventType != vaxis.EventRelease && key.Modifiers == 0 && kittyTextIsPrintable(key.Text) {
+		return key.Text
+	}
+
+	if val, ok := kittyKeymap[key.Keycode]; ok {
+		if val.modifier && flags&kittyKeyboardFlagReportAll == 0 {
+			return ""
+		}
+		return encodeKittySequence(key, val.number, val.final, flags)
 	}
 
 	if val, ok := xtermKeymap[key.Keycode]; ok {
@@ -243,30 +453,73 @@ func encodeKitty(key vaxis.Key, flags uint8) string {
 		return ""
 	}
 
+	return encodeKittySequence(key, int(key.Keycode), 'u', flags)
+}
+
+func encodeKittySequence(key vaxis.Key, code int, final rune, flags uint8) string {
 	buf := bytes.NewBuffer(nil)
-	fmt.Fprintf(buf, "\x1B[%d", key.Keycode)
-	if flags&kittyKeyboardFlagReportAlternates != 0 {
+	fmt.Fprintf(buf, "\x1B[%d", code)
+	if flags&kittyKeyboardFlagReportAlternates != 0 && !unicode.IsControl(key.Keycode) {
 		switch {
 		case key.ShiftedCode > 0 && key.BaseLayoutCode > 0:
 			fmt.Fprintf(buf, ":%d:%d", key.ShiftedCode, key.BaseLayoutCode)
 		case key.ShiftedCode > 0:
 			fmt.Fprintf(buf, ":%d", key.ShiftedCode)
 		case key.BaseLayoutCode > 0:
-			fmt.Fprintf(buf, ":0:%d", key.BaseLayoutCode)
+			fmt.Fprintf(buf, "::%d", key.BaseLayoutCode)
 		}
 	}
 
-	fmt.Fprintf(buf, ";%d", int(key.Modifiers)+1)
-	if flags&kittyKeyboardFlagReportEvents != 0 {
-		fmt.Fprintf(buf, ":%d", int(key.EventType)+1)
+	mods := int(key.Modifiers) + 1
+	emitPrior := false
+	if flags&kittyKeyboardFlagReportEvents != 0 && key.EventType != vaxis.EventPress {
+		fmt.Fprintf(buf, ";%d:%d", mods, int(key.EventType)+1)
+		emitPrior = true
+	} else if mods > 1 {
+		fmt.Fprintf(buf, ";%d", mods)
+		emitPrior = true
 	}
-	if flags&kittyKeyboardFlagAssociatedText != 0 && key.Text != "" {
+	if flags&kittyKeyboardFlagAssociatedText != 0 && key.EventType != vaxis.EventRelease && key.Text != "" && !kittyModifiersPreventText(key.Modifiers) {
+		count := 0
 		for _, r := range key.Text {
-			fmt.Fprintf(buf, ";%d", r)
+			if unicode.IsControl(r) {
+				continue
+			}
+			if count == 0 {
+				if !emitPrior {
+					buf.WriteRune(';')
+				}
+				buf.WriteRune(';')
+			} else {
+				buf.WriteRune(':')
+			}
+			fmt.Fprintf(buf, "%d", r)
+			count++
 		}
 	}
-	buf.WriteRune('u')
+	buf.WriteRune(final)
 	return buf.String()
+}
+
+func kittyTextIsSingleControl(text string) bool {
+	return len(text) == 1 && text[0] < 0x80 && unicode.IsControl(rune(text[0]))
+}
+
+func kittyTextIsPrintable(text string) bool {
+	if text == "" {
+		return false
+	}
+	for _, r := range text {
+		if unicode.IsControl(r) {
+			return false
+		}
+	}
+	return true
+}
+
+func kittyModifiersPreventText(mods vaxis.ModifierMask) bool {
+	const prevents = vaxis.ModAlt | vaxis.ModCtrl | vaxis.ModSuper | vaxis.ModHyper | vaxis.ModMeta
+	return mods&prevents != 0
 }
 
 type keycode struct {
@@ -274,29 +527,109 @@ type keycode struct {
 	final  rune
 }
 
+type kittyKeycode struct {
+	number   int
+	final    rune
+	modifier bool
+}
+
+var kittyKeymap = map[rune]kittyKeycode{
+	vaxis.KeyF13:             {57376, 'u', false},
+	vaxis.KeyF14:             {57377, 'u', false},
+	vaxis.KeyF15:             {57378, 'u', false},
+	vaxis.KeyF16:             {57379, 'u', false},
+	vaxis.KeyF17:             {57380, 'u', false},
+	vaxis.KeyF18:             {57381, 'u', false},
+	vaxis.KeyF19:             {57382, 'u', false},
+	vaxis.KeyF20:             {57383, 'u', false},
+	vaxis.KeyF21:             {57384, 'u', false},
+	vaxis.KeyF22:             {57385, 'u', false},
+	vaxis.KeyF23:             {57386, 'u', false},
+	vaxis.KeyF24:             {57387, 'u', false},
+	vaxis.KeyF25:             {57388, 'u', false},
+	vaxis.KeyF26:             {57389, 'u', false},
+	vaxis.KeyF27:             {57390, 'u', false},
+	vaxis.KeyF28:             {57391, 'u', false},
+	vaxis.KeyF29:             {57392, 'u', false},
+	vaxis.KeyF30:             {57393, 'u', false},
+	vaxis.KeyF31:             {57394, 'u', false},
+	vaxis.KeyF32:             {57395, 'u', false},
+	vaxis.KeyF33:             {57396, 'u', false},
+	vaxis.KeyF34:             {57397, 'u', false},
+	vaxis.KeyF35:             {57398, 'u', false},
+	vaxis.KeyKeyPad0:         {57399, 'u', false},
+	vaxis.KeyKeyPad1:         {57400, 'u', false},
+	vaxis.KeyKeyPad2:         {57401, 'u', false},
+	vaxis.KeyKeyPad3:         {57402, 'u', false},
+	vaxis.KeyKeyPad4:         {57403, 'u', false},
+	vaxis.KeyKeyPad5:         {57404, 'u', false},
+	vaxis.KeyKeyPad6:         {57405, 'u', false},
+	vaxis.KeyKeyPad7:         {57406, 'u', false},
+	vaxis.KeyKeyPad8:         {57407, 'u', false},
+	vaxis.KeyKeyPad9:         {57408, 'u', false},
+	vaxis.KeyKeyPadDecimal:   {57409, 'u', false},
+	vaxis.KeyKeyPadDivide:    {57410, 'u', false},
+	vaxis.KeyKeyPadMultiply:  {57411, 'u', false},
+	vaxis.KeyKeyPadSubtract:  {57412, 'u', false},
+	vaxis.KeyKeyPadAdd:       {57413, 'u', false},
+	vaxis.KeyKeyPadEnter:     {57414, 'u', false},
+	vaxis.KeyKeyPadEqual:     {57415, 'u', false},
+	vaxis.KeyKeyPadSeparator: {57416, 'u', false},
+	vaxis.KeyKeyPadLeft:      {57417, 'u', false},
+	vaxis.KeyKeyPadRight:     {57418, 'u', false},
+	vaxis.KeyKeyPadUp:        {57419, 'u', false},
+	vaxis.KeyKeyPadDown:      {57420, 'u', false},
+	vaxis.KeyKeyPadPageUp:    {57421, 'u', false},
+	vaxis.KeyKeyPadPageDown:  {57422, 'u', false},
+	vaxis.KeyKeyPadHome:      {57423, 'u', false},
+	vaxis.KeyKeyPadEnd:       {57424, 'u', false},
+	vaxis.KeyKeyPadInsert:    {57425, 'u', false},
+	vaxis.KeyKeyPadDelete:    {57426, 'u', false},
+	vaxis.KeyKeyPadBegin:     {57427, 'u', false},
+	vaxis.KeyLeftShift:       {57441, 'u', true},
+	vaxis.KeyRightShift:      {57447, 'u', true},
+	vaxis.KeyLeftControl:     {57442, 'u', true},
+	vaxis.KeyRightControl:    {57448, 'u', true},
+	vaxis.KeyLeftSuper:       {57444, 'u', true},
+	vaxis.KeyRightSuper:      {57450, 'u', true},
+	vaxis.KeyLeftAlt:         {57443, 'u', true},
+	vaxis.KeyRightAlt:        {57449, 'u', true},
+}
+
 var xtermKeymap = map[rune]keycode{
-	vaxis.KeyUp:     {1, 'A'},
-	vaxis.KeyDown:   {1, 'B'},
-	vaxis.KeyRight:  {1, 'C'},
-	vaxis.KeyLeft:   {1, 'D'},
-	vaxis.KeyEnd:    {1, 'F'},
-	vaxis.KeyHome:   {1, 'H'},
-	vaxis.KeyInsert: {2, '~'},
-	vaxis.KeyDelete: {3, '~'},
-	vaxis.KeyPgUp:   {5, '~'},
-	vaxis.KeyPgDown: {6, '~'},
-	vaxis.KeyF01:    {1, 'P'},
-	vaxis.KeyF02:    {1, 'Q'},
-	vaxis.KeyF03:    {1, 'R'},
-	vaxis.KeyF04:    {1, 'S'},
-	vaxis.KeyF05:    {15, '~'},
-	vaxis.KeyF06:    {17, '~'},
-	vaxis.KeyF07:    {18, '~'},
-	vaxis.KeyF08:    {19, '~'},
-	vaxis.KeyF09:    {20, '~'},
-	vaxis.KeyF10:    {21, '~'},
-	vaxis.KeyF11:    {23, '~'},
-	vaxis.KeyF12:    {24, '~'},
+	vaxis.KeyUp:             {1, 'A'},
+	vaxis.KeyDown:           {1, 'B'},
+	vaxis.KeyRight:          {1, 'C'},
+	vaxis.KeyLeft:           {1, 'D'},
+	vaxis.KeyEnd:            {1, 'F'},
+	vaxis.KeyHome:           {1, 'H'},
+	vaxis.KeyInsert:         {2, '~'},
+	vaxis.KeyDelete:         {3, '~'},
+	vaxis.KeyPgUp:           {5, '~'},
+	vaxis.KeyPgDown:         {6, '~'},
+	vaxis.KeyKeyPadUp:       {1, 'A'},
+	vaxis.KeyKeyPadDown:     {1, 'B'},
+	vaxis.KeyKeyPadRight:    {1, 'C'},
+	vaxis.KeyKeyPadLeft:     {1, 'D'},
+	vaxis.KeyKeyPadBegin:    {1, 'E'},
+	vaxis.KeyKeyPadHome:     {1, 'H'},
+	vaxis.KeyKeyPadEnd:      {1, 'F'},
+	vaxis.KeyKeyPadInsert:   {2, '~'},
+	vaxis.KeyKeyPadDelete:   {3, '~'},
+	vaxis.KeyKeyPadPageUp:   {5, '~'},
+	vaxis.KeyKeyPadPageDown: {6, '~'},
+	vaxis.KeyF01:            {1, 'P'},
+	vaxis.KeyF02:            {1, 'Q'},
+	vaxis.KeyF03:            {13, '~'},
+	vaxis.KeyF04:            {1, 'S'},
+	vaxis.KeyF05:            {15, '~'},
+	vaxis.KeyF06:            {17, '~'},
+	vaxis.KeyF07:            {18, '~'},
+	vaxis.KeyF08:            {19, '~'},
+	vaxis.KeyF09:            {20, '~'},
+	vaxis.KeyF10:            {21, '~'},
+	vaxis.KeyF11:            {23, '~'},
+	vaxis.KeyF12:            {24, '~'},
 }
 
 var cursorKeysApplicationMode = map[rune]string{

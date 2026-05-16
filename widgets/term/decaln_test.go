@@ -1,6 +1,10 @@
 package term
 
-import "testing"
+import (
+	"testing"
+
+	"git.sr.ht/~rockorager/vaxis"
+)
 
 func TestDECALNFillsScreenAndHomesCursor(t *testing.T) {
 	vt := New()
@@ -59,5 +63,50 @@ func TestDECALNClearsWrapMetadata(t *testing.T) {
 	}
 	if vt.activeScreen.row(1).wrapContinuation {
 		t.Fatal("DECALN kept wrap continuation metadata")
+	}
+}
+
+func TestDECALNClearsStyleAttributesButPreservesColors(t *testing.T) {
+	vt := New()
+	vt.resize(2, 1)
+	fg := vaxis.IndexColor(2)
+	bg := vaxis.IndexColor(3)
+	vt.cursor.Style = vaxis.Style{
+		Foreground:      fg,
+		Background:      bg,
+		UnderlineColor:  vaxis.IndexColor(4),
+		UnderlineStyle:  vaxis.UnderlineSingle,
+		Attribute:       vaxis.AttrBold | vaxis.AttrItalic,
+		Hyperlink:       "https://example.com",
+		HyperlinkParams: "id=1",
+	}
+	vt.cursor.protected = true
+
+	vt.update(testESC('8', '#'))
+
+	c := vt.activeScreen.cell(0, 0)
+	if got, want := c.Grapheme, "E"; got != want {
+		t.Fatalf("DECALN cell = %q, want %q", got, want)
+	}
+	if got := c.Foreground; got != fg {
+		t.Fatalf("DECALN foreground = %v, want %v", got, fg)
+	}
+	if got := c.Background; got != bg {
+		t.Fatalf("DECALN background = %v, want %v", got, bg)
+	}
+	if c.Attribute != 0 || c.UnderlineStyle != vaxis.UnderlineOff || c.UnderlineColor != 0 || c.Hyperlink != "" || c.HyperlinkParams != "" {
+		t.Fatalf("DECALN kept style attributes: %+v", c.Style)
+	}
+	if c.protected {
+		t.Fatal("DECALN fill cell kept protected flag")
+	}
+	if vt.cursor.Foreground != fg || vt.cursor.Background != bg {
+		t.Fatalf("DECALN cursor colors = %v/%v, want %v/%v", vt.cursor.Foreground, vt.cursor.Background, fg, bg)
+	}
+	if vt.cursor.Attribute != 0 || vt.cursor.UnderlineStyle != vaxis.UnderlineOff || vt.cursor.UnderlineColor != 0 || vt.cursor.Hyperlink != "" || vt.cursor.HyperlinkParams != "" {
+		t.Fatalf("DECALN kept cursor style attributes: %+v", vt.cursor.Style)
+	}
+	if !vt.cursor.protected {
+		t.Fatal("DECALN cleared cursor protected mode")
 	}
 }

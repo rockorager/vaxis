@@ -3,6 +3,8 @@ package term
 import (
 	"fmt"
 	"testing"
+
+	"git.sr.ht/~rockorager/vaxis"
 )
 
 func TestModeReportWraparound(t *testing.T) {
@@ -32,6 +34,103 @@ func TestModeReportUnknown(t *testing.T) {
 	}
 }
 
+func TestModeReportDECANMUnknownLikeGhostty(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.resize(80, 24)
+
+	vt.update(testCSI('h', []uint32{2}, '?'))
+	vt.update(testCSI('p', []uint32{2}, '?', '$'))
+	if got, want := readReply(t, r, len("\x1B[?2;0$y")), "\x1B[?2;0$y"; got != want {
+		t.Fatalf("DECANM mode report = %q, want %q", got, want)
+	}
+
+	vt.update(testCSI('s', []uint32{2}, '?'))
+	vt.update(testCSI('l', []uint32{2}, '?'))
+	vt.update(testCSI('r', []uint32{2}, '?'))
+	vt.update(testCSI('p', []uint32{2}, '?', '$'))
+	if got, want := readReply(t, r, len("\x1B[?2;0$y")), "\x1B[?2;0$y"; got != want {
+		t.Fatalf("restored DECANM mode report = %q, want %q", got, want)
+	}
+}
+
+func TestModeReportRecognizedDECModeDefaults(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.resize(80, 24)
+
+	tests := []struct {
+		mode  uint32
+		state int
+	}{
+		{1, 2},
+		{3, 2},
+		{4, 2},
+		{5, 2},
+		{6, 2},
+		{7, 1},
+		{8, 2},
+		{9, 2},
+		{12, 2},
+		{25, 1},
+		{40, 2},
+		{45, 2},
+		{47, 2},
+		{66, 2},
+		{67, 2},
+		{69, 2},
+		{1000, 2},
+		{1002, 2},
+		{1003, 2},
+		{1004, 2},
+		{1005, 2},
+		{1006, 2},
+		{1007, 1},
+		{1015, 2},
+		{1016, 2},
+		{1035, 1},
+		{1036, 1},
+		{1039, 2},
+		{1045, 2},
+		{1047, 2},
+		{1048, 2},
+		{1049, 2},
+		{2004, 2},
+		{2026, 2},
+		{2027, 2},
+		{2031, 2},
+		{2048, 2},
+	}
+
+	for _, tt := range tests {
+		vt.update(testCSI('p', []uint32{tt.mode}, '?', '$'))
+		want := fmt.Sprintf("\x1B[?%d;%d$y", tt.mode, tt.state)
+		if got := readReply(t, r, len(want)); got != want {
+			t.Fatalf("default DEC mode %d report = %q, want %q", tt.mode, got, want)
+		}
+	}
+}
+
+func TestModeReportCursorBlinkingFollowsDECSCUSR(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.resize(80, 24)
+
+	vt.update(testCSI('p', []uint32{12}, '?', '$'))
+	if got, want := readReply(t, r, len("\x1B[?12;2$y")), "\x1B[?12;2$y"; got != want {
+		t.Fatalf("initial cursor blinking mode report = %q, want %q", got, want)
+	}
+
+	vt.update(testCSI('q', []uint32{5}, ' '))
+	vt.update(testCSI('p', []uint32{12}, '?', '$'))
+	if got, want := readReply(t, r, len("\x1B[?12;1$y")), "\x1B[?12;1$y"; got != want {
+		t.Fatalf("blinking cursor style mode report = %q, want %q", got, want)
+	}
+
+	vt.update(testCSI('q', []uint32{6}, ' '))
+	vt.update(testCSI('p', []uint32{12}, '?', '$'))
+	if got, want := readReply(t, r, len("\x1B[?12;2$y")), "\x1B[?12;2$y"; got != want {
+		t.Fatalf("steady cursor style mode report = %q, want %q", got, want)
+	}
+}
+
 func TestANSIModeReportInsertMode(t *testing.T) {
 	vt, r := newReplyTestModel(t)
 	vt.resize(80, 24)
@@ -48,6 +147,22 @@ func TestANSIModeReportInsertMode(t *testing.T) {
 	}
 }
 
+func TestANSIModeReportKeyboardActionMode(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.resize(80, 24)
+
+	vt.update(testCSI('p', []uint32{2}, '$'))
+	if got, want := readReply(t, r, len("\x1B[2;2$y")), "\x1B[2;2$y"; got != want {
+		t.Fatalf("keyboard action mode report = %q, want %q", got, want)
+	}
+
+	vt.update(testCSI('h', []uint32{2}))
+	vt.update(testCSI('p', []uint32{2}, '$'))
+	if got, want := readReply(t, r, len("\x1B[2;1$y")), "\x1B[2;1$y"; got != want {
+		t.Fatalf("keyboard action mode report = %q, want %q", got, want)
+	}
+}
+
 func TestANSIModeReportSendReceiveDefaultsSet(t *testing.T) {
 	vt, r := newReplyTestModel(t)
 	vt.resize(80, 24)
@@ -61,6 +176,22 @@ func TestANSIModeReportSendReceiveDefaultsSet(t *testing.T) {
 	vt.update(testCSI('p', []uint32{12}, '$'))
 	if got, want := readReply(t, r, len("\x1B[12;2$y")), "\x1B[12;2$y"; got != want {
 		t.Fatalf("send/receive mode report = %q, want %q", got, want)
+	}
+}
+
+func TestANSIModeReportLinefeedMode(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.resize(80, 24)
+
+	vt.update(testCSI('p', []uint32{20}, '$'))
+	if got, want := readReply(t, r, len("\x1B[20;2$y")), "\x1B[20;2$y"; got != want {
+		t.Fatalf("linefeed mode report = %q, want %q", got, want)
+	}
+
+	vt.update(testCSI('h', []uint32{20}))
+	vt.update(testCSI('p', []uint32{20}, '$'))
+	if got, want := readReply(t, r, len("\x1B[20;1$y")), "\x1B[20;1$y"; got != want {
+		t.Fatalf("linefeed mode report = %q, want %q", got, want)
 	}
 }
 
@@ -131,7 +262,7 @@ func TestModeReportRecognizedNoOpModes(t *testing.T) {
 	vt, r := newReplyTestModel(t)
 	vt.resize(80, 24)
 
-	for _, mode := range []uint32{5, 12, 40, 1039, 2026, 2027, 2048} {
+	for _, mode := range []uint32{5, 12, 40, 1039, 2026, 2027, 2031, 2048} {
 		vt.update(testCSI('p', []uint32{mode}, '?', '$'))
 		want := fmt.Sprintf("\x1B[?%d;2$y", mode)
 		if got := readReply(t, r, len(want)); got != want {
@@ -147,11 +278,70 @@ func TestModeReportRecognizedNoOpModes(t *testing.T) {
 	}
 }
 
+func TestReverseVideoModeAppliesAtRenderTime(t *testing.T) {
+	vt := New()
+	cell := vaxis.Cell{Character: vaxis.Character{Grapheme: "A", Width: 1}}
+
+	if got := vt.renderCell(cell); got.Attribute&vaxis.AttrReverse != 0 {
+		t.Fatalf("rendered cell attribute = %v, want no reverse", got.Attribute)
+	}
+
+	vt.update(testCSI('h', []uint32{5}, '?'))
+	rendered := vt.renderCell(cell)
+	if rendered.Attribute&vaxis.AttrReverse == 0 {
+		t.Fatalf("rendered cell attribute = %v, want reverse", rendered.Attribute)
+	}
+	if cell.Attribute&vaxis.AttrReverse != 0 {
+		t.Fatal("reverse video mutated stored cell")
+	}
+}
+
+func TestReverseVideoModeComposesWithSGRReverse(t *testing.T) {
+	vt := New()
+	cell := vaxis.Cell{
+		Character: vaxis.Character{Grapheme: "A", Width: 1},
+		Style: vaxis.Style{
+			Attribute: vaxis.AttrReverse,
+		},
+	}
+
+	vt.update(testCSI('h', []uint32{5}, '?'))
+	rendered := vt.renderCell(cell)
+	if rendered.Attribute&vaxis.AttrReverse != 0 {
+		t.Fatalf("rendered cell attribute = %v, want screen reverse to cancel SGR reverse", rendered.Attribute)
+	}
+}
+
+func TestModeReportAltScreenAndReportingModesSetReset(t *testing.T) {
+	tests := []uint32{47, 1047, 1048, 1049, 1006, 2031, 2048}
+
+	for _, mode := range tests {
+		t.Run(fmt.Sprintf("%d", mode), func(t *testing.T) {
+			vt, r := newReplyTestModel(t)
+			vt.resize(80, 24)
+
+			vt.update(testCSI('h', []uint32{mode}, '?'))
+			vt.update(testCSI('p', []uint32{mode}, '?', '$'))
+			want := fmt.Sprintf("\x1B[?%d;1$y", mode)
+			if got := readReply(t, r, len(want)); got != want {
+				t.Fatalf("set mode %d report = %q, want %q", mode, got, want)
+			}
+
+			vt.update(testCSI('l', []uint32{mode}, '?'))
+			vt.update(testCSI('p', []uint32{mode}, '?', '$'))
+			want = fmt.Sprintf("\x1B[?%d;2$y", mode)
+			if got := readReply(t, r, len(want)); got != want {
+				t.Fatalf("reset mode %d report = %q, want %q", mode, got, want)
+			}
+		})
+	}
+}
+
 func TestModeReportMouseFormats(t *testing.T) {
 	vt, r := newReplyTestModel(t)
 	vt.resize(80, 24)
 
-	for _, mode := range []uint32{1005, 1015, 1016} {
+	for _, mode := range []uint32{1005, 1006, 1015, 1016} {
 		vt.update(testCSI('p', []uint32{mode}, '?', '$'))
 		want := fmt.Sprintf("\x1B[?%d;2$y", mode)
 		if got := readReply(t, r, len(want)); got != want {
@@ -165,6 +355,53 @@ func TestModeReportMouseFormats(t *testing.T) {
 			t.Fatalf("mouse format mode %d report = %q, want %q", mode, got, want)
 		}
 	}
+}
+
+func TestInBandSizeReportOnEnable(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.resize(80, 24)
+	vt.Update(vaxis.Resize{Cols: 80, Rows: 24, XPixel: 720, YPixel: 432})
+
+	vt.update(testCSI('h', []uint32{2048}, '?'))
+
+	if got, want := readReply(t, r, len("\x1B[48;24;80;432;720t")), "\x1B[48;24;80;432;720t"; got != want {
+		t.Fatalf("in-band size report = %q, want %q", got, want)
+	}
+}
+
+func TestInBandSizeReportRequiresPixelSize(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.resize(80, 24)
+	vt.Update(vaxis.Resize{Cols: 80, Rows: 24})
+
+	vt.update(testCSI('h', []uint32{2048}, '?'))
+
+	assertNoReply(t, r)
+}
+
+func TestInBandSizeReportOnResizeUpdate(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.resize(80, 24)
+	vt.Update(vaxis.Resize{Cols: 80, Rows: 24, XPixel: 720, YPixel: 432})
+	vt.update(testCSI('h', []uint32{2048}, '?'))
+	if got, want := readReply(t, r, len("\x1B[48;24;80;432;720t")), "\x1B[48;24;80;432;720t"; got != want {
+		t.Fatalf("initial in-band size report = %q, want %q", got, want)
+	}
+
+	vt.Update(vaxis.Resize{Cols: 100, Rows: 30, XPixel: 1000, YPixel: 600})
+
+	if got, want := readReply(t, r, len("\x1B[48;30;100;600;1000t")), "\x1B[48;30;100;600;1000t"; got != want {
+		t.Fatalf("resize in-band size report = %q, want %q", got, want)
+	}
+}
+
+func TestInBandSizeReportDisabledOnResizeUpdate(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.resize(80, 24)
+
+	vt.Update(vaxis.Resize{Cols: 80, Rows: 24, XPixel: 720, YPixel: 432})
+
+	assertNoReply(t, r)
 }
 
 func TestModeReportApplicationKeypad(t *testing.T) {

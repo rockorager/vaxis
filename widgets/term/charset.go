@@ -11,6 +11,7 @@ const (
 type charsets struct {
 	designations [4]charset
 	selected     charsetDesignator
+	gr           charsetDesignator
 	saved        charsetDesignator
 	singleShift  bool
 }
@@ -24,15 +25,22 @@ const (
 	g3
 )
 
+func defaultCharsets() charsets {
+	return charsets{
+		gr: g2,
+	}
+}
+
 var britishTable = func() [256]rune {
 	table := identityCharsetTable()
 	table[0x23] = 0x00A3 // POUND SIGN
 	return table
 }()
 
+var britishStringTable = stringCharsetTable(britishTable)
+
 var decSpecialTable = func() [256]rune {
 	table := identityCharsetTable()
-	table[0x5f] = 0x00A0 // NO-BREAK SPACE
 	table[0x60] = 0x25C6 // BLACK DIAMOND
 	table[0x61] = 0x2592 // MEDIUM SHADE
 	table[0x62] = 0x2409 // SYMBOL FOR HORIZONTAL TABULATION
@@ -67,10 +75,20 @@ var decSpecialTable = func() [256]rune {
 	return table
 }()
 
+var decSpecialStringTable = stringCharsetTable(decSpecialTable)
+
 func identityCharsetTable() [256]rune {
 	var table [256]rune
 	for i := range table {
 		table[i] = rune(i)
+	}
+	return table
+}
+
+func stringCharsetTable(runes [256]rune) [256]string {
+	var table [256]string
+	for i, r := range runes {
+		table[i] = string(r)
 	}
 	return table
 }
@@ -89,5 +107,16 @@ func applyCharset(set charset, r rune) rune {
 		return decSpecialTable[byte(r)]
 	default:
 		return r
+	}
+}
+
+func applyCharsetGrapheme(set charset, b byte) string {
+	switch set {
+	case british:
+		return britishStringTable[b]
+	case decSpecialAndLineDrawing:
+		return decSpecialStringTable[b]
+	default:
+		return ""
 	}
 }

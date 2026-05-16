@@ -25,8 +25,10 @@ const (
 	MouseRightButton
 	MouseNoButton
 
-	MouseWheelUp   MouseButton = 64
-	MouseWheelDown MouseButton = 65
+	MouseWheelUp    MouseButton = 64
+	MouseWheelDown  MouseButton = 65
+	MouseWheelLeft  MouseButton = 66
+	MouseWheelRight MouseButton = 67
 
 	MouseButton8  MouseButton = 128
 	MouseButton9  MouseButton = 129
@@ -39,13 +41,38 @@ type MouseShape string
 
 const (
 	MouseShapeDefault          MouseShape = "default"
+	MouseShapeContextMenu      MouseShape = "context-menu"
 	MouseShapeTextInput        MouseShape = "text"
+	MouseShapeVerticalText     MouseShape = "vertical-text"
 	MouseShapeClickable        MouseShape = "pointer"
 	MouseShapeHelp             MouseShape = "help"
 	MouseShapeBusyBackground   MouseShape = "progress"
 	MouseShapeBusy             MouseShape = "wait"
+	MouseShapeAlias            MouseShape = "alias"
+	MouseShapeCopy             MouseShape = "copy"
+	MouseShapeMove             MouseShape = "move"
+	MouseShapeNoDrop           MouseShape = "no-drop"
+	MouseShapeNotAllowed       MouseShape = "not-allowed"
+	MouseShapeGrab             MouseShape = "grab"
+	MouseShapeGrabbing         MouseShape = "grabbing"
+	MouseShapeAllScroll        MouseShape = "all-scroll"
+	MouseShapeCrosshair        MouseShape = "crosshair"
+	MouseShapeResizeColumn     MouseShape = "col-resize"
+	MouseShapeResizeRow        MouseShape = "row-resize"
+	MouseShapeResizeNorth      MouseShape = "n-resize"
+	MouseShapeResizeEast       MouseShape = "e-resize"
+	MouseShapeResizeSouth      MouseShape = "s-resize"
+	MouseShapeResizeWest       MouseShape = "w-resize"
+	MouseShapeResizeNorthEast  MouseShape = "ne-resize"
+	MouseShapeResizeNorthWest  MouseShape = "nw-resize"
+	MouseShapeResizeSouthEast  MouseShape = "se-resize"
+	MouseShapeResizeSouthWest  MouseShape = "sw-resize"
 	MouseShapeResizeHorizontal MouseShape = "ew-resize"
 	MouseShapeResizeVertical   MouseShape = "ns-resize"
+	MouseShapeResizeNESW       MouseShape = "nesw-resize"
+	MouseShapeResizeNWSE       MouseShape = "nwse-resize"
+	MouseShapeZoomIn           MouseShape = "zoom-in"
+	MouseShapeZoomOut          MouseShape = "zoom-out"
 	// The thick plus sign cursor that's typically used in spread-sheet applications to select cells.
 	MouseShapeCell MouseShape = "cell"
 )

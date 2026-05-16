@@ -1,6 +1,11 @@
 package term
 
-import "testing"
+import (
+	"strings"
+	"testing"
+
+	"git.sr.ht/~rockorager/vaxis/ansi"
+)
 
 func TestHorizontalTabs(t *testing.T) {
 	vt := New()
@@ -82,6 +87,20 @@ func TestHorizontalTabsWithRightMargin(t *testing.T) {
 	}
 }
 
+func TestHorizontalTabRightOfRightMarginDoesNotMove(t *testing.T) {
+	vt := New()
+	vt.resize(20, 5)
+	vt.margin.left = 2
+	vt.margin.right = 5
+	vt.cursor.col = 10
+
+	vt.ht()
+
+	if got, want := vt.cursor.col, column(10); got != want {
+		t.Fatalf("cursor after HT right of margin = %d, want %d", got, want)
+	}
+}
+
 func TestHorizontalTabsBack(t *testing.T) {
 	vt := New()
 	vt.resize(20, 5)
@@ -142,6 +161,23 @@ func TestHorizontalTabBackUsesLeftMarginOnlyInOriginMode(t *testing.T) {
 	printText(vt, "A")
 
 	if got, want := trimScreenString(vt.String()), "  AX"; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestHorizontalTabBackBeforeLeftMarginStaysBeforeMargin(t *testing.T) {
+	vt := New()
+	vt.resize(20, 5)
+	vt.mode.decom = true
+	vt.decsc()
+	vt.mode.declrmm = true
+	vt.decslrm(testCSI('s', []uint32{5, 0}))
+	vt.decrc()
+
+	vt.cbt(1)
+	printText(vt, "X")
+
+	if got, want := trimScreenString(vt.String()), "X"; got != want {
 		t.Fatalf("screen mismatch: got %q want %q", got, want)
 	}
 }
@@ -246,6 +282,14 @@ func TestCursorTabulationControlSetAndClear(t *testing.T) {
 		t.Fatalf("cursor after CSI W tab set = %d, want %d", got, want)
 	}
 
+	vt.tbc(0)
+	vt.update(testCSI('W', []uint32{0}))
+	vt.cursor.col = 0
+	vt.ht()
+	if got, want := vt.cursor.col, column(3); got != want {
+		t.Fatalf("cursor after CSI 0 W tab set = %d, want %d", got, want)
+	}
+
 	vt.update(testCSI('W', []uint32{2}))
 	vt.cursor.col = 0
 	vt.ht()
@@ -265,7 +309,7 @@ func TestCursorTabulationControlClearAll(t *testing.T) {
 	}
 }
 
-func TestPrivateCursorTabulationControlIgnored(t *testing.T) {
+func TestPrivateCursorTabulationControlResetsTabs(t *testing.T) {
 	vt := New()
 	vt.resize(20, 5)
 
@@ -273,8 +317,57 @@ func TestPrivateCursorTabulationControlIgnored(t *testing.T) {
 	vt.update(testCSI('W', []uint32{5}, '?'))
 	vt.cursor.col = 0
 	vt.ht()
-	if got, want := vt.cursor.col, column(19); got != want {
+	if got, want := vt.cursor.col, column(8); got != want {
 		t.Fatalf("cursor after private CSI ? 5 W = %d, want %d", got, want)
+	}
+}
+
+func TestPrivateCursorTabulationControlNoParamsNoOps(t *testing.T) {
+	vt := New()
+	vt.resize(20, 5)
+	vt.update(testCSI('W', []uint32{5}))
+
+	vt.update(testCSI('W', nil, '?'))
+	vt.cursor.col = 0
+	vt.ht()
+
+	if got, want := vt.cursor.col, column(19); got != want {
+		t.Fatalf("cursor after private CSI ? W = %d, want %d", got, want)
+	}
+}
+
+func TestPrivateCursorTabulationControlIgnoresUnsupportedParameters(t *testing.T) {
+	vt := New()
+	vt.resize(20, 5)
+	vt.cursor.col = 3
+	vt.hts()
+
+	vt.update(testCSI('W', []uint32{2}, '?'))
+	vt.cursor.col = 0
+	vt.ht()
+	if got, want := vt.cursor.col, column(3); got != want {
+		t.Fatalf("cursor after unsupported private CSI ? 2 W = %d, want %d", got, want)
+	}
+
+	vt.update(testCSI('W', []uint32{1, 2, 3}, '?'))
+	vt.cursor.col = 0
+	vt.ht()
+	if got, want := vt.cursor.col, column(3); got != want {
+		t.Fatalf("cursor after invalid private CSI ? 1;2;3 W = %d, want %d", got, want)
+	}
+}
+
+func TestTabClearOverflowingParameterIgnored(t *testing.T) {
+	vt := New()
+	vt.resize(20, 5)
+	vt.cursor.col = 3
+	vt.hts()
+
+	parseAndApply(t, vt, "\x1b[388888888888888888888888888888888888g\x1b[0m")
+	vt.cursor.col = 0
+	vt.ht()
+	if got, want := vt.cursor.col, column(3); got != want {
+		t.Fatalf("cursor after overflowing tab clear parameter = %d, want %d", got, want)
 	}
 }
 
@@ -293,5 +386,18 @@ func TestResizeResetsTabStopsForNewWidth(t *testing.T) {
 	vt.ht()
 	if got, want := vt.cursor.col, column(8); got != want {
 		t.Fatalf("cursor after HT in resized screen = %d, want %d", got, want)
+	}
+}
+
+func parseAndApply(t *testing.T, vt *Model, input string) {
+	t.Helper()
+	parser := ansi.NewParser(strings.NewReader(input), ansi.ParserModeOutput)
+	vt.parser = parser
+	for {
+		seq := <-parser.Next()
+		if _, ok := seq.(ansi.EOF); ok {
+			return
+		}
+		vt.update(seq)
 	}
 }

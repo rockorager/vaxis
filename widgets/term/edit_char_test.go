@@ -1,6 +1,11 @@
 package term
 
-import "testing"
+import (
+	"testing"
+
+	"git.sr.ht/~rockorager/vaxis"
+	"git.sr.ht/~rockorager/vaxis/ansi"
+)
 
 func TestInsertBlanks(t *testing.T) {
 	vt := New()
@@ -11,6 +16,19 @@ func TestInsertBlanks(t *testing.T) {
 	vt.ich(2)
 
 	if got, want := trimScreenString(vt.String()), "  ABC"; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestInsertBlanksMissingParameterDefaultsToOne(t *testing.T) {
+	vt := New()
+	vt.resize(5, 1)
+	printText(vt, "ABC")
+	vt.update(testCSI('H', []uint32{1, 1}))
+
+	vt.update(testCSI('@', nil))
+
+	if got, want := vt.String(), " ABC "; got != want {
 		t.Fatalf("screen mismatch: got %q want %q", got, want)
 	}
 }
@@ -28,6 +46,25 @@ func TestInsertBlanksZeroParameterInsertsOne(t *testing.T) {
 	}
 }
 
+func TestInsertBlanksSemanticZeroClearsPendingWrapOnly(t *testing.T) {
+	vt := New()
+	vt.resize(5, 1)
+	printText(vt, "ABCDE")
+
+	if !vt.lastCol {
+		t.Fatal("setup did not enter pending wrap")
+	}
+
+	vt.ich(0)
+
+	if got, want := vt.String(), "ABCDE"; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+	if vt.lastCol {
+		t.Fatal("semantic zero insert blanks did not clear pending wrap")
+	}
+}
+
 func TestInsertBlanksIgnoresMultipleParameters(t *testing.T) {
 	vt := New()
 	vt.resize(5, 1)
@@ -35,6 +72,19 @@ func TestInsertBlanksIgnoresMultipleParameters(t *testing.T) {
 	vt.update(testCSI('H', []uint32{1, 1}))
 
 	vt.update(testCSI('@', []uint32{1, 1}))
+
+	if got, want := vt.String(), "ABC  "; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestInsertBlanksIgnoresPrivateForm(t *testing.T) {
+	vt := New()
+	vt.resize(5, 1)
+	printText(vt, "ABC")
+	vt.update(testCSI('H', []uint32{1, 1}))
+
+	vt.update(testCSI('@', []uint32{2}, '?'))
 
 	if got, want := vt.String(), "ABC  "; got != want {
 		t.Fatalf("screen mismatch: got %q want %q", got, want)
@@ -51,6 +101,26 @@ func TestInsertBlanksPushesOffEnd(t *testing.T) {
 
 	if got, want := trimScreenString(vt.String()), "  A"; got != want {
 		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestInsertBlanksPreservesBackgroundSGR(t *testing.T) {
+	vt := New()
+	vt.resize(5, 1)
+	printText(vt, "ABC")
+	vt.update(testCSI('H', []uint32{1, 1}))
+	bg := vaxis.IndexColor(2)
+	vt.cursor.Style.Background = bg
+
+	vt.ich(2)
+
+	if got, want := vt.String(), "  ABC"; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+	for col := column(0); col < 2; col += 1 {
+		if got := vt.activeScreen.cell(0, col).Background; got != bg {
+			t.Fatalf("inserted blank background at col %d = %v, want %v", col, got, bg)
+		}
 	}
 }
 
@@ -114,7 +184,300 @@ func TestInsertBlanksInsideLeftRightRegion(t *testing.T) {
 	}
 }
 
-func TestDeleteCharsOutsideLeftRightRegionDoesNothing(t *testing.T) {
+func TestInsertBlanksShiftHyperlinks(t *testing.T) {
+	vt := New()
+	vt.OSC8 = true
+	vt.resize(10, 1)
+	vt.osc("8;id=link;https://example.com")
+	printText(vt, "ABC")
+	vt.update(testCSI('H', []uint32{1, 1}))
+
+	vt.ich(2)
+
+	if got, want := vt.String(), "  ABC     "; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+	for col := column(0); col < 2; col++ {
+		if got := vt.activeScreen.cell(0, col).Hyperlink; got != "" {
+			t.Fatalf("inserted blank hyperlink at col %d = %q, want empty", col, got)
+		}
+	}
+	for col := column(2); col < 5; col++ {
+		if got, want := vt.activeScreen.cell(0, col).Hyperlink, "https://example.com"; got != want {
+			t.Fatalf("shifted hyperlink at col %d = %q, want %q", col, got, want)
+		}
+	}
+}
+
+func TestInsertBlanksPushesHyperlinkOffEnd(t *testing.T) {
+	vt := New()
+	vt.OSC8 = true
+	vt.resize(3, 1)
+	vt.osc("8;id=link;https://example.com")
+	printText(vt, "ABC")
+	vt.update(testCSI('H', []uint32{1, 1}))
+
+	vt.ich(3)
+
+	if got, want := vt.String(), "   "; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+	for col := column(0); col < 3; col++ {
+		if got := vt.activeScreen.cell(0, col).Hyperlink; got != "" {
+			t.Fatalf("cell hyperlink at col %d = %q, want empty", col, got)
+		}
+	}
+}
+
+func TestInsertBlanksDeletesParsedWideGrapheme(t *testing.T) {
+	vt := New()
+	vt.resize(5, 1)
+
+	parseAndApply(t, vt, "\x1b[?2027hABC👨\u200d👩\u200d👧")
+	vt.update(testCSI('H', []uint32{1, 1}))
+	vt.ich(4)
+
+	if got, want := vt.String(), "    A"; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+	for col := column(0); col < column(vt.width()); col++ {
+		cell := vt.activeScreen.cell(0, col)
+		if cell.Grapheme == "👨\u200d👩\u200d👧" || cell.Width > 1 {
+			t.Fatalf("grapheme survived after ICH delete at col %d: %#v", col, cell.Character)
+		}
+	}
+}
+
+func TestInsertBlanksShiftsParsedWideGrapheme(t *testing.T) {
+	vt := New()
+	vt.resize(5, 1)
+
+	parseAndApply(t, vt, "\x1b[?2027hA👨\u200d👩\u200d👧")
+	vt.update(testCSI('H', []uint32{1, 1}))
+	vt.ich(1)
+
+	if got, want := vt.String(), " A👨\u200d👩\u200d👧  "; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+	head := vt.activeScreen.cell(0, 2)
+	if got, want := head.Grapheme, "👨\u200d👩\u200d👧"; got != want {
+		t.Fatalf("shifted grapheme = %q, want %q", got, want)
+	}
+	if got, want := head.Width, 2; got != want {
+		t.Fatalf("shifted grapheme width = %d, want %d", got, want)
+	}
+	tail := vt.activeScreen.cell(0, 3)
+	if got, want := tail.Grapheme, " "; got != want {
+		t.Fatalf("shifted grapheme tail = %q, want %q", got, want)
+	}
+	if got, want := tail.Width, 0; got != want {
+		t.Fatalf("shifted grapheme tail width = %d, want %d", got, want)
+	}
+}
+
+func TestDeleteCharsShiftHyperlinks(t *testing.T) {
+	vt := New()
+	vt.resize(8, 1)
+	printText(vt, "12")
+	vt.osc("8;id=link;https://example.com")
+	printText(vt, "ABC")
+	vt.osc("8;;")
+	printText(vt, "xyz")
+	vt.cursor.col = 0
+
+	vt.dch(2)
+
+	if got, want := vt.String(), "ABCxyz  "; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+	for col := column(0); col < 3; col += 1 {
+		cell := vt.activeScreen.cell(0, col)
+		if got, want := cell.Hyperlink, "https://example.com"; got != want {
+			t.Fatalf("shifted hyperlink at col %d = %q, want %q", col, got, want)
+		}
+		if got, want := cell.HyperlinkParams, "id=link"; got != want {
+			t.Fatalf("shifted hyperlink params at col %d = %q, want %q", col, got, want)
+		}
+	}
+	for col := column(3); col < 8; col += 1 {
+		if got := vt.activeScreen.cell(0, col).Hyperlink; got != "" {
+			t.Fatalf("cell hyperlink at col %d = %q, want empty", col, got)
+		}
+	}
+}
+
+func TestDeleteCharsPreservesBackgroundSGR(t *testing.T) {
+	vt := New()
+	vt.resize(6, 1)
+	printText(vt, "ABC123")
+	vt.update(testCSI('H', []uint32{1, 3}))
+	bg := vaxis.IndexColor(4)
+	vt.cursor.Style.Background = bg
+
+	vt.dch(2)
+
+	if got, want := vt.String(), "AB23  "; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+	for col := column(4); col < column(vt.width()); col += 1 {
+		if got := vt.activeScreen.cell(0, col).Background; got != bg {
+			t.Fatalf("blank fill background at col %d = %v, want %v", col, got, bg)
+		}
+	}
+}
+
+func TestEraseCharsClearsHyperlinks(t *testing.T) {
+	vt := New()
+	vt.resize(6, 1)
+	vt.osc("8;id=link;https://example.com")
+	printText(vt, "ABC")
+	vt.osc("8;;")
+	printText(vt, "DEF")
+	vt.cursor.col = 1
+
+	vt.ech(3)
+
+	if got, want := vt.String(), "A   EF"; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+	for col := column(1); col < 4; col += 1 {
+		cell := vt.activeScreen.cell(0, col)
+		if got := cell.Hyperlink; got != "" {
+			t.Fatalf("erased cell %d hyperlink = %q, want empty", col, got)
+		}
+		if got := cell.HyperlinkParams; got != "" {
+			t.Fatalf("erased cell %d hyperlink params = %q, want empty", col, got)
+		}
+	}
+	if got, want := vt.activeScreen.cell(0, 0).Hyperlink, "https://example.com"; got != want {
+		t.Fatalf("preserved cell hyperlink = %q, want %q", got, want)
+	}
+}
+
+func TestEraseCharsPreservesBackgroundSGR(t *testing.T) {
+	vt := New()
+	vt.resize(5, 1)
+	printText(vt, "ABC")
+	vt.update(testCSI('H', []uint32{1, 1}))
+	bg := vaxis.IndexColor(6)
+	vt.cursor.Style.Background = bg
+
+	vt.ech(2)
+
+	if got, want := vt.String(), "  C  "; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+	for col := column(0); col < 2; col += 1 {
+		if got := vt.activeScreen.cell(0, col).Background; got != bg {
+			t.Fatalf("erased cell background at col %d = %v, want %v", col, got, bg)
+		}
+	}
+}
+
+func TestInsertBlanksSplitWideCharacter(t *testing.T) {
+	vt := New()
+	vt.resize(5, 1)
+	printText(vt, "123")
+	vt.update(ansi.Print{Grapheme: "橋", Width: 2})
+	vt.update(testCSI('H', []uint32{1, 1}))
+
+	vt.ich(1)
+
+	if got, want := vt.String(), " 123 "; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestInsertBlanksSplitWideCharacterFromTail(t *testing.T) {
+	vt := New()
+	vt.resize(5, 1)
+	vt.update(ansi.Print{Grapheme: "橋", Width: 2})
+	printText(vt, "123")
+	vt.update(testCSI('H', []uint32{1, 2}))
+
+	vt.ich(1)
+
+	if got, want := vt.String(), "   12"; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestInsertBlanksWideCharacterStraddlingRightMargin(t *testing.T) {
+	vt := New()
+	vt.resize(10, 1)
+	printText(vt, "ABCD")
+	vt.update(ansi.Print{Grapheme: "橋", Width: 2})
+	vt.margin.right = 4
+	vt.update(testCSI('H', []uint32{1, 3}))
+
+	vt.ich(1)
+
+	if got, want := trimScreenString(vt.String()), "AB CD"; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+	tail := vt.activeScreen.cell(0, 5)
+	if tail.Grapheme != "" || tail.Width != 0 {
+		t.Fatalf("cell beyond margin = %#v, want blank", tail.Character)
+	}
+}
+
+func TestInsertBlanksWideCharacterTailBeyondRightMarginCleared(t *testing.T) {
+	vt := New()
+	vt.resize(10, 1)
+	for i := 0; i < 5; i += 1 {
+		vt.update(ansi.Print{Grapheme: "中", Width: 2})
+	}
+	vt.margin.left = 0
+	vt.margin.right = 8
+	vt.cursor.col = 0
+	vt.update(testPrint("a"))
+
+	vt.ich(8)
+
+	if got, want := trimScreenString(vt.String()), "a"; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+	tail := vt.activeScreen.cell(0, 9)
+	if tail.Grapheme != "" || tail.Width != 0 {
+		t.Fatalf("cell beyond margin = %#v, want blank", tail.Character)
+	}
+}
+
+func TestPrintOverWideCharacterClearsTail(t *testing.T) {
+	vt := New()
+	vt.resize(5, 1)
+	vt.update(ansi.Print{Grapheme: "橋", Width: 2})
+	vt.update(testCSI('H', []uint32{1, 1}))
+
+	vt.update(testPrint("A"))
+
+	if got, want := vt.String(), "A    "; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+	tail := vt.activeScreen.cell(0, 1)
+	if tail.Grapheme != "" || tail.Width != 0 {
+		t.Fatalf("tail cell = %#v, want blank", tail.Character)
+	}
+}
+
+func TestPrintOverWideCharacterTailClearsHead(t *testing.T) {
+	vt := New()
+	vt.resize(5, 1)
+	vt.update(ansi.Print{Grapheme: "橋", Width: 2})
+	vt.update(testCSI('H', []uint32{1, 2}))
+
+	vt.update(testPrint("X"))
+
+	if got, want := vt.String(), " X   "; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+	head := vt.activeScreen.cell(0, 0)
+	if head.Grapheme != "" || head.Width != 0 {
+		t.Fatalf("head cell = %#v, want blank", head.Character)
+	}
+}
+
+func TestDeleteCharsOutsideLeftRightRegionPreservesPendingWrap(t *testing.T) {
 	vt := New()
 	vt.resize(6, 1)
 	printText(vt, "ABC123")
@@ -128,8 +491,8 @@ func TestDeleteCharsOutsideLeftRightRegionDoesNothing(t *testing.T) {
 	if got, want := vt.String(), "ABC123"; got != want {
 		t.Fatalf("screen mismatch: got %q want %q", got, want)
 	}
-	if vt.lastCol {
-		t.Fatal("delete chars outside region did not reset pending wrap")
+	if !vt.lastCol {
+		t.Fatal("delete chars outside region reset pending wrap")
 	}
 }
 
@@ -188,6 +551,194 @@ func TestDeleteCharsInsideLeftRightRegion(t *testing.T) {
 
 	if got, want := vt.String(), "ABC2 3"; got != want {
 		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestDeleteCharsWideCharacterAcrossRightMargin(t *testing.T) {
+	vt := New()
+	vt.resize(8, 1)
+	printText(vt, "123456")
+	vt.update(ansi.Print{Grapheme: "橋", Width: 2})
+	vt.margin.left = 1
+	vt.margin.right = 6
+	vt.cursor.col = 1
+
+	vt.dch(1)
+
+	if got, want := trimScreenString(vt.String()), "13456"; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+	for col := column(5); col < column(vt.width()); col += 1 {
+		cell := vt.activeScreen.cell(0, col)
+		if cell.Width > 1 {
+			t.Fatalf("wide cell survived at col %d: %#v", col, cell.Character)
+		}
+	}
+}
+
+func TestDeleteCharsSplitWideCharacterFromTail(t *testing.T) {
+	vt := New()
+	vt.resize(6, 1)
+	printText(vt, "A")
+	vt.update(ansi.Print{Grapheme: "橋", Width: 2})
+	printText(vt, "123")
+	vt.update(testCSI('H', []uint32{1, 3}))
+
+	vt.dch(1)
+
+	if got, want := vt.String(), "A 123 "; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestDeleteCharsSplitWideCharacterFromHead(t *testing.T) {
+	vt := New()
+	vt.resize(6, 1)
+	vt.update(ansi.Print{Grapheme: "橋", Width: 2})
+	printText(vt, "123")
+	vt.update(testCSI('H', []uint32{1, 1}))
+
+	vt.dch(1)
+
+	if got, want := vt.String(), " 123  "; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestDeleteCharsPreservesWideCharacterShiftedFromEnd(t *testing.T) {
+	vt := New()
+	vt.resize(6, 1)
+	printText(vt, "A")
+	vt.update(ansi.Print{Grapheme: "橋", Width: 2})
+	printText(vt, "123")
+	vt.update(testCSI('H', []uint32{1, 1}))
+
+	vt.dch(1)
+
+	if got, want := trimScreenString(vt.String()), "橋 123"; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+	if got, want := vt.activeScreen.cell(0, 0).Width, 2; got != want {
+		t.Fatalf("shifted wide head width = %d, want %d", got, want)
+	}
+	if got := vt.activeScreen.cell(0, 1).Grapheme; got != " " {
+		t.Fatalf("shifted wide tail grapheme = %q, want space", got)
+	}
+	if got := vt.activeScreen.cell(0, 2).Grapheme; got != "1" {
+		t.Fatalf("cell after shifted wide character = %q, want 1", got)
+	}
+}
+
+func TestDeleteCharsWideCharacterBoundaryConditions(t *testing.T) {
+	vt := New()
+	vt.resize(8, 1)
+	vt.update(ansi.Print{Grapheme: "😀", Width: 2})
+	printText(vt, "a")
+	vt.update(ansi.Print{Grapheme: "😀", Width: 2})
+	printText(vt, "b")
+	vt.update(ansi.Print{Grapheme: "😀", Width: 2})
+
+	if got, want := trimScreenString(vt.String()), "😀 a😀 b😀"; got != want {
+		t.Fatalf("screen mismatch before DCH: got %q want %q", got, want)
+	}
+
+	vt.update(testCSI('H', []uint32{1, 2}))
+	vt.dch(3)
+
+	if got, want := trimScreenString(vt.String()), "  b😀"; got != want {
+		t.Fatalf("screen mismatch after DCH: got %q want %q", got, want)
+	}
+}
+
+func TestDeleteCharsWideCharacterWrapBoundaryConditions(t *testing.T) {
+	vt := New()
+	vt.resize(8, 3)
+	printText(vt, ".......")
+	vt.update(ansi.Print{Grapheme: "😀", Width: 2})
+	printText(vt, "abcde")
+	vt.update(ansi.Print{Grapheme: "😀", Width: 2})
+	printText(vt, "......")
+
+	if got, want := trimScreenString(vt.String()), ".......\n😀 abcde\n😀 ......"; got != want {
+		t.Fatalf("screen mismatch before DCH: got %q want %q", got, want)
+	}
+
+	vt.update(testCSI('H', []uint32{2, 2}))
+	vt.dch(3)
+
+	if got, want := trimScreenString(vt.String()), ".......\n cde\n😀 ......"; got != want {
+		t.Fatalf("screen mismatch after DCH: got %q want %q", got, want)
+	}
+	if vt.activeScreen.row(1).wrapped {
+		t.Fatal("DCH did not clear edited row wrap metadata")
+	}
+	if vt.activeScreen.row(2).wrapContinuation {
+		t.Fatal("DCH did not clear following row wrap-continuation metadata")
+	}
+}
+
+func TestEraseCharsWideCharacter(t *testing.T) {
+	vt := New()
+	vt.resize(5, 1)
+	vt.update(ansi.Print{Grapheme: "橋", Width: 2})
+	printText(vt, "BC")
+	vt.update(testCSI('H', []uint32{1, 1}))
+
+	vt.ech(1)
+	printText(vt, "X")
+
+	if got, want := vt.String(), "X BC "; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestEraseCharsWideCharacterFromTail(t *testing.T) {
+	vt := New()
+	vt.resize(5, 1)
+	printText(vt, "A")
+	vt.update(ansi.Print{Grapheme: "橋", Width: 2})
+	printText(vt, "BC")
+	vt.update(testCSI('H', []uint32{1, 3}))
+
+	vt.ech(1)
+	printText(vt, "X")
+
+	if got, want := vt.String(), "A XBC"; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestEraseCharsWideCharacterBoundaryConditions(t *testing.T) {
+	vt := New()
+	vt.resize(8, 1)
+	vt.update(ansi.Print{Grapheme: "😀", Width: 2})
+	printText(vt, "a")
+	vt.update(ansi.Print{Grapheme: "😀", Width: 2})
+	printText(vt, "b")
+	vt.update(ansi.Print{Grapheme: "😀", Width: 2})
+
+	vt.update(testCSI('H', []uint32{1, 2}))
+	vt.ech(3)
+
+	if got, want := trimScreenString(vt.String()), "     b😀"; got != want {
+		t.Fatalf("screen mismatch after ECH: got %q want %q", got, want)
+	}
+}
+
+func TestEraseCharsWideCharacterWrapBoundaryConditions(t *testing.T) {
+	vt := New()
+	vt.resize(8, 3)
+	printText(vt, ".......")
+	vt.update(ansi.Print{Grapheme: "😀", Width: 2})
+	printText(vt, "abcde")
+	vt.update(ansi.Print{Grapheme: "😀", Width: 2})
+	printText(vt, "......")
+
+	vt.update(testCSI('H', []uint32{2, 2}))
+	vt.ech(3)
+
+	if got, want := trimScreenString(vt.String()), ".......\n    cde\n😀 ......"; got != want {
+		t.Fatalf("screen mismatch after ECH: got %q want %q", got, want)
 	}
 }
 

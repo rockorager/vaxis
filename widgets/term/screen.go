@@ -27,6 +27,7 @@ type screenState struct {
 type screenRow struct {
 	wrapped          bool
 	wrapContinuation bool
+	semanticPrompt   semanticPrompt
 }
 
 type screenLine struct {
@@ -221,6 +222,76 @@ func (s screenBuffer) copyRowRange(dst row, src row, left column, right column) 
 	copy(dstLine[left:right+1], srcLine[left:right+1])
 }
 
+func (s screenBuffer) repairWideRangeBoundaries(r row, left column, right column, bg vaxis.Color) {
+	if s.state == nil || s.width() == 0 {
+		return
+	}
+	if left < 0 {
+		left = 0
+	}
+	if right >= column(s.width()) {
+		right = column(s.width()) - 1
+	}
+	if left > right {
+		return
+	}
+	line := s.line(r)
+	if left > 0 {
+		for head := left - 1; head >= 0; head -= 1 {
+			width := line[head].Width
+			if width == 1 {
+				break
+			}
+			if width > 1 {
+				if head+column(width) > left {
+					s.eraseWideHead(r, head, bg)
+				}
+				break
+			}
+		}
+		if line[left].Width == 0 && line[left].Grapheme == " " {
+			line[left].erase(bg)
+		}
+	}
+	if right < column(s.width())-1 {
+		if width := line[right].Width; width > 1 && right+column(width)-1 > right {
+			line[right].erase(bg)
+		}
+		tail := right + 1
+		if line[tail].Width == 0 && line[tail].Grapheme == " " {
+			line[tail].erase(bg)
+		}
+	}
+}
+
+func (s screenBuffer) repairEmptySoftWrap(r row) {
+	if r < 0 || r >= row(s.height()) {
+		return
+	}
+	rowMeta := s.row(r)
+	if rowMeta.wrapContinuation && (r == 0 || !s.row(r-1).wrapped) {
+		rowMeta.wrapContinuation = false
+	}
+	if !rowMeta.wrapped {
+		return
+	}
+	last := s.cell(r, column(s.width()-1))
+	if last.Width != 0 || last.Grapheme != "" {
+		return
+	}
+	rowMeta.wrapped = false
+	if next := r + 1; next < row(s.height()) {
+		s.row(next).wrapContinuation = false
+	}
+}
+
+func (s screenBuffer) eraseWideHead(r row, head column, bg vaxis.Color) {
+	width := s.cell(r, head).Width
+	for i := column(0); i < column(width) && head+i < column(s.width()); i += 1 {
+		s.eraseCell(r, head+i, bg)
+	}
+}
+
 func (s screenBuffer) copyRowFrom(dst row, src screenBuffer, srcRow row) {
 	copy(s.line(dst), src.line(srcRow))
 	s.state.rows[dst] = src.state.rows[srcRow]
@@ -245,7 +316,7 @@ func (s screenBuffer) offset(r row, c column) int {
 }
 
 func (s screenBuffer) scrollUp(top row, bottom row, left column, right column, n int, bg vaxis.Color) int {
-	captured := s.captureScrollback(top, bottom, n)
+	captured := s.captureScrollback(top, bottom, left, right, n)
 	for r := 0; r < s.state.height; r += 1 {
 		if r > int(bottom) {
 			continue
@@ -255,9 +326,11 @@ func (s screenBuffer) scrollUp(top row, bottom row, left column, right column, n
 		}
 		if r+n > int(bottom) {
 			s.eraseRow(row(r), left, right, bg)
+			s.repairWideRangeBoundaries(row(r), left, right, bg)
 			continue
 		}
 		s.copyRowRange(row(r), row(r+n), left, right)
+		s.repairWideRangeBoundaries(row(r), left, right, bg)
 	}
 	return captured
 }
@@ -266,24 +339,30 @@ func (s screenBuffer) scrollDown(top row, bottom row, left column, right column,
 	for r := bottom; r >= top; r -= 1 {
 		if r-row(n) < top {
 			s.eraseRow(r, left, right, bg)
+			s.repairWideRangeBoundaries(r, left, right, bg)
 			continue
 		}
 		s.copyRowRange(r, r-row(n), left, right)
+		s.repairWideRangeBoundaries(r, left, right, bg)
 	}
 }
 
-func (s screenBuffer) captureScrollback(top row, bottom row, n int) int {
+func (s screenBuffer) captureScrollback(top row, bottom row, left column, right column, n int) int {
 	if s.state == nil || s.state.scrollbackLimit <= 0 {
 		return 0
 	}
-	if top != 0 || bottom != row(s.height()-1) {
+	if top != 0 {
+		return 0
+	}
+	if left != 0 || right < column(s.width()-1) {
 		return 0
 	}
 	if n <= 0 {
 		return 0
 	}
-	if n > s.height() {
-		n = s.height()
+	regionHeight := int(bottom-top) + 1
+	if n > regionHeight {
+		n = regionHeight
 	}
 	for i := 0; i < n; i += 1 {
 		s.state.scrollback.append(s.line(row(i)), s.state.rows[i], s.state.scrollbackLimit)
@@ -338,6 +417,29 @@ func (s screenBuffer) clearScrollback() {
 	s.state.scrollback.clear()
 }
 
+func (s screenBuffer) scrollClear(bg vaxis.Color) {
+	if s.state == nil {
+		return
+	}
+	rows := s.nonEmptyActiveRows()
+	if rows == 0 {
+		return
+	}
+	s.scrollUp(0, row(s.height()-1), 0, column(s.width()-1), rows, bg)
+}
+
+func (s screenBuffer) nonEmptyActiveRows() int {
+	if s.state == nil {
+		return 0
+	}
+	for r := s.height() - 1; r >= 0; r -= 1 {
+		if trimTrailingBlankCells(s.line(row(r))) > 0 {
+			return r + 1
+		}
+	}
+	return 0
+}
+
 func (s screenBuffer) resizeHeight(newHeight int, bg vaxis.Color) (screenBuffer, int, bool) {
 	if s.state == nil || s.width() == 0 || s.height() == 0 {
 		return screenBuffer{}, 0, false
@@ -371,6 +473,16 @@ func (s screenBuffer) resizeHeight(newHeight int, bg vaxis.Color) (screenBuffer,
 		return next, pulled, true
 	case newHeight < s.height():
 		drop := s.height() - newHeight
+		nonEmptyRows := s.nonEmptyActiveRows()
+		if nonEmptyRows <= newHeight {
+			for r := 0; r < newHeight; r += 1 {
+				next.copyRowFrom(row(r), s, row(r))
+			}
+			if nonEmptyRows > 0 {
+				return next, 0, true
+			}
+			return next, -drop, true
+		}
 		for r := 0; r < drop; r += 1 {
 			next.state.scrollback.append(s.line(row(r)), s.state.rows[r], next.state.scrollbackLimit)
 		}
@@ -489,6 +601,7 @@ func (s screenBuffer) resizeReflowCursor(newWidth int, newHeight int, bg vaxis.C
 func (s screenBuffer) reflowRows(width int, cursorSourceRow int, cursorSourceCol int) ([]screenLine, int, int, bool) {
 	var rows []screenLine
 	var logical []cell
+	var logicalRow screenRow
 	cursorLogicalCol := -1
 	cursorRow := 0
 	cursorCol := 0
@@ -498,33 +611,38 @@ func (s screenBuffer) reflowRows(width int, cursorSourceRow int, cursorSourceCol
 		if !ok {
 			continue
 		}
-		logical, rows, cursorLogicalCol, cursorRow, cursorCol, cursorOK = appendLineForReflow(
+		logical, logicalRow, rows, cursorLogicalCol, cursorRow, cursorCol, cursorOK = appendLineForReflow(
 			logical, rows, line, width, i, cursorSourceRow, cursorSourceCol,
+			logicalRow,
 			cursorLogicalCol, cursorRow, cursorCol, cursorOK,
 		)
 	}
 	last := s.height() - 1
 	for last >= 0 && trimTrailingBlankCells(s.line(row(last))) == 0 &&
-		!s.state.rows[last].wrapped && !s.state.rows[last].wrapContinuation {
+		!s.state.rows[last].wrapped && !s.state.rows[last].wrapContinuation &&
+		s.state.rows[last].semanticPrompt == semanticPromptNone {
 		last -= 1
 	}
 	for r := 0; r <= last; r += 1 {
 		sourceRow := s.scrollbackLen() + r
-		logical, rows, cursorLogicalCol, cursorRow, cursorCol, cursorOK = appendLineForReflow(
+		logical, logicalRow, rows, cursorLogicalCol, cursorRow, cursorCol, cursorOK = appendLineForReflow(
 			logical, rows, screenLine{
 				row:   s.state.rows[r],
 				cells: s.line(row(r)),
 			}, width, sourceRow, cursorSourceRow, cursorSourceCol,
+			logicalRow,
 			cursorLogicalCol, cursorRow, cursorCol, cursorOK,
 		)
 	}
 	if len(logical) > 0 {
 		start := len(rows)
-		rows = appendReflowedRows(rows, logical, width)
+		rows = appendReflowedRows(rows, logical, logicalRow, width)
 		if cursorLogicalCol >= 0 {
-			cursorRow = start + cursorLogicalCol/width
-			cursorCol = cursorLogicalCol % width
-			cursorOK = true
+			if reflowRow, reflowCol, ok := reflowedCursorPosition(logical, width, cursorLogicalCol); ok {
+				cursorRow = start + reflowRow
+				cursorCol = reflowCol
+				cursorOK = true
+			}
 		}
 	}
 	return rows, cursorRow, cursorCol, cursorOK
@@ -538,14 +656,21 @@ func appendLineForReflow(
 	sourceRow int,
 	cursorSourceRow int,
 	cursorSourceCol int,
+	currentLogicalRow screenRow,
 	cursorLogicalCol int,
 	cursorRow int,
 	cursorCol int,
 	cursorOK bool,
-) ([]cell, []screenLine, int, int, int, bool) {
+) ([]cell, screenRow, []screenLine, int, int, int, bool) {
+	logicalRow := currentLogicalRow
+	if len(logical) == 0 {
+		logicalRow = line.row
+	}
 	end := len(line.cells)
 	if !line.row.wrapped {
 		end = trimTrailingBlankCells(line.cells)
+	} else {
+		end = trimTrailingEmptyCells(line.cells)
 	}
 	if sourceRow == cursorSourceRow && cursorSourceCol >= end {
 		end = min(len(line.cells), cursorSourceCol+1)
@@ -556,37 +681,128 @@ func appendLineForReflow(
 		cursorLogicalCol = before + min(cursorSourceCol, end)
 	}
 	if line.row.wrapped {
-		return logical, rows, cursorLogicalCol, cursorRow, cursorCol, cursorOK
+		return logical, logicalRow, rows, cursorLogicalCol, cursorRow, cursorCol, cursorOK
 	}
 	start := len(rows)
-	rows = appendReflowedRows(rows, logical, width)
+	rows = appendReflowedRows(rows, logical, logicalRow, width)
 	if cursorLogicalCol >= 0 {
-		cursorRow = start + cursorLogicalCol/width
-		cursorCol = cursorLogicalCol % width
-		cursorOK = true
+		if reflowRow, reflowCol, ok := reflowedCursorPosition(logical, width, cursorLogicalCol); ok {
+			cursorRow = start + reflowRow
+			cursorCol = reflowCol
+			cursorOK = true
+		}
 	}
-	return nil, rows, -1, cursorRow, cursorCol, cursorOK
+	return nil, screenRow{}, rows, -1, cursorRow, cursorCol, cursorOK
 }
 
-func appendReflowedRows(rows []screenLine, logical []cell, width int) []screenLine {
+func reflowedCursorPosition(logical []cell, width int, logicalCol int) (int, int, bool) {
+	if logicalCol < 0 {
+		return 0, 0, false
+	}
+	row := 0
+	col := 0
+	for i := 0; i < len(logical); {
+		c := logical[i]
+		if c.Width == 0 && c.Grapheme == " " {
+			i += 1
+			continue
+		}
+		charWidth := c.Width
+		if charWidth <= 0 {
+			charWidth = 1
+		}
+		if charWidth > width {
+			if logicalCol >= i && logicalCol < i+charWidth {
+				return 0, 0, false
+			}
+			i += charWidth
+			continue
+		}
+		if col+charWidth > width {
+			row += 1
+			col = 0
+		}
+		if logicalCol >= i && logicalCol < i+charWidth {
+			return row, col + logicalCol - i, true
+		}
+		col += charWidth
+		i += charWidth
+	}
+	if logicalCol >= len(logical) {
+		if col >= width {
+			return row + 1, 0, true
+		}
+		return row, col, true
+	}
+	return 0, 0, false
+}
+
+func appendReflowedRows(rows []screenLine, logical []cell, rowMeta screenRow, width int) []screenLine {
 	if len(logical) == 0 {
 		return append(rows, screenLine{
-			row:   screenRow{},
+			row:   rowMeta,
 			cells: make([]cell, width),
 		})
 	}
-	for len(logical) > 0 {
-		n := min(width, len(logical))
-		line := make([]cell, width)
-		copy(line, logical[:n])
-		logical = logical[n:]
+	first := true
+	var line []cell
+	col := 0
+	flush := func(wrapped bool) {
+		if line == nil {
+			line = make([]cell, width)
+		}
+		nextRow := screenRow{
+			wrapped:          wrapped,
+			wrapContinuation: len(rows) > 0 && rows[len(rows)-1].row.wrapped,
+		}
+		if first {
+			nextRow.semanticPrompt = rowMeta.semanticPrompt
+			first = false
+		} else if rowMeta.semanticPrompt != semanticPromptNone {
+			nextRow.semanticPrompt = semanticPromptContinuation
+		}
 		rows = append(rows, screenLine{
-			row: screenRow{
-				wrapped:          len(logical) > 0,
-				wrapContinuation: len(rows) > 0 && rows[len(rows)-1].row.wrapped,
-			},
+			row:   nextRow,
 			cells: line,
 		})
+		line = nil
+		col = 0
+	}
+	for i := 0; i < len(logical); {
+		c := logical[i]
+		if c.Width == 0 && c.Grapheme == " " {
+			i += 1
+			continue
+		}
+		charWidth := c.Width
+		if charWidth <= 0 {
+			charWidth = 1
+		}
+		if charWidth > width {
+			i += charWidth
+			continue
+		}
+		if col+charWidth > width {
+			flush(true)
+		}
+		if line == nil {
+			line = make([]cell, width)
+		}
+		line[col] = c
+		for tail := 1; tail < charWidth; tail += 1 {
+			tailCell := c
+			tailCell.Grapheme = " "
+			tailCell.Width = 0
+			if i+tail < len(logical) && logical[i+tail].Width == 0 && logical[i+tail].Grapheme == " " {
+				tailCell = logical[i+tail]
+			}
+			line[col+tail] = tailCell
+		}
+		col += charWidth
+		i += charWidth
+	}
+	if line != nil {
+		flush(false)
 	}
 	return rows
 }
@@ -596,6 +812,18 @@ func trimTrailingBlankCells(line []cell) int {
 	for end > 0 {
 		grapheme := line[end-1].Grapheme
 		if grapheme != "" && grapheme != " " {
+			break
+		}
+		end -= 1
+	}
+	return end
+}
+
+func trimTrailingEmptyCells(line []cell) int {
+	end := len(line)
+	for end > 0 {
+		c := line[end-1]
+		if c.Grapheme != "" || c.Width != 0 {
 			break
 		}
 		end -= 1

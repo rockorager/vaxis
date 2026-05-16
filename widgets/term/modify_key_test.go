@@ -53,6 +53,58 @@ func TestModifyOtherKeysStateTwoEncodesPlainASCIIText(t *testing.T) {
 	}
 }
 
+func TestModifyOtherKeysStateTwoBackspaceUsesGhosttyTable(t *testing.T) {
+	t.Run("plain", func(t *testing.T) {
+		vt, r := newReplyTestModel(t)
+		vt.resize(80, 24)
+
+		vt.update(testCSI('m', []uint32{4, 2}, '>'))
+		vt.Update(vaxis.Key{Keycode: vaxis.KeyBackspace, EventType: vaxis.EventPress})
+
+		if got, want := readReply(t, r, len("\x7F")), "\x7F"; got != want {
+			t.Fatalf("plain backspace with modifyOtherKeys = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("ctrl", func(t *testing.T) {
+		vt, r := newReplyTestModel(t)
+		vt.resize(80, 24)
+
+		vt.update(testCSI('m', []uint32{4, 2}, '>'))
+		vt.Update(vaxis.Key{Keycode: vaxis.KeyBackspace, Modifiers: vaxis.ModCtrl, EventType: vaxis.EventPress})
+
+		if got, want := readReply(t, r, len("\x08")), "\x08"; got != want {
+			t.Fatalf("ctrl backspace with modifyOtherKeys = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("decbkm", func(t *testing.T) {
+		vt, r := newReplyTestModel(t)
+		vt.resize(80, 24)
+
+		vt.update(testCSI('m', []uint32{4, 2}, '>'))
+		vt.update(testCSI('h', []uint32{67}, '?'))
+		vt.Update(vaxis.Key{Keycode: vaxis.KeyBackspace, EventType: vaxis.EventPress})
+		vt.Update(vaxis.Key{Keycode: vaxis.KeyBackspace, Modifiers: vaxis.ModCtrl, EventType: vaxis.EventPress})
+
+		if got, want := readReply(t, r, len("\x08\x7F")), "\x08\x7F"; got != want {
+			t.Fatalf("backspace with modifyOtherKeys and DECBKM = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("shift", func(t *testing.T) {
+		vt, r := newReplyTestModel(t)
+		vt.resize(80, 24)
+
+		vt.update(testCSI('m', []uint32{4, 2}, '>'))
+		vt.Update(vaxis.Key{Keycode: vaxis.KeyBackspace, Modifiers: vaxis.ModShift, EventType: vaxis.EventPress})
+
+		if got, want := readReply(t, r, len("\x1B[27;2;127~")), "\x1B[27;2;127~"; got != want {
+			t.Fatalf("shift backspace with modifyOtherKeys = %q, want %q", got, want)
+		}
+	})
+}
+
 func TestModifyOtherKeysResetFallsBackToLegacyEncoding(t *testing.T) {
 	vt, r := newReplyTestModel(t)
 	vt.resize(80, 24)
@@ -83,5 +135,20 @@ func TestModifyOtherKeysInvalidRequestIgnored(t *testing.T) {
 	vt.update(testCSI('n', nil, '>'))
 	if vt.mode.modifyOtherKeys2 {
 		t.Fatal("CSI > n did not reset modifyOtherKeys state")
+	}
+}
+
+func TestModifyOtherKeysCSIPrivateNResetsWithParameters(t *testing.T) {
+	vt := New()
+
+	vt.update(testCSI('m', []uint32{4, 2}, '>'))
+	if !vt.mode.modifyOtherKeys2 {
+		t.Fatal("modifyOtherKeys state 2 was not enabled")
+	}
+
+	vt.update(testCSI('n', []uint32{9, 1}, '>'))
+
+	if vt.mode.modifyOtherKeys2 {
+		t.Fatal("CSI > n with parameters did not reset modifyOtherKeys state")
 	}
 }

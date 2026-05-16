@@ -20,12 +20,24 @@ func applySequence(vt *Model, seq ansi.Sequence) {
 		applyC0(vt, rune(seq))
 	case ansi.ESC:
 		applyESC(vt, seq)
+	case ansi.SS3:
+		vt.charsets.saved = vt.charsets.selected
+		vt.charsets.selected = g3
+		vt.charsets.singleShift = true
+		vt.print(ansi.Print{Grapheme: string(rune(seq)), Width: 1})
 	case ansi.CSI:
 		applyCSI(vt, seq)
 	case ansi.OSC:
+		if seq.InvalidUTF8 {
+			return
+		}
 		vt.osc(string(seq.Payload))
 	case ansi.DCS:
-		if seq.Final == 'q' && seq.NumIntermediate == 0 && seq.NumParameters == 0 {
+		if seq.NumIntermediate == 1 && seq.Intermediate[0] == '$' && seq.Final == 'q' {
+			vt.decrqss(seq)
+		} else if seq.NumIntermediate == 1 && seq.Intermediate[0] == '+' && seq.Final == 'q' {
+			vt.xtgettcap(seq)
+		} else if seq.Final == 'q' && seq.NumIntermediate == 0 {
 			sixelAction{seq: seq}.apply(vt)
 		}
 	case ansi.APC:
@@ -35,6 +47,8 @@ func applySequence(vt *Model, seq ansi.Sequence) {
 
 func applyC0(vt *Model, r rune) {
 	switch r {
+	case 0x05:
+		vt.enquiry()
 	case 0x07:
 		vt.postEvent(EventBell{})
 	case 0x08:
@@ -94,6 +108,12 @@ func applyESC(vt *Model, seq ansi.ESC) {
 			vt.charsets.selected = g2
 		case 'o':
 			vt.charsets.selected = g3
+		case '~':
+			vt.charsets.gr = g1
+		case '}':
+			vt.charsets.gr = g2
+		case '|':
+			vt.charsets.gr = g3
 		}
 	case 1:
 		switch seq.Intermediate[0] {
@@ -228,7 +248,7 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 			if !validCSIParamCount(seq, 1) {
 				return
 			}
-			vt.hpr(ps(seq))
+			vt.hpr(defaultOneIfMissing(seq))
 		case 'b':
 			if seq.NumParameters <= 1 {
 				vt.rep(ps(seq))
@@ -244,7 +264,7 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 			if !validCSIParamCount(seq, 1) {
 				return
 			}
-			vt.vpr(ps(seq))
+			vt.vpr(defaultOneIfMissing(seq))
 		case 'g':
 			if seq.NumParameters == 1 {
 				vt.tbc(ps(seq))
@@ -277,7 +297,7 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 		case '>':
 			switch seq.Final {
 			case 'c':
-				vt.enqueueReplyString("\x1b[>1;0;0c")
+				vt.enqueueReplyString(secondaryDeviceAttributesReply)
 			case 'm':
 				vt.modifyKeyFormat(seq)
 			case 'n':
@@ -425,26 +445,26 @@ func defaultOne(n int) int {
 	return n
 }
 
+const (
+	primaryDeviceAttributesReply   = "\x1B[?62;4;22c"
+	secondaryDeviceAttributesReply = "\x1B[>1;10;0c"
+	tertiaryDeviceAttributesReply  = "\x1BP!|00000000\x1B\\"
+)
+
 func (vt *Model) primaryDeviceAttributes() {
-	resp := strings.Builder{}
-	resp.WriteString("\x1B[?")
-	resp.WriteString("62;")
-	resp.WriteString("4;")
-	resp.WriteString("22")
-	resp.WriteString("c")
-	vt.enqueueReplyString(resp.String())
+	vt.enqueueReplyString(primaryDeviceAttributesReply)
 }
 
 func (vt *Model) tertiaryDeviceAttributes() {
-	vt.enqueueReplyString("\x1BP!|00000000\x1B\\")
+	vt.enqueueReplyString(tertiaryDeviceAttributesReply)
 }
 
 func (vt *Model) deviceStatusReport(n int, private bool) {
 	if private {
 		switch n {
 		case 996:
-			if vt.theme != 0 {
-				vt.enqueueReplyString(fmt.Sprintf("\x1B[?997;%dn", vt.theme))
+			if reply := colorSchemeReport(vt.theme); reply != "" {
+				vt.enqueueReplyString(reply)
 			}
 		}
 		return
@@ -465,7 +485,19 @@ func (vt *Model) deviceStatusReport(n int, private bool) {
 	}
 }
 
+func colorSchemeReport(theme vaxis.ColorThemeMode) string {
+	switch theme {
+	case vaxis.DarkMode, vaxis.LightMode:
+		return fmt.Sprintf("\x1B[?997;%dn", theme)
+	default:
+		return ""
+	}
+}
+
 func (vt *Model) xtwinops(seq ansi.CSI) {
+	if xtwinopsTitleStack(seq) {
+		return
+	}
 	if seq.NumParameters != 1 {
 		return
 	}
@@ -485,6 +517,15 @@ func (vt *Model) xtwinops(seq ansi.CSI) {
 	}
 }
 
+func xtwinopsTitleStack(seq ansi.CSI) bool {
+	if seq.NumParameters != 2 && seq.NumParameters != 3 {
+		return false
+	}
+	op := seq.Param(0)
+	target := seq.Param(1)
+	return (op == 22 || op == 23) && (target == 0 || target == 2)
+}
+
 func (vt *Model) xtversion() {
 	vt.enqueueReplyString("\x1BP>|vaxis\x1B\\")
 }
@@ -497,7 +538,204 @@ func (vt *Model) decscusr(seq ansi.CSI) {
 	if style < int(vaxis.CursorDefault) || style > int(vaxis.CursorBeam) {
 		return
 	}
+	if style == int(vaxis.CursorDefault) {
+		style = int(vaxis.CursorBlock)
+	}
 	vt.cursor.style = vaxis.CursorStyle(style)
+	switch vt.cursor.style {
+	case vaxis.CursorBlockBlinking, vaxis.CursorUnderlineBlinking, vaxis.CursorBeamBlinking:
+		vt.mode.cursorBlinking = true
+	default:
+		vt.mode.cursorBlinking = false
+	}
+}
+
+func (vt *Model) effectiveCursorStyle() vaxis.CursorStyle {
+	return cursorStyleWithBlink(vt.cursor.style, vt.mode.cursorBlinking)
+}
+
+func (vt *Model) decrqssCursorStyle() vaxis.CursorStyle {
+	style := vt.effectiveCursorStyle()
+	if style == vaxis.CursorDefault {
+		if vt.mode.cursorBlinking {
+			return vaxis.CursorBlockBlinking
+		}
+		return vaxis.CursorBlock
+	}
+	return style
+}
+
+func cursorStyleWithBlink(style vaxis.CursorStyle, blinking bool) vaxis.CursorStyle {
+	if blinking {
+		switch style {
+		case vaxis.CursorUnderline, vaxis.CursorUnderlineBlinking:
+			return vaxis.CursorUnderlineBlinking
+		case vaxis.CursorBeam, vaxis.CursorBeamBlinking:
+			return vaxis.CursorBeamBlinking
+		default:
+			return vaxis.CursorBlockBlinking
+		}
+	}
+
+	switch style {
+	case vaxis.CursorBlockBlinking:
+		return vaxis.CursorBlock
+	case vaxis.CursorUnderlineBlinking:
+		return vaxis.CursorUnderline
+	case vaxis.CursorBeamBlinking:
+		return vaxis.CursorBeam
+	default:
+		return style
+	}
+}
+
+func (vt *Model) decrqss(seq ansi.DCS) {
+	if len(seq.Data) > 2 {
+		return
+	}
+
+	switch string(seq.Data) {
+	case "m":
+		vt.enqueueReplyString("\x1BP1$r" + vt.sgrStatusString() + "m\x1B\\")
+	case "r":
+		vt.enqueueReplyString(fmt.Sprintf("\x1BP1$r%d;%dr\x1B\\", vt.margin.top+1, vt.margin.bottom+1))
+	case "s":
+		if !vt.mode.declrmm {
+			vt.enqueueReplyString("\x1BP0$r\x1B\\")
+			return
+		}
+		vt.enqueueReplyString(fmt.Sprintf("\x1BP1$r%d;%ds\x1B\\", vt.margin.left+1, vt.margin.right+1))
+	case " q":
+		vt.enqueueReplyString(fmt.Sprintf("\x1BP1$r%d q\x1B\\", vt.decrqssCursorStyle()))
+	default:
+		vt.enqueueReplyString("\x1BP0$r\x1B\\")
+	}
+}
+
+func (vt *Model) xtgettcap(seq ansi.DCS) {
+	start := 0
+	for i, r := range seq.Data {
+		if r != ';' {
+			continue
+		}
+		vt.xtgettcapReply(seq.Data[start:i])
+		start = i + 1
+	}
+	vt.xtgettcapReply(seq.Data[start:])
+}
+
+func (vt *Model) xtgettcapReply(keyRunes []rune) {
+	if len(keyRunes) == 0 {
+		return
+	}
+	key := strings.ToUpper(string(keyRunes))
+	value, ok := xtgettcapValues[key]
+	if !ok {
+		return
+	}
+	vt.enqueueReplyString("\x1BP1+r" + key + value + "\x1B\\")
+}
+
+var xtgettcapValues = map[string]string{
+	"4158":       "",
+	"544E":       "=" + hexUpperString("xterm-256color"),
+	"436F":       "=" + hexUpperString("256"),
+	"524742":     "=" + hexUpperString("8"),
+	"5463":       "",
+	"5375":       "",
+	"5854":       "",
+	"536D756C78": "=" + hexUpperString(`\E[4:%p1%dm`),
+	"536574756C63": "=" + hexUpperString(
+		`\E[58:2::%p1%{65536}%/%d:%p1%{256}%/%{255}%&%d:%p1%{255}%&%d%;m`,
+	),
+	"5373": "=" + hexUpperString(`\E[%p1%d q`),
+	"5365": "=" + hexUpperString(`\E[0 q`),
+	"4D73": "=" + hexUpperString(`\E]52;%p1%s;%p2%s\007`),
+}
+
+func hexUpperString(s string) string {
+	const digits = "0123456789ABCDEF"
+	var b strings.Builder
+	b.Grow(len(s) * 2)
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		b.WriteByte(digits[c>>4])
+		b.WriteByte(digits[c&0x0f])
+	}
+	return b.String()
+}
+
+func (vt *Model) sgrStatusString() string {
+	var b strings.Builder
+	b.WriteByte('0')
+	if vt.cursor.Attribute&vaxis.AttrBold != 0 {
+		b.WriteString(";1")
+	}
+	if vt.cursor.Attribute&vaxis.AttrDim != 0 {
+		b.WriteString(";2")
+	}
+	if vt.cursor.Attribute&vaxis.AttrItalic != 0 {
+		b.WriteString(";3")
+	}
+	if vt.cursor.UnderlineStyle != vaxis.UnderlineOff {
+		b.WriteString(";4")
+	}
+	if vt.cursor.Attribute&vaxis.AttrBlink != 0 {
+		b.WriteString(";5")
+	}
+	if vt.cursor.Attribute&vaxis.AttrReverse != 0 {
+		b.WriteString(";7")
+	}
+	if vt.cursor.Attribute&vaxis.AttrInvisible != 0 {
+		b.WriteString(";8")
+	}
+	if vt.cursor.Attribute&vaxis.AttrStrikethrough != 0 {
+		b.WriteString(";9")
+	}
+	writeSGRStatusColor(&b, vt.cursor.Foreground, false)
+	writeSGRStatusColor(&b, vt.cursor.Background, true)
+	return b.String()
+}
+
+func writeSGRStatusColor(b *strings.Builder, color vaxis.Color, background bool) {
+	params := color.Params()
+	switch len(params) {
+	case 1:
+		idx := params[0]
+		if idx < 8 {
+			if background {
+				b.WriteString(";4")
+			} else {
+				b.WriteString(";3")
+			}
+			b.WriteString(strconv.Itoa(int(idx)))
+		} else if idx < 16 {
+			if background {
+				b.WriteString(";10")
+			} else {
+				b.WriteString(";9")
+			}
+			b.WriteString(strconv.Itoa(int(idx - 8)))
+		} else {
+			if background {
+				b.WriteString(";48:5:")
+			} else {
+				b.WriteString(";38:5:")
+			}
+			b.WriteString(strconv.Itoa(int(idx)))
+		}
+	case 3:
+		if background {
+			b.WriteString(";48:2::")
+		} else {
+			b.WriteString(";38:2::")
+		}
+		b.WriteString(strconv.Itoa(int(params[0])))
+		b.WriteByte(':')
+		b.WriteString(strconv.Itoa(int(params[1])))
+		b.WriteByte(':')
+		b.WriteString(strconv.Itoa(int(params[2])))
+	}
 }
 
 type sixelAction struct{ seq ansi.DCS }
@@ -507,7 +745,7 @@ func (a sixelAction) apply(vt *Model) {
 	buf.Write([]byte{'\x1B', 'P'})
 	for i, p := range a.seq.Params() {
 		buf.WriteString(strconv.Itoa(int(p)))
-		if i <= a.seq.NumParameters-1 {
+		if i < a.seq.NumParameters-1 {
 			buf.WriteByte(';')
 		}
 	}
