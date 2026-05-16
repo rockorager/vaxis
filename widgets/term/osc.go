@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"git.sr.ht/~rockorager/vaxis/log"
 	"strings"
+	"unicode/utf8"
 )
 
 const maxTitleLen = 1024
@@ -17,6 +18,9 @@ func (vt *Model) osc(data string) {
 	}
 	switch selector {
 	case "0", "2":
+		if !utf8.ValidString(val) {
+			return
+		}
 		if len(val) > maxTitleLen {
 			val = val[:maxTitleLen]
 		}

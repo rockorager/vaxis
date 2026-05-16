@@ -51,6 +51,22 @@ func TestOSCTitleTruncated(t *testing.T) {
 	}
 }
 
+func TestOSCTitleInvalidUTF8Ignored(t *testing.T) {
+	vt := New()
+	vt.title = "old"
+
+	vt.osc("2;\xff")
+
+	if got, want := vt.title, "old"; got != want {
+		t.Fatalf("title = %q, want %q", got, want)
+	}
+	select {
+	case ev := <-vt.events:
+		t.Fatalf("unexpected event for invalid title: %T", ev)
+	default:
+	}
+}
+
 func TestOSC52IgnoredWithoutVaxis(t *testing.T) {
 	vt := New()
 
