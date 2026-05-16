@@ -338,14 +338,16 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 		case '$':
 			switch seq.Final {
 			case 'p':
-				vt.decrqm(ps(seq), true)
+				if seq.NumParameters == 1 {
+					vt.decrqm(seq.Param(0), true)
+				}
 			case '}':
 				vt.decsasd(seq)
 			}
 		}
 	case 2:
-		if seq.Intermediate[0] == '?' && seq.Intermediate[1] == '$' && seq.Final == 'p' {
-			vt.decrqm(ps(seq), false)
+		if seq.Intermediate[0] == '?' && seq.Intermediate[1] == '$' && seq.Final == 'p' && seq.NumParameters == 1 {
+			vt.decrqm(seq.Param(0), false)
 		}
 	}
 }

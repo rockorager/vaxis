@@ -56,6 +56,18 @@ func TestANSIModeReportUnknown(t *testing.T) {
 	}
 }
 
+func TestModeReportRequiresSingleParameter(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.resize(80, 24)
+
+	vt.update(testCSI('p', nil, '?', '$'))
+	vt.update(testCSI('p', []uint32{7, 8}, '?', '$'))
+	vt.update(testCSI('p', nil, '$'))
+	vt.update(testCSI('p', []uint32{4, 20}, '$'))
+
+	assertNoReply(t, r)
+}
+
 func TestModeReportSaveCursor(t *testing.T) {
 	vt, r := newReplyTestModel(t)
 	vt.resize(80, 24)
