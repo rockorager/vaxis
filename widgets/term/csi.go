@@ -154,28 +154,17 @@ func (vt *Model) cub(ps int) {
 }
 
 // Cursor Next Line (CNL) CSI Ps E
-// Move cursor to left margin Ps lines down, scrolling if necessary
+// Move cursor to left margin Ps lines down without scrolling
 func (vt *Model) cnl(ps int) {
-	vt.resetWrap()
-	if ps == 0 {
-		ps = 1
-	}
-	for i := 0; i < ps; i += 1 {
-		vt.nel()
-	}
+	vt.cud(ps)
+	vt.cr()
 }
 
 // Cursor Preceding Line (CPL) CSI Ps F
-// Move cursor to left margin Ps lines down, scrolling if necessary
+// Move cursor to left margin Ps lines up without scrolling
 func (vt *Model) cpl(ps int) {
-	vt.resetWrap()
-	if ps == 0 {
-		ps = 1
-	}
-	for i := 0; i < ps; i += 1 {
-		vt.ri()
-	}
-	vt.cursor.col = vt.margin.left
+	vt.cuu(ps)
+	vt.cr()
 }
 
 // Cursor Character Absolute (CHA) CSI Ps G

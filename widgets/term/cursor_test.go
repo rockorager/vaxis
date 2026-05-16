@@ -137,3 +137,60 @@ func TestCursorBackwardReverseWrapStopsAtUnwrappedRow(t *testing.T) {
 		t.Fatalf("screen mismatch: got %q want %q", got, want)
 	}
 }
+
+func TestCursorNextLineDoesNotScroll(t *testing.T) {
+	vt := New()
+	vt.resize(4, 2)
+	printText(vt, "ABCD")
+	vt.cr()
+	vt.lf()
+	printText(vt, "EFGH")
+
+	vt.cnl(1)
+	printText(vt, "X")
+
+	if got, want := vt.String(), "ABCD\nXFGH"; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestCursorPreviousLineDoesNotScroll(t *testing.T) {
+	vt := New()
+	vt.resize(4, 2)
+	printText(vt, "ABCD")
+	vt.cr()
+	vt.lf()
+	printText(vt, "EFGH")
+	vt.cursor.row = 0
+	vt.cursor.col = 2
+
+	vt.cpl(1)
+	printText(vt, "X")
+
+	if got, want := vt.String(), "XBCD\nEFGH"; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestCursorNextPreviousLineIgnoreMultipleParameters(t *testing.T) {
+	vt := New()
+	vt.resize(4, 2)
+	vt.cursor.row = 1
+	vt.cursor.col = 2
+
+	vt.update(testCSI('E', []uint32{1, 1}))
+	if got, want := vt.cursor.row, row(1); got != want {
+		t.Fatalf("cursor row after invalid CNL = %d, want %d", got, want)
+	}
+	if got, want := vt.cursor.col, column(2); got != want {
+		t.Fatalf("cursor col after invalid CNL = %d, want %d", got, want)
+	}
+
+	vt.update(testCSI('F', []uint32{1, 1}))
+	if got, want := vt.cursor.row, row(1); got != want {
+		t.Fatalf("cursor row after invalid CPL = %d, want %d", got, want)
+	}
+	if got, want := vt.cursor.col, column(2); got != want {
+		t.Fatalf("cursor col after invalid CPL = %d, want %d", got, want)
+	}
+}

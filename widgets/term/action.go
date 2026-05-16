@@ -139,9 +139,13 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 		case 'D':
 			vt.cub(ps(seq))
 		case 'E':
-			vt.cnl(ps(seq))
+			if seq.NumParameters <= 1 {
+				vt.cnl(ps(seq))
+			}
 		case 'F':
-			vt.cpl(ps(seq))
+			if seq.NumParameters <= 1 {
+				vt.cpl(ps(seq))
+			}
 		case 'G':
 			vt.cha(ps(seq))
 		case 'H', 'f':
