@@ -49,6 +49,9 @@ func (vt *Model) osc(data string) {
 			log.Error("[term] error decoding Base64")
 			return
 		}
+		if vt.vx == nil {
+			return
+		}
 		vt.vx.ClipboardPush(string(decodedBytes))
 	case "777":
 		selector, val, found := cutString(val, ";")
