@@ -69,6 +69,8 @@ type Model struct {
 	semanticPromptClick semanticPromptClick
 	size                vaxis.Resize
 	status              statusDisplay
+	selection           *selectionRange
+	selectionMouse      mouseSelectionState
 
 	previousChar    vaxis.Character
 	hasPreviousChar bool
@@ -285,6 +287,7 @@ func (vt *Model) Update(msg vaxis.Event) {
 		if vt.keyboardActionModeBlocksInput() {
 			return
 		}
+		vt.clearSelectionLocked()
 		str := vt.encodeKey(msg)
 		str = vt.linefeedModeInput(str)
 		pendingWrites = append(pendingWrites, vt.pendingPtyWrite(str))
@@ -292,6 +295,7 @@ func (vt *Model) Update(msg vaxis.Event) {
 		if vt.keyboardActionModeBlocksInput() {
 			return
 		}
+		vt.clearSelectionLocked()
 		if vt.mode.paste {
 			pendingWrites = append(pendingWrites, vt.pendingPtyWrite("\x1B[200~"))
 			return
@@ -300,11 +304,15 @@ func (vt *Model) Update(msg vaxis.Event) {
 		if vt.keyboardActionModeBlocksInput() {
 			return
 		}
+		vt.clearSelectionLocked()
 		if vt.mode.paste {
 			pendingWrites = append(pendingWrites, vt.pendingPtyWrite("\x1B[201~"))
 			return
 		}
 	case vaxis.Mouse:
+		if vt.handleSelectionMouse(msg) {
+			return
+		}
 		if promptClick := vt.handlePromptClick(msg); promptClick != "" {
 			pendingWrites = append(pendingWrites, vt.pendingPtyWrite(promptClick))
 			return
@@ -472,25 +480,47 @@ func (vt *Model) handleViewportMouse(msg vaxis.Mouse) bool {
 }
 
 func (vt *Model) visibleLine(r int) []cell {
+	line, _, ok := vt.visibleSourceLine(r)
+	if !ok {
+		return nil
+	}
+	return line
+}
+
+func (vt *Model) visibleSourceLine(r int) ([]cell, int, bool) {
+	source, ok := vt.viewportSourceRow(r)
+	if !ok {
+		return nil, 0, false
+	}
+	line, _, ok := vt.sourceRowLine(source)
+	return line, source, ok
+}
+
+func (vt *Model) viewportSourceRow(r int) (int, bool) {
+	if r < 0 || r >= vt.height() {
+		return 0, false
+	}
 	historyLen := vt.activeScreen.scrollbackLen()
 	if vt.scrollOffset == 0 || historyLen == 0 {
-		return vt.activeScreen.line(row(r))
+		return historyLen + r, true
 	}
-	source := historyLen - vt.scrollOffset + r
+	return historyLen - vt.scrollOffset + r, true
+}
+
+func (vt *Model) sourceRowLine(source int) ([]cell, screenRow, bool) {
+	historyLen := vt.activeScreen.scrollbackLen()
 	if source < historyLen {
 		line, ok := vt.activeScreen.scrollbackLine(source)
 		if ok {
-			return line.cells
+			return line.cells, line.row, true
 		}
+		return nil, screenRow{}, false
 	}
 	activeRow := source - historyLen
-	if activeRow < 0 {
-		activeRow = 0
+	if activeRow < 0 || activeRow >= vt.height() {
+		return nil, screenRow{}, false
 	}
-	if activeRow >= vt.height() {
-		activeRow = vt.height() - 1
-	}
-	return vt.activeScreen.line(row(activeRow))
+	return vt.activeScreen.line(row(activeRow)), *vt.activeScreen.row(row(activeRow)), true
 }
 
 func (vt *Model) postEvent(ev vaxis.Event) {
@@ -635,6 +665,9 @@ type positionedCell struct {
 func (vt *Model) resize(w int, h int) {
 	oldWidth := vt.width()
 	oldHeight := vt.height()
+	if vt.selection != nil && (oldWidth != w || oldHeight != h) {
+		vt.clearSelectionLocked()
+	}
 	defer func() {
 		if oldWidth != w {
 			vt.setDefaultTabStops()
@@ -1220,6 +1253,9 @@ func (vt *Model) scrollUp(n int) {
 		vt.scrollOffset += captured
 		vt.clampScrollOffset()
 	}
+	if captured > 0 {
+		vt.clearSelectionLocked()
+	}
 }
 
 // scrollDown shifts all lines down by n rows.
@@ -1281,7 +1317,10 @@ func (vt *Model) snapshotDraw(vx *vaxis.Vaxis) drawSnapshot {
 	}
 	vt.vx = vx
 	for r := 0; r < vt.height(); r += 1 {
-		line := vt.visibleLine(r)
+		line, sourceRow, ok := vt.visibleSourceLine(r)
+		if !ok {
+			continue
+		}
 		for col := 0; col < vt.width(); {
 			cell := line[col]
 			w := cell.Width
@@ -1290,10 +1329,14 @@ func (vt *Model) snapshotDraw(vx *vaxis.Vaxis) drawSnapshot {
 				cell.Grapheme = " "
 			}
 
+			rendered := cell.Cell
+			if vt.selectionContains(sourceRow, col) {
+				rendered.Attribute ^= vaxis.AttrReverse
+			}
 			snapshot.cells = append(snapshot.cells, positionedCell{
 				col:  col,
 				row:  r,
-				cell: vt.renderCell(cell.Cell),
+				cell: vt.renderCell(rendered),
 			})
 			if w == 0 {
 				w = 1

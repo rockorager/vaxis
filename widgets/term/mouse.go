@@ -14,8 +14,10 @@ func (vt *Model) handleMouse(msg vaxis.Mouse) string {
 			// Translate wheel motion into arrows up and down
 			// 3x rows
 			if msg.Button == vaxis.MouseWheelUp {
+				vt.clearSelectionLocked()
 				return "\x1bOA\x1bOA\x1bOA"
 			} else if msg.Button == vaxis.MouseWheelDown {
+				vt.clearSelectionLocked()
 				return "\x1bOB\x1bOB\x1bOB"
 			}
 		}

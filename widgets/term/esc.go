@@ -228,6 +228,7 @@ func (vt *Model) decrc() {
 func (vt *Model) ris() {
 	w := vt.width()
 	h := vt.height()
+	vt.clearSelectionLocked()
 	vt.altScreen = newScreenBuffer(w, h, 0)
 	vt.primaryScreen = newScreenBuffer(w, h, defaultScrollbackLines)
 	vt.margin.top = 0

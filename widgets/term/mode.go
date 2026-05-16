@@ -622,6 +622,9 @@ func (vt *Model) switchAltScreen(mode int, enabled bool) {
 
 	wasAlt := vt.mode.smcup
 	switched := wasAlt != enabled
+	if switched {
+		vt.clearSelectionLocked()
+	}
 	if mode == 1047 && !enabled && wasAlt {
 		vt.ed(2, false)
 	}

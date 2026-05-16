@@ -271,6 +271,7 @@ func (vt *Model) ed(ps int, forceProtected bool) {
 	// Erases the complete display. All lines are erased and changed to
 	// single-width. The cursor does not move.
 	case 2:
+		vt.clearSelectionLocked()
 		if vt.shouldScrollClearAtSemanticPrompt() {
 			vt.activeScreen.scrollClear(vt.cursor.Style.Background)
 		}
@@ -282,11 +283,13 @@ func (vt *Model) ed(ps int, forceProtected bool) {
 
 	// Erases saved lines in the scrollback buffer.
 	case 3:
+		vt.clearSelectionLocked()
 		vt.activeScreen.clearScrollback()
 		vt.clampScrollOffset()
 
 	// Erases the complete display and scrollback.
 	case 22:
+		vt.clearSelectionLocked()
 		vt.activeScreen.clearScrollback()
 		vt.clampScrollOffset()
 		vt.graphics = nil
