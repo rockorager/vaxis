@@ -45,6 +45,22 @@ func TestANSIModeReportInsertMode(t *testing.T) {
 	}
 }
 
+func TestANSIModeReportSendReceiveDefaultsSet(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.resize(80, 24)
+
+	vt.update(testCSI('p', []uint32{12}, '$'))
+	if got, want := readReply(t, r, len("\x1B[12;1$y")), "\x1B[12;1$y"; got != want {
+		t.Fatalf("send/receive mode report = %q, want %q", got, want)
+	}
+
+	vt.update(testCSI('l', []uint32{12}))
+	vt.update(testCSI('p', []uint32{12}, '$'))
+	if got, want := readReply(t, r, len("\x1B[12;2$y")), "\x1B[12;2$y"; got != want {
+		t.Fatalf("send/receive mode report = %q, want %q", got, want)
+	}
+}
+
 func TestANSIModeReportUnknown(t *testing.T) {
 	vt, r := newReplyTestModel(t)
 	vt.resize(80, 24)
@@ -66,6 +82,38 @@ func TestModeReportRequiresSingleParameter(t *testing.T) {
 	vt.update(testCSI('p', []uint32{4, 20}, '$'))
 
 	assertNoReply(t, r)
+}
+
+func TestModeReportAlternateScrollDefaultsSet(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.resize(80, 24)
+
+	vt.update(testCSI('p', []uint32{1007}, '?', '$'))
+	if got, want := readReply(t, r, len("\x1B[?1007;1$y")), "\x1B[?1007;1$y"; got != want {
+		t.Fatalf("alternate scroll mode report = %q, want %q", got, want)
+	}
+
+	vt.update(testCSI('l', []uint32{1007}, '?'))
+	vt.update(testCSI('p', []uint32{1007}, '?', '$'))
+	if got, want := readReply(t, r, len("\x1B[?1007;2$y")), "\x1B[?1007;2$y"; got != want {
+		t.Fatalf("alternate scroll mode report = %q, want %q", got, want)
+	}
+}
+
+func TestAlternateScrollModeSurvivesScreenSwitch(t *testing.T) {
+	vt := New()
+	vt.resize(80, 24)
+
+	vt.update(testCSI('l', []uint32{1007}, '?'))
+	vt.update(testCSI('h', []uint32{1049}, '?'))
+	if vt.mode.altScroll {
+		t.Fatal("alternate scroll was re-enabled entering alternate screen")
+	}
+
+	vt.update(testCSI('l', []uint32{1049}, '?'))
+	if vt.mode.altScroll {
+		t.Fatal("alternate scroll was re-enabled leaving alternate screen")
+	}
 }
 
 func TestModeReportSaveCursor(t *testing.T) {

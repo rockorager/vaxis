@@ -402,9 +402,6 @@ func (vt *Model) switchAltScreen(mode int, enabled bool) {
 	if enabled {
 		vt.activeScreen = vt.altScreen
 		vt.mode.smcup = true
-		// Enable altScroll in the alt screen. This is only used if the
-		// application doesn't enable mouse.
-		vt.mode.altScroll = true
 		vt.scrollOffset = 0
 		if mode == 1049 {
 			vt.ed(2, false)
@@ -417,7 +414,6 @@ func (vt *Model) switchAltScreen(mode int, enabled bool) {
 
 	vt.activeScreen = vt.primaryScreen
 	vt.mode.smcup = false
-	vt.mode.altScroll = false
 	vt.scrollOffset = 0
 	if mode == 1049 && wasAlt {
 		vt.decrc()
