@@ -387,6 +387,13 @@ func (vt *Model) Resize(w int, h int) {
 }
 
 func (vt *Model) resize(w int, h int) {
+	oldWidth := vt.width()
+	defer func() {
+		if oldWidth != w {
+			vt.setDefaultTabStops()
+		}
+	}()
+
 	primary := vt.primaryScreen
 	alt := vt.altScreen
 	if primary.width() == w {

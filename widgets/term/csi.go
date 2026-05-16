@@ -410,12 +410,15 @@ func (vt *Model) cbt(ps int) {
 	if ps == 0 {
 		ps = 1
 	}
-	// Note: Same comment as in "cht".
-	newcol := vt.margin.left
+	leftLimit := column(0)
+	if vt.mode.decom {
+		leftLimit = vt.margin.left
+	}
+	newcol := leftLimit
 	if i, _ := slices.BinarySearch(vt.tabStop, vt.cursor.col); i > 0 {
 		i -= ps
 		if i >= 0 {
-			newcol = max(vt.tabStop[i], vt.margin.left)
+			newcol = max(vt.tabStop[i], leftLimit)
 		}
 	}
 	vt.cursor.col = newcol
@@ -426,7 +429,7 @@ func (vt *Model) tbc(ps int) {
 	switch ps {
 	case 0:
 		if i, found := slices.BinarySearch(vt.tabStop, vt.cursor.col); found {
-			slices.Delete(vt.tabStop, i, i+1)
+			vt.tabStop = slices.Delete(vt.tabStop, i, i+1)
 		}
 	case 3:
 		vt.tabStop = []column{}

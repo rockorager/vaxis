@@ -82,7 +82,7 @@ func (vt *Model) nel() {
 // Horizontal tab set ESC-H
 func (vt *Model) hts() {
 	if i, found := slices.BinarySearch(vt.tabStop, vt.cursor.col); !found {
-		slices.Insert(vt.tabStop, i, vt.cursor.col)
+		vt.tabStop = slices.Insert(vt.tabStop, i, vt.cursor.col)
 	}
 }
 
@@ -191,7 +191,11 @@ func (vt *Model) ris() {
 
 func (vt *Model) setDefaultTabStops() {
 	vt.tabStop = []column{}
-	for i := 8; i < (50 * 7); i += 8 {
+	width := vt.width()
+	if width == 0 {
+		width = 50 * 7
+	}
+	for i := 8; i < width; i += 8 {
 		vt.tabStop = append(vt.tabStop, column(i))
 	}
 }
