@@ -3,7 +3,6 @@ package term
 import (
 	"slices"
 
-	"git.sr.ht/~rockorager/vaxis"
 	"git.sr.ht/~rockorager/vaxis/ansi"
 )
 
@@ -16,31 +15,25 @@ func ps(seq ansi.CSI) int {
 // Insert Blank Character (ICH) CSI Ps @
 // Insert Ps blank characters. Cursor does not change position.
 func (vt *Model) ich(ps int) {
+	origCol := vt.cursor.col
 	vt.resetWrap()
 	if ps == 0 {
 		ps = 1
 	}
 	col := vt.cursor.col
+	if origCol < vt.margin.left || origCol > vt.margin.right {
+		return
+	}
 	row := vt.cursor.row
+	if remaining := int(vt.margin.right-col) + 1; ps > remaining {
+		ps = remaining
+	}
 	line := vt.activeScreen.line(row)
-	for i := vt.margin.right; i > col; i -= 1 {
-		if (i - column(ps)) < 0 {
-			continue
-		}
+	for i := vt.margin.right; i >= col+column(ps); i -= 1 {
 		line[i] = line[i-column(ps)]
 	}
 	for i := 0; i < ps; i += 1 {
-		if int(col)+i >= (vt.width() - 1) {
-			break
-		}
-		line[col+column(i)] = cell{
-			Cell: vaxis.Cell{
-				Character: vaxis.Character{
-					Grapheme: " ",
-					Width:    1,
-				},
-			},
-		}
+		line[col+column(i)].erase(vt.cursor.Style.Background)
 	}
 }
 
@@ -368,9 +361,13 @@ func (vt *Model) dl(ps int) {
 // character deleted. Character attributes move with the characters. The spaces
 // created at the end of the line have all their character attributes off.
 func (vt *Model) dch(ps int) {
+	origCol := vt.cursor.col
 	vt.resetWrap()
 	if ps == 0 {
 		ps = 1
+	}
+	if origCol < vt.margin.left || origCol > vt.margin.right {
+		return
 	}
 	row := vt.cursor.row
 	for col := vt.cursor.col; col <= vt.margin.right; col += 1 {
