@@ -66,6 +66,19 @@ func TestXTWINOPSReportTitle(t *testing.T) {
 	}
 }
 
+func TestRISClearsTitle(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.resize(80, 24)
+
+	vt.osc("2;My Title")
+	vt.update(testESC('c'))
+	vt.update(testCSI('t', []uint32{21}))
+
+	if got, want := readReply(t, r, len("\x1B]l\x1B\\")), "\x1B]l\x1B\\"; got != want {
+		t.Fatalf("title report after RIS = %q, want %q", got, want)
+	}
+}
+
 func TestXTWINOPSIgnoresUnknownReports(t *testing.T) {
 	vt, r := newReplyTestModel(t)
 	vt.resize(80, 24)
