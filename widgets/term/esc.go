@@ -206,20 +206,20 @@ func (vt *Model) ris() {
 	h := vt.height()
 	vt.altScreen = newScreenBuffer(w, h, 0)
 	vt.primaryScreen = newScreenBuffer(w, h, defaultScrollbackLines)
+	vt.margin.top = 0
 	vt.margin.bottom = row(h) - 1
+	vt.margin.left = 0
 	vt.margin.right = column(w) - 1
 	vt.cursor = cursor{}
 	vt.lastCol = false
+	vt.scrollOffset = 0
 	vt.activeScreen = vt.primaryScreen
 	vt.charsets = charsets{}
 	vt.title = ""
 	vt.status = statusDisplayMain
 	vt.previousChar = vaxis.Character{}
 	vt.hasPreviousChar = false
-	vt.mode = mode{
-		decawm:  true,
-		dectcem: true,
-	}
+	vt.mode = defaultMode()
 	vt.savedMode = mode{}
 	vt.primaryState = defaultCursorState()
 	vt.altState = defaultCursorState()

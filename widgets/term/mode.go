@@ -134,6 +134,17 @@ const (
 	statusDisplayLine
 )
 
+func defaultMode() mode {
+	return mode{
+		srm:                     true,
+		decawm:                  true,
+		dectcem:                 true,
+		altScroll:               true,
+		ignoreKeypadWithNumLock: true,
+		altEscPrefix:            true,
+	}
+}
+
 type mouseEventMode int
 
 const (

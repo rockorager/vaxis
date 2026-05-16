@@ -122,15 +122,8 @@ type margin struct {
 
 func New(opts ...Option) *Model {
 	m := &Model{
-		OSC8: true,
-		mode: mode{
-			srm:                     true,
-			decawm:                  true,
-			dectcem:                 true,
-			altScroll:               true,
-			ignoreKeypadWithNumLock: true,
-			altEscPrefix:            true,
-		},
+		OSC8:         true,
+		mode:         defaultMode(),
 		primaryState: defaultCursorState(),
 		altState:     defaultCursorState(),
 		eventHandler: func(ev vaxis.Event) {},
