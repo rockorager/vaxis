@@ -27,6 +27,30 @@ func TestHorizontalTabs(t *testing.T) {
 	}
 }
 
+func TestCursorHorizontalTabulationZeroDoesNotMove(t *testing.T) {
+	vt := New()
+	vt.resize(20, 5)
+	vt.cursor.col = 3
+
+	vt.update(testCSI('I', []uint32{0}))
+
+	if got, want := vt.cursor.col, column(3); got != want {
+		t.Fatalf("cursor after CSI 0 I = %d, want %d", got, want)
+	}
+}
+
+func TestCursorHorizontalTabulationDefaultMovesOnce(t *testing.T) {
+	vt := New()
+	vt.resize(20, 5)
+	vt.cursor.col = 3
+
+	vt.update(testCSI('I', nil))
+
+	if got, want := vt.cursor.col, column(8); got != want {
+		t.Fatalf("cursor after CSI I = %d, want %d", got, want)
+	}
+}
+
 func TestHorizontalTabsStartingOnTabStop(t *testing.T) {
 	vt := New()
 	vt.resize(20, 5)
@@ -78,6 +102,30 @@ func TestHorizontalTabsBack(t *testing.T) {
 	vt.cbt(1)
 	if got, want := vt.cursor.col, column(0); got != want {
 		t.Fatalf("cursor after repeated CBT at start = %d, want %d", got, want)
+	}
+}
+
+func TestCursorHorizontalTabulationBackZeroDoesNotMove(t *testing.T) {
+	vt := New()
+	vt.resize(20, 5)
+	vt.cursor.col = 10
+
+	vt.update(testCSI('Z', []uint32{0}))
+
+	if got, want := vt.cursor.col, column(10); got != want {
+		t.Fatalf("cursor after CSI 0 Z = %d, want %d", got, want)
+	}
+}
+
+func TestCursorHorizontalTabulationBackDefaultMovesOnce(t *testing.T) {
+	vt := New()
+	vt.resize(20, 5)
+	vt.cursor.col = 10
+
+	vt.update(testCSI('Z', nil))
+
+	if got, want := vt.cursor.col, column(8); got != want {
+		t.Fatalf("cursor after CSI Z = %d, want %d", got, want)
 	}
 }
 

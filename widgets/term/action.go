@@ -171,7 +171,7 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 			if !validCSIParamCount(seq, 1) {
 				return
 			}
-			vt.cht(ps(seq))
+			vt.cht(tabCount(seq))
 		case 'J':
 			vt.ed(ps(seq), false)
 		case 'K':
@@ -196,7 +196,7 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 			if !validCSIParamCount(seq, 1) {
 				return
 			}
-			vt.cbt(ps(seq))
+			vt.cbt(tabCount(seq))
 		case '`':
 			if !validCSIParamCount(seq, 1) {
 				return
@@ -320,6 +320,13 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 
 func validCSIParamCount(seq ansi.CSI, max int) bool {
 	return seq.NumParameters <= max
+}
+
+func tabCount(seq ansi.CSI) int {
+	if seq.NumParameters == 0 {
+		return 1
+	}
+	return seq.Param(0)
 }
 
 func defaultOne(n int) int {

@@ -223,8 +223,8 @@ func (vt *Model) setCursorPos(rowReq int, colReq int) {
 // Move cursor forward Ps tab stops
 func (vt *Model) cht(ps int) {
 	vt.resetWrap()
-	if ps == 0 {
-		ps = 1
+	if ps <= 0 {
+		return
 	}
 	// Note: Actually, should stop at the margin only when DECLRMM and
 	// DECOM (methinks) are set.  However, currently we implement neither
@@ -467,8 +467,8 @@ func (vt *Model) decsasd(seq ansi.CSI) {
 // Move cursor backward Ps tabulations
 func (vt *Model) cbt(ps int) {
 	vt.resetWrap()
-	if ps == 0 {
-		ps = 1
+	if ps <= 0 {
+		return
 	}
 	leftLimit := column(0)
 	if vt.mode.decom {
