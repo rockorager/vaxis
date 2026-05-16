@@ -196,7 +196,13 @@ func (win Window) PrintTruncate(row int, segs ...Segment) {
 	if row >= rows {
 		return
 	}
-	col := 0
+
+	type printCell struct {
+		char  Character
+		style Style
+	}
+
+	cells := []printCell{}
 	truncator := Character{
 		Grapheme: "…",
 		Width:    1,
@@ -207,19 +213,41 @@ func (win Window) PrintTruncate(row int, segs ...Segment) {
 				// characterWidth will cache the result
 				char.Width = win.Vx.characterWidth(char.Grapheme)
 			}
-			w := char.Width
-			cell := Cell{
-				Character: char,
-				Style:     seg.Style,
-			}
-			if col+truncator.Width+w > cols {
-				cell.Character = truncator
-				win.SetCell(col, row, cell)
-				return
-			}
-			win.SetCell(col, row, cell)
-			col += w
+			cells = append(cells, printCell{
+				char:  char,
+				style: seg.Style,
+			})
 		}
+	}
+
+	col := 0
+	for i, cell := range cells {
+		w := cell.char.Width
+		if col+w > cols {
+			if cols > 0 {
+				ellipsisCol := col
+				if ellipsisCol > cols-truncator.Width {
+					ellipsisCol = cols - truncator.Width
+				}
+				win.SetCell(ellipsisCol, row, Cell{
+					Character: truncator,
+					Style:     cell.style,
+				})
+			}
+			return
+		}
+		if i < len(cells)-1 && col+w >= cols {
+			win.SetCell(cols-truncator.Width, row, Cell{
+				Character: truncator,
+				Style:     cell.style,
+			})
+			return
+		}
+		win.SetCell(col, row, Cell{
+			Character: cell.char,
+			Style:     cell.style,
+		})
+		col += w
 	}
 }
 
