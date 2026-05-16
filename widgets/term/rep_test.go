@@ -88,7 +88,7 @@ func TestREPDoesNotTrackCombiningMarks(t *testing.T) {
 	vt.update(ansi.Print{Grapheme: "\u0301", Width: 0})
 	vt.update(testCSI('b', []uint32{1}))
 
-	if got, want := vt.String(), "AA  "; got != want {
+	if got, want := vt.String(), "ÁA  "; got != want {
 		t.Fatalf("screen mismatch: got %q want %q", got, want)
 	}
 }

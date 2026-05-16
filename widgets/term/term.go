@@ -668,6 +668,10 @@ func (vt *Model) print(seq ansi.Print) {
 		}
 		vt.hasPreviousChar = true
 	}
+	if w == 0 {
+		vt.appendZeroWidth(seq.Grapheme)
+		return
+	}
 
 	// handle wrapping
 	var wrap bool
@@ -715,12 +719,6 @@ func (vt *Model) print(seq ansi.Print) {
 		rw = row(vt.height() - 1)
 	}
 
-	if w == 0 {
-		if col-1 < 0 {
-			return
-		}
-		return
-	}
 	cell := cell{
 		Cell: vaxis.Cell{
 			Character: vaxis.Character{
@@ -753,6 +751,26 @@ func (vt *Model) print(seq ansi.Print) {
 	if vt.cursor.col >= vt.margin.right+1 && vt.mode.decawm {
 		vt.lastCol = true
 	}
+}
+
+func (vt *Model) appendZeroWidth(grapheme string) {
+	col := vt.cursor.col - 1
+	if vt.lastCol && vt.mode.decawm {
+		col = vt.margin.right
+	}
+	if col < 0 || col > vt.margin.right {
+		return
+	}
+
+	cell := vt.activeScreen.cell(vt.cursor.row, col)
+	if cell.Character.Width == 0 && cell.Character.Grapheme == " " && col > 0 {
+		col--
+		cell = vt.activeScreen.cell(vt.cursor.row, col)
+	}
+	if cell.Character.Grapheme == "" {
+		return
+	}
+	cell.Character.Grapheme += grapheme
 }
 
 // scrollUp shifts all text upward by n rows. Semantically, this is backwards -
