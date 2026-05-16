@@ -199,10 +199,13 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 			}
 			vt.dch(defaultOneIfMissing(seq))
 		case 'S':
-			vt.scrollUp(defaultOne(ps(seq)))
+			if !validCSIParamCount(seq, 1) {
+				return
+			}
+			vt.scrollUp(defaultOneIfMissing(seq))
 		case 'T':
-			if seq.NumParameters != 5 {
-				vt.scrollDown(defaultOne(ps(seq)))
+			if validCSIParamCount(seq, 1) {
+				vt.scrollDown(defaultOneIfMissing(seq))
 			}
 		case 'W':
 			vt.ctc(seq, false)
