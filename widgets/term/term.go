@@ -610,8 +610,9 @@ func (vt *Model) resetWrap() {
 }
 
 func (vt *Model) resetPendingWrap() {
+	pending := vt.lastCol
 	vt.lastCol = false
-	if vt.cursor.col > vt.margin.right {
+	if pending && vt.cursor.col > vt.margin.right {
 		vt.cursor.col = vt.margin.right
 	}
 }

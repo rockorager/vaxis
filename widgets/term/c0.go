@@ -25,17 +25,7 @@ func (vt *Model) c0(r rune) {
 
 // Backspace 0x08
 func (vt *Model) bs() {
-	vt.resetWrap()
-	if vt.cursor.col == vt.margin.left {
-		if vt.cursor.row == vt.margin.top {
-			return
-		}
-		// reverse wrap
-		vt.cursor.col = vt.margin.right
-		vt.cursor.row -= 1
-		return
-	}
-	vt.cursor.col -= 1
+	vt.cub(1)
 }
 
 // Horizontal tab 0x09

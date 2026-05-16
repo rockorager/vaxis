@@ -61,10 +61,14 @@ func (vt *Model) cud(ps int) {
 	if ps == 0 {
 		ps = 1
 	}
-	vt.cursor.row += row(ps)
-	if vt.cursor.row > vt.margin.bottom {
-		vt.cursor.row = vt.margin.bottom
+	max := row(vt.height()) - vt.cursor.row - 1
+	if vt.cursor.row <= vt.margin.bottom {
+		max = vt.margin.bottom - vt.cursor.row
 	}
+	if row(ps) > max {
+		ps = int(max)
+	}
+	vt.cursor.row += row(ps)
 }
 
 // Cursur Forward (CUF) CSI Ps C
@@ -74,23 +78,27 @@ func (vt *Model) cuf(ps int) {
 	if ps == 0 {
 		ps = 1
 	}
-	vt.cursor.col += column(ps)
-	if vt.cursor.col > vt.margin.right {
-		vt.cursor.col = vt.margin.right
+	max := column(vt.width()) - vt.cursor.col - 1
+	if vt.cursor.col <= vt.margin.right {
+		max = vt.margin.right - vt.cursor.col
 	}
+	if column(ps) > max {
+		ps = int(max)
+	}
+	vt.cursor.col += column(ps)
 }
 
 // Cursur Backward (CUB) CSI Ps D
-// Move cursor backward Ps columns, stopping at the left margin
+// Move cursor backward Ps columns, stopping at the left edge
 func (vt *Model) cub(ps int) {
 	vt.resetWrap()
 	if ps == 0 {
 		ps = 1
 	}
-	vt.cursor.col -= column(ps)
-	if vt.cursor.col < vt.margin.left {
-		vt.cursor.col = vt.margin.left
+	if column(ps) > vt.cursor.col {
+		ps = int(vt.cursor.col)
 	}
+	vt.cursor.col -= column(ps)
 }
 
 // Cursor Next Line (CNL) CSI Ps E
