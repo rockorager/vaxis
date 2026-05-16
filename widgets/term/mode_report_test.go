@@ -29,6 +29,33 @@ func TestModeReportUnknown(t *testing.T) {
 	}
 }
 
+func TestANSIModeReportInsertMode(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.resize(80, 24)
+
+	vt.update(testCSI('p', []uint32{4}, '$'))
+	if got, want := readReply(t, r, len("\x1B[4;2$y")), "\x1B[4;2$y"; got != want {
+		t.Fatalf("insert mode report = %q, want %q", got, want)
+	}
+
+	vt.update(testCSI('h', []uint32{4}))
+	vt.update(testCSI('p', []uint32{4}, '$'))
+	if got, want := readReply(t, r, len("\x1B[4;1$y")), "\x1B[4;1$y"; got != want {
+		t.Fatalf("insert mode report = %q, want %q", got, want)
+	}
+}
+
+func TestANSIModeReportUnknown(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.resize(80, 24)
+
+	vt.update(testCSI('p', []uint32{9999}, '$'))
+
+	if got, want := readReply(t, r, len("\x1B[9999;0$y")), "\x1B[9999;0$y"; got != want {
+		t.Fatalf("unknown ANSI mode report = %q, want %q", got, want)
+	}
+}
+
 func TestModeReportSaveCursor(t *testing.T) {
 	vt, r := newReplyTestModel(t)
 	vt.resize(80, 24)

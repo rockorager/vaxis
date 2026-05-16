@@ -210,10 +210,14 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 			if seq.Final == 'q' {
 				vt.cursor.style = vaxis.CursorStyle(ps(seq))
 			}
+		case '$':
+			if seq.Final == 'p' {
+				vt.decrqm(ps(seq), true)
+			}
 		}
 	case 2:
 		if seq.Intermediate[0] == '?' && seq.Intermediate[1] == '$' && seq.Final == 'p' {
-			vt.decrqm(ps(seq))
+			vt.decrqm(ps(seq), false)
 		}
 	}
 }

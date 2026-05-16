@@ -253,149 +253,72 @@ func (vt *Model) switchAltScreen(mode int, enabled bool) {
 	}
 }
 
-func (vt *Model) decrqm(pd int) {
+func (vt *Model) decrqm(pd int, ansiMode bool) {
 	ps := 0
+	if ansiMode {
+		switch pd {
+		case 2:
+			ps = modeReportState(vt.mode.kam)
+		case 4:
+			ps = modeReportState(vt.mode.irm)
+		case 12:
+			ps = modeReportState(vt.mode.srm)
+		case 20:
+			ps = modeReportState(vt.mode.lnm)
+		}
+		vt.enqueueReplyString(fmt.Sprintf("\x1B[%d;%d$y", pd, ps))
+		return
+	}
+
 	switch pd {
 	case 1:
-		switch vt.mode.decckm {
-		case true:
-			ps = 1
-		case false:
-			ps = 2
-		}
+		ps = modeReportState(vt.mode.decckm)
 	case 2:
-		switch vt.mode.decanm {
-		case true:
-			ps = 1
-		case false:
-			ps = 2
-		}
+		ps = modeReportState(vt.mode.decanm)
 	case 3:
-		switch vt.mode.deccolm {
-		case true:
-			ps = 1
-		case false:
-			ps = 2
-		}
+		ps = modeReportState(vt.mode.deccolm)
 	case 4:
-		switch vt.mode.decsclm {
-		case true:
-			ps = 1
-		case false:
-			ps = 2
-		}
+		ps = modeReportState(vt.mode.decsclm)
 	case 5:
 	case 6:
-		switch vt.mode.decom {
-		case true:
-			ps = 1
-		case false:
-			ps = 2
-		}
+		ps = modeReportState(vt.mode.decom)
 	case 7:
-		switch vt.mode.decawm {
-		case true:
-			ps = 1
-		case false:
-			ps = 2
-		}
+		ps = modeReportState(vt.mode.decawm)
 	case 8:
-		switch vt.mode.decarm {
-		case true:
-			ps = 1
-		case false:
-			ps = 2
-		}
+		ps = modeReportState(vt.mode.decarm)
 	case 25:
-		switch vt.mode.dectcem {
-		case true:
-			ps = 1
-		case false:
-			ps = 2
-		}
+		ps = modeReportState(vt.mode.dectcem)
 	case 69:
-		switch vt.mode.declrmm {
-		case true:
-			ps = 1
-		case false:
-			ps = 2
-		}
+		ps = modeReportState(vt.mode.declrmm)
 	case 9:
-		switch vt.mode.mouseX10 {
-		case true:
-			ps = 1
-		case false:
-			ps = 2
-		}
+		ps = modeReportState(vt.mode.mouseX10)
 	case 1000:
-		switch vt.mode.mouseButtons {
-		case true:
-			ps = 1
-		case false:
-			ps = 2
-		}
+		ps = modeReportState(vt.mode.mouseButtons)
 	case 1002:
-		switch vt.mode.mouseDrag {
-		case true:
-			ps = 1
-		case false:
-			ps = 2
-		}
+		ps = modeReportState(vt.mode.mouseDrag)
 	case 1003:
-		switch vt.mode.mouseMotion {
-		case true:
-			ps = 1
-		case false:
-			ps = 2
-		}
+		ps = modeReportState(vt.mode.mouseMotion)
 	case 1006:
-		switch vt.mode.mouseSGR {
-		case true:
-			ps = 1
-		case false:
-			ps = 2
-		}
+		ps = modeReportState(vt.mode.mouseSGR)
 	case 1004:
-		switch vt.mode.focusEvents {
-		case true:
-			ps = 1
-		case false:
-			ps = 2
-		}
+		ps = modeReportState(vt.mode.focusEvents)
 	case 1007:
-		switch vt.mode.altScroll {
-		case true:
-			ps = 1
-		case false:
-			ps = 2
-		}
+		ps = modeReportState(vt.mode.altScroll)
 	case 47, 1047, 1049:
-		switch vt.mode.smcup {
-		case true:
-			ps = 1
-		case false:
-			ps = 2
-		}
+		ps = modeReportState(vt.mode.smcup)
 	case 1048:
-		switch vt.mode.saveCursor {
-		case true:
-			ps = 1
-		case false:
-			ps = 2
-		}
+		ps = modeReportState(vt.mode.saveCursor)
 	case 2004:
-		switch vt.mode.paste {
-		case true:
-			ps = 1
-		case false:
-			ps = 2
-		}
+		ps = modeReportState(vt.mode.paste)
 	case 2031:
-		if vt.mode.colorScheme {
-			ps = 1
-		} else {
-			ps = 2
-		}
+		ps = modeReportState(vt.mode.colorScheme)
 	}
 	vt.enqueueReplyString(fmt.Sprintf("\x1B[?%d;%d$y", pd, ps))
+}
+
+func modeReportState(enabled bool) int {
+	if enabled {
+		return 1
+	}
+	return 2
 }
