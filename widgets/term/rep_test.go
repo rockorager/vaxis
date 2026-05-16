@@ -64,6 +64,18 @@ func TestREPDefaultsToOne(t *testing.T) {
 	}
 }
 
+func TestREPIgnoresMultipleParameters(t *testing.T) {
+	vt := New()
+	vt.resize(3, 1)
+
+	vt.update(testPrint("A"))
+	vt.update(testCSI('b', []uint32{2, 1}))
+
+	if got, want := vt.String(), "A  "; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}
+
 func TestRISClearsREPPreviousGraphic(t *testing.T) {
 	vt := New()
 	vt.resize(3, 1)

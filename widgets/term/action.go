@@ -175,7 +175,9 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 		case 'a':
 			vt.hpr(ps(seq))
 		case 'b':
-			vt.rep(ps(seq))
+			if seq.NumParameters <= 1 {
+				vt.rep(ps(seq))
+			}
 		case 'c':
 			vt.primaryDeviceAttributes()
 		case 'd':
