@@ -260,8 +260,16 @@ func (vt *Model) Start(cmd *exec.Cmd) error {
 
 // Update is called from the host application. This is user input
 func (vt *Model) Update(msg vaxis.Event) {
+	var pendingResize ptyResize
+	var pendingWrites []ptyWrite
 	vt.mu.Lock()
-	defer vt.mu.Unlock()
+	defer func() {
+		vt.mu.Unlock()
+		pendingResize.apply()
+		for _, write := range pendingWrites {
+			write.apply()
+		}
+	}()
 	vt.invalidate()
 	switch msg := msg.(type) {
 	case vaxis.Key:
@@ -273,13 +281,13 @@ func (vt *Model) Update(msg vaxis.Event) {
 		}
 		str := vt.encodeKey(msg)
 		str = vt.linefeedModeInput(str)
-		vt.writePtyString(str)
+		pendingWrites = append(pendingWrites, vt.pendingPtyWrite(str))
 	case vaxis.PasteStartEvent:
 		if vt.keyboardActionModeBlocksInput() {
 			return
 		}
 		if vt.mode.paste {
-			vt.writePtyString("\x1B[200~")
+			pendingWrites = append(pendingWrites, vt.pendingPtyWrite("\x1B[200~"))
 			return
 		}
 	case vaxis.PasteEndEvent:
@@ -287,24 +295,24 @@ func (vt *Model) Update(msg vaxis.Event) {
 			return
 		}
 		if vt.mode.paste {
-			vt.writePtyString("\x1B[201~")
+			pendingWrites = append(pendingWrites, vt.pendingPtyWrite("\x1B[201~"))
 			return
 		}
 	case vaxis.Mouse:
 		if promptClick := vt.handlePromptClick(msg); promptClick != "" {
-			vt.writePtyString(promptClick)
+			pendingWrites = append(pendingWrites, vt.pendingPtyWrite(promptClick))
 			return
 		}
 		if vt.handleViewportMouse(msg) {
 			return
 		}
 		mouse := vt.handleMouse(msg)
-		vt.writePtyString(mouse)
+		pendingWrites = append(pendingWrites, vt.pendingPtyWrite(mouse))
 		return
 	case vaxis.ColorThemeUpdate:
 		vt.theme = msg.Mode
 		if vt.mode.colorScheme {
-			vt.writePtyString(colorSchemeReport(msg.Mode))
+			pendingWrites = append(pendingWrites, vt.pendingPtyWrite(colorSchemeReport(msg.Mode)))
 			return
 		}
 	case vaxis.Resize:
@@ -313,19 +321,19 @@ func (vt *Model) Update(msg vaxis.Event) {
 		}
 		vt.size = msg
 		vt.resize(msg.Cols, msg.Rows)
-		vt.resizePty(msg.Cols, msg.Rows)
+		pendingResize = vt.pendingPtyResize(msg.Cols, msg.Rows)
 		if vt.mode.inBandSizeReports {
 			vt.inBandSizeReport()
 		}
 	case vaxis.FocusIn:
 		atomicStore(&vt.focused, true)
 		if vt.mode.focusEvents {
-			vt.reportFocus()
+			pendingWrites = append(pendingWrites, vt.pendingPtyWrite(vt.focusReport()))
 		}
 	case vaxis.FocusOut:
 		atomicStore(&vt.focused, false)
 		if vt.mode.focusEvents {
-			vt.reportFocus()
+			pendingWrites = append(pendingWrites, vt.pendingPtyWrite(vt.focusReport()))
 		}
 	}
 }
@@ -361,11 +369,23 @@ func (vt *Model) setSynchronizedOutput(enabled bool) {
 	})
 }
 
-func (vt *Model) writePtyString(s string) {
-	if vt.pty == nil || s == "" {
+type ptyWrite struct {
+	pty  *os.File
+	data string
+}
+
+func (write ptyWrite) apply() {
+	if write.pty == nil || write.data == "" {
 		return
 	}
-	_, _ = vt.pty.WriteString(s)
+	_, _ = write.pty.WriteString(write.data)
+}
+
+func (vt *Model) pendingPtyWrite(s string) ptyWrite {
+	if vt.pty == nil || s == "" {
+		return ptyWrite{}
+	}
+	return ptyWrite{pty: vt.pty, data: s}
 }
 
 // only call invalidate while a lock is held
@@ -534,18 +554,50 @@ func (vt *Model) recover() {
 }
 
 func (vt *Model) Resize(w int, h int) {
+	vt.mu.Lock()
 	vt.resize(w, h)
-	vt.resizePty(w, h)
+	pendingResize := vt.pendingPtyResize(w, h)
+	vt.mu.Unlock()
+	pendingResize.apply()
 }
 
-func (vt *Model) resizePty(w int, h int) {
-	if vt.pty == nil {
+type ptyResize struct {
+	pty *os.File
+	w   int
+	h   int
+}
+
+func (resize ptyResize) apply() {
+	if resize.pty == nil {
 		return
 	}
-	_ = pty.Setsize(vt.pty, &pty.Winsize{
-		Cols: uint16(w),
-		Rows: uint16(h),
+	_ = pty.Setsize(resize.pty, &pty.Winsize{
+		Cols: uint16(resize.w),
+		Rows: uint16(resize.h),
 	})
+}
+
+func (vt *Model) pendingPtyResize(w int, h int) ptyResize {
+	if vt.pty == nil {
+		return ptyResize{}
+	}
+	return ptyResize{pty: vt.pty, w: w, h: h}
+}
+
+type drawSnapshot struct {
+	cells         []positionedCell
+	cursorCol     int
+	cursorRow     int
+	cursorStyle   vaxis.CursorStyle
+	cursorVisible bool
+	graphics      []*Image
+	vx            *vaxis.Vaxis
+}
+
+type positionedCell struct {
+	col  int
+	row  int
+	cell vaxis.Cell
 }
 
 func (vt *Model) resize(w int, h int) {
@@ -1152,28 +1204,59 @@ func (vt *Model) scrollDown(n int) {
 
 func (vt *Model) Close() {
 	vt.mu.Lock()
-	defer vt.mu.Unlock()
 	vt.stopReplyWorker()
+	cmd := vt.cmd
+	ptyFile := vt.pty
+	vt.pty = nil
 	if vt.cmd != nil && vt.cmd.Process != nil {
-		vt.cmd.Process.Kill()
+		cmd = vt.cmd
 	}
 	if vt.syncTimer != nil {
 		vt.syncTimer.Stop()
 		vt.syncTimer = nil
 	}
-	vt.pty.Close()
+	vt.mu.Unlock()
+
+	if cmd != nil && cmd.Process != nil {
+		_ = cmd.Process.Kill()
+	}
+	if ptyFile != nil {
+		_ = ptyFile.Close()
+	}
 }
 
 func (vt *Model) Draw(win vaxis.Window) {
+	var pendingResize ptyResize
+	var snapshot drawSnapshot
 	vt.mu.Lock()
-	defer vt.mu.Unlock()
 	vt.dirty = false
 	width, height := win.Size()
 	if int(width) != vt.width() || int(height) != vt.height() {
 		win.Width = width
 		win.Height = height
-		vt.Resize(width, height)
+		vt.resize(width, height)
+		pendingResize = vt.pendingPtyResize(width, height)
 	}
+	snapshot = vt.snapshotDraw(win.Vx)
+	vt.mu.Unlock()
+	pendingResize.apply()
+
+	for _, cell := range snapshot.cells {
+		win.SetCell(cell.col, cell.row, cell.cell)
+	}
+	if snapshot.cursorVisible {
+		win.ShowCursor(snapshot.cursorCol, snapshot.cursorRow, snapshot.cursorStyle)
+	}
+	vt.drawGraphics(win, snapshot.vx, snapshot.graphics)
+}
+
+func (vt *Model) snapshotDraw(vx *vaxis.Vaxis) drawSnapshot {
+	snapshot := drawSnapshot{
+		cells:    make([]positionedCell, 0, vt.width()*vt.height()),
+		graphics: append([]*Image(nil), vt.graphics...),
+		vx:       vx,
+	}
+	vt.vx = vx
 	for r := 0; r < vt.height(); r += 1 {
 		line := vt.visibleLine(r)
 		for col := 0; col < vt.width(); {
@@ -1184,7 +1267,11 @@ func (vt *Model) Draw(win vaxis.Window) {
 				cell.Grapheme = " "
 			}
 
-			win.SetCell(col, r, vt.renderCell(cell.Cell))
+			snapshot.cells = append(snapshot.cells, positionedCell{
+				col:  col,
+				row:  r,
+				cell: vt.renderCell(cell.Cell),
+			})
 			if w == 0 {
 				w = 1
 			}
@@ -1192,22 +1279,23 @@ func (vt *Model) Draw(win vaxis.Window) {
 		}
 	}
 	if cursorCol, cursorRow, ok := vt.cursorViewportPosition(); ok {
-		win.ShowCursor(cursorCol, cursorRow, vt.effectiveCursorStyle())
-	} else if win.Vx != nil {
-		win.Vx.HideCursor()
+		snapshot.cursorCol = cursorCol
+		snapshot.cursorRow = cursorRow
+		snapshot.cursorStyle = vt.effectiveCursorStyle()
+		snapshot.cursorVisible = true
 	}
-	vx := win.Vx
-	vt.vx = vx
+	return snapshot
+}
+
+func (vt *Model) drawGraphics(win vaxis.Window, vx *vaxis.Vaxis, graphics []*Image) {
+	if vx == nil {
+		return
+	}
 outer:
-	for _, img := range vt.graphics {
-		for _, imgVx := range img.vaxii {
-			if vx != imgVx.vx {
-				continue
-			}
-			// We have already created an image for this
-			// Vaxis. All we have to do is draw it
+	for _, img := range graphics {
+		if vxImg := vt.cachedVaxisImage(img, vx); vxImg != nil {
 			win := win.New(img.origin.col, img.origin.row, -1, -1)
-			imgVx.vxImage.Draw(win)
+			vxImg.Draw(win)
 			continue outer
 		}
 		// We haven't encountered this vaxis before
@@ -1219,11 +1307,37 @@ outer:
 		// We "resize" the image to the full window size. This will
 		// trigger the encoding
 		vxImg.Resize(win.Size())
-		img.vaxii = append(img.vaxii, &vaxisImage{
-			vx:      vx,
-			vxImage: vxImg,
-		})
+		if cached, ok := vt.cacheVaxisImage(img, vx, vxImg); ok {
+			win := win.New(img.origin.col, img.origin.row, -1, -1)
+			cached.Draw(win)
+		}
 	}
+}
+
+func (vt *Model) cachedVaxisImage(img *Image, vx *vaxis.Vaxis) vaxis.Image {
+	vt.mu.Lock()
+	defer vt.mu.Unlock()
+	for _, imgVx := range img.vaxii {
+		if vx == imgVx.vx {
+			return imgVx.vxImage
+		}
+	}
+	return nil
+}
+
+func (vt *Model) cacheVaxisImage(img *Image, vx *vaxis.Vaxis, vxImg vaxis.Image) (vaxis.Image, bool) {
+	vt.mu.Lock()
+	defer vt.mu.Unlock()
+	for _, imgVx := range img.vaxii {
+		if vx == imgVx.vx {
+			return imgVx.vxImage, true
+		}
+	}
+	img.vaxii = append(img.vaxii, &vaxisImage{
+		vx:      vx,
+		vxImage: vxImg,
+	})
+	return nil, false
 }
 
 func (vt *Model) cursorViewportPosition() (int, int, bool) {
@@ -1251,29 +1365,32 @@ func (vt *Model) renderCell(cell vaxis.Cell) vaxis.Cell {
 }
 
 func (vt *Model) Focus() {
+	var pendingWrite ptyWrite
 	vt.mu.Lock()
-	defer vt.mu.Unlock()
 	atomicStore(&vt.focused, true)
 	if vt.mode.focusEvents {
-		vt.reportFocus()
+		pendingWrite = vt.pendingPtyWrite(vt.focusReport())
 	}
+	vt.mu.Unlock()
+	pendingWrite.apply()
 }
 
 func (vt *Model) Blur() {
+	var pendingWrite ptyWrite
 	vt.mu.Lock()
-	defer vt.mu.Unlock()
 	atomicStore(&vt.focused, false)
 	if vt.mode.focusEvents {
-		vt.reportFocus()
+		pendingWrite = vt.pendingPtyWrite(vt.focusReport())
 	}
+	vt.mu.Unlock()
+	pendingWrite.apply()
 }
 
-func (vt *Model) reportFocus() {
+func (vt *Model) focusReport() string {
 	if atomicLoad(&vt.focused) {
-		vt.writePtyString("\x1b[I")
-		return
+		return "\x1b[I"
 	}
-	vt.writePtyString("\x1b[O")
+	return "\x1b[O"
 }
 
 // func (vt *VT) HandleEvent(e tcell.Event) bool {

@@ -266,7 +266,7 @@ func (vt *Model) setDECMode(param int, enabled bool) {
 	case 1004:
 		vt.mode.focusEvents = enabled
 		if enabled {
-			vt.reportFocus()
+			vt.enqueueReplyString(vt.focusReport())
 		}
 	case 1007:
 		vt.mode.altScroll = enabled

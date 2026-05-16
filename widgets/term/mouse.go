@@ -14,13 +14,9 @@ func (vt *Model) handleMouse(msg vaxis.Mouse) string {
 			// Translate wheel motion into arrows up and down
 			// 3x rows
 			if msg.Button == vaxis.MouseWheelUp {
-				vt.writePtyString("\x1bOA")
-				vt.writePtyString("\x1bOA")
-				vt.writePtyString("\x1bOA")
+				return "\x1bOA\x1bOA\x1bOA"
 			} else if msg.Button == vaxis.MouseWheelDown {
-				vt.writePtyString("\x1bOB")
-				vt.writePtyString("\x1bOB")
-				vt.writePtyString("\x1bOB")
+				return "\x1bOB\x1bOB\x1bOB"
 			}
 		}
 		return ""

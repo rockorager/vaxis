@@ -20,6 +20,15 @@ func TestInputWithoutPtyDoesNotPanic(t *testing.T) {
 	})
 }
 
+func TestCloseWithoutPtyDoesNotPanic(t *testing.T) {
+	vt := New()
+
+	withoutPanic(t, func() {
+		vt.Close()
+		vt.Close()
+	})
+}
+
 func TestKeyboardActionModeDoesNotSuppressInputByDefault(t *testing.T) {
 	vt, r := newReplyTestModel(t)
 
