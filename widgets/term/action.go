@@ -164,6 +164,8 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 			if seq.NumParameters != 5 {
 				vt.scrollDown(defaultOne(ps(seq)))
 			}
+		case 'W':
+			vt.ctc(seq, false)
 		case 'X':
 			vt.ech(ps(seq))
 		case 'Z':
@@ -219,6 +221,8 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 				vt.ed(ps(seq), true)
 			case 'K':
 				vt.el(ps(seq), true)
+			case 'W':
+				vt.ctc(seq, true)
 			case 'l':
 				vt.decrst(seq)
 			}

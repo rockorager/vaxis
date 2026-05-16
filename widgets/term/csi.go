@@ -441,6 +441,29 @@ func (vt *Model) tbc(ps int) {
 	}
 }
 
+func (vt *Model) ctc(seq ansi.CSI, private bool) {
+	if private {
+		if seq.NumParameters == 1 && ps(seq) == 5 {
+			vt.setDefaultTabStops()
+		}
+		return
+	}
+
+	switch {
+	case seq.NumParameters == 0:
+		vt.hts()
+	case seq.NumParameters == 1:
+		switch ps(seq) {
+		case 0:
+			vt.hts()
+		case 2:
+			vt.tbc(0)
+		case 5:
+			vt.tbc(3)
+		}
+	}
+}
+
 // Line Position Absolute (VPA) CSI Ps d
 //
 // Move cursor to line Ps

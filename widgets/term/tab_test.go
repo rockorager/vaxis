@@ -144,6 +144,44 @@ func TestTabClearAll(t *testing.T) {
 	}
 }
 
+func TestCursorTabulationControlSetAndClear(t *testing.T) {
+	vt := New()
+	vt.resize(20, 5)
+	vt.cursor.col = 3
+
+	vt.update(testCSI('W', nil))
+	vt.cursor.col = 0
+	vt.ht()
+	if got, want := vt.cursor.col, column(3); got != want {
+		t.Fatalf("cursor after CSI W tab set = %d, want %d", got, want)
+	}
+
+	vt.update(testCSI('W', []uint32{2}))
+	vt.cursor.col = 0
+	vt.ht()
+	if got, want := vt.cursor.col, column(8); got != want {
+		t.Fatalf("cursor after CSI 2 W tab clear = %d, want %d", got, want)
+	}
+}
+
+func TestCursorTabulationControlClearAllAndReset(t *testing.T) {
+	vt := New()
+	vt.resize(20, 5)
+
+	vt.update(testCSI('W', []uint32{5}))
+	vt.ht()
+	if got, want := vt.cursor.col, column(19); got != want {
+		t.Fatalf("cursor after CSI 5 W clear all = %d, want %d", got, want)
+	}
+
+	vt.update(testCSI('W', []uint32{5}, '?'))
+	vt.cursor.col = 0
+	vt.ht()
+	if got, want := vt.cursor.col, column(8); got != want {
+		t.Fatalf("cursor after CSI ? 5 W tab reset = %d, want %d", got, want)
+	}
+}
+
 func TestResizeResetsTabStopsForNewWidth(t *testing.T) {
 	vt := New()
 	vt.resize(4, 1)
