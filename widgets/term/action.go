@@ -191,7 +191,7 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 		case 'm':
 			vt.sgr(seq)
 		case 'n':
-			vt.deviceStatusReport(ps(seq))
+			vt.deviceStatusReport(ps(seq), false)
 		case 'r':
 			vt.decstbm(seq)
 		case 's':
@@ -223,6 +223,8 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 				vt.ed(ps(seq), true)
 			case 'K':
 				vt.el(ps(seq), true)
+			case 'n':
+				vt.deviceStatusReport(ps(seq), true)
 			case 'W':
 				vt.ctc(seq, true)
 			case 'l':
@@ -269,7 +271,17 @@ func (vt *Model) tertiaryDeviceAttributes() {
 	vt.enqueueReplyString("\x1BP!|00000000\x1B\\")
 }
 
-func (vt *Model) deviceStatusReport(n int) {
+func (vt *Model) deviceStatusReport(n int, private bool) {
+	if private {
+		switch n {
+		case 996:
+			if vt.theme != 0 {
+				vt.enqueueReplyString(fmt.Sprintf("\x1B[?997;%dn", vt.theme))
+			}
+		}
+		return
+	}
+
 	switch n {
 	case 5:
 		vt.enqueueReplyString("\x1B[0n")

@@ -47,6 +47,7 @@ type Model struct {
 	mode     mode
 	tabStop  []column
 	title    string
+	theme    vaxis.ColorThemeMode
 	// lastCol is a flag indicating we printed in the last col
 	lastCol bool
 	// scrollOffset is the number of historical rows above the active screen
@@ -213,6 +214,7 @@ func (vt *Model) Update(msg vaxis.Event) {
 		vt.writePtyString(mouse)
 		return
 	case vaxis.ColorThemeUpdate:
+		vt.theme = msg.Mode
 		if vt.mode.colorScheme {
 			vt.writePtyString(fmt.Sprintf("\x1b[?997;%dn", msg.Mode))
 			return
