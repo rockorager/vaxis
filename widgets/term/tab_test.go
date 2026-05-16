@@ -254,7 +254,7 @@ func TestCursorTabulationControlSetAndClear(t *testing.T) {
 	}
 }
 
-func TestCursorTabulationControlClearAllAndReset(t *testing.T) {
+func TestCursorTabulationControlClearAll(t *testing.T) {
 	vt := New()
 	vt.resize(20, 5)
 
@@ -263,12 +263,18 @@ func TestCursorTabulationControlClearAllAndReset(t *testing.T) {
 	if got, want := vt.cursor.col, column(19); got != want {
 		t.Fatalf("cursor after CSI 5 W clear all = %d, want %d", got, want)
 	}
+}
 
+func TestPrivateCursorTabulationControlIgnored(t *testing.T) {
+	vt := New()
+	vt.resize(20, 5)
+
+	vt.update(testCSI('W', []uint32{5}))
 	vt.update(testCSI('W', []uint32{5}, '?'))
 	vt.cursor.col = 0
 	vt.ht()
-	if got, want := vt.cursor.col, column(8); got != want {
-		t.Fatalf("cursor after CSI ? 5 W tab reset = %d, want %d", got, want)
+	if got, want := vt.cursor.col, column(19); got != want {
+		t.Fatalf("cursor after private CSI ? 5 W = %d, want %d", got, want)
 	}
 }
 

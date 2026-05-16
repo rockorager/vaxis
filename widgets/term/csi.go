@@ -498,9 +498,6 @@ func (vt *Model) tbc(ps int) {
 
 func (vt *Model) ctc(seq ansi.CSI, private bool) {
 	if private {
-		if seq.NumParameters == 1 && ps(seq) == 5 {
-			vt.setDefaultTabStops()
-		}
 		return
 	}
 
