@@ -46,6 +46,20 @@ func TestScreenBufferDoesNotCapturePartialRegionScrollback(t *testing.T) {
 	}
 }
 
+func TestScreenBufferScrollPreservesRowMetadata(t *testing.T) {
+	screen := newScreenBuffer(3, 3, 0)
+	screen.row(1).wrapped = true
+
+	screen.scrollUp(0, 2, 0, 2, 1, 0)
+
+	if !screen.row(0).wrapped {
+		t.Fatal("wrapped metadata did not move with scrolled row")
+	}
+	if screen.row(2).wrapped {
+		t.Fatal("blank inserted row kept stale wrapped metadata")
+	}
+}
+
 func cellString(s string) cell {
 	return cell{
 		Cell: vaxis.Cell{

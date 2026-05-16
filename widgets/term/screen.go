@@ -16,8 +16,13 @@ type screenState struct {
 	width           int
 	height          int
 	cells           []cell
+	rows            []screenRow
 	scrollback      []screenLine
 	scrollbackLimit int
+}
+
+type screenRow struct {
+	wrapped bool
 }
 
 type screenLine []cell
@@ -28,6 +33,7 @@ func newScreenBuffer(width int, height int, scrollbackLimit int) screenBuffer {
 			width:           width,
 			height:          height,
 			cells:           make([]cell, width*height),
+			rows:            make([]screenRow, height),
 			scrollbackLimit: scrollbackLimit,
 		},
 	}
@@ -50,6 +56,10 @@ func (s screenBuffer) height() int {
 func (s screenBuffer) line(r row) []cell {
 	start := int(r) * s.state.width
 	return s.state.cells[start : start+s.state.width]
+}
+
+func (s screenBuffer) row(r row) *screenRow {
+	return &s.state.rows[r]
 }
 
 func (s screenBuffer) cell(r row, c column) *cell {
@@ -86,9 +96,11 @@ func (s screenBuffer) scrollUp(top row, bottom row, left column, right column, n
 		}
 		if r+n > int(bottom) {
 			s.eraseRowRange(row(r), left, right, bg)
+			s.state.rows[r] = screenRow{}
 			continue
 		}
 		copy(s.line(row(r)), s.line(row(r+n)))
+		s.state.rows[r] = s.state.rows[r+n]
 	}
 }
 
@@ -96,9 +108,11 @@ func (s screenBuffer) scrollDown(top row, bottom row, left column, right column,
 	for r := bottom; r >= top; r -= 1 {
 		if r-row(n) < top {
 			s.eraseRowRange(r, left, right, bg)
+			s.state.rows[r] = screenRow{}
 			continue
 		}
 		copy(s.line(r), s.line(r-row(n)))
+		s.state.rows[r] = s.state.rows[r-row(n)]
 	}
 }
 

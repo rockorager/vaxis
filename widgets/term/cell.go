@@ -6,7 +6,6 @@ import (
 
 type cell struct {
 	vaxis.Cell
-	wrapped bool
 }
 
 func (c *cell) rune() string {

@@ -324,8 +324,8 @@ func (vt *Model) resize(w int, h int) {
 				Grapheme: cell.Character.Grapheme,
 				Width:    cell.Character.Width,
 			})
-			wrapped = cell.wrapped
 		}
+		wrapped = primary.row(row(r)).wrapped
 		if !wrapped {
 			vt.nel()
 		}
@@ -382,7 +382,7 @@ func (vt *Model) print(seq ansi.Print) {
 
 	if wrap {
 		vt.lastCol = false
-		vt.activeScreen.cell(vt.cursor.row, column(vt.width()-1)).wrapped = true
+		vt.activeScreen.row(vt.cursor.row).wrapped = true
 		vt.nel()
 	}
 
