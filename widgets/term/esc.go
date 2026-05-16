@@ -249,7 +249,7 @@ func (vt *Model) ris() {
 	vt.status = statusDisplayMain
 	vt.previousChar = vaxis.Character{}
 	vt.hasPreviousChar = false
-	vt.graphics = nil
+	vt.clearGraphicsLocked()
 	vt.setSynchronizedOutput(false)
 	vt.mode = defaultMode()
 	vt.savedMode = mode{}

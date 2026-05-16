@@ -739,6 +739,7 @@ func (vt *Model) resize(w int, h int) {
 		} else {
 			vt.activeScreen = vt.primaryScreen
 		}
+		vt.reflowGraphics(primary, oldWidth)
 		vt.clampCursor()
 		return
 	}
@@ -754,6 +755,9 @@ reflowResize:
 	}
 	if !vt.mode.decawm {
 		vt.resizeNoReflow(w, h, primary, alt)
+		if oldWidth != w {
+			vt.clearGraphicsLocked()
+		}
 		return
 	}
 	if vt.mode.smcup {
@@ -808,6 +812,7 @@ reflowResize:
 		vt.cursor.col = column(w) - 1
 	}
 	vt.remapViewportAfterReflow(primary, viewportSourceRow, w)
+	vt.reflowGraphics(primary, oldWidth)
 	vt.clampScrollOffset()
 }
 
@@ -861,6 +866,54 @@ func (vt *Model) remapViewportAfterReflow(oldPrimary screenBuffer, viewportSourc
 		return
 	}
 	vt.scrollOffset = historyLen - reflowRow
+}
+
+func (vt *Model) reflowGraphics(oldPrimary screenBuffer, oldWidth int) {
+	if vt.mode.smcup || len(vt.graphics) == 0 {
+		return
+	}
+	if oldWidth <= 0 || oldWidth == vt.width() {
+		vt.validateGraphics()
+		return
+	}
+	kept := vt.graphics[:0]
+	for _, img := range vt.graphics {
+		sourceRow, col, ok := oldPrimary.reflowSourcePosition(vt.width(), img.sourceRow, img.origin.col)
+		if !ok {
+			img.destroy()
+			continue
+		}
+		img.sourceRow = sourceRow
+		img.origin.col = col
+		if !vt.graphicFits(img) {
+			img.destroy()
+			continue
+		}
+		kept = append(kept, img)
+	}
+	vt.graphics = kept
+}
+
+func (vt *Model) validateGraphics() {
+	kept := vt.graphics[:0]
+	for _, img := range vt.graphics {
+		if !vt.graphicFits(img) {
+			img.destroy()
+			continue
+		}
+		kept = append(kept, img)
+	}
+	vt.graphics = kept
+}
+
+func (vt *Model) graphicFits(img *Image) bool {
+	if img.sourceRow < 0 || img.sourceRow+img.rows > vt.activeScreen.scrollbackLen()+vt.height() {
+		return false
+	}
+	if img.origin.col < 0 || img.origin.col+img.cols > vt.width() {
+		return false
+	}
+	return true
 }
 
 func (vt *Model) resetMargins(w int, h int) {
@@ -1300,6 +1353,15 @@ func (vt *Model) shiftGraphicsSourceRows(dropped int) {
 		kept = append(kept, img)
 	}
 	vt.graphics = kept
+}
+
+func (vt *Model) clearGraphicsLocked() {
+	for _, img := range vt.graphics {
+		for _, cached := range img.vaxii {
+			cached.vx.RemoveImage(cached.vxImage)
+		}
+	}
+	vt.graphics = nil
 }
 
 func (vt *Model) Close() {

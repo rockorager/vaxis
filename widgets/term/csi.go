@@ -268,14 +268,14 @@ func (vt *Model) ed(ps int, forceProtected bool) {
 			vt.activeScreen.eraseRowProtected(r, 0, column(vt.width()-1), vt.cursor.Style.Background, protect)
 		}
 
-	// Erases the complete display. All lines are erased and changed to
-	// single-width. The cursor does not move.
+		// Erases the complete display. All lines are erased and changed to
+		// single-width. The cursor does not move.
 	case 2:
 		vt.clearSelectionLocked()
 		if vt.shouldScrollClearAtSemanticPrompt() {
 			vt.activeScreen.scrollClear(vt.cursor.Style.Background)
 		}
-		vt.graphics = nil
+		vt.clearGraphicsLocked()
 		vt.resetPendingWrap()
 		for r := row(0); r < row(vt.height()); r += 1 {
 			vt.activeScreen.eraseRowProtected(r, 0, column(vt.width()-1), vt.cursor.Style.Background, protect)
@@ -292,7 +292,7 @@ func (vt *Model) ed(ps int, forceProtected bool) {
 		vt.clearSelectionLocked()
 		vt.activeScreen.clearScrollback()
 		vt.clampScrollOffset()
-		vt.graphics = nil
+		vt.clearGraphicsLocked()
 		vt.resetPendingWrap()
 		for r := row(0); r < row(vt.height()); r += 1 {
 			vt.activeScreen.eraseRowProtected(r, 0, column(vt.width()-1), vt.cursor.Style.Background, protect)

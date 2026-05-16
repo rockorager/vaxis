@@ -448,6 +448,72 @@ func TestSixelHiddenWhenScrolledOffscreenThenVisibleInScrollback(t *testing.T) {
 	}
 }
 
+func TestSixelReflowsWithWrappedText(t *testing.T) {
+	vt := New()
+	vt.resize(4, 3)
+	vt.size = vaxis.Resize{Cols: 4, Rows: 3, XPixel: 4, YPixel: 18}
+	printText(vt, "abcd")
+	vt.cr()
+	vt.lf()
+	printText(vt, "efgh")
+	vt.cursor.row = 1
+	vt.cursor.col = 2
+
+	vt.update(ansi.DCS{
+		Final: 'q',
+		Data:  []rune("#0;2;100;0;0#0@"),
+	})
+
+	vt.resize(2, 3)
+
+	if len(vt.graphics) != 1 {
+		t.Fatalf("graphics len = %d, want 1", len(vt.graphics))
+	}
+	img := vt.graphics[0]
+	if img.sourceRow != 3 || img.origin.col != 0 {
+		t.Fatalf("sixel source/origin = %d,%d, want 3,0", img.sourceRow, img.origin.col)
+	}
+}
+
+func TestSixelDroppedWhenReflowMovesBeyondRightEdge(t *testing.T) {
+	vt := New()
+	vt.resize(4, 3)
+	vt.size = vaxis.Resize{Cols: 4, Rows: 3, XPixel: 4, YPixel: 18}
+	vt.cursor.row = 1
+	vt.cursor.col = 3
+
+	vt.update(ansi.DCS{
+		Final: 'q',
+		Data:  []rune("#0;2;100;0;0#0~~"),
+	})
+
+	vt.resize(2, 3)
+
+	if len(vt.graphics) != 0 {
+		t.Fatalf("graphics len = %d, want 0", len(vt.graphics))
+	}
+}
+
+func TestSixelDroppedOnNoReflowWidthChange(t *testing.T) {
+	vt := New()
+	vt.resize(4, 3)
+	vt.size = vaxis.Resize{Cols: 4, Rows: 3, XPixel: 4, YPixel: 18}
+	vt.mode.decawm = false
+	vt.cursor.row = 1
+	vt.cursor.col = 1
+
+	vt.update(ansi.DCS{
+		Final: 'q',
+		Data:  []rune("#0;2;100;0;0#0@"),
+	})
+
+	vt.resize(2, 3)
+
+	if len(vt.graphics) != 0 {
+		t.Fatalf("graphics len = %d, want 0", len(vt.graphics))
+	}
+}
+
 func TestRISClearsSixelGraphics(t *testing.T) {
 	vt := New()
 	vt.resize(80, 24)
