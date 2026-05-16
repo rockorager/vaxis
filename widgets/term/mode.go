@@ -50,6 +50,8 @@ type mode struct {
 	deckpam bool
 	// Normal keypad
 	deckpnm bool
+	// Backarrow key mode
+	decbkm bool
 	// Enable left and right margins
 	declrmm bool
 
@@ -175,6 +177,11 @@ func (vt *Model) setDECMode(param int, enabled bool) {
 		vt.mode.reverseWrap = enabled
 	case 25:
 		vt.mode.dectcem = enabled
+	case 66:
+		vt.mode.deckpam = enabled
+		vt.mode.deckpnm = !enabled
+	case 67:
+		vt.mode.decbkm = enabled
 	case 69:
 		vt.mode.declrmm = enabled
 		if !enabled {
@@ -249,6 +256,10 @@ func (vt *Model) decModeValue(param int) bool {
 		return vt.mode.reverseWrap
 	case 25:
 		return vt.mode.dectcem
+	case 66:
+		return vt.mode.deckpam
+	case 67:
+		return vt.mode.decbkm
 	case 69:
 		return vt.mode.declrmm
 	case 9:
@@ -308,6 +319,10 @@ func savedModeValue(m mode, param int) bool {
 		return m.reverseWrap
 	case 25:
 		return m.dectcem
+	case 66:
+		return m.deckpam
+	case 67:
+		return m.decbkm
 	case 69:
 		return m.declrmm
 	case 9:
@@ -359,6 +374,11 @@ func setModeValue(m *mode, param int, enabled bool) {
 		m.reverseWrap = enabled
 	case 25:
 		m.dectcem = enabled
+	case 66:
+		m.deckpam = enabled
+		m.deckpnm = !enabled
+	case 67:
+		m.decbkm = enabled
 	case 69:
 		m.declrmm = enabled
 	case 9:
@@ -465,6 +485,10 @@ func (vt *Model) decrqm(pd int, ansiMode bool) {
 		ps = modeReportState(vt.mode.reverseWrap)
 	case 25:
 		ps = modeReportState(vt.mode.dectcem)
+	case 66:
+		ps = modeReportState(vt.mode.deckpam)
+	case 67:
+		ps = modeReportState(vt.mode.decbkm)
 	case 69:
 		ps = modeReportState(vt.mode.declrmm)
 	case 9:

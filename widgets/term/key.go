@@ -17,13 +17,30 @@ const (
 	kittyKeyboardFlagAssociatedText   = 1 << 4
 )
 
-// TODO we assume it's always application keys. Add in the right modes and
-// encode properly
-func encodeXterm(key vaxis.Key, deckpam bool, decckm bool) string {
+func encodeXterm(key vaxis.Key, deckpam bool, decckm bool, decbkm bool) string {
 	// ignore any kitty mods
 	xtermMods := key.Modifiers & vaxis.ModShift
 	xtermMods |= key.Modifiers & vaxis.ModAlt
 	xtermMods |= key.Modifiers & vaxis.ModCtrl
+
+	if key.Keycode == vaxis.KeyBackspace {
+		seq := "\x7f"
+		if decbkm {
+			seq = "\x08"
+		}
+		if xtermMods&vaxis.ModCtrl != 0 {
+			if decbkm {
+				seq = "\x7f"
+			} else {
+				seq = "\x08"
+			}
+		}
+		if xtermMods&vaxis.ModAlt != 0 {
+			return "\x1b" + seq
+		}
+		return seq
+	}
+
 	if xtermMods == 0 {
 		// function keys
 		if val, ok := keymap[key.Keycode]; ok {
@@ -130,7 +147,7 @@ func (vt *Model) encodeKey(key vaxis.Key) string {
 			return seq
 		}
 	}
-	return encodeXterm(key, vt.mode.deckpam, vt.mode.decckm)
+	return encodeXterm(key, vt.mode.deckpam, vt.mode.decckm, vt.mode.decbkm)
 }
 
 func encodeModifyOtherKeys(key vaxis.Key) string {
@@ -301,17 +318,71 @@ var cursorKeysNormalMode = map[rune]string{
 // with kitty keyboard enabled on host but not in subterm. Double check keypad
 // arrows in application mode vs other arrows (CSI vs SS3?)
 var numericKeymap = map[rune]string{
-	vaxis.KeyInsert: "\x1B[2~",
-	vaxis.KeyDelete: "\x1B[3~",
-	vaxis.KeyPgUp:   "\x1B[5~",
-	vaxis.KeyPgDown: "\x1B[6~",
+	vaxis.KeyInsert:         "\x1B[2~",
+	vaxis.KeyDelete:         "\x1B[3~",
+	vaxis.KeyPgUp:           "\x1B[5~",
+	vaxis.KeyPgDown:         "\x1B[6~",
+	vaxis.KeyKeyPad0:        "0",
+	vaxis.KeyKeyPad1:        "1",
+	vaxis.KeyKeyPad2:        "2",
+	vaxis.KeyKeyPad3:        "3",
+	vaxis.KeyKeyPad4:        "4",
+	vaxis.KeyKeyPad5:        "5",
+	vaxis.KeyKeyPad6:        "6",
+	vaxis.KeyKeyPad7:        "7",
+	vaxis.KeyKeyPad8:        "8",
+	vaxis.KeyKeyPad9:        "9",
+	vaxis.KeyKeyPadDecimal:  ".",
+	vaxis.KeyKeyPadDivide:   "/",
+	vaxis.KeyKeyPadMultiply: "*",
+	vaxis.KeyKeyPadSubtract: "-",
+	vaxis.KeyKeyPadAdd:      "+",
+	vaxis.KeyKeyPadEnter:    "\r",
+	vaxis.KeyKeyPadUp:       "\x1B[A",
+	vaxis.KeyKeyPadDown:     "\x1B[B",
+	vaxis.KeyKeyPadRight:    "\x1B[C",
+	vaxis.KeyKeyPadLeft:     "\x1B[D",
+	vaxis.KeyKeyPadBegin:    "\x1B[E",
+	vaxis.KeyKeyPadHome:     "\x1B[H",
+	vaxis.KeyKeyPadEnd:      "\x1B[F",
+	vaxis.KeyKeyPadInsert:   "\x1B[2~",
+	vaxis.KeyKeyPadDelete:   "\x1B[3~",
+	vaxis.KeyKeyPadPageUp:   "\x1B[5~",
+	vaxis.KeyKeyPadPageDown: "\x1B[6~",
 }
 
 var applicationKeymap = map[rune]string{
-	vaxis.KeyInsert: "\x1B[2~",
-	vaxis.KeyDelete: "\x1B[3~",
-	vaxis.KeyPgUp:   "\x1B[5~",
-	vaxis.KeyPgDown: "\x1B[6~",
+	vaxis.KeyInsert:         "\x1B[2~",
+	vaxis.KeyDelete:         "\x1B[3~",
+	vaxis.KeyPgUp:           "\x1B[5~",
+	vaxis.KeyPgDown:         "\x1B[6~",
+	vaxis.KeyKeyPad0:        "\x1BOp",
+	vaxis.KeyKeyPad1:        "\x1BOq",
+	vaxis.KeyKeyPad2:        "\x1BOr",
+	vaxis.KeyKeyPad3:        "\x1BOs",
+	vaxis.KeyKeyPad4:        "\x1BOt",
+	vaxis.KeyKeyPad5:        "\x1BOu",
+	vaxis.KeyKeyPad6:        "\x1BOv",
+	vaxis.KeyKeyPad7:        "\x1BOw",
+	vaxis.KeyKeyPad8:        "\x1BOx",
+	vaxis.KeyKeyPad9:        "\x1BOy",
+	vaxis.KeyKeyPadDecimal:  "\x1BOn",
+	vaxis.KeyKeyPadDivide:   "\x1BOo",
+	vaxis.KeyKeyPadMultiply: "\x1BOj",
+	vaxis.KeyKeyPadSubtract: "\x1BOm",
+	vaxis.KeyKeyPadAdd:      "\x1BOk",
+	vaxis.KeyKeyPadEnter:    "\x1BOM",
+	vaxis.KeyKeyPadUp:       "\x1BOA",
+	vaxis.KeyKeyPadDown:     "\x1BOB",
+	vaxis.KeyKeyPadRight:    "\x1BOC",
+	vaxis.KeyKeyPadLeft:     "\x1BOD",
+	vaxis.KeyKeyPadBegin:    "\x1BOE",
+	vaxis.KeyKeyPadHome:     "\x1BOH",
+	vaxis.KeyKeyPadEnd:      "\x1BOF",
+	vaxis.KeyKeyPadInsert:   "\x1B[2~",
+	vaxis.KeyKeyPadDelete:   "\x1B[3~",
+	vaxis.KeyKeyPadPageUp:   "\x1B[5~",
+	vaxis.KeyKeyPadPageDown: "\x1B[6~",
 }
 
 var keymap = map[rune]string{

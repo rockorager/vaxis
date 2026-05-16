@@ -100,6 +100,38 @@ func TestModeReportAlternateScrollDefaultsSet(t *testing.T) {
 	}
 }
 
+func TestModeReportApplicationKeypad(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.resize(80, 24)
+
+	vt.update(testCSI('p', []uint32{66}, '?', '$'))
+	if got, want := readReply(t, r, len("\x1B[?66;2$y")), "\x1B[?66;2$y"; got != want {
+		t.Fatalf("application keypad mode report = %q, want %q", got, want)
+	}
+
+	vt.update(testCSI('h', []uint32{66}, '?'))
+	vt.update(testCSI('p', []uint32{66}, '?', '$'))
+	if got, want := readReply(t, r, len("\x1B[?66;1$y")), "\x1B[?66;1$y"; got != want {
+		t.Fatalf("application keypad mode report = %q, want %q", got, want)
+	}
+}
+
+func TestModeReportBackarrowKeyMode(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.resize(80, 24)
+
+	vt.update(testCSI('p', []uint32{67}, '?', '$'))
+	if got, want := readReply(t, r, len("\x1B[?67;2$y")), "\x1B[?67;2$y"; got != want {
+		t.Fatalf("backarrow key mode report = %q, want %q", got, want)
+	}
+
+	vt.update(testCSI('h', []uint32{67}, '?'))
+	vt.update(testCSI('p', []uint32{67}, '?', '$'))
+	if got, want := readReply(t, r, len("\x1B[?67;1$y")), "\x1B[?67;1$y"; got != want {
+		t.Fatalf("backarrow key mode report = %q, want %q", got, want)
+	}
+}
+
 func TestAlternateScrollModeSurvivesScreenSwitch(t *testing.T) {
 	vt := New()
 	vt.resize(80, 24)
