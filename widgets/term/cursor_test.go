@@ -194,3 +194,81 @@ func TestCursorNextPreviousLineIgnoreMultipleParameters(t *testing.T) {
 		t.Fatalf("cursor col after invalid CPL = %d, want %d", got, want)
 	}
 }
+
+func TestCursorMovementIgnoresMultipleParameters(t *testing.T) {
+	tests := []struct {
+		name   string
+		final  rune
+		params []uint32
+	}{
+		{name: "CUU", final: 'A', params: []uint32{1, 1}},
+		{name: "CUU alias", final: 'k', params: []uint32{1, 1}},
+		{name: "CUD", final: 'B', params: []uint32{1, 1}},
+		{name: "CUF", final: 'C', params: []uint32{1, 1}},
+		{name: "CUB", final: 'D', params: []uint32{1, 1}},
+		{name: "CUB alias", final: 'j', params: []uint32{1, 1}},
+		{name: "CHA", final: 'G', params: []uint32{1, 1}},
+		{name: "HPA", final: '`', params: []uint32{1, 1}},
+		{name: "HPR", final: 'a', params: []uint32{1, 1}},
+		{name: "VPA", final: 'd', params: []uint32{1, 1}},
+		{name: "VPR", final: 'e', params: []uint32{1, 1}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vt := New()
+			vt.resize(4, 4)
+			vt.cursor.row = 2
+			vt.cursor.col = 2
+
+			vt.update(testCSI(tt.final, tt.params))
+
+			if got, want := vt.cursor.row, row(2); got != want {
+				t.Fatalf("cursor row = %d, want %d", got, want)
+			}
+			if got, want := vt.cursor.col, column(2); got != want {
+				t.Fatalf("cursor col = %d, want %d", got, want)
+			}
+		})
+	}
+}
+
+func TestCursorPositionIgnoresTooManyParameters(t *testing.T) {
+	vt := New()
+	vt.resize(4, 4)
+	vt.cursor.row = 2
+	vt.cursor.col = 2
+
+	vt.update(testCSI('H', []uint32{1, 1, 1}))
+	if got, want := vt.cursor.row, row(2); got != want {
+		t.Fatalf("cursor row after invalid CUP = %d, want %d", got, want)
+	}
+	if got, want := vt.cursor.col, column(2); got != want {
+		t.Fatalf("cursor col after invalid CUP = %d, want %d", got, want)
+	}
+
+	vt.update(testCSI('f', []uint32{1, 1, 1}))
+	if got, want := vt.cursor.row, row(2); got != want {
+		t.Fatalf("cursor row after invalid HVP = %d, want %d", got, want)
+	}
+	if got, want := vt.cursor.col, column(2); got != want {
+		t.Fatalf("cursor col after invalid HVP = %d, want %d", got, want)
+	}
+}
+
+func TestCursorMovementAliases(t *testing.T) {
+	vt := New()
+	vt.resize(4, 4)
+	vt.cursor.row = 2
+	vt.cursor.col = 2
+
+	vt.update(testCSI('k', []uint32{1}))
+	if got, want := vt.cursor.row, row(1); got != want {
+		t.Fatalf("cursor row after CSI k = %d, want %d", got, want)
+	}
+
+	vt.update(testCSI('j', []uint32{1}))
+	if got, want := vt.cursor.col, column(1); got != want {
+		t.Fatalf("cursor col after CSI j = %d, want %d", got, want)
+	}
+}

@@ -130,27 +130,47 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 		switch seq.Final {
 		case '@':
 			vt.ich(ps(seq))
-		case 'A':
+		case 'A', 'k':
+			if !validCSIParamCount(seq, 1) {
+				return
+			}
 			vt.cuu(ps(seq))
 		case 'B':
+			if !validCSIParamCount(seq, 1) {
+				return
+			}
 			vt.cud(ps(seq))
 		case 'C':
+			if !validCSIParamCount(seq, 1) {
+				return
+			}
 			vt.cuf(ps(seq))
-		case 'D':
+		case 'D', 'j':
+			if !validCSIParamCount(seq, 1) {
+				return
+			}
 			vt.cub(ps(seq))
 		case 'E':
-			if seq.NumParameters <= 1 {
+			if validCSIParamCount(seq, 1) {
 				vt.cnl(ps(seq))
 			}
 		case 'F':
-			if seq.NumParameters <= 1 {
+			if validCSIParamCount(seq, 1) {
 				vt.cpl(ps(seq))
 			}
 		case 'G':
+			if !validCSIParamCount(seq, 1) {
+				return
+			}
 			vt.cha(ps(seq))
 		case 'H', 'f':
-			vt.cup(seq)
+			if validCSIParamCount(seq, 2) {
+				vt.cup(seq)
+			}
 		case 'I':
+			if !validCSIParamCount(seq, 1) {
+				return
+			}
 			vt.cht(ps(seq))
 		case 'J':
 			vt.ed(ps(seq), false)
@@ -173,10 +193,19 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 		case 'X':
 			vt.ech(ps(seq))
 		case 'Z':
+			if !validCSIParamCount(seq, 1) {
+				return
+			}
 			vt.cbt(ps(seq))
 		case '`':
+			if !validCSIParamCount(seq, 1) {
+				return
+			}
 			vt.hpa(ps(seq))
 		case 'a':
+			if !validCSIParamCount(seq, 1) {
+				return
+			}
 			vt.hpr(ps(seq))
 		case 'b':
 			if seq.NumParameters <= 1 {
@@ -185,8 +214,14 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 		case 'c':
 			vt.primaryDeviceAttributes()
 		case 'd':
+			if !validCSIParamCount(seq, 1) {
+				return
+			}
 			vt.vpa(ps(seq))
 		case 'e':
+			if !validCSIParamCount(seq, 1) {
+				return
+			}
 			vt.vpr(ps(seq))
 		case 'g':
 			vt.tbc(ps(seq))
@@ -281,6 +316,10 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 			vt.decrqm(ps(seq), false)
 		}
 	}
+}
+
+func validCSIParamCount(seq ansi.CSI, max int) bool {
+	return seq.NumParameters <= max
 }
 
 func defaultOne(n int) int {
