@@ -76,3 +76,36 @@ func BenchmarkWindowPrintTruncate(b *testing.B) {
 		win.PrintTruncate(0, seg)
 	}
 }
+
+func BenchmarkWindowPrint(b *testing.B) {
+	win := benchmarkSetCellWindow(0)
+	seg := Segment{Text: "abcdefghijklmnopqrstuvwxyz0123456789"}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i += 1 {
+		win.Print(seg)
+	}
+}
+
+func BenchmarkWindowPrintln(b *testing.B) {
+	win := benchmarkSetCellWindow(0)
+	seg := Segment{Text: "abcdefghijklmnopqrstuvwxyz0123456789"}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i += 1 {
+		win.Println(0, seg)
+	}
+}
+
+func BenchmarkWindowWrap(b *testing.B) {
+	win := benchmarkSetCellWindow(0)
+	seg := Segment{Text: "abcdefghijklmnopqrstuvwxyz 0123456789 abcdefghijklmnopqrstuvwxyz"}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i += 1 {
+		win.Wrap(seg)
+	}
+}

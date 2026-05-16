@@ -9,19 +9,46 @@ type Character struct {
 	Width    int
 }
 
+// CharacterIterator streams extended-grapheme-cluster Characters from a string.
+type CharacterIterator struct {
+	input    string
+	grapheme uucode.GraphemeIterator
+	tabs     int
+}
+
+// NewCharacterIterator creates a streaming iterator over Characters in s.
+func NewCharacterIterator(s string) CharacterIterator {
+	return CharacterIterator{
+		input:    s,
+		grapheme: uucode.NewGraphemeIterator(s),
+	}
+}
+
+// Next returns the next Character and true, or a zero Character and false when
+// iteration is complete.
+func (it *CharacterIterator) Next() (Character, bool) {
+	if it.tabs > 0 {
+		it.tabs -= 1
+		return Character{" ", 1}, true
+	}
+	g, ok := it.grapheme.Next()
+	if !ok {
+		return Character{}, false
+	}
+	cluster := it.input[g.Start:g.End]
+	if cluster == "\t" {
+		it.tabs = 7
+		return Character{" ", 1}, true
+	}
+	return Character{cluster, uucode.StringWidth(cluster)}, true
+}
+
 // Converts a string into a slice of Characters suitable to assign to terminal cells
 func Characters(s string) []Character {
 	egcs := make([]Character, 0, len(s))
-	it := uucode.NewGraphemeIterator(s)
-	for g, ok := it.Next(); ok; g, ok = it.Next() {
-		cluster := s[g.Start:g.End]
-		if cluster == "\t" {
-			for i := 0; i < 8; i += 1 {
-				egcs = append(egcs, Character{" ", 1})
-			}
-			continue
-		}
-		egcs = append(egcs, Character{cluster, uucode.StringWidth(cluster)})
+	it := NewCharacterIterator(s)
+	for char, ok := it.Next(); ok; char, ok = it.Next() {
+		egcs = append(egcs, char)
 	}
 	return egcs
 }

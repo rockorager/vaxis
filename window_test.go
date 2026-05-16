@@ -6,13 +6,17 @@ import (
 )
 
 func newPrintTruncateTestWindow(cols int) Window {
+	return newWindowTestWindow(cols, 1)
+}
+
+func newWindowTestWindow(cols int, rows int) Window {
 	vx := &Vaxis{
 		screenNext: newScreen(),
 		screenLast: newScreen(),
 		charCache:  make(map[string]int),
 	}
-	vx.screenNext.resize(cols, 1)
-	vx.screenLast.resize(cols, 1)
+	vx.screenNext.resize(cols, rows)
+	vx.screenLast.resize(cols, rows)
 	return vx.Window()
 }
 
@@ -42,6 +46,36 @@ func TestPrintTruncateEllipsizesOverflow(t *testing.T) {
 
 	if got, want := printTruncateLine(win), "a…"; got != want {
 		t.Fatalf("line = %q, want %q", got, want)
+	}
+}
+
+func TestWrapBreaksLongSegmentAtGrapheme(t *testing.T) {
+	win := newWindowTestWindow(5, 2)
+
+	col, row := win.Wrap(Segment{Text: "abcdefg"})
+
+	if col != 2 || row != 1 {
+		t.Fatalf("cursor = %d,%d, want 2,1", col, row)
+	}
+	if got, want := win.Vx.screenNext.cell(4, 0).Grapheme, "e"; got != want {
+		t.Fatalf("last first-row cell = %q, want %q", got, want)
+	}
+	if got, want := win.Vx.screenNext.cell(1, 1).Grapheme, "g"; got != want {
+		t.Fatalf("second-row cell = %q, want %q", got, want)
+	}
+}
+
+func TestWrapDoesNotDropBufferedOverflow(t *testing.T) {
+	const width = 300
+	win := newWindowTestWindow(width, 1)
+
+	col, row := win.Wrap(Segment{Text: strings.Repeat("a", 260)})
+
+	if col != 260 || row != 0 {
+		t.Fatalf("cursor = %d,%d, want 260,0", col, row)
+	}
+	if got, want := win.Vx.screenNext.cell(259, 0).Grapheme, "a"; got != want {
+		t.Fatalf("last written cell = %q, want %q", got, want)
 	}
 }
 

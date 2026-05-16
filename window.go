@@ -205,7 +205,8 @@ func (win Window) Clear() {
 func (win Window) Print(segs ...Segment) (col int, row int) {
 	cols, rows := win.Size()
 	for _, seg := range segs {
-		for _, char := range Characters(seg.Text) {
+		it := NewCharacterIterator(seg.Text)
+		for char, ok := it.Next(); ok; char, ok = it.Next() {
 			if strings.ContainsRune(char.Grapheme, '\n') {
 				col = 0
 				row += 1
@@ -286,7 +287,8 @@ func (win Window) PrintTruncate(row int, segs ...Segment) {
 	}
 
 	for _, seg := range segs {
-		for _, char := range Characters(seg.Text) {
+		it := NewCharacterIterator(seg.Text)
+		for char, ok := it.Next(); ok; char, ok = it.Next() {
 			if !win.Vx.caps.unicodeCore || !win.Vx.caps.explicitWidth {
 				// characterWidth will cache the result
 				char.Width = win.Vx.characterWidth(char.Grapheme)
@@ -320,7 +322,8 @@ func (win Window) Println(row int, segs ...Segment) {
 	}
 	col := 0
 	for _, seg := range segs {
-		for _, char := range Characters(seg.Text) {
+		it := NewCharacterIterator(seg.Text)
+		for char, ok := it.Next(); ok; char, ok = it.Next() {
 			if !win.Vx.caps.unicodeCore || !win.Vx.caps.explicitWidth {
 				// characterWidth will cache the result
 				char.Width = win.Vx.characterWidth(char.Grapheme)
@@ -343,56 +346,86 @@ func (win Window) Println(row int, segs ...Segment) {
 // has good results
 func (win Window) Wrap(segs ...Segment) (col int, row int) {
 	cols, rows := win.Size()
+	width := func(char *Character) {
+		if !win.Vx.caps.unicodeCore || !win.Vx.caps.explicitWidth {
+			// characterWidth will cache the result
+			char.Width = win.Vx.characterWidth(char.Grapheme)
+		}
+	}
+	emit := func(char Character, style Style) {
+		if hasTrailingLineBreakInString(char.Grapheme) {
+			row += 1
+			col = 0
+			return
+		}
+		cell := Cell{
+			Character: char,
+			Style:     style,
+		}
+		win.SetCell(col, row, cell)
+		col += char.Width
+		if col >= cols {
+			row += 1
+			col = 0
+		}
+	}
 	for _, seg := range segs {
 		rest := seg.Text
 		for len(rest) > 0 {
 			if row >= rows {
 				break
 			}
-			it := uucode.NewLineIterator(rest)
-			lineSegment, ok := it.Next()
+			lineIt := uucode.NewLineIterator(rest)
+			lineSegment, ok := lineIt.Next()
 			if !ok {
 				break
 			}
 			segment := rest[lineSegment.Start:lineSegment.End]
 			rest = rest[lineSegment.End:]
-			chars := Characters(segment)
+			var buffered [64]Character
+			chars := buffered[:0]
 			total := 0
-			for _, char := range chars {
-				if !win.Vx.caps.unicodeCore || !win.Vx.caps.explicitWidth {
-					// characterWidth will cache the result
-					char.Width = win.Vx.characterWidth(char.Grapheme)
-				}
+			tooWide := false
+			overflow := false
+			charIt := NewCharacterIterator(segment)
+			for char, ok := charIt.Next(); ok; char, ok = charIt.Next() {
+				width(&char)
 				total += char.Width
-			}
-			// Figure out how to break the line
-			switch {
-			case total > cols:
-				// the line is greater than our entire width, so we'll
-				// break at a grapheme
-			case total+col > cols:
-				// there isn't space left, go to a new line
-				col = 0
-				row += 1
-			default:
-				// it fits on our line. Print it
-			}
-			for _, char := range chars {
-				if hasTrailingLineBreakInString(char.Grapheme) {
-					row += 1
-					col = 0
+				if tooWide {
+					emit(char, seg.Style)
 					continue
 				}
-				cell := Cell{
-					Character: char,
-					Style:     seg.Style,
+				if !overflow && total > cols {
+					tooWide = true
+					for _, bufferedChar := range chars {
+						emit(bufferedChar, seg.Style)
+					}
+					emit(char, seg.Style)
+					continue
 				}
-				win.SetCell(col, row, cell)
-				col += char.Width
-				if col >= cols {
-					row += 1
-					col = 0
+				if len(chars) == cap(chars) {
+					overflow = true
+					continue
 				}
+				chars = append(chars, char)
+			}
+			if tooWide {
+				continue
+			}
+			if total <= cols && total+col > cols {
+				col = 0
+				row += 1
+			}
+			if overflow {
+				charIt = NewCharacterIterator(segment)
+				for char, ok := charIt.Next(); ok; char, ok = charIt.Next() {
+					width(&char)
+					emit(char, seg.Style)
+				}
+				continue
+			}
+			for _, char := range chars {
+				emit(char, seg.Style)
 			}
 		}
 	}
