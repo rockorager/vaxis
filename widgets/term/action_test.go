@@ -131,6 +131,44 @@ func TestCursorStyleIgnoresInvalidValues(t *testing.T) {
 	}
 }
 
+func TestRISClearsCursorPen(t *testing.T) {
+	vt := New()
+	vt.resize(4, 1)
+
+	vt.update(testCSI('m', []uint32{1, 31, 44}))
+	vt.cursor.protected = true
+	vt.update(testCSI('q', []uint32{5}, ' '))
+	vt.update(testESC('c'))
+
+	if vt.cursor.Attribute != 0 || vt.cursor.Foreground != 0 || vt.cursor.Background != 0 {
+		t.Fatalf("cursor pen after RIS = attr %d fg %v bg %v, want zero", vt.cursor.Attribute, vt.cursor.Foreground, vt.cursor.Background)
+	}
+	if vt.cursor.protected {
+		t.Fatal("cursor protection after RIS remained enabled")
+	}
+	if vt.cursor.style != vaxis.CursorDefault {
+		t.Fatalf("cursor style after RIS = %d, want default", vt.cursor.style)
+	}
+}
+
+func TestRISClearsSavedCursorPen(t *testing.T) {
+	vt := New()
+	vt.resize(4, 1)
+
+	vt.update(testCSI('m', []uint32{1, 31, 44}))
+	vt.update(testCSI('q', []uint32{5}, ' '))
+	vt.update(testESC('7'))
+	vt.update(testESC('c'))
+	vt.update(testESC('8'))
+
+	if vt.cursor.Attribute != 0 || vt.cursor.Foreground != 0 || vt.cursor.Background != 0 {
+		t.Fatalf("restored cursor pen after RIS = attr %d fg %v bg %v, want zero", vt.cursor.Attribute, vt.cursor.Foreground, vt.cursor.Background)
+	}
+	if vt.cursor.style != vaxis.CursorDefault {
+		t.Fatalf("restored cursor style after RIS = %d, want default", vt.cursor.style)
+	}
+}
+
 func TestOriginModeMovesCursorToHome(t *testing.T) {
 	vt := New()
 	vt.resize(8, 5)

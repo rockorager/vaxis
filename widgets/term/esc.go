@@ -208,8 +208,7 @@ func (vt *Model) ris() {
 	vt.primaryScreen = newScreenBuffer(w, h, defaultScrollbackLines)
 	vt.margin.bottom = row(h) - 1
 	vt.margin.right = column(w) - 1
-	vt.cursor.row = 0
-	vt.cursor.col = 0
+	vt.cursor = cursor{}
 	vt.lastCol = false
 	vt.activeScreen = vt.primaryScreen
 	vt.charsets = charsets{}
