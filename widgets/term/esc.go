@@ -2,6 +2,8 @@ package term
 
 import (
 	"slices"
+
+	"git.sr.ht/~rockorager/vaxis"
 )
 
 func (vt *Model) esc(esc string) {
@@ -51,9 +53,7 @@ func (vt *Model) esc(esc string) {
 	case "+B":
 		vt.charsets.designations[g3] = ascii
 	case "#8":
-		// DECALN
-		// Fill the screen with capital Es
-		// Not supported
+		vt.decaln()
 	}
 }
 
@@ -97,6 +97,35 @@ func (vt *Model) ri() {
 		return
 	}
 	vt.cursor.row -= 1
+}
+
+func (vt *Model) decaln() {
+	w := vt.width()
+	h := vt.height()
+	if w <= 0 || h <= 0 {
+		return
+	}
+	vt.resetMargins(w, h)
+	vt.mode.decom = false
+	vt.cursor.row = 0
+	vt.cursor.col = 0
+	vt.lastCol = false
+
+	fill := cell{
+		Cell: vaxis.Cell{
+			Character: vaxis.Character{
+				Grapheme: "E",
+				Width:    1,
+			},
+			Style: vt.cursor.Style,
+		},
+	}
+	for r := row(0); r < row(h); r += 1 {
+		*vt.activeScreen.row(r) = screenRow{}
+		for col := column(0); col < column(w); col += 1 {
+			vt.activeScreen.setCell(r, col, fill)
+		}
+	}
 }
 
 // Save Cursor DECSC ESC-7

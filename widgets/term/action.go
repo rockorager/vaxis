@@ -87,6 +87,10 @@ func applyESC(vt *Model, seq ansi.ESC) {
 		}
 	case 1:
 		switch seq.Intermediate[0] {
+		case '#':
+			if seq.Final == '8' {
+				vt.decaln()
+			}
 		case '(':
 			vt.designateGCharset(g0, seq.Final)
 		case ')':
