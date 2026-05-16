@@ -8,7 +8,7 @@ import (
 )
 
 func (vt *Model) handleMouse(msg vaxis.Mouse) string {
-	if !vt.mode.mouseX10 && !vt.mode.mouseButtons && !vt.mode.mouseDrag && !vt.mode.mouseMotion {
+	if vt.mode.mouseEvent == mouseEventNone {
 		if vt.mode.altScroll && vt.mode.smcup {
 			// Translate wheel motion into arrows up and down
 			// 3x rows
@@ -28,7 +28,7 @@ func (vt *Model) handleMouse(msg vaxis.Mouse) string {
 		return ""
 	}
 
-	if vt.mode.mouseX10 {
+	if vt.mode.mouseEvent == mouseEventX10 {
 		if msg.EventType != vaxis.EventPress {
 			return ""
 		}
@@ -40,8 +40,8 @@ func (vt *Model) handleMouse(msg vaxis.Mouse) string {
 	// Return early if event is (pure) motion but we aren't reporting
 	// those (!mouseMotion) or event is drag (motion with pressed button)
 	// but we aren't reporting those either (!mouseMotion && !mouseDrag).
-	if msg.EventType == vaxis.EventMotion && !vt.mode.mouseMotion &&
-		(msg.Button == vaxis.MouseNoButton || !vt.mode.mouseDrag) {
+	if msg.EventType == vaxis.EventMotion && vt.mode.mouseEvent != mouseEventAny &&
+		(msg.Button == vaxis.MouseNoButton || vt.mode.mouseEvent != mouseEventButton) {
 		return ""
 	}
 
@@ -73,7 +73,7 @@ func (vt *Model) mouseButtonCode(msg vaxis.Mouse, legacy bool) vaxis.MouseButton
 	}
 
 	button := msg.Button
-	if !vt.mode.mouseX10 {
+	if vt.mode.mouseEvent != mouseEventX10 {
 		if msg.Modifiers&vaxis.ModShift != 0 {
 			button += 4
 		}

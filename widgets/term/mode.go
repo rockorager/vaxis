@@ -69,6 +69,9 @@ type mode struct {
 	mouseDrag bool
 	// vt220 + all motion
 	mouseMotion bool
+	// Active mouse tracking behavior. The individual bools above remain mode
+	// report state; this mirrors Ghostty's separate active mouse_event flag.
+	mouseEvent mouseEventMode
 	// Mouse SGR mode
 	mouseSGR bool
 	// Capture Shift+mouse instead of letting Shift escape mouse reporting.
@@ -103,6 +106,16 @@ type statusDisplay int
 const (
 	statusDisplayMain statusDisplay = iota
 	statusDisplayLine
+)
+
+type mouseEventMode int
+
+const (
+	mouseEventNone mouseEventMode = iota
+	mouseEventX10
+	mouseEventNormal
+	mouseEventButton
+	mouseEventAny
 )
 
 func (vt *Model) sm(params ansi.CSI) {
@@ -190,12 +203,16 @@ func (vt *Model) setDECMode(param int, enabled bool) {
 		}
 	case 9:
 		vt.mode.mouseX10 = enabled
+		vt.setMouseEventMode(mouseEventX10, enabled)
 	case 1000:
 		vt.mode.mouseButtons = enabled
+		vt.setMouseEventMode(mouseEventNormal, enabled)
 	case 1002:
 		vt.mode.mouseDrag = enabled
+		vt.setMouseEventMode(mouseEventButton, enabled)
 	case 1003:
 		vt.mode.mouseMotion = enabled
+		vt.setMouseEventMode(mouseEventAny, enabled)
 	case 1006:
 		vt.mode.mouseSGR = enabled
 	case 1004:
@@ -222,6 +239,14 @@ func (vt *Model) setDECMode(param int, enabled bool) {
 	case 2031:
 		vt.mode.colorScheme = enabled
 	}
+}
+
+func (vt *Model) setMouseEventMode(mode mouseEventMode, enabled bool) {
+	if enabled {
+		vt.mode.mouseEvent = mode
+		return
+	}
+	vt.mode.mouseEvent = mouseEventNone
 }
 
 func (vt *Model) saveMode(params ansi.CSI) {
