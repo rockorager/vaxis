@@ -310,6 +310,8 @@ func (vt *Model) Update(msg vaxis.Event) {
 			vt.setSynchronizedOutput(false)
 		}
 		vt.size = msg
+		vt.resize(msg.Cols, msg.Rows)
+		vt.resizePty(msg.Cols, msg.Rows)
 		if vt.mode.inBandSizeReports {
 			vt.inBandSizeReport()
 		}
@@ -517,6 +519,13 @@ func (vt *Model) recover() {
 
 func (vt *Model) Resize(w int, h int) {
 	vt.resize(w, h)
+	vt.resizePty(w, h)
+}
+
+func (vt *Model) resizePty(w int, h int) {
+	if vt.pty == nil {
+		return
+	}
 	_ = pty.Setsize(vt.pty, &pty.Winsize{
 		Cols: uint16(w),
 		Rows: uint16(h),
@@ -538,6 +547,10 @@ func (vt *Model) resize(w int, h int) {
 
 	primary := vt.primaryScreen
 	alt := vt.altScreen
+	viewportSourceRow := -1
+	if vt.scrollOffset > 0 && !vt.mode.smcup {
+		viewportSourceRow = primary.scrollbackLen() - vt.scrollOffset
+	}
 	if primary.width() == w {
 		resized, primaryDelta, ok := primary.resizeHeight(h, vt.cursor.Style.Background)
 		if !ok {
@@ -649,6 +662,7 @@ reflowResize:
 	if vt.cursor.col >= column(w) {
 		vt.cursor.col = column(w) - 1
 	}
+	vt.remapViewportAfterReflow(primary, viewportSourceRow, w)
 	vt.clampScrollOffset()
 }
 
@@ -686,6 +700,22 @@ func (vt *Model) resizeNoReflow(w int, h int, primary screenBuffer, alt screenBu
 	}
 	vt.clampCursor()
 	vt.clampScrollOffset()
+}
+
+func (vt *Model) remapViewportAfterReflow(oldPrimary screenBuffer, viewportSourceRow int, width int) {
+	if viewportSourceRow < 0 || vt.mode.smcup {
+		return
+	}
+	reflowRow, _, ok := oldPrimary.reflowSourcePosition(width, viewportSourceRow, 0)
+	if !ok {
+		return
+	}
+	historyLen := vt.primaryScreen.scrollbackLen()
+	if reflowRow >= historyLen {
+		vt.scrollOffset = 0
+		return
+	}
+	vt.scrollOffset = historyLen - reflowRow
 }
 
 func (vt *Model) resetMargins(w int, h int) {
@@ -1126,7 +1156,7 @@ func (vt *Model) Draw(win vaxis.Window) {
 	if int(width) != vt.width() || int(height) != vt.height() {
 		win.Width = width
 		win.Height = height
-		vt.resize(width, height)
+		vt.Resize(width, height)
 	}
 	for r := 0; r < vt.height(); r += 1 {
 		line := vt.visibleLine(r)

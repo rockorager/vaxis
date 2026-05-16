@@ -1,6 +1,8 @@
 package term
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -235,6 +237,38 @@ func TestResizeWiderReflowsSoftWrappedRows(t *testing.T) {
 	}
 }
 
+func TestResizeWiderPerfectSplitMatchesGhostty(t *testing.T) {
+	vt := New()
+	vt.resize(5, 3)
+	printText(vt, "1ABCD2EFGH3IJKL")
+
+	vt.resize(10, 3)
+
+	if got, want := trimScreenString(vt.String()), "1ABCD2EFGH\n3IJKL"; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestResizeWiderReflowEndsInNewlineMatchesGhostty(t *testing.T) {
+	vt := New()
+	vt.resize(6, 3)
+	printText(vt, "1ABCD2EFGH")
+	vt.cr()
+	vt.lf()
+	printText(vt, "3IJKL")
+	vt.cursor.row = 2
+	vt.cursor.col = 0
+
+	vt.resize(10, 3)
+
+	if got, want := trimScreenString(vt.String()), "1ABCD2EFGH\n3IJKL"; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+	if got := vt.activeScreen.cell(vt.cursor.row, vt.cursor.col).Grapheme; got != "3" {
+		t.Fatalf("cursor cell after resize = %q, want %q", got, "3")
+	}
+}
+
 func TestResizeNarrowerPreservesExplicitRows(t *testing.T) {
 	vt := New()
 	vt.resize(5, 3)
@@ -258,6 +292,45 @@ func TestResizeNarrowerReflowsOneSoftWrappedLine(t *testing.T) {
 
 	if got, want := vt.String(), "1AB\nCD \n   "; got != want {
 		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestResizeNarrowerReflowsTrimmedRowsLikeGhostty(t *testing.T) {
+	vt := New()
+	vt.resize(5, 3)
+	printText(vt, "3IJKL")
+	vt.cr()
+	vt.lf()
+	printText(vt, "4ABCD")
+	vt.cr()
+	vt.lf()
+	printText(vt, "5EFGH")
+
+	vt.resize(3, 3)
+
+	if got, want := viewportString(vt), "CD \n5EF\nGH "; got != want {
+		t.Fatalf("viewport after resize = %q, want %q", got, want)
+	}
+}
+
+func TestResizeNarrowerReflowsTrimmedRowsAndScrollbackLikeGhostty(t *testing.T) {
+	vt := New()
+	vt.resize(5, 3)
+	printText(vt, "3IJKL")
+	vt.cr()
+	vt.lf()
+	printText(vt, "4ABCD")
+	vt.cr()
+	vt.lf()
+	printText(vt, "5EFGH")
+
+	vt.resize(3, 3)
+
+	if got, want := viewportString(vt), "CD \n5EF\nGH "; got != want {
+		t.Fatalf("viewport after resize = %q, want %q", got, want)
+	}
+	if got, want := vt.primaryScreen.scrollbackString(0), "3IJ"; got != want {
+		t.Fatalf("scrollback row after resize = %q, want %q", got, want)
 	}
 }
 
@@ -296,6 +369,36 @@ func TestResizeNarrowerReflowsPreviouslyWrappedScrollbackAndPreservesCursor(t *t
 	}
 	if got := vt.activeScreen.cell(vt.cursor.row, vt.cursor.col).Grapheme; got != "H" {
 		t.Fatalf("cursor cell after resize = %q, want %q", got, "H")
+	}
+}
+
+func TestResizeNarrowerReflowsPreviouslyWrappedRowsLikeGhostty(t *testing.T) {
+	vt := New()
+	vt.resize(5, 3)
+	printText(vt, "3IJKL4ABCD5EFGH")
+
+	vt.resize(3, 3)
+
+	if got, want := vt.String(), "ABC\nD5E\nFGH"; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestResizeMoreRowsLessColsWithReflowAndScrollbackLikeGhostty(t *testing.T) {
+	vt := New()
+	vt.resize(5, 3)
+	printText(vt, "1ABCD")
+	vt.cr()
+	vt.lf()
+	printText(vt, "2EFGH3IJKL")
+	vt.cr()
+	vt.lf()
+	printText(vt, "4MNOP")
+
+	vt.resize(2, 10)
+
+	if got, want := viewportString(vt), "BC\nD \n2E\nFG\nH3\nIJ\nKL\n4M\nNO\nP "; got != want {
+		t.Fatalf("viewport after resize = %q, want %q", got, want)
 	}
 }
 
@@ -347,6 +450,32 @@ func TestResizeWiderReflowsPopulatedScrollbackAndPreservesCursor(t *testing.T) {
 	}
 }
 
+func TestResizeWiderReflowsWrappedScrollbackLikeGhostty(t *testing.T) {
+	vt := New()
+	vt.resize(5, 3)
+	printText(vt, "1ABCD")
+	vt.cr()
+	vt.lf()
+	printText(vt, "2EFGH")
+	vt.cr()
+	vt.lf()
+	printText(vt, "3IJKL")
+	vt.cr()
+	vt.lf()
+	printText(vt, "4ABCD5EFGH")
+	vt.cursor.row = 2
+	vt.cursor.col = 0
+
+	vt.resize(10, 3)
+
+	if got, want := viewportString(vt), "2EFGH     \n3IJKL     \n4ABCD5EFGH"; got != want {
+		t.Fatalf("viewport after resize = %q, want %q", got, want)
+	}
+	if got := vt.activeScreen.cell(vt.cursor.row, vt.cursor.col).Grapheme; got != "5" {
+		t.Fatalf("cursor cell after resize = %q, want %q", got, "5")
+	}
+}
+
 func TestResizeNarrowerWithScrollbackScrolledUpPreservesViewport(t *testing.T) {
 	vt := New()
 	vt.resize(5, 3)
@@ -370,6 +499,151 @@ func TestResizeNarrowerWithScrollbackScrolledUpPreservesViewport(t *testing.T) {
 	if vt.cursor.row != 2 || vt.cursor.col != 1 {
 		t.Fatalf("cursor after resize = %d,%d, want 2,1", vt.cursor.row, vt.cursor.col)
 	}
+}
+
+func TestResizeReflowNormalizesViewportWhenPinnedRowBecomesActive(t *testing.T) {
+	vt := New()
+	vt.resize(2, 10)
+
+	for i := 0; i < 40; i += 1 {
+		if i >= vt.height() {
+			vt.scrollUp(1)
+		}
+		r := i
+		if i >= vt.height() {
+			r = vt.height() - 1
+		}
+		setScreenLine(vt.primaryScreen, r, "AA")
+		if i%2 == 0 {
+			vt.primaryScreen.row(row(r)).wrapped = true
+			vt.primaryScreen.row(row(r)).wrapContinuation = false
+		} else {
+			vt.primaryScreen.row(row(r)).wrapped = false
+			vt.primaryScreen.row(row(r)).wrapContinuation = true
+		}
+	}
+	if got, want := vt.primaryScreen.scrollbackLen(), 30; got != want {
+		t.Fatalf("scrollback len before resize = %d, want %d", got, want)
+	}
+
+	vt.scrollOffset = 2
+	vt.resize(4, 10)
+
+	if got := vt.scrollOffset; got != 0 {
+		t.Fatalf("scroll offset after reflow = %d, want active viewport", got)
+	}
+	if got, want := vt.primaryScreen.scrollbackLen(), 10; got != want {
+		t.Fatalf("scrollback len after resize = %d, want %d", got, want)
+	}
+}
+
+func TestResizeReflowPreservesBlankActiveRowsAfterClear(t *testing.T) {
+	vt := New()
+	vt.resize(10, 5)
+	writeViewportLines(vt,
+		"old0000000",
+		"old1111111",
+		"old2222222",
+		"old3333333",
+		"old4444444",
+		"old5555555",
+	)
+	vt.cursor.row = 0
+	vt.cursor.col = 0
+	vt.ed(2, false)
+	vt.update(testCSI('H', []uint32{}))
+	printText(vt, "abcdefghijklmnopqrst")
+
+	vt.resize(5, 5)
+
+	if got, want := viewportString(vt), "abcde\nfghij\nklmno\npqrst\n     "; got != want {
+		t.Fatalf("viewport after resize = %q, want %q", got, want)
+	}
+}
+
+func TestResizeReflowKeepsWrappedOutputBeforeRedrawnPrompt(t *testing.T) {
+	vt := New()
+	vt.resize(10, 4)
+	setScreenLine(vt.primaryScreen, 0, "old0000000")
+	setScreenLine(vt.primaryScreen, 1, "old1111111")
+	setScreenLine(vt.primaryScreen, 2, "abcdefghi")
+	setScreenLine(vt.primaryScreen, 3, ">")
+	vt.primaryScreen.row(3).semanticPrompt = semanticPromptPrimary
+	vt.cursor.row = 3
+	vt.cursor.col = 1
+	vt.cursor.semanticContent = semanticPromptContent
+
+	vt.resize(5, 4)
+	vt.cr()
+	printText(vt, ">")
+
+	if got, want := viewportString(vt), "11111\nabcde\nfghi \n>    "; got != want {
+		t.Fatalf("viewport after prompt redraw = %q, want %q", got, want)
+	}
+}
+
+func TestResizeNarrowerReflowsScrollbackWithoutDroppingLogicalLines(t *testing.T) {
+	vt := New()
+	vt.resize(40, 8)
+
+	for i := 1; i <= 18; i += 1 {
+		printText(vt, fmt.Sprintf("L%02d:%s", i, strings.Repeat("x", 36)))
+		vt.cr()
+		vt.lf()
+	}
+
+	vt.resize(20, 8)
+
+	screen := fullScreenString(vt.primaryScreen)
+	for i := 1; i <= 18; i += 1 {
+		marker := fmt.Sprintf("L%02d:", i)
+		if !strings.Contains(screen, marker) {
+			t.Fatalf("missing logical line marker %q after resize; screen:\n%s", marker, screen)
+		}
+	}
+}
+
+func TestResizeNarrowerPreservesScrollbackWithPendingWrap(t *testing.T) {
+	vt := New()
+	vt.resize(10, 4)
+
+	for i := 1; i <= 8; i += 1 {
+		printText(vt, fmt.Sprintf("L%02dxxxxxxx", i))
+		if i < 8 {
+			vt.cr()
+			vt.lf()
+		}
+	}
+	if !vt.lastCol {
+		t.Fatal("setup did not leave cursor in pending wrap")
+	}
+
+	vt.resize(5, 4)
+
+	screen := fullScreenString(vt.primaryScreen)
+	for i := 1; i <= 8; i += 1 {
+		marker := fmt.Sprintf("L%02d", i)
+		if !strings.Contains(screen, marker) {
+			t.Fatalf("missing logical line marker %q after resize; screen:\n%s", marker, screen)
+		}
+	}
+}
+
+func fullScreenString(screen screenBuffer) string {
+	var out strings.Builder
+	for i := 0; i < screen.scrollbackLen(); i += 1 {
+		if out.Len() > 0 {
+			out.WriteByte('\n')
+		}
+		out.WriteString(screen.scrollbackString(i))
+	}
+	for r := 0; r < screen.height(); r += 1 {
+		if out.Len() > 0 {
+			out.WriteByte('\n')
+		}
+		out.WriteString(lineString(screen.line(row(r))))
+	}
+	return out.String()
 }
 
 func TestResizeWiderRemapsCursorToSameLogicalCell(t *testing.T) {
@@ -399,6 +673,38 @@ func TestResizeNarrowerRemapsCursorToSameLogicalCell(t *testing.T) {
 
 	if got, want := vt.String(), "1AB\nCX \n   "; got != want {
 		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestResizeNarrowerCursorInWrappedRowMovesToReflowedActiveRow(t *testing.T) {
+	vt := New()
+	vt.resize(4, 2)
+	setScreenLine(vt.primaryScreen, 0, "abcd")
+	setScreenLine(vt.primaryScreen, 1, "abcd")
+	vt.cursor.row = 1
+	vt.cursor.col = 2
+
+	vt.resize(2, 2)
+	vt.update(testPrint("X"))
+
+	if got, want := vt.String(), "ab\nXd"; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestResizeNarrowerBlankLinesBetweenMatchGhostty(t *testing.T) {
+	vt := New()
+	vt.resize(4, 3)
+	setScreenLine(vt.primaryScreen, 0, "abcd")
+	setScreenLine(vt.primaryScreen, 2, "abcd")
+
+	vt.resize(2, 3)
+
+	if got, want := vt.primaryScreen.scrollbackLen(), 2; got != want {
+		t.Fatalf("scrollback len after resize = %d, want %d", got, want)
+	}
+	if got, want := viewportString(vt), "  \nab\ncd"; got != want {
+		t.Fatalf("viewport after resize = %q, want %q", got, want)
 	}
 }
 
@@ -779,6 +1085,20 @@ func TestResizeEventDisablesSynchronizedOutput(t *testing.T) {
 	vt.Update(vaxis.Resize{Cols: 100, Rows: 40, XPixel: 900, YPixel: 720})
 	if vt.mode.synchronizedOutput {
 		t.Fatal("resize event did not disable synchronized output mode")
+	}
+}
+
+func TestResizeEventResizesModelWithoutPty(t *testing.T) {
+	vt := New()
+	vt.resize(80, 24)
+
+	vt.Update(vaxis.Resize{Cols: 20, Rows: 8})
+
+	if got, want := vt.width(), 20; got != want {
+		t.Fatalf("width after resize event = %d, want %d", got, want)
+	}
+	if got, want := vt.height(), 8; got != want {
+		t.Fatalf("height after resize event = %d, want %d", got, want)
 	}
 }
 

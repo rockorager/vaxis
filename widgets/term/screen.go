@@ -572,7 +572,7 @@ func (s screenBuffer) resizeReflowCursor(newWidth int, newHeight int, bg vaxis.C
 	if mapCursor {
 		cursorSourceRow = s.scrollbackLen() + int(cursorRow)
 	}
-	rows, cursorReflowRow, cursorReflowCol, cursorOK := s.reflowRows(newWidth, cursorSourceRow, int(cursorCol))
+	rows, cursorReflowRow, cursorReflowCol, cursorOK := s.reflowRows(newWidth, cursorSourceRow, int(cursorCol), newHeight)
 	overflow := len(rows) - newHeight
 	if overflow < 0 {
 		overflow = 0
@@ -598,7 +598,12 @@ func (s screenBuffer) resizeReflowCursor(newWidth int, newHeight int, bg vaxis.C
 	return next, nextCursorRow, column(cursorReflowCol), true
 }
 
-func (s screenBuffer) reflowRows(width int, cursorSourceRow int, cursorSourceCol int) ([]screenLine, int, int, bool) {
+func (s screenBuffer) reflowSourcePosition(width int, sourceRow int, sourceCol int) (int, int, bool) {
+	_, reflowRow, reflowCol, ok := s.reflowRows(width, sourceRow, sourceCol, 0)
+	return reflowRow, reflowCol, ok
+}
+
+func (s screenBuffer) reflowRows(width int, cursorSourceRow int, cursorSourceCol int, minActiveRows int) ([]screenLine, int, int, bool) {
 	var rows []screenLine
 	var logical []cell
 	var logicalRow screenRow
@@ -617,12 +622,17 @@ func (s screenBuffer) reflowRows(width int, cursorSourceRow int, cursorSourceCol
 			cursorLogicalCol, cursorRow, cursorCol, cursorOK,
 		)
 	}
+	activeStart := len(rows)
 	last := s.height() - 1
 	for last >= 0 && trimTrailingBlankCells(s.line(row(last))) == 0 &&
 		!s.state.rows[last].wrapped && !s.state.rows[last].wrapContinuation &&
 		s.state.rows[last].semanticPrompt == semanticPromptNone {
 		last -= 1
 	}
+	if cursorSourceRow >= s.scrollbackLen() {
+		last = max(last, cursorSourceRow-s.scrollbackLen())
+	}
+	oldActiveRows := last + 1
 	for r := 0; r <= last; r += 1 {
 		sourceRow := s.scrollbackLen() + r
 		logical, logicalRow, rows, cursorLogicalCol, cursorRow, cursorCol, cursorOK = appendLineForReflow(
@@ -643,6 +653,16 @@ func (s screenBuffer) reflowRows(width int, cursorSourceRow int, cursorSourceCol
 				cursorCol = reflowCol
 				cursorOK = true
 			}
+		}
+	}
+	trailingBlankRows := s.height() - oldActiveRows
+	if trailingBlankRows > 0 && minActiveRows > 0 {
+		activeRows := len(rows) - activeStart
+		target := min(minActiveRows, activeRows+trailingBlankRows)
+		for len(rows)-activeStart < target {
+			rows = append(rows, screenLine{
+				cells: make([]cell, width),
+			})
 		}
 	}
 	return rows, cursorRow, cursorCol, cursorOK
@@ -671,6 +691,11 @@ func appendLineForReflow(
 		end = trimTrailingBlankCells(line.cells)
 	} else {
 		end = trimTrailingEmptyCells(line.cells)
+	}
+	if sourceRow == cursorSourceRow && end == 0 && !line.row.wrapped {
+		start := len(rows)
+		rows = appendReflowedRows(rows, nil, line.row, width)
+		return nil, screenRow{}, rows, -1, start, min(cursorSourceCol, width-1), true
 	}
 	if sourceRow == cursorSourceRow && cursorSourceCol >= end {
 		end = min(len(line.cells), cursorSourceCol+1)
