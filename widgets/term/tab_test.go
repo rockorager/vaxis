@@ -180,6 +180,36 @@ func TestTabSetAndClear(t *testing.T) {
 	}
 }
 
+func TestTabClearRequiresExplicitParameter(t *testing.T) {
+	vt := New()
+	vt.resize(20, 5)
+	vt.cursor.col = 3
+	vt.hts()
+
+	vt.update(testCSI('g', nil))
+	vt.cursor.col = 0
+	vt.ht()
+
+	if got, want := vt.cursor.col, column(3); got != want {
+		t.Fatalf("cursor after CSI g = %d, want %d", got, want)
+	}
+}
+
+func TestTabClearCurrentWithExplicitZero(t *testing.T) {
+	vt := New()
+	vt.resize(20, 5)
+	vt.cursor.col = 3
+	vt.hts()
+
+	vt.update(testCSI('g', []uint32{0}))
+	vt.cursor.col = 0
+	vt.ht()
+
+	if got, want := vt.cursor.col, column(8); got != want {
+		t.Fatalf("cursor after CSI 0 g = %d, want %d", got, want)
+	}
+}
+
 func TestTabClearAll(t *testing.T) {
 	vt := New()
 	vt.resize(30, 5)
@@ -189,6 +219,18 @@ func TestTabClearAll(t *testing.T) {
 
 	if got, want := vt.cursor.col, column(29); got != want {
 		t.Fatalf("cursor after clearing all tabs = %d, want %d", got, want)
+	}
+}
+
+func TestTabClearAllWithCSI(t *testing.T) {
+	vt := New()
+	vt.resize(30, 5)
+
+	vt.update(testCSI('g', []uint32{3}))
+	vt.ht()
+
+	if got, want := vt.cursor.col, column(29); got != want {
+		t.Fatalf("cursor after CSI 3 g = %d, want %d", got, want)
 	}
 }
 

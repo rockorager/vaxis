@@ -224,7 +224,9 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 			}
 			vt.vpr(ps(seq))
 		case 'g':
-			vt.tbc(ps(seq))
+			if seq.NumParameters == 1 {
+				vt.tbc(ps(seq))
+			}
 		case 'h':
 			vt.sm(seq)
 		case 'l':
