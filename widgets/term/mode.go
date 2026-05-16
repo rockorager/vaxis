@@ -374,6 +374,7 @@ func (vt *Model) switchAltScreen(mode int, enabled bool) {
 	}
 
 	wasAlt := vt.mode.smcup
+	switched := wasAlt != enabled
 	if mode == 1047 && !enabled && wasAlt {
 		vt.ed(2, false)
 	}
@@ -388,6 +389,9 @@ func (vt *Model) switchAltScreen(mode int, enabled bool) {
 		if mode == 1049 {
 			vt.ed(2, false)
 		}
+		if switched {
+			vt.clearCursorHyperlink()
+		}
 		return
 	}
 
@@ -398,6 +402,14 @@ func (vt *Model) switchAltScreen(mode int, enabled bool) {
 	if mode == 1049 && wasAlt {
 		vt.decrc()
 	}
+	if switched {
+		vt.clearCursorHyperlink()
+	}
+}
+
+func (vt *Model) clearCursorHyperlink() {
+	vt.cursor.Hyperlink = ""
+	vt.cursor.HyperlinkParams = ""
 }
 
 func (vt *Model) decrqm(pd int, ansiMode bool) {

@@ -122,3 +122,29 @@ func TestMode1048UsesActiveScreenCursorState(t *testing.T) {
 		t.Fatalf("restored alt cursor = %d,%d, want 1,4", vt.cursor.row, vt.cursor.col)
 	}
 }
+
+func TestAltScreenSwitchClearsActiveHyperlink(t *testing.T) {
+	vt := New()
+	vt.resize(5, 2)
+
+	vt.osc("8;id=primary;https://example.com")
+	printText(vt, "A")
+	if got := vt.activeScreen.cell(0, 0).Hyperlink; got != "https://example.com" {
+		t.Fatalf("primary printed hyperlink = %q, want active hyperlink", got)
+	}
+
+	vt.decset(testCSI('h', []uint32{47}, '?'))
+	printText(vt, "B")
+	if got := vt.activeScreen.cell(0, 1).Hyperlink; got != "" {
+		t.Fatalf("alternate printed hyperlink = %q, want empty", got)
+	}
+
+	vt.decrst(testCSI('l', []uint32{47}, '?'))
+	printText(vt, "C")
+	if got := vt.activeScreen.cell(0, 2).Hyperlink; got != "" {
+		t.Fatalf("primary printed hyperlink after return = %q, want empty", got)
+	}
+	if got := vt.activeScreen.cell(0, 0).Hyperlink; got != "https://example.com" {
+		t.Fatalf("existing primary cell hyperlink = %q, want preserved hyperlink", got)
+	}
+}
