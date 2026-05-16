@@ -32,6 +32,10 @@ type mode struct {
 	decom bool
 	// Autowrap mode
 	decawm bool
+	// Reverse wraparound mode
+	reverseWrap bool
+	// Extended reverse wraparound mode
+	reverseWrapExtended bool
 	// Autorepeat mode
 	decarm bool
 	// Printer form feed mode
@@ -167,6 +171,8 @@ func (vt *Model) setDECMode(param int, enabled bool) {
 		vt.resetWrap()
 	case 8:
 		vt.mode.decarm = enabled
+	case 45:
+		vt.mode.reverseWrap = enabled
 	case 25:
 		vt.mode.dectcem = enabled
 	case 69:
@@ -202,6 +208,8 @@ func (vt *Model) setDECMode(param int, enabled bool) {
 		vt.switchAltScreen(1047, enabled)
 	case 1049:
 		vt.switchAltScreen(1049, enabled)
+	case 1045:
+		vt.mode.reverseWrapExtended = enabled
 	case 2004:
 		vt.mode.paste = enabled
 	case 2031:
@@ -237,6 +245,8 @@ func (vt *Model) decModeValue(param int) bool {
 		return vt.mode.decawm
 	case 8:
 		return vt.mode.decarm
+	case 45:
+		return vt.mode.reverseWrap
 	case 25:
 		return vt.mode.dectcem
 	case 69:
@@ -259,6 +269,8 @@ func (vt *Model) decModeValue(param int) bool {
 		return vt.mode.smcup
 	case 1048:
 		return vt.mode.saveCursor
+	case 1045:
+		return vt.mode.reverseWrapExtended
 	case 2004:
 		return vt.mode.paste
 	case 2031:
@@ -292,6 +304,8 @@ func savedModeValue(m mode, param int) bool {
 		return m.decawm
 	case 8:
 		return m.decarm
+	case 45:
+		return m.reverseWrap
 	case 25:
 		return m.dectcem
 	case 69:
@@ -314,6 +328,8 @@ func savedModeValue(m mode, param int) bool {
 		return m.smcup
 	case 1048:
 		return m.saveCursor
+	case 1045:
+		return m.reverseWrapExtended
 	case 2004:
 		return m.paste
 	case 2031:
@@ -339,6 +355,8 @@ func setModeValue(m *mode, param int, enabled bool) {
 		m.decawm = enabled
 	case 8:
 		m.decarm = enabled
+	case 45:
+		m.reverseWrap = enabled
 	case 25:
 		m.dectcem = enabled
 	case 69:
@@ -361,6 +379,8 @@ func setModeValue(m *mode, param int, enabled bool) {
 		m.smcup = enabled
 	case 1048:
 		m.saveCursor = enabled
+	case 1045:
+		m.reverseWrapExtended = enabled
 	case 2004:
 		m.paste = enabled
 	case 2031:
@@ -445,6 +465,8 @@ func (vt *Model) decrqm(pd int, ansiMode bool) {
 		ps = modeReportState(vt.mode.decawm)
 	case 8:
 		ps = modeReportState(vt.mode.decarm)
+	case 45:
+		ps = modeReportState(vt.mode.reverseWrap)
 	case 25:
 		ps = modeReportState(vt.mode.dectcem)
 	case 69:
@@ -467,6 +489,8 @@ func (vt *Model) decrqm(pd int, ansiMode bool) {
 		ps = modeReportState(vt.mode.smcup)
 	case 1048:
 		ps = modeReportState(vt.mode.saveCursor)
+	case 1045:
+		ps = modeReportState(vt.mode.reverseWrapExtended)
 	case 2004:
 		ps = modeReportState(vt.mode.paste)
 	case 2031:

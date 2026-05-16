@@ -79,3 +79,61 @@ func TestBackspaceDoesNotReverseWrapByDefault(t *testing.T) {
 		t.Fatalf("cursor col = %d, want %d", got, want)
 	}
 }
+
+func TestCursorBackwardPendingWrapWithoutReverseWrap(t *testing.T) {
+	vt := New()
+	vt.resize(5, 2)
+
+	printText(vt, "ABCDE")
+	vt.cub(1)
+	printText(vt, "X")
+
+	if got, want := vt.String(), "ABCXE\n     "; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestCursorBackwardPendingWrapWithReverseWrap(t *testing.T) {
+	vt := New()
+	vt.resize(5, 2)
+	vt.update(testCSI('h', []uint32{45}, '?'))
+
+	printText(vt, "ABCDE")
+	vt.cub(1)
+	printText(vt, "X")
+
+	if got, want := vt.String(), "ABCDX\n     "; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestCursorBackwardReverseWrapUsesSoftWrappedRows(t *testing.T) {
+	vt := New()
+	vt.resize(5, 2)
+	vt.update(testCSI('h', []uint32{45}, '?'))
+
+	printText(vt, "ABCDE1")
+	vt.cub(2)
+	printText(vt, "X")
+
+	if got, want := vt.String(), "ABCDX\n1    "; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestCursorBackwardReverseWrapStopsAtUnwrappedRow(t *testing.T) {
+	vt := New()
+	vt.resize(5, 2)
+	vt.update(testCSI('h', []uint32{45}, '?'))
+
+	printText(vt, "ABCDE")
+	vt.cr()
+	vt.lf()
+	printText(vt, "1")
+	vt.cub(2)
+	printText(vt, "X")
+
+	if got, want := vt.String(), "ABCDE\nX    "; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}

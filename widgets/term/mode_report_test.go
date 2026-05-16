@@ -77,3 +77,39 @@ func TestModeReportSaveCursor(t *testing.T) {
 		t.Fatalf("save-cursor mode report = %q, want %q", got, want)
 	}
 }
+
+func TestModeReportReverseWrap(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.resize(80, 24)
+
+	vt.update(testCSI('p', []uint32{45}, '?', '$'))
+	if got, want := readReply(t, r, len("\x1B[?45;2$y")), "\x1B[?45;2$y"; got != want {
+		t.Fatalf("reverse-wrap mode report = %q, want %q", got, want)
+	}
+
+	vt.update(testCSI('h', []uint32{45}, '?'))
+	vt.update(testCSI('p', []uint32{45}, '?', '$'))
+	if got, want := readReply(t, r, len("\x1B[?45;1$y")), "\x1B[?45;1$y"; got != want {
+		t.Fatalf("reverse-wrap mode report = %q, want %q", got, want)
+	}
+
+	vt.update(testCSI('l', []uint32{45}, '?'))
+	vt.update(testCSI('p', []uint32{45}, '?', '$'))
+	if got, want := readReply(t, r, len("\x1B[?45;2$y")), "\x1B[?45;2$y"; got != want {
+		t.Fatalf("reverse-wrap mode report = %q, want %q", got, want)
+	}
+}
+
+func TestReverseWrapModeSaveRestore(t *testing.T) {
+	vt := New()
+	vt.resize(80, 24)
+
+	vt.update(testCSI('h', []uint32{45}, '?'))
+	vt.update(testCSI('s', []uint32{45}, '?'))
+	vt.update(testCSI('l', []uint32{45}, '?'))
+	vt.update(testCSI('r', []uint32{45}, '?'))
+
+	if !vt.mode.reverseWrap {
+		t.Fatal("reverse-wrap mode was not restored")
+	}
+}

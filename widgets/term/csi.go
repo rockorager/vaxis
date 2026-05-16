@@ -91,14 +91,66 @@ func (vt *Model) cuf(ps int) {
 // Cursur Backward (CUB) CSI Ps D
 // Move cursor backward Ps columns, stopping at the left edge
 func (vt *Model) cub(ps int) {
-	vt.resetWrap()
 	if ps == 0 {
 		ps = 1
 	}
-	if column(ps) > vt.cursor.col {
-		ps = int(vt.cursor.col)
+	count := ps
+	reverseWrapExtended := vt.mode.decawm && vt.mode.reverseWrapExtended
+	reverseWrap := vt.mode.decawm && (vt.mode.reverseWrap || reverseWrapExtended)
+	if !reverseWrap {
+		vt.resetPendingWrap()
+		if column(count) > vt.cursor.col {
+			count = int(vt.cursor.col)
+		}
+		vt.cursor.col -= column(count)
+		return
 	}
-	vt.cursor.col -= column(ps)
+
+	if vt.lastCol {
+		count--
+	}
+	vt.resetPendingWrap()
+	if count == 0 {
+		return
+	}
+
+	left := column(0)
+	if vt.cursor.col >= vt.margin.left {
+		left = vt.margin.left
+	}
+	if vt.cursor.col == left && !reverseWrapExtended && vt.cursor.row <= vt.margin.top {
+		vt.cursor.row = vt.margin.top
+		vt.cursor.col = left
+		return
+	}
+
+	for count > 0 {
+		max := int(vt.cursor.col - left)
+		amount := min(count, max)
+		vt.cursor.col -= column(amount)
+		count -= amount
+		if count == 0 {
+			return
+		}
+		if vt.cursor.row == vt.margin.top {
+			if !reverseWrapExtended {
+				return
+			}
+			vt.cursor.row = vt.margin.bottom
+			vt.cursor.col = vt.margin.right
+			count--
+			continue
+		}
+		if vt.cursor.row == 0 {
+			return
+		}
+		if !reverseWrapExtended && !vt.activeScreen.row(vt.cursor.row-1).wrapped {
+			return
+		}
+		vt.cursor.row--
+		vt.cursor.col = vt.margin.right
+		count--
+	}
 }
 
 // Cursor Next Line (CNL) CSI Ps E
