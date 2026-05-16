@@ -214,6 +214,8 @@ func (vt *Model) ris() {
 	vt.charsets = charsets{}
 	vt.title = ""
 	vt.status = statusDisplayMain
+	vt.previousChar = vaxis.Character{}
+	vt.hasPreviousChar = false
 	vt.mode = mode{
 		decawm:  true,
 		dectcem: true,

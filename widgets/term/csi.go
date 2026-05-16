@@ -537,16 +537,17 @@ func (vt *Model) hpr(ps int) {
 // Repeat preceding graphic character Ps times
 func (vt *Model) rep(ps int) {
 	vt.resetWrap()
-	col := vt.cursor.col
-	if col == 0 {
+	if !vt.hasPreviousChar {
 		return
 	}
-	ch := *vt.activeScreen.cell(vt.cursor.row, col-1)
+	if ps == 0 {
+		ps = 1
+	}
 	for i := 0; i < ps; i += 1 {
-		if col+column(i) == vt.margin.right {
-			return
-		}
-		vt.activeScreen.cell(vt.cursor.row, vt.cursor.col+column(i)).Character = ch.Character
+		vt.print(ansi.Print{
+			Grapheme: vt.previousChar.Grapheme,
+			Width:    vt.previousChar.Width,
+		})
 	}
 }
 

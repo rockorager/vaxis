@@ -56,6 +56,9 @@ type Model struct {
 	size      vaxis.Resize
 	status    statusDisplay
 
+	previousChar    vaxis.Character
+	hasPreviousChar bool
+
 	primaryKittyKeyboard kittyKeyboardStack
 	altKittyKeyboard     kittyKeyboardStack
 	// lastCol is a flag indicating we printed in the last col
@@ -658,6 +661,13 @@ func (vt *Model) print(seq ansi.Print) {
 	}
 
 	w := seq.Width
+	if w > 0 {
+		vt.previousChar = vaxis.Character{
+			Grapheme: seq.Grapheme,
+			Width:    seq.Width,
+		}
+		vt.hasPreviousChar = true
+	}
 
 	// handle wrapping
 	var wrap bool
