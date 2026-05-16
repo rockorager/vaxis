@@ -6,7 +6,7 @@ import (
 
 func BenchmarkScreenBuffer(b *testing.B) {
 	b.Run("erase-row-range", func(b *testing.B) {
-		screen := newScreenBuffer(160, 48)
+		screen := newScreenBuffer(160, 48, 0)
 		b.ReportAllocs()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -15,7 +15,16 @@ func BenchmarkScreenBuffer(b *testing.B) {
 	})
 
 	b.Run("scroll-up", func(b *testing.B) {
-		screen := newScreenBuffer(160, 48)
+		screen := newScreenBuffer(160, 48, 0)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			screen.scrollUp(0, 47, 0, 159, 1, 0)
+		}
+	})
+
+	b.Run("scroll-up-with-scrollback", func(b *testing.B) {
+		screen := newScreenBuffer(160, 48, defaultScrollbackLines)
 		b.ReportAllocs()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -24,7 +33,7 @@ func BenchmarkScreenBuffer(b *testing.B) {
 	})
 
 	b.Run("scroll-down", func(b *testing.B) {
-		screen := newScreenBuffer(160, 48)
+		screen := newScreenBuffer(160, 48, 0)
 		b.ReportAllocs()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {

@@ -158,8 +158,8 @@ func (vt *Model) decrc() {
 func (vt *Model) ris() {
 	w := vt.width()
 	h := vt.height()
-	vt.altScreen = newScreenBuffer(w, h)
-	vt.primaryScreen = newScreenBuffer(w, h)
+	vt.altScreen = newScreenBuffer(w, h, 0)
+	vt.primaryScreen = newScreenBuffer(w, h, defaultScrollbackLines)
 	vt.margin.bottom = row(h) - 1
 	vt.margin.right = column(w) - 1
 	vt.cursor.row = 0

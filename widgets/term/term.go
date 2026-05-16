@@ -298,8 +298,8 @@ func (vt *Model) Resize(w int, h int) {
 
 func (vt *Model) resize(w int, h int) {
 	primary := vt.primaryScreen
-	vt.altScreen = newScreenBuffer(w, h)
-	vt.primaryScreen = newScreenBuffer(w, h)
+	vt.altScreen = newScreenBuffer(w, h, 0)
+	vt.primaryScreen = newScreenBuffer(w, h, defaultScrollbackLines)
 	last := vt.cursor.row
 	vt.margin.bottom = row(h) - 1
 	vt.margin.right = column(w) - 1
@@ -309,8 +309,8 @@ func (vt *Model) resize(w int, h int) {
 	vt.activeScreen = vt.primaryScreen
 
 	// transfer primary to new, skipping the last row
-	for row := 0; row < len(primary); row += 1 {
-		if row == int(last) {
+	for r := 0; r < primary.height(); r += 1 {
+		if r == int(last) {
 			break
 		}
 		if primary.width() == 0 {
@@ -318,7 +318,7 @@ func (vt *Model) resize(w int, h int) {
 		}
 		wrapped := false
 		for col := 0; col < primary.width(); col += 1 {
-			cell := primary[row][col]
+			cell := *primary.cell(row(r), column(col))
 			vt.cursor.Style = cell.Style
 			vt.print(ansi.Print{
 				Grapheme: cell.Character.Grapheme,
@@ -382,7 +382,7 @@ func (vt *Model) print(seq ansi.Print) {
 
 	if wrap {
 		vt.lastCol = false
-		vt.activeScreen[vt.cursor.row][vt.width()-1].wrapped = true
+		vt.activeScreen.cell(vt.cursor.row, column(vt.width()-1)).wrapped = true
 		vt.nel()
 	}
 
@@ -390,7 +390,7 @@ func (vt *Model) print(seq ansi.Print) {
 	rw := vt.cursor.row
 
 	if vt.mode.irm {
-		line := vt.activeScreen[rw]
+		line := vt.activeScreen.line(rw)
 		for i := vt.margin.right; i > col; i -= 1 {
 			line[i] = line[i-column(w)]
 		}
@@ -418,15 +418,16 @@ func (vt *Model) print(seq ansi.Print) {
 		},
 	}
 
-	vt.activeScreen[rw][col] = cell
+	vt.activeScreen.setCell(rw, col, cell)
 
 	// Set trailing cells to a space if wide rune
 	for i := column(1); i < column(w); i += 1 {
 		if col+i > vt.margin.right {
 			break
 		}
-		vt.activeScreen[rw][col+i].Character.Grapheme = " "
-		vt.activeScreen[rw][col+i].Style = vt.cursor.Style
+		trailing := vt.activeScreen.cell(rw, col+i)
+		trailing.Character.Grapheme = " "
+		trailing.Style = vt.cursor.Style
 	}
 
 	switch {
@@ -484,16 +485,16 @@ func (vt *Model) Draw(win vaxis.Window) {
 		win.Height = height
 		vt.Resize(width, height)
 	}
-	for row := 0; row < vt.height(); row += 1 {
+	for r := 0; r < vt.height(); r += 1 {
 		for col := 0; col < vt.width(); {
-			cell := vt.activeScreen[row][col]
+			cell := *vt.activeScreen.cell(row(r), column(col))
 			w := cell.Width
 
 			if cell.Grapheme == "" {
 				cell.Grapheme = " "
 			}
 
-			win.SetCell(col, row, cell.Cell)
+			win.SetCell(col, r, cell.Cell)
 			if w == 0 {
 				w = 1
 			}

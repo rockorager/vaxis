@@ -21,7 +21,7 @@ func (vt *Model) ich(ps int) {
 	}
 	col := vt.cursor.col
 	row := vt.cursor.row
-	line := vt.activeScreen[row]
+	line := vt.activeScreen.line(row)
 	for i := vt.margin.right; i > col; i -= 1 {
 		if (i - column(ps)) < 0 {
 			continue
@@ -202,7 +202,7 @@ func (vt *Model) ed(ps int) {
 					// Don't erase current row before cursor
 					continue
 				}
-				vt.activeScreen[r][col].erase(vt.cursor.Style.Background)
+				vt.activeScreen.eraseCell(r, col, vt.cursor.Style.Background)
 			}
 		}
 
@@ -218,7 +218,7 @@ func (vt *Model) ed(ps int) {
 					// column
 					break
 				}
-				vt.activeScreen[r][col].erase(vt.cursor.Style.Background)
+				vt.activeScreen.eraseCell(r, col, vt.cursor.Style.Background)
 			}
 		}
 
@@ -228,7 +228,7 @@ func (vt *Model) ed(ps int) {
 		vt.lastCol = false
 		for r := row(0); r < row(vt.height()); r += 1 {
 			for col := column(0); col < column(vt.width()); col += 1 {
-				vt.activeScreen[r][col].erase(vt.cursor.Style.Background)
+				vt.activeScreen.eraseCell(r, col, vt.cursor.Style.Background)
 			}
 		}
 	}
@@ -243,20 +243,20 @@ func (vt *Model) el(ps int) {
 	// position. Line attribute is not affected.
 	case 0:
 		for col := vt.cursor.col; col < column(vt.width()); col += 1 {
-			vt.activeScreen[r][col].erase(vt.cursor.Style.Background)
+			vt.activeScreen.eraseCell(r, col, vt.cursor.Style.Background)
 		}
 
 	// Erases from the beginning of the line to the cursor, including the
 	// cursor position. Line attribute is not affected.
 	case 1:
 		for col := column(0); col <= vt.cursor.col; col += 1 {
-			vt.activeScreen[r][col].erase(vt.cursor.Style.Background)
+			vt.activeScreen.eraseCell(r, col, vt.cursor.Style.Background)
 		}
 
 	// Erases the complete line.
 	case 2:
 		for col := column(0); col < column(vt.width()); col += 1 {
-			vt.activeScreen[r][col].erase(vt.cursor.Style.Background)
+			vt.activeScreen.eraseCell(r, col, vt.cursor.Style.Background)
 		}
 	}
 }
@@ -294,13 +294,13 @@ func (vt *Model) il(ps int) {
 
 	// move the lines first
 	for r := vt.margin.bottom; r >= (vt.cursor.row + row(ps)); r -= 1 {
-		copy(vt.activeScreen[r], vt.activeScreen[r-row(ps)])
+		copy(vt.activeScreen.line(r), vt.activeScreen.line(r-row(ps)))
 	}
 
 	// insert the blank lines (we do this by erasing the cells)
 	for r := row(0); r < row(ps); r += 1 {
 		for col := vt.margin.left; col <= vt.margin.right; col += 1 {
-			vt.activeScreen[vt.cursor.row+r][col].erase(vt.cursor.Style.Background)
+			vt.activeScreen.eraseCell(vt.cursor.row+r, col, vt.cursor.Style.Background)
 		}
 	}
 	vt.cursor.col = vt.margin.left
@@ -339,11 +339,11 @@ func (vt *Model) dl(ps int) {
 
 	for r := vt.cursor.row; r <= vt.margin.bottom; r += 1 {
 		if r <= vt.margin.bottom-row(ps) {
-			copy(vt.activeScreen[r], vt.activeScreen[r+row(ps)])
+			copy(vt.activeScreen.line(r), vt.activeScreen.line(r+row(ps)))
 			continue
 		}
 		for col := vt.margin.left; col <= vt.margin.right; col += 1 {
-			vt.activeScreen[r][col].erase(vt.cursor.Style.Background)
+			vt.activeScreen.eraseCell(r, col, vt.cursor.Style.Background)
 		}
 	}
 	vt.cursor.col = vt.margin.left
@@ -364,10 +364,10 @@ func (vt *Model) dch(ps int) {
 	row := vt.cursor.row
 	for col := vt.cursor.col; col <= vt.margin.right; col += 1 {
 		if col+column(ps) > vt.margin.right {
-			vt.activeScreen[row][col].erase(vt.cursor.Style.Background)
+			vt.activeScreen.eraseCell(row, col, vt.cursor.Style.Background)
 			continue
 		}
-		vt.activeScreen[row][col] = vt.activeScreen[row][col+column(ps)]
+		vt.activeScreen.setCell(row, col, *vt.activeScreen.cell(row, col+column(ps)))
 	}
 }
 
@@ -387,7 +387,7 @@ func (vt *Model) ech(ps int) {
 		if vt.cursor.col+i == column(vt.width()) {
 			return
 		}
-		vt.activeScreen[vt.cursor.row][vt.cursor.col+i].erase(vt.cursor.Style.Background)
+		vt.activeScreen.eraseCell(vt.cursor.row, vt.cursor.col+i, vt.cursor.Style.Background)
 	}
 }
 
@@ -487,12 +487,12 @@ func (vt *Model) rep(ps int) {
 	if col == 0 {
 		return
 	}
-	ch := vt.activeScreen[vt.cursor.row][col-1]
+	ch := *vt.activeScreen.cell(vt.cursor.row, col-1)
 	for i := 0; i < ps; i += 1 {
 		if col+column(i) == vt.margin.right {
 			return
 		}
-		vt.activeScreen[vt.cursor.row][vt.cursor.col+column(i)].Character = ch.Character
+		vt.activeScreen.cell(vt.cursor.row, vt.cursor.col+column(i)).Character = ch.Character
 	}
 }
 

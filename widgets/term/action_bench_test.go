@@ -56,6 +56,7 @@ func BenchmarkTerminalActions(b *testing.B) {
 		b.Run(bm.name, func(b *testing.B) {
 			vt := New()
 			vt.resize(80, 24)
+			vt.primaryScreen.state.scrollbackLimit = 0
 			b.ReportAllocs()
 			b.SetBytes(int64(len(bm.seqs)))
 			b.ResetTimer()

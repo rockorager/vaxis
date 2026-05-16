@@ -6,47 +6,78 @@ import (
 	"git.sr.ht/~rockorager/vaxis"
 )
 
-type screenBuffer [][]cell
+const defaultScrollbackLines = 10000
 
-func newScreenBuffer(width int, height int) screenBuffer {
-	screen := make(screenBuffer, height)
-	for row := range screen {
-		screen[row] = make([]cell, width)
+type screenBuffer struct {
+	state *screenState
+}
+
+type screenState struct {
+	width           int
+	height          int
+	cells           []cell
+	scrollback      []screenLine
+	scrollbackLimit int
+}
+
+type screenLine []cell
+
+func newScreenBuffer(width int, height int, scrollbackLimit int) screenBuffer {
+	return screenBuffer{
+		state: &screenState{
+			width:           width,
+			height:          height,
+			cells:           make([]cell, width*height),
+			scrollbackLimit: scrollbackLimit,
+		},
 	}
-	return screen
 }
 
 func (s screenBuffer) width() int {
-	if len(s) == 0 {
+	if s.state == nil {
 		return 0
 	}
-	return len(s[0])
+	return s.state.width
 }
 
 func (s screenBuffer) height() int {
-	return len(s)
+	if s.state == nil {
+		return 0
+	}
+	return s.state.height
 }
 
 func (s screenBuffer) line(r row) []cell {
-	return s[r]
+	start := int(r) * s.state.width
+	return s.state.cells[start : start+s.state.width]
 }
 
 func (s screenBuffer) cell(r row, c column) *cell {
-	return &s[r][c]
+	return &s.state.cells[s.offset(r, c)]
+}
+
+func (s screenBuffer) setCell(r row, c column, cell cell) {
+	s.state.cells[s.offset(r, c)] = cell
 }
 
 func (s screenBuffer) eraseCell(r row, c column, bg vaxis.Color) {
-	s[r][c].erase(bg)
+	s.state.cells[s.offset(r, c)].erase(bg)
 }
 
 func (s screenBuffer) eraseRowRange(r row, left column, right column, bg vaxis.Color) {
+	line := s.line(r)
 	for col := left; col <= right; col += 1 {
-		s[r][col].erase(bg)
+		line[col].erase(bg)
 	}
 }
 
+func (s screenBuffer) offset(r row, c column) int {
+	return int(r)*s.state.width + int(c)
+}
+
 func (s screenBuffer) scrollUp(top row, bottom row, left column, right column, n int, bg vaxis.Color) {
-	for r := range s {
+	s.captureScrollback(top, bottom, n)
+	for r := 0; r < s.state.height; r += 1 {
 		if r > int(bottom) {
 			continue
 		}
@@ -57,7 +88,7 @@ func (s screenBuffer) scrollUp(top row, bottom row, left column, right column, n
 			s.eraseRowRange(row(r), left, right, bg)
 			continue
 		}
-		copy(s[r], s[r+n])
+		copy(s.line(row(r)), s.line(row(r+n)))
 	}
 }
 
@@ -67,17 +98,63 @@ func (s screenBuffer) scrollDown(top row, bottom row, left column, right column,
 			s.eraseRowRange(r, left, right, bg)
 			continue
 		}
-		copy(s[r], s[r-row(n)])
+		copy(s.line(r), s.line(r-row(n)))
 	}
 }
 
-func (s screenBuffer) String() string {
+func (s screenBuffer) captureScrollback(top row, bottom row, n int) {
+	if s.state == nil || s.state.scrollbackLimit <= 0 {
+		return
+	}
+	if top != 0 || bottom != row(s.height()-1) {
+		return
+	}
+	if n <= 0 {
+		return
+	}
+	if n > s.height() {
+		n = s.height()
+	}
+	for i := 0; i < n; i += 1 {
+		line := make(screenLine, s.width())
+		copy(line, s.line(row(i)))
+		s.state.scrollback = append(s.state.scrollback, line)
+	}
+	if extra := len(s.state.scrollback) - s.state.scrollbackLimit; extra > 0 {
+		copy(s.state.scrollback, s.state.scrollback[extra:])
+		s.state.scrollback = s.state.scrollback[:s.state.scrollbackLimit]
+	}
+}
+
+func (s screenBuffer) scrollbackLen() int {
+	if s.state == nil {
+		return 0
+	}
+	return len(s.state.scrollback)
+}
+
+func (s screenBuffer) scrollbackString(i int) string {
+	if s.state == nil || i < 0 || i >= len(s.state.scrollback) {
+		return ""
+	}
 	str := strings.Builder{}
-	for row := range s {
-		for col := range s[row] {
-			_, _ = str.WriteString(s[row][col].rune())
+	for col := range s.state.scrollback[i] {
+		_, _ = str.WriteString(s.state.scrollback[i][col].rune())
+	}
+	return str.String()
+}
+
+func (s screenBuffer) String() string {
+	if s.state == nil {
+		return ""
+	}
+	str := strings.Builder{}
+	for r := 0; r < s.state.height; r += 1 {
+		line := s.line(row(r))
+		for col := range line {
+			_, _ = str.WriteString(line[col].rune())
 		}
-		if row < s.height()-1 {
+		if r < s.height()-1 {
 			str.WriteRune('\n')
 		}
 	}
