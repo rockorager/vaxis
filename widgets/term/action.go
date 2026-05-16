@@ -191,6 +191,10 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 			if seq.Final == 'c' {
 				vt.enqueueReplyString("\x1b[>1;0;0c")
 			}
+		case '=':
+			if seq.Final == 'c' {
+				vt.tertiaryDeviceAttributes()
+			}
 		case '?':
 			switch seq.Final {
 			case 'h':
@@ -225,6 +229,10 @@ func (vt *Model) primaryDeviceAttributes() {
 	resp.WriteString("22")
 	resp.WriteString("c")
 	vt.enqueueReplyString(resp.String())
+}
+
+func (vt *Model) tertiaryDeviceAttributes() {
+	vt.enqueueReplyString("\x1BP!|00000000\x1B\\")
 }
 
 func (vt *Model) deviceStatusReport(n int) {
