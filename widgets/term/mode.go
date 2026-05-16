@@ -65,6 +65,8 @@ type mode struct {
 	mouseSGR bool
 	// Alternate scroll
 	altScroll bool
+	// Save cursor mode
+	saveCursor bool
 	// Focus event tracking
 	focusEvents bool
 	// Unsolicited color scheme change notifications
@@ -142,6 +144,7 @@ func (vt *Model) decset(params ansi.CSI) {
 		case 47:
 			vt.switchAltScreen(47, true)
 		case 1048:
+			vt.mode.saveCursor = true
 			vt.decsc()
 		case 1047:
 			vt.switchAltScreen(1047, true)
@@ -198,6 +201,7 @@ func (vt *Model) decrst(params ansi.CSI) {
 		case 47:
 			vt.switchAltScreen(47, false)
 		case 1048:
+			vt.mode.saveCursor = false
 			vt.decrc()
 		case 1047:
 			vt.switchAltScreen(1047, false)
@@ -354,6 +358,13 @@ func (vt *Model) decrqm(pd int) {
 		}
 	case 47, 1047, 1049:
 		switch vt.mode.smcup {
+		case true:
+			ps = 1
+		case false:
+			ps = 2
+		}
+	case 1048:
+		switch vt.mode.saveCursor {
 		case true:
 			ps = 1
 		case false:
