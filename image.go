@@ -42,6 +42,41 @@ type Image interface {
 	CellSize() (w int, h int)
 }
 
+// RemoveImage removes any active placements for img from future renders.
+func (vx *Vaxis) RemoveImage(img Image) {
+	id, ok := imageID(img)
+	if !ok {
+		return
+	}
+	vx.removeImagePlacement(id)
+}
+
+func imageID(img Image) (uint64, bool) {
+	switch img := img.(type) {
+	case *KittyImage:
+		return img.id, true
+	case *Sixel:
+		return img.id, true
+	case *FullBlockImage, *HalfBlockImage:
+		return 0, false
+	default:
+		return 0, false
+	}
+}
+
+func (vx *Vaxis) removeImagePlacement(id uint64) {
+	if len(vx.graphicsNext) == 0 {
+		return
+	}
+	next := make([]*placement, 0, len(vx.graphicsNext))
+	for _, placement := range vx.graphicsNext {
+		if placement.id != id {
+			next = append(next, placement)
+		}
+	}
+	vx.graphicsNext = next
+}
+
 // NewImage creates a new image using the highest quality renderer the terminal
 // is capable of
 func (vx *Vaxis) NewImage(img image.Image) (Image, error) {

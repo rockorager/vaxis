@@ -59,6 +59,10 @@ type mode struct {
 	decbkm bool
 	// Enable left and right margins
 	declrmm bool
+	// Sixel scrolling. DECSET 80 disables this mode.
+	sixelScrolling bool
+	// Position the cursor to the right of sixel graphics.
+	sixelCursorRight bool
 
 	// xterm
 	//
@@ -138,6 +142,7 @@ func defaultMode() mode {
 		srm:                     true,
 		decawm:                  true,
 		dectcem:                 true,
+		sixelScrolling:          true,
 		altScroll:               true,
 		ignoreKeypadWithNumLock: true,
 		altEscPrefix:            true,
@@ -245,6 +250,8 @@ func (vt *Model) setDECMode(param int, enabled bool) {
 			vt.margin.left = 0
 			vt.margin.right = column(vt.width()) - 1
 		}
+	case 80:
+		vt.mode.sixelScrolling = !enabled
 	case 9:
 		vt.mode.mouseX10 = enabled
 		vt.setMouseEventMode(mouseEventX10, enabled)
@@ -310,6 +317,8 @@ func (vt *Model) setDECMode(param int, enabled bool) {
 		if enabled {
 			vt.inBandSizeReport()
 		}
+	case 8452:
+		vt.mode.sixelCursorRight = enabled
 	}
 }
 
@@ -407,6 +416,8 @@ func (vt *Model) decModeValue(param int) bool {
 		return vt.mode.decbkm
 	case 69:
 		return vt.mode.declrmm
+	case 80:
+		return !vt.mode.sixelScrolling
 	case 9:
 		return vt.mode.mouseX10
 	case 1000:
@@ -449,6 +460,8 @@ func (vt *Model) decModeValue(param int) bool {
 		return vt.mode.colorScheme
 	case 2048:
 		return vt.mode.inBandSizeReports
+	case 8452:
+		return vt.mode.sixelCursorRight
 	default:
 		return false
 	}
@@ -492,6 +505,8 @@ func savedModeValue(m mode, param int) bool {
 		return m.decbkm
 	case 69:
 		return m.declrmm
+	case 80:
+		return !m.sixelScrolling
 	case 9:
 		return m.mouseX10
 	case 1000:
@@ -534,6 +549,8 @@ func savedModeValue(m mode, param int) bool {
 		return m.colorScheme
 	case 2048:
 		return m.inBandSizeReports
+	case 8452:
+		return m.sixelCursorRight
 	default:
 		return false
 	}
@@ -570,6 +587,8 @@ func setModeValue(m *mode, param int, enabled bool) {
 		m.decbkm = enabled
 	case 69:
 		m.declrmm = enabled
+	case 80:
+		m.sixelScrolling = !enabled
 	case 9:
 		m.mouseX10 = enabled
 	case 1000:
@@ -612,6 +631,8 @@ func setModeValue(m *mode, param int, enabled bool) {
 		m.colorScheme = enabled
 	case 2048:
 		m.inBandSizeReports = enabled
+	case 8452:
+		m.sixelCursorRight = enabled
 	}
 }
 
@@ -704,6 +725,8 @@ func (vt *Model) decrqm(pd int, ansiMode bool) {
 		ps = modeReportState(vt.mode.decbkm)
 	case 69:
 		ps = modeReportState(vt.mode.declrmm)
+	case 80:
+		ps = modeReportState(!vt.mode.sixelScrolling)
 	case 9:
 		ps = modeReportState(vt.mode.mouseX10)
 	case 1000:
@@ -746,6 +769,8 @@ func (vt *Model) decrqm(pd int, ansiMode bool) {
 		ps = modeReportState(vt.mode.colorScheme)
 	case 2048:
 		ps = modeReportState(vt.mode.inBandSizeReports)
+	case 8452:
+		ps = modeReportState(vt.mode.sixelCursorRight)
 	}
 	vt.enqueueReplyString(fmt.Sprintf("\x1B[?%d;%d$y", pd, ps))
 }

@@ -78,6 +78,22 @@ func TestQueryColorContextUsesFreshResponse(t *testing.T) {
 	}
 }
 
+func TestRemoveImageRemovesFuturePlacements(t *testing.T) {
+	vx := &Vaxis{}
+	img := &Sixel{vx: vx, id: 7}
+	vx.graphicsLast = []*placement{{id: 7}}
+	vx.graphicsNext = []*placement{{id: 7}, {id: 8}}
+
+	vx.RemoveImage(img)
+
+	if len(vx.graphicsLast) != 1 {
+		t.Fatalf("graphicsLast len = %d, want 1", len(vx.graphicsLast))
+	}
+	if len(vx.graphicsNext) != 1 || vx.graphicsNext[0].id != 8 {
+		t.Fatalf("graphicsNext = %#v, want only id 8", vx.graphicsNext)
+	}
+}
+
 func TestQueryColorContextTimesOut(t *testing.T) {
 	vx := &Vaxis{
 		caps: capabilities{

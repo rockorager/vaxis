@@ -756,12 +756,66 @@ func (a sixelAction) apply(vt *Model) {
 	log.Info("SIXEL %d", buf.Len())
 	dec := sixel.NewDecoder(buf)
 	img := &Image{}
-	img.origin.row = int(vt.cursor.row)
-	img.origin.col = int(vt.cursor.col)
 	err := dec.Decode(&img.img)
 	if err != nil {
 		log.Error("couldn't decode sixel: %v", err)
 		return
 	}
+	vt.positionSixel(img)
 	vt.graphics = append(vt.graphics, img)
+}
+
+func (vt *Model) positionSixel(img *Image) {
+	bounds := img.img.Bounds()
+	img.cols = vt.sixelCellCols(bounds.Dx())
+	img.rows = vt.sixelCellRows(bounds.Dy())
+
+	if !vt.mode.sixelScrolling {
+		img.origin.row = 0
+		img.origin.col = 0
+		img.sourceRow = vt.activeScreen.scrollbackLen()
+		return
+	}
+
+	startRow := vt.cursor.row
+	startCol := vt.cursor.col
+	scrolls := 0
+	if vt.cursorInHorizontalMargins() && startRow <= vt.margin.bottom {
+		scrolls = max(0, int(startRow)+img.rows-1-int(vt.margin.bottom))
+	}
+	img.origin.row = max(0, int(startRow)-scrolls)
+	img.origin.col = int(startCol)
+	img.sourceRow = vt.activeScreen.scrollbackLen() + int(startRow)
+
+	for i := 0; i < img.rows-1; i += 1 {
+		vt.ind()
+	}
+	if vt.mode.sixelCursorRight {
+		vt.cursor.col = min(startCol+column(img.cols), column(vt.width())-1)
+	} else {
+		vt.cursor.col = startCol
+	}
+	vt.lastCol = false
+}
+
+func (vt *Model) sixelCellCols(pixelWidth int) int {
+	cellWidth, _ := vt.sixelCellPixels()
+	return max(1, (pixelWidth+cellWidth-1)/cellWidth)
+}
+
+func (vt *Model) sixelCellRows(pixelHeight int) int {
+	_, cellHeight := vt.sixelCellPixels()
+	return max(1, (pixelHeight+cellHeight-1)/cellHeight)
+}
+
+func (vt *Model) sixelCellPixels() (int, int) {
+	cellWidth := 1
+	cellHeight := 1
+	if vt.size.Cols > 0 && vt.size.XPixel > 0 {
+		cellWidth = max(1, vt.size.XPixel/vt.size.Cols)
+	}
+	if vt.size.Rows > 0 && vt.size.YPixel > 0 {
+		cellHeight = max(1, vt.size.YPixel/vt.size.Rows)
+	}
+	return cellWidth, cellHeight
 }

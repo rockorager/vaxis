@@ -294,6 +294,160 @@ func TestParsedSixelDCSStillSupported(t *testing.T) {
 	}
 }
 
+func TestSixelMovesCursorToLastImageRow(t *testing.T) {
+	vt := New()
+	vt.resize(5, 3)
+	vt.size = vaxis.Resize{Cols: 5, Rows: 3, XPixel: 5, YPixel: 18}
+	vt.cursor.row = 1
+	vt.cursor.col = 2
+
+	vt.update(ansi.DCS{
+		Final: 'q',
+		Data:  []rune("#0;2;100;0;0#0@-@"),
+	})
+
+	if len(vt.graphics) != 1 {
+		t.Fatalf("graphics len = %d, want 1", len(vt.graphics))
+	}
+	img := vt.graphics[0]
+	if img.origin.row != 1 || img.origin.col != 2 {
+		t.Fatalf("sixel origin = %d,%d, want 1,2", img.origin.row, img.origin.col)
+	}
+	if img.rows != 2 || img.cols != 1 {
+		t.Fatalf("sixel cells = %dx%d, want 1x2", img.cols, img.rows)
+	}
+	if vt.cursor.row != 2 || vt.cursor.col != 2 {
+		t.Fatalf("cursor = %d,%d, want 2,2", vt.cursor.row, vt.cursor.col)
+	}
+}
+
+func TestSixelAtBottomScrollsAndStaysOnLastImageRow(t *testing.T) {
+	vt := New()
+	vt.resize(5, 3)
+	vt.size = vaxis.Resize{Cols: 5, Rows: 3, XPixel: 5, YPixel: 18}
+	vt.cursor.row = 2
+	vt.cursor.col = 1
+
+	vt.update(ansi.DCS{
+		Final: 'q',
+		Data:  []rune("#0;2;100;0;0#0@-@"),
+	})
+
+	if got, want := vt.primaryScreen.scrollbackLen(), 1; got != want {
+		t.Fatalf("scrollback len = %d, want %d", got, want)
+	}
+	img := vt.graphics[0]
+	if img.origin.row != 1 || img.origin.col != 1 {
+		t.Fatalf("sixel origin = %d,%d, want 1,1", img.origin.row, img.origin.col)
+	}
+	if got, want := img.sourceRow, 2; got != want {
+		t.Fatalf("sixel source row = %d, want %d", got, want)
+	}
+	if vt.cursor.row != 2 || vt.cursor.col != 1 {
+		t.Fatalf("cursor = %d,%d, want 2,1", vt.cursor.row, vt.cursor.col)
+	}
+}
+
+func TestSixelDisplayModePlacesAtOriginAndLeavesCursor(t *testing.T) {
+	vt := New()
+	vt.resize(5, 3)
+	vt.size = vaxis.Resize{Cols: 5, Rows: 3, XPixel: 5, YPixel: 18}
+	vt.cursor.row = 2
+	vt.cursor.col = 3
+	vt.setDECMode(80, true)
+
+	vt.update(ansi.DCS{
+		Final: 'q',
+		Data:  []rune("#0;2;100;0;0#0@-@"),
+	})
+
+	img := vt.graphics[0]
+	if img.origin.row != 0 || img.origin.col != 0 {
+		t.Fatalf("sixel origin = %d,%d, want 0,0", img.origin.row, img.origin.col)
+	}
+	if vt.cursor.row != 2 || vt.cursor.col != 3 {
+		t.Fatalf("cursor = %d,%d, want 2,3", vt.cursor.row, vt.cursor.col)
+	}
+}
+
+func TestSixelCursorRightMode(t *testing.T) {
+	vt := New()
+	vt.resize(5, 3)
+	vt.size = vaxis.Resize{Cols: 5, Rows: 3, XPixel: 5, YPixel: 18}
+	vt.cursor.row = 1
+	vt.cursor.col = 1
+	vt.setDECMode(8452, true)
+
+	vt.update(ansi.DCS{
+		Final: 'q',
+		Data:  []rune("#0;2;100;0;0#0~~"),
+	})
+
+	if vt.cursor.row != 1 || vt.cursor.col != 3 {
+		t.Fatalf("cursor = %d,%d, want 1,3", vt.cursor.row, vt.cursor.col)
+	}
+}
+
+func TestSixelScrollsWithText(t *testing.T) {
+	vt := New()
+	vt.resize(5, 3)
+	vt.size = vaxis.Resize{Cols: 5, Rows: 3, XPixel: 5, YPixel: 18}
+	vt.cursor.row = 1
+	vt.cursor.col = 1
+
+	vt.update(ansi.DCS{
+		Final: 'q',
+		Data:  []rune("#0;2;100;0;0#0@-@"),
+	})
+	vt.ind()
+
+	if len(vt.graphics) != 1 {
+		t.Fatalf("graphics len = %d, want 1", len(vt.graphics))
+	}
+	img := vt.graphics[0]
+	if img.sourceRow != 1 || img.origin.col != 1 {
+		t.Fatalf("sixel source/origin = %d,%d, want 1,1", img.sourceRow, img.origin.col)
+	}
+	visible := vt.visibleGraphics()
+	if len(visible) != 1 {
+		t.Fatalf("visible graphics len = %d, want 1", len(visible))
+	}
+	if visible[0].row != 0 || visible[0].col != 1 {
+		t.Fatalf("visible sixel = %d,%d, want 0,1", visible[0].row, visible[0].col)
+	}
+}
+
+func TestSixelHiddenWhenScrolledOffscreenThenVisibleInScrollback(t *testing.T) {
+	vt := New()
+	vt.resize(5, 3)
+	vt.size = vaxis.Resize{Cols: 5, Rows: 3, XPixel: 5, YPixel: 18}
+	vt.cursor.row = 1
+	vt.cursor.col = 1
+
+	vt.update(ansi.DCS{
+		Final: 'q',
+		Data:  []rune("#0;2;100;0;0#0@-@"),
+	})
+	vt.ind()
+	vt.ind()
+
+	if len(vt.graphics) != 1 {
+		t.Fatalf("graphics len = %d, want 1", len(vt.graphics))
+	}
+	if visible := vt.visibleGraphics(); len(visible) != 0 {
+		t.Fatalf("visible graphics len = %d, want 0", len(visible))
+	}
+
+	vt.scrollOffset = 1
+	visible := vt.visibleGraphics()
+	if len(visible) != 1 {
+		t.Fatalf("visible scrollback graphics len = %d, want 1", len(visible))
+	}
+	if visible[0].row != 0 || visible[0].col != 1 {
+		t.Fatalf("visible scrollback sixel = %d,%d, want 0,1", visible[0].row, visible[0].col)
+	}
+}
+
 func TestRISClearsSixelGraphics(t *testing.T) {
 	vt := New()
 	vt.resize(80, 24)

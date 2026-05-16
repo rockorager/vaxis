@@ -77,6 +77,7 @@ func TestModeReportRecognizedDECModeDefaults(t *testing.T) {
 		{66, 2},
 		{67, 2},
 		{69, 2},
+		{80, 2},
 		{1000, 2},
 		{1002, 2},
 		{1003, 2},
@@ -98,6 +99,7 @@ func TestModeReportRecognizedDECModeDefaults(t *testing.T) {
 		{2027, 2},
 		{2031, 2},
 		{2048, 2},
+		{8452, 2},
 	}
 
 	for _, tt := range tests {

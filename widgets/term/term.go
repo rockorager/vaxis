@@ -663,7 +663,8 @@ type drawSnapshot struct {
 	cursorRow     int
 	cursorStyle   vaxis.CursorStyle
 	cursorVisible bool
-	graphics      []*Image
+	allGraphics   []*Image
+	graphics      []positionedImage
 	vx            *vaxis.Vaxis
 }
 
@@ -1252,6 +1253,7 @@ func isVariationSelector(grapheme string) bool {
 // scrollUp shifts all text upward by n rows. Semantically, this is backwards -
 // usually scroll up would mean you shift rows down
 func (vt *Model) scrollUp(n int) {
+	historyLen := vt.activeScreen.scrollbackLen()
 	captured := vt.activeScreen.scrollUp(
 		vt.margin.top,
 		vt.margin.bottom,
@@ -1260,6 +1262,9 @@ func (vt *Model) scrollUp(n int) {
 		n,
 		vt.cursor.Style.Background,
 	)
+	if captured > 0 {
+		vt.shiftGraphicsSourceRows(historyLen + captured - vt.activeScreen.scrollbackLen())
+	}
 	if captured > 0 && vt.scrollOffset > 0 {
 		vt.scrollOffset += captured
 		vt.clampScrollOffset()
@@ -1279,6 +1284,22 @@ func (vt *Model) scrollDown(n int) {
 		n,
 		vt.cursor.Style.Background,
 	)
+}
+
+func (vt *Model) shiftGraphicsSourceRows(dropped int) {
+	if dropped <= 0 || len(vt.graphics) == 0 {
+		return
+	}
+	kept := vt.graphics[:0]
+	for _, img := range vt.graphics {
+		img.sourceRow -= dropped
+		if img.sourceRow+img.rows <= 0 {
+			img.destroy()
+			continue
+		}
+		kept = append(kept, img)
+	}
+	vt.graphics = kept
 }
 
 func (vt *Model) Close() {
@@ -1317,14 +1338,16 @@ func (vt *Model) Draw(win vaxis.Window) {
 	if snapshot.cursorVisible {
 		win.ShowCursor(snapshot.cursorCol, snapshot.cursorRow, snapshot.cursorStyle)
 	}
+	vt.removeGraphicsPlacements(snapshot.vx, snapshot.allGraphics)
 	vt.drawGraphics(win, snapshot.vx, snapshot.graphics)
 }
 
 func (vt *Model) snapshotDraw(vx *vaxis.Vaxis) drawSnapshot {
 	snapshot := drawSnapshot{
-		cells:    make([]positionedCell, 0, vt.width()*vt.height()),
-		graphics: append([]*Image(nil), vt.graphics...),
-		vx:       vx,
+		cells:       make([]positionedCell, 0, vt.width()*vt.height()),
+		allGraphics: append([]*Image(nil), vt.graphics...),
+		graphics:    vt.visibleGraphics(),
+		vx:          vx,
 	}
 	vt.vx = vx
 	for r := 0; r < vt.height(); r += 1 {
@@ -1364,14 +1387,59 @@ func (vt *Model) snapshotDraw(vx *vaxis.Vaxis) drawSnapshot {
 	return snapshot
 }
 
-func (vt *Model) drawGraphics(win vaxis.Window, vx *vaxis.Vaxis, graphics []*Image) {
+func (vt *Model) removeGraphicsPlacements(vx *vaxis.Vaxis, graphics []*Image) {
+	if vx == nil {
+		return
+	}
+	for _, img := range graphics {
+		for _, cached := range img.vaxii {
+			if cached.vx == vx {
+				vx.RemoveImage(cached.vxImage)
+			}
+		}
+	}
+}
+
+func (vt *Model) visibleGraphics() []positionedImage {
+	if len(vt.graphics) == 0 {
+		return nil
+	}
+	topSourceRow := vt.topViewportSourceRow()
+	visible := make([]positionedImage, 0, len(vt.graphics))
+	for _, img := range vt.graphics {
+		viewportRow := img.sourceRow - topSourceRow
+		if viewportRow < 0 || viewportRow+img.rows > vt.height() {
+			continue
+		}
+		if img.origin.col < 0 || img.origin.col+img.cols > vt.width() {
+			continue
+		}
+		visible = append(visible, positionedImage{
+			img: img,
+			row: viewportRow,
+			col: img.origin.col,
+		})
+	}
+	return visible
+}
+
+func (vt *Model) topViewportSourceRow() int {
+	historyLen := vt.activeScreen.scrollbackLen()
+	if vt.scrollOffset > 0 && historyLen > 0 {
+		return historyLen - vt.scrollOffset
+	}
+	return historyLen
+}
+
+func (vt *Model) drawGraphics(win vaxis.Window, vx *vaxis.Vaxis, graphics []positionedImage) {
 	if vx == nil {
 		return
 	}
 outer:
-	for _, img := range graphics {
+	for _, graphic := range graphics {
+		img := graphic.img
 		if vxImg := vt.cachedVaxisImage(img, vx); vxImg != nil {
-			win := win.New(img.origin.col, img.origin.row, -1, -1)
+			win := win.New(graphic.col, graphic.row, -1, -1)
 			vxImg.Draw(win)
 			continue outer
 		}
@@ -1385,7 +1453,7 @@ outer:
 		// trigger the encoding
 		vxImg.Resize(win.Size())
 		if cached, ok := vt.cacheVaxisImage(img, vx, vxImg); ok {
-			win := win.New(img.origin.col, img.origin.row, -1, -1)
+			win := win.New(graphic.col, graphic.row, -1, -1)
 			cached.Draw(win)
 		}
 	}
@@ -1422,10 +1490,7 @@ func (vt *Model) cursorViewportPosition() (int, int, bool) {
 		return 0, 0, false
 	}
 	historyLen := vt.activeScreen.scrollbackLen()
-	topSourceRow := historyLen
-	if vt.scrollOffset > 0 && historyLen > 0 {
-		topSourceRow = historyLen - vt.scrollOffset
-	}
+	topSourceRow := vt.topViewportSourceRow()
 	cursorSourceRow := historyLen + int(vt.cursor.row)
 	viewportRow := cursorSourceRow - topSourceRow
 	if viewportRow < 0 || viewportRow >= vt.height() {

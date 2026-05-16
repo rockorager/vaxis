@@ -11,8 +11,17 @@ type Image struct {
 		row int
 		col int
 	}
-	img   image.Image
-	vaxii []*vaxisImage
+	sourceRow int
+	rows      int
+	cols      int
+	img       image.Image
+	vaxii     []*vaxisImage
+}
+
+type positionedImage struct {
+	img *Image
+	row int
+	col int
 }
 
 type vaxisImage struct {
@@ -20,4 +29,11 @@ type vaxisImage struct {
 	// multiple vaxis instances are connected to the same term widget
 	vx      *vaxis.Vaxis
 	vxImage vaxis.Image
+}
+
+func (img *Image) destroy() {
+	for _, cached := range img.vaxii {
+		cached.vxImage.Destroy()
+	}
+	img.vaxii = nil
 }
