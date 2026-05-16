@@ -24,7 +24,9 @@ func (c *cell) rune() string {
 func (c *cell) erase(bg vaxis.Color) {
 	c.Grapheme = ""
 	c.Attribute = 0
+	c.Foreground = 0
 	c.UnderlineStyle = vaxis.UnderlineOff
+	c.UnderlineColor = 0
 	c.Background = bg
 	c.Hyperlink = ""
 	c.HyperlinkParams = ""

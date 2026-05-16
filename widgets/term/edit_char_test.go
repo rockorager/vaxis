@@ -124,6 +124,41 @@ func TestInsertBlanksPreservesBackgroundSGR(t *testing.T) {
 	}
 }
 
+func TestEraseCellResetsForegroundAndKeepsBackground(t *testing.T) {
+	vt := New()
+	vt.resize(3, 1)
+	fg := vaxis.IndexColor(1)
+	bg := vaxis.IndexColor(2)
+	vt.cursor.Style = vaxis.Style{
+		Foreground:     fg,
+		Background:     vaxis.IndexColor(3),
+		UnderlineColor: vaxis.IndexColor(4),
+		UnderlineStyle: vaxis.UnderlineSingle,
+	}
+	printText(vt, "A")
+	vt.cursor.col = 0
+	vt.cursor.Style = vaxis.Style{Background: bg}
+
+	vt.ech(1)
+
+	cell := vt.activeScreen.cell(0, 0)
+	if got := cell.Foreground; got != 0 {
+		t.Fatalf("erased cell foreground = %v, want default", got)
+	}
+	if got := cell.UnderlineColor; got != 0 {
+		t.Fatalf("erased cell underline color = %v, want default", got)
+	}
+	if got := cell.UnderlineStyle; got != vaxis.UnderlineOff {
+		t.Fatalf("erased cell underline style = %v, want off", got)
+	}
+	if got := cell.Background; got != bg {
+		t.Fatalf("erased cell background = %v, want %v", got, bg)
+	}
+	if got := cell.Grapheme; got != "" {
+		t.Fatalf("erased cell grapheme = %q, want empty", got)
+	}
+}
+
 func TestInsertBlanksMoreThanLineWidth(t *testing.T) {
 	vt := New()
 	vt.resize(3, 2)
