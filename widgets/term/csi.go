@@ -171,58 +171,52 @@ func (vt *Model) cpl(ps int) {
 // Move cursor to Ps column, stopping at right/left margin. Default is 1, but we
 // default to 0 since our columns our 0 indexed
 func (vt *Model) cha(ps int) {
-	vt.resetWrap()
-	if ps == 0 {
-		ps = 1
-	}
-	vt.cursor.col = column(ps - 1)
-	if vt.cursor.col > vt.margin.right {
-		vt.cursor.col = vt.margin.right
-	}
-	if vt.cursor.col < vt.margin.left {
-		vt.cursor.col = vt.margin.left
-	}
+	vt.setCursorPos(int(vt.cursor.row)+1, ps)
 }
 
 // Cursor Position (CUP) CSI Ps;Ps H
 // Move cursor to the absolute position
 func (vt *Model) cup(pm ansi.CSI) {
-	vt.resetWrap()
-	r := 0
-	c := 0
+	r := 1
+	c := 1
 	switch pm.NumParameters {
 	case 0:
 	case 1:
-		r = pm.Param(0) - 1
+		r = pm.Param(0)
 	default:
-		r = pm.Param(0) - 1
-		c = pm.Param(1) - 1
+		r = pm.Param(0)
+		c = pm.Param(1)
 	}
-	if r < 0 {
-		r = 0
+	vt.setCursorPos(r, c)
+}
+
+func (vt *Model) setCursorPos(rowReq int, colReq int) {
+	vt.resetPendingWrap()
+	if rowReq <= 0 {
+		rowReq = 1
 	}
-	if c < 0 {
-		c = 0
+	if colReq <= 0 {
+		colReq = 1
 	}
+
+	xOffset := 0
+	yOffset := 0
+	xMax := vt.width()
+	yMax := vt.height()
 	if vt.mode.decom {
-		vt.cursor.row = vt.margin.top + row(r)
-		vt.cursor.col = vt.margin.left + column(c)
-		if vt.cursor.row > vt.margin.bottom {
-			vt.cursor.row = vt.margin.bottom
-		}
-		if vt.cursor.col > vt.margin.right {
-			vt.cursor.col = vt.margin.right
-		}
-		return
+		xOffset = int(vt.margin.left)
+		yOffset = int(vt.margin.top)
+		xMax = int(vt.margin.right) + 1
+		yMax = int(vt.margin.bottom) + 1
 	}
-	vt.cursor.row = row(r)
-	vt.cursor.col = column(c)
-	if vt.cursor.col > column(vt.width()-1) {
-		vt.cursor.col = column(vt.width() - 1)
+	if colReq+xOffset > xMax {
+		colReq = xMax - xOffset
 	}
-	if vt.cursor.row > row(vt.height()-1) {
-		vt.cursor.row = row(vt.height() - 1)
+	if rowReq+yOffset > yMax {
+		rowReq = yMax - yOffset
 	}
+	vt.cursor.col = column(colReq + xOffset - 1)
+	vt.cursor.row = row(rowReq + yOffset - 1)
 }
 
 // Cursor Forward Tabulation (CHT) CSI Ps I
@@ -529,56 +523,34 @@ func (vt *Model) ctc(seq ansi.CSI, private bool) {
 //
 // Move cursor to line Ps
 func (vt *Model) vpa(ps int) {
-	vt.resetWrap()
-	if ps == 0 {
-		ps = 1
-	}
-	vt.cursor.row = row(ps - 1)
-	if vt.cursor.row > row(vt.height()-1) {
-		vt.cursor.row = row(vt.height() - 1)
-	}
+	vt.setCursorPos(ps, int(vt.cursor.col)+1)
 }
 
 // Line Position Relative (VPR) CSI Ps e
 //
 // Move down Ps lines
 func (vt *Model) vpr(ps int) {
-	vt.resetWrap()
 	if ps == 0 {
 		ps = 1
 	}
-	vt.cursor.row += row(ps)
-	if vt.cursor.row > row(vt.height()-1) {
-		vt.cursor.row = row(vt.height() - 1)
-	}
+	vt.setCursorPos(int(vt.cursor.row)+1+ps, int(vt.cursor.col)+1)
 }
 
 // Character Position Absolute (HPA) CSI Ps `
 //
 // Move cursor to column Ps
 func (vt *Model) hpa(ps int) {
-	vt.resetWrap()
-	if ps == 0 {
-		ps = 1
-	}
-	vt.cursor.col = column(ps - 1)
-	if vt.cursor.col > column(vt.width()-1) {
-		vt.cursor.col = column(vt.width() - 1)
-	}
+	vt.setCursorPos(int(vt.cursor.row)+1, ps)
 }
 
 // Character Position Relative (HPR) CSI Ps a
 //
 // Move cursor to the right Ps times
 func (vt *Model) hpr(ps int) {
-	vt.resetWrap()
 	if ps == 0 {
 		ps = 1
 	}
-	vt.cursor.col += column(ps)
-	if vt.cursor.col > column(vt.width()-1) {
-		vt.cursor.col = column(vt.width() - 1)
-	}
+	vt.setCursorPos(int(vt.cursor.row)+1, int(vt.cursor.col)+1+ps)
 }
 
 // Repeat (REP) CSI Ps b

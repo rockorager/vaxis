@@ -272,3 +272,57 @@ func TestCursorMovementAliases(t *testing.T) {
 		t.Fatalf("cursor col after CSI j = %d, want %d", got, want)
 	}
 }
+
+func TestCursorCharacterAbsoluteIgnoresMarginsOutsideOriginMode(t *testing.T) {
+	vt := New()
+	vt.resize(5, 3)
+	vt.margin.left = 2
+	vt.margin.right = 4
+	vt.cursor.row = 1
+	vt.cursor.col = 3
+
+	vt.cha(1)
+
+	if got, want := vt.cursor.col, column(0); got != want {
+		t.Fatalf("cursor col = %d, want %d", got, want)
+	}
+	if got, want := vt.cursor.row, row(1); got != want {
+		t.Fatalf("cursor row = %d, want %d", got, want)
+	}
+}
+
+func TestHorizontalPositionOriginModeUsesMargins(t *testing.T) {
+	vt := New()
+	vt.resize(5, 3)
+	vt.margin.left = 2
+	vt.margin.right = 3
+	vt.mode.decom = true
+
+	vt.hpa(1)
+	if got, want := vt.cursor.col, column(2); got != want {
+		t.Fatalf("HPA origin col = %d, want %d", got, want)
+	}
+
+	vt.hpr(100)
+	if got, want := vt.cursor.col, column(3); got != want {
+		t.Fatalf("HPR origin col = %d, want %d", got, want)
+	}
+}
+
+func TestVerticalPositionOriginModeUsesMargins(t *testing.T) {
+	vt := New()
+	vt.resize(5, 5)
+	vt.margin.top = 2
+	vt.margin.bottom = 3
+	vt.mode.decom = true
+
+	vt.vpa(1)
+	if got, want := vt.cursor.row, row(2); got != want {
+		t.Fatalf("VPA origin row = %d, want %d", got, want)
+	}
+
+	vt.vpr(100)
+	if got, want := vt.cursor.row, row(3); got != want {
+		t.Fatalf("VPR origin row = %d, want %d", got, want)
+	}
+}
