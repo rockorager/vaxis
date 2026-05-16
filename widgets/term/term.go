@@ -48,6 +48,7 @@ type Model struct {
 	tabStop  []column
 	title    string
 	theme    vaxis.ColorThemeMode
+	status   statusDisplay
 	// lastCol is a flag indicating we printed in the last col
 	lastCol bool
 	// scrollOffset is the number of historical rows above the active screen
@@ -596,6 +597,10 @@ func (vt *Model) clampCursor() {
 // print sets the current cell contents to the given rune. The attributes will
 // be copied from the current cursor attributes
 func (vt *Model) print(seq ansi.Print) {
+	if vt.status != statusDisplayMain {
+		return
+	}
+
 	if len(seq.Grapheme) == 1 {
 		set := vt.charsets.designations[vt.charsets.selected]
 		shifted := applyCharset(set, rune(seq.Grapheme[0]))

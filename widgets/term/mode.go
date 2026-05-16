@@ -88,6 +88,13 @@ const (
 	protectedModeDEC
 )
 
+type statusDisplay int
+
+const (
+	statusDisplayMain statusDisplay = iota
+	statusDisplayLine
+)
+
 func (vt *Model) sm(params ansi.CSI) {
 	for _, param := range params.Params() {
 		switch param {

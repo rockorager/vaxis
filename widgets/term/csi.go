@@ -407,6 +407,18 @@ func (vt *Model) decsca(seq ansi.CSI) {
 	}
 }
 
+func (vt *Model) decsasd(seq ansi.CSI) {
+	if seq.NumParameters != 1 {
+		return
+	}
+	switch ps(seq) {
+	case 0:
+		vt.status = statusDisplayMain
+	case 1:
+		vt.status = statusDisplayLine
+	}
+}
+
 // Cursor Backward Tabulation (CBT) CSI Ps Z
 //
 // Move cursor backward Ps tabulations

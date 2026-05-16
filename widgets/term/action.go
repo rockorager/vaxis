@@ -242,8 +242,11 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 				vt.decsca(seq)
 			}
 		case '$':
-			if seq.Final == 'p' {
+			switch seq.Final {
+			case 'p':
 				vt.decrqm(ps(seq), true)
+			case '}':
+				vt.decsasd(seq)
 			}
 		}
 	case 2:

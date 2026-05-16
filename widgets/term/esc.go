@@ -213,6 +213,7 @@ func (vt *Model) ris() {
 	vt.lastCol = false
 	vt.activeScreen = vt.primaryScreen
 	vt.charsets = charsets{}
+	vt.status = statusDisplayMain
 	vt.mode = mode{
 		decawm:  true,
 		dectcem: true,
