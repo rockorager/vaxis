@@ -43,9 +43,11 @@ func (vt *Model) sgr(seq ansi.CSI) {
 					vt.cursor.UnderlineStyle = vaxis.UnderlineDotted
 				case 5:
 					vt.cursor.UnderlineStyle = vaxis.UnderlineDashed
+				default:
+					vt.cursor.UnderlineStyle = vaxis.UnderlineSingle
 				}
 			}
-		case 5:
+		case 5, 6:
 			vt.cursor.Attribute |= vaxis.AttrBlink
 		case 7:
 			vt.cursor.Attribute |= vaxis.AttrReverse
@@ -54,7 +56,7 @@ func (vt *Model) sgr(seq ansi.CSI) {
 		case 9:
 			vt.cursor.Attribute |= vaxis.AttrStrikethrough
 		case 21:
-			// Double underlined, not supported
+			vt.cursor.UnderlineStyle = vaxis.UnderlineDouble
 		case 22:
 			vt.cursor.Attribute &^= vaxis.AttrBold
 			vt.cursor.Attribute &^= vaxis.AttrDim
@@ -237,6 +239,8 @@ func (vt *Model) sgr(seq ansi.CSI) {
 					uint8(params[i][5]),
 				)
 			}
+		case 59:
+			vt.cursor.UnderlineColor = 0
 		case 90, 91, 92, 93, 94, 95, 96, 97:
 			vt.cursor.Foreground = vaxis.IndexColor(uint8(params[i][0] - 90 + 8))
 		case 100, 101, 102, 103, 104, 105, 106, 107:
