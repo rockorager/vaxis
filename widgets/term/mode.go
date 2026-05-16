@@ -28,6 +28,8 @@ type mode struct {
 	deccolm bool
 	// Scroll mode
 	decsclm bool
+	// Reverse video mode
+	decscnm bool
 	// Origin mode
 	decom bool
 	// Autowrap mode
@@ -44,6 +46,10 @@ type mode struct {
 	decpex bool
 	// Text Cursor Enable mode
 	dectcem bool
+	// Cursor blinking mode
+	cursorBlinking bool
+	// Allow column mode switching.
+	enableMode3 bool
 	// National replacement character sets
 	decnrcm bool
 	// Application keypad
@@ -201,6 +207,7 @@ func (vt *Model) setDECMode(param int, enabled bool) {
 	case 4:
 		vt.mode.decsclm = enabled
 	case 5:
+		vt.mode.decscnm = enabled
 	case 6:
 		vt.mode.decom = enabled
 		vt.resetWrap()
@@ -220,6 +227,10 @@ func (vt *Model) setDECMode(param int, enabled bool) {
 		vt.mode.reverseWrap = enabled
 	case 25:
 		vt.mode.dectcem = enabled
+	case 12:
+		vt.mode.cursorBlinking = enabled
+	case 40:
+		vt.mode.enableMode3 = enabled
 	case 66:
 		vt.mode.deckpam = enabled
 		vt.mode.deckpnm = !enabled
@@ -331,6 +342,8 @@ func (vt *Model) decModeValue(param int) bool {
 		return vt.mode.deccolm
 	case 4:
 		return vt.mode.decsclm
+	case 5:
+		return vt.mode.decscnm
 	case 6:
 		return vt.mode.decom
 	case 7:
@@ -341,6 +354,10 @@ func (vt *Model) decModeValue(param int) bool {
 		return vt.mode.reverseWrap
 	case 25:
 		return vt.mode.dectcem
+	case 12:
+		return vt.mode.cursorBlinking
+	case 40:
+		return vt.mode.enableMode3
 	case 66:
 		return vt.mode.deckpam
 	case 67:
@@ -412,6 +429,8 @@ func savedModeValue(m mode, param int) bool {
 		return m.deccolm
 	case 4:
 		return m.decsclm
+	case 5:
+		return m.decscnm
 	case 6:
 		return m.decom
 	case 7:
@@ -422,6 +441,10 @@ func savedModeValue(m mode, param int) bool {
 		return m.reverseWrap
 	case 25:
 		return m.dectcem
+	case 12:
+		return m.cursorBlinking
+	case 40:
+		return m.enableMode3
 	case 66:
 		return m.deckpam
 	case 67:
@@ -485,6 +508,8 @@ func setModeValue(m *mode, param int, enabled bool) {
 		m.deccolm = enabled
 	case 4:
 		m.decsclm = enabled
+	case 5:
+		m.decscnm = enabled
 	case 6:
 		m.decom = enabled
 	case 7:
@@ -495,6 +520,10 @@ func setModeValue(m *mode, param int, enabled bool) {
 		m.reverseWrap = enabled
 	case 25:
 		m.dectcem = enabled
+	case 12:
+		m.cursorBlinking = enabled
+	case 40:
+		m.enableMode3 = enabled
 	case 66:
 		m.deckpam = enabled
 		m.deckpnm = !enabled
@@ -614,6 +643,7 @@ func (vt *Model) decrqm(pd int, ansiMode bool) {
 	case 4:
 		ps = modeReportState(vt.mode.decsclm)
 	case 5:
+		ps = modeReportState(vt.mode.decscnm)
 	case 6:
 		ps = modeReportState(vt.mode.decom)
 	case 7:
@@ -624,6 +654,10 @@ func (vt *Model) decrqm(pd int, ansiMode bool) {
 		ps = modeReportState(vt.mode.reverseWrap)
 	case 25:
 		ps = modeReportState(vt.mode.dectcem)
+	case 12:
+		ps = modeReportState(vt.mode.cursorBlinking)
+	case 40:
+		ps = modeReportState(vt.mode.enableMode3)
 	case 66:
 		ps = modeReportState(vt.mode.deckpam)
 	case 67:

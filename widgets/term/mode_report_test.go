@@ -131,7 +131,7 @@ func TestModeReportRecognizedNoOpModes(t *testing.T) {
 	vt, r := newReplyTestModel(t)
 	vt.resize(80, 24)
 
-	for _, mode := range []uint32{1039, 2026, 2027, 2048} {
+	for _, mode := range []uint32{5, 12, 40, 1039, 2026, 2027, 2048} {
 		vt.update(testCSI('p', []uint32{mode}, '?', '$'))
 		want := fmt.Sprintf("\x1B[?%d;2$y", mode)
 		if got := readReply(t, r, len(want)); got != want {
