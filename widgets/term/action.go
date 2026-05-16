@@ -235,7 +235,7 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 			}
 		case ' ':
 			if seq.Final == 'q' {
-				vt.cursor.style = vaxis.CursorStyle(ps(seq))
+				vt.decscusr(seq)
 			}
 		case '"':
 			if seq.Final == 'q' {
@@ -314,6 +314,17 @@ func (vt *Model) xtwinops(seq ansi.CSI) {
 
 func (vt *Model) xtversion() {
 	vt.enqueueReplyString("\x1BP>|vaxis\x1B\\")
+}
+
+func (vt *Model) decscusr(seq ansi.CSI) {
+	if seq.NumParameters > 1 {
+		return
+	}
+	style := ps(seq)
+	if style < int(vaxis.CursorDefault) || style > int(vaxis.CursorBeam) {
+		return
+	}
+	vt.cursor.style = vaxis.CursorStyle(style)
 }
 
 type sixelAction struct{ seq ansi.DCS }

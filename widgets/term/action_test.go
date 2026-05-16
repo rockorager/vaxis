@@ -3,6 +3,7 @@ package term
 import (
 	"testing"
 
+	"git.sr.ht/~rockorager/vaxis"
 	"git.sr.ht/~rockorager/vaxis/ansi"
 )
 
@@ -107,6 +108,26 @@ func TestTableCharsetPrintsNonASCIIAsSpace(t *testing.T) {
 
 	if got, want := vt.String(), "    "; got != want {
 		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestCursorStyleIgnoresInvalidValues(t *testing.T) {
+	vt := New()
+	vt.cursor.style = vaxis.CursorBlock
+
+	vt.update(testCSI('q', []uint32{5}, ' '))
+	if got, want := vt.cursor.style, vaxis.CursorStyle(vaxis.CursorBeamBlinking); got != want {
+		t.Fatalf("cursor style = %d, want %d", got, want)
+	}
+
+	vt.update(testCSI('q', []uint32{9}, ' '))
+	if got, want := vt.cursor.style, vaxis.CursorStyle(vaxis.CursorBeamBlinking); got != want {
+		t.Fatalf("cursor style after invalid value = %d, want %d", got, want)
+	}
+
+	vt.update(testCSI('q', []uint32{1, 2}, ' '))
+	if got, want := vt.cursor.style, vaxis.CursorStyle(vaxis.CursorBeamBlinking); got != want {
+		t.Fatalf("cursor style after invalid parameter count = %d, want %d", got, want)
 	}
 }
 
