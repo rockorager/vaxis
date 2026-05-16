@@ -66,5 +66,9 @@ func (vt *Model) ff() {
 // Carriage return 0x0D
 func (vt *Model) cr() {
 	vt.resetWrap()
-	vt.cursor.col = vt.margin.left
+	if vt.mode.decom || vt.cursor.col >= vt.margin.left {
+		vt.cursor.col = vt.margin.left
+		return
+	}
+	vt.cursor.col = 0
 }
