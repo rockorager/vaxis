@@ -1546,7 +1546,6 @@ func (vx *Vaxis) openTty(tgts []*os.File) error {
 					return
 				default:
 					vx.handleSequence(seq)
-					vx.parser.Finish(seq)
 				}
 			case <-vx.chSigWinSz:
 				atomicStore(&vx.resize, true)

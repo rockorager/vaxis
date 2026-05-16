@@ -380,9 +380,6 @@ func (vt *Model) invalidate() {
 func (vt *Model) update(seq ansi.Sequence) {
 	vt.mu.Lock()
 	defer vt.mu.Unlock()
-	if vt.parser != nil {
-		defer vt.parser.Finish(seq)
-	}
 	defer vt.invalidate()
 	applySequence(vt, seq)
 }

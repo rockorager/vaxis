@@ -43,7 +43,6 @@ func TestKnownOSCColorResponsesDoNotBlockWhenChannelFull(t *testing.T) {
 	go func() {
 		for seq := range parser.Next() {
 			vx.handleSequence(seq)
-			parser.Finish(seq)
 		}
 		close(done)
 	}()

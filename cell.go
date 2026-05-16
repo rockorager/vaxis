@@ -49,7 +49,6 @@ func ParseStyledString(s string) []Cell {
 		default:
 			// We don't handle anything else
 		}
-		parser.Finish(seq)
 	}
 	return cells
 }

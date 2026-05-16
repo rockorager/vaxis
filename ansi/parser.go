@@ -120,11 +120,6 @@ func (p *Parser) Next() <-chan Sequence {
 	return p.sequences
 }
 
-// Finish is retained for compatibility with older callers. Sequences no longer
-// hold pooled parser storage, so there is nothing to release.
-func (p *Parser) Finish(Sequence) {
-}
-
 func (p *Parser) run() {
 outer:
 	for {

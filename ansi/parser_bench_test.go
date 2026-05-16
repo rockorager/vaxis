@@ -28,7 +28,6 @@ func BenchmarkParser(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				parser := NewParser(strings.NewReader(input), ParserModeOutput)
 				for seq := range parser.Next() {
-					parser.Finish(seq)
 					if _, ok := seq.(EOF); ok {
 						break
 					}
