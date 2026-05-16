@@ -37,6 +37,25 @@ func TestDECSLRMIgnoredWhenModeUnset(t *testing.T) {
 	}
 }
 
+func TestDisablingLeftRightMarginModeResetsMargins(t *testing.T) {
+	vt := New()
+	vt.resize(5, 3)
+	vt.update(testCSI('h', []uint32{69}, '?'))
+	vt.update(testCSI('s', []uint32{2, 4}))
+
+	vt.update(testCSI('l', []uint32{69}, '?'))
+
+	if vt.mode.declrmm {
+		t.Fatal("left/right margin mode remained enabled")
+	}
+	if got, want := vt.margin.left, column(0); got != want {
+		t.Fatalf("left margin = %d, want %d", got, want)
+	}
+	if got, want := vt.margin.right, column(4); got != want {
+		t.Fatalf("right margin = %d, want %d", got, want)
+	}
+}
+
 func TestAmbiguousCSISavesCursorWhenLeftRightMarginModeUnset(t *testing.T) {
 	vt := New()
 	vt.resize(5, 3)

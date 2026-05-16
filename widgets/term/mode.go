@@ -141,6 +141,8 @@ func (vt *Model) decset(params ansi.CSI) {
 			vt.mode.altScroll = true
 		case 47:
 			vt.switchAltScreen(47, true)
+		case 1048:
+			vt.decsc()
 		case 1047:
 			vt.switchAltScreen(1047, true)
 		case 1049:
@@ -179,6 +181,8 @@ func (vt *Model) decrst(params ansi.CSI) {
 			vt.mode.dectcem = false
 		case 69:
 			vt.mode.declrmm = false
+			vt.margin.left = 0
+			vt.margin.right = column(vt.width()) - 1
 		case 1000:
 			vt.mode.mouseButtons = false
 		case 1002:
@@ -193,6 +197,8 @@ func (vt *Model) decrst(params ansi.CSI) {
 			vt.mode.altScroll = false
 		case 47:
 			vt.switchAltScreen(47, false)
+		case 1048:
+			vt.decrc()
 		case 1047:
 			vt.switchAltScreen(1047, false)
 		case 1049:

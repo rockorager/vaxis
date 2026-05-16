@@ -84,3 +84,41 @@ func TestAltScreenClearsViewportOffset(t *testing.T) {
 		t.Fatalf("scroll offset = %d, want 0", got)
 	}
 }
+
+func TestMode1048SavesAndRestoresCursor(t *testing.T) {
+	vt := New()
+	vt.resize(5, 2)
+	vt.cursor.row = 1
+	vt.cursor.col = 4
+	vt.lastCol = true
+
+	vt.decset(testCSI('h', []uint32{1048}, '?'))
+	vt.cursor.row = 0
+	vt.cursor.col = 0
+	vt.lastCol = false
+	vt.decrst(testCSI('l', []uint32{1048}, '?'))
+
+	if vt.cursor.row != 1 || vt.cursor.col != 4 {
+		t.Fatalf("restored cursor = %d,%d, want 1,4", vt.cursor.row, vt.cursor.col)
+	}
+	if !vt.lastCol {
+		t.Fatal("pending wrap was not restored")
+	}
+}
+
+func TestMode1048UsesActiveScreenCursorState(t *testing.T) {
+	vt := New()
+	vt.resize(5, 2)
+	vt.decset(testCSI('h', []uint32{47}, '?'))
+	vt.cursor.row = 1
+	vt.cursor.col = 4
+
+	vt.decset(testCSI('h', []uint32{1048}, '?'))
+	vt.cursor.row = 0
+	vt.cursor.col = 0
+	vt.decrst(testCSI('l', []uint32{1048}, '?'))
+
+	if vt.cursor.row != 1 || vt.cursor.col != 4 {
+		t.Fatalf("restored alt cursor = %d,%d, want 1,4", vt.cursor.row, vt.cursor.col)
+	}
+}
