@@ -159,6 +159,11 @@ var (
 	fgRGBSet   = "\x1b[38:2:%d:%d:%dm"
 	bgIndexSet = "\x1b[48:5:%dm"
 	bgRGBSet   = "\x1b[48:2:%d:%d:%dm"
+
+	hideCursorSeq      = "\x1B[?25l"
+	showCursorSeq      = "\x1B[?25h"
+	syncUpdateStartSeq = "\x1B[?2026h"
+	syncUpdateEndSeq   = "\x1B[?2026l"
 )
 
 func decset(mode int) string {

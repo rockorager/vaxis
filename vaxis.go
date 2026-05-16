@@ -1476,12 +1476,12 @@ func (vx *Vaxis) disableModes() {
 func (vx *Vaxis) enterAltScreen() {
 	vx.tw.vx.refresh = true
 	_, _ = vx.tw.WriteControlString(decset(alternateScreen))
-	_, _ = vx.tw.WriteControlString(decrst(cursorVisibility))
+	_, _ = vx.tw.WriteControlString(hideCursorSeq)
 }
 
 func (vx *Vaxis) exitAltScreen() {
 	vx.HideCursor()
-	_, _ = vx.tw.WriteControlString(decset(cursorVisibility))
+	_, _ = vx.tw.WriteControlString(showCursorSeq)
 	_, _ = vx.tw.WriteControlString(clear)
 	_, _ = vx.tw.WriteControlString(decrst(alternateScreen))
 }
@@ -1510,7 +1510,7 @@ func (vx *Vaxis) Suspend() error {
 	// Reset to user value, or CursorDefault.
 	_, _ = vx.tw.WriteControlString(tparm(cursorStyleSet, int(vx.userCursorStyle)))
 	// Always show the cursor on exit
-	_, _ = vx.tw.WriteControlString(decset(cursorVisibility))
+	_, _ = vx.tw.WriteControlString(showCursorSeq)
 	// Reset internal state to match reality
 	vx.cursorLast.style = vx.userCursorStyle
 
@@ -1624,7 +1624,7 @@ func (vx *Vaxis) showCursor() string {
 	buf := bytes.NewBuffer(nil)
 	buf.WriteString(vx.cursorStyle())
 	buf.WriteString(tparm(cup, vx.cursorNext.row+1, vx.cursorNext.col+1))
-	buf.WriteString(decset(cursorVisibility))
+	buf.WriteString(showCursorSeq)
 	return buf.String()
 }
 

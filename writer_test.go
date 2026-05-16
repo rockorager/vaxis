@@ -37,7 +37,7 @@ func TestRenderFrameAlwaysHidesCursorBeforeDrawing(t *testing.T) {
 	}
 
 	got := out.String()
-	hide := decrst(cursorVisibility)
+	hide := hideCursorSeq
 	show := vx.showCursor()
 	if !strings.Contains(got, hide) {
 		t.Fatalf("render output did not hide cursor: %q", got)
@@ -66,7 +66,7 @@ func TestControlWriteBypassesRenderFrame(t *testing.T) {
 	if vx.tw.Len() != 0 {
 		t.Fatalf("frame buffer len = %d, want 0", vx.tw.Len())
 	}
-	if strings.Contains(got, decrst(cursorVisibility)) || strings.Contains(got, decset(synchronizedUpdate)) {
+	if strings.Contains(got, hideCursorSeq) || strings.Contains(got, syncUpdateStartSeq) {
 		t.Fatalf("control write included render frame sequences: %q", got)
 	}
 }
@@ -85,11 +85,11 @@ func TestRenderWriteUsesFrameWrapping(t *testing.T) {
 
 	got := out.String()
 	for _, want := range []string{
-		decrst(cursorVisibility),
-		decset(synchronizedUpdate),
+		hideCursorSeq,
+		syncUpdateStartSeq,
 		"render",
 		sgrReset,
-		decrst(synchronizedUpdate),
+		syncUpdateEndSeq,
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("render output %q missing %q", got, want)
@@ -112,10 +112,10 @@ func TestRenderFrameLeavesCursorHiddenWhenNextFrameCursorHidden(t *testing.T) {
 	}
 
 	got := out.String()
-	if !strings.Contains(got, decrst(cursorVisibility)) {
+	if !strings.Contains(got, hideCursorSeq) {
 		t.Fatalf("render output did not hide cursor: %q", got)
 	}
-	if strings.Contains(got, decset(cursorVisibility)) {
+	if strings.Contains(got, showCursorSeq) {
 		t.Fatalf("render output showed hidden cursor: %q", got)
 	}
 }

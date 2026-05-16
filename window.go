@@ -80,12 +80,36 @@ func (win Window) SetCell(col int, row int, cell Cell) {
 	if row < 0 || col < 0 {
 		return
 	}
-	switch win.Parent {
-	case nil:
-		win.Vx.screenNext.setCell(col+win.Column, row+win.Row, cell)
-	default:
-		win.Parent.SetCell(col+win.Column, row+win.Row, cell)
+
+	vx := win.Vx
+	w := &win
+	for {
+		col += w.Column
+		row += w.Row
+		if w.Vx != nil {
+			vx = w.Vx
+		}
+		if w.Parent == nil {
+			break
+		}
+		w = w.Parent
+		if row >= w.Height || col >= w.Width {
+			return
+		}
+		if row < 0 || col < 0 {
+			return
+		}
 	}
+	if vx == nil || vx.screenNext == nil {
+		return
+	}
+	if row >= vx.screenNext.rows || col >= vx.screenNext.cols {
+		return
+	}
+	if row < 0 || col < 0 {
+		return
+	}
+	vx.screenNext.buf[row][col] = cell
 }
 
 // SetStyle changes the style at a given location, leaving the text in place.
@@ -96,12 +120,36 @@ func (win Window) SetStyle(col int, row int, style Style) {
 	if row < 0 || col < 0 {
 		return
 	}
-	switch win.Parent {
-	case nil:
-		win.Vx.screenNext.setStyle(col+win.Column, row+win.Row, style)
-	default:
-		win.Parent.SetStyle(col+win.Column, row+win.Row, style)
+
+	vx := win.Vx
+	w := &win
+	for {
+		col += w.Column
+		row += w.Row
+		if w.Vx != nil {
+			vx = w.Vx
+		}
+		if w.Parent == nil {
+			break
+		}
+		w = w.Parent
+		if row >= w.Height || col >= w.Width {
+			return
+		}
+		if row < 0 || col < 0 {
+			return
+		}
 	}
+	if vx == nil || vx.screenNext == nil {
+		return
+	}
+	if row >= vx.screenNext.rows || col >= vx.screenNext.cols {
+		return
+	}
+	if row < 0 || col < 0 {
+		return
+	}
+	vx.screenNext.buf[row][col].Style = style
 }
 
 // ShowCursor shows the cursor at colxrow, relative to this Window's location
@@ -193,7 +241,7 @@ func (win Window) Print(segs ...Segment) (col int, row int) {
 // If the row is outside the bounds of the window, nothing will be printed
 func (win Window) PrintTruncate(row int, segs ...Segment) {
 	cols, rows := win.Size()
-	if row >= rows {
+	if row < 0 || row >= rows || cols <= 0 {
 		return
 	}
 
@@ -202,52 +250,60 @@ func (win Window) PrintTruncate(row int, segs ...Segment) {
 		style Style
 	}
 
-	cells := []printCell{}
 	truncator := Character{
 		Grapheme: "…",
 		Width:    1,
 	}
-	for _, seg := range segs {
-		for _, char := range Characters(seg.Text) {
-			if !win.Vx.caps.unicodeCore || !win.Vx.caps.explicitWidth {
-				// characterWidth will cache the result
-				char.Width = win.Vx.characterWidth(char.Grapheme)
-			}
-			cells = append(cells, printCell{
-				char:  char,
-				style: seg.Style,
-			})
-		}
-	}
-
 	col := 0
-	for i, cell := range cells {
+	var pending printCell
+	havePending := false
+	flush := func(cell printCell, more bool) bool {
 		w := cell.char.Width
 		if col+w > cols {
-			if cols > 0 {
-				ellipsisCol := col
-				if ellipsisCol > cols-truncator.Width {
-					ellipsisCol = cols - truncator.Width
-				}
-				win.SetCell(ellipsisCol, row, Cell{
-					Character: truncator,
-					Style:     cell.style,
-				})
+			ellipsisCol := col
+			if ellipsisCol > cols-truncator.Width {
+				ellipsisCol = cols - truncator.Width
 			}
-			return
+			win.SetCell(ellipsisCol, row, Cell{
+				Character: truncator,
+				Style:     cell.style,
+			})
+			return false
 		}
-		if i < len(cells)-1 && col+w >= cols {
+		if more && col+w >= cols {
 			win.SetCell(cols-truncator.Width, row, Cell{
 				Character: truncator,
 				Style:     cell.style,
 			})
-			return
+			return false
 		}
 		win.SetCell(col, row, Cell{
 			Character: cell.char,
 			Style:     cell.style,
 		})
 		col += w
+		return true
+	}
+
+	for _, seg := range segs {
+		for _, char := range Characters(seg.Text) {
+			if !win.Vx.caps.unicodeCore || !win.Vx.caps.explicitWidth {
+				// characterWidth will cache the result
+				char.Width = win.Vx.characterWidth(char.Grapheme)
+			}
+			cell := printCell{
+				char:  char,
+				style: seg.Style,
+			}
+			if havePending && !flush(pending, true) {
+				return
+			}
+			pending = cell
+			havePending = true
+		}
+	}
+	if havePending {
+		flush(pending, false)
 	}
 }
 

@@ -115,9 +115,9 @@ func (w *writer) startFrame() {
 	if w.buf.Len() != 0 {
 		return
 	}
-	w.buf.WriteString(decrst(cursorVisibility))
+	w.buf.WriteString(hideCursorSeq)
 	if w.vx.caps.synchronizedUpdate {
-		w.buf.WriteString(decset(synchronizedUpdate))
+		w.buf.WriteString(syncUpdateStartSeq)
 	}
 }
 
@@ -178,7 +178,7 @@ func (w *writer) Flush() (n int, err error) {
 		// cursor-only frames serialize with control writes.
 		switch {
 		case !w.vx.cursorNext.visible && w.vx.cursorLast.visible:
-			return w.WriteControlString(decrst(cursorVisibility))
+			return w.WriteControlString(hideCursorSeq)
 		case w.vx.cursorNext.visible && !w.vx.cursorLast.visible:
 			return w.WriteControlString(w.vx.showCursor())
 		case w.vx.cursorNext.visible && w.vx.cursorNext.row != w.vx.cursorLast.row:
@@ -197,7 +197,7 @@ func (w *writer) Flush() (n int, err error) {
 		w.buf.WriteString(w.vx.showCursor())
 	}
 	if w.vx.caps.synchronizedUpdate {
-		w.buf.WriteString(decrst(synchronizedUpdate))
+		w.buf.WriteString(syncUpdateEndSeq)
 	}
 	return w.WriteControl(w.buf.Bytes())
 }
