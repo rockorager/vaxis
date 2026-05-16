@@ -449,6 +449,9 @@ func (vt *Model) ech(ps int) {
 }
 
 func (vt *Model) decsca(seq ansi.CSI) {
+	if seq.NumParameters > 1 {
+		return
+	}
 	switch ps(seq) {
 	case 0, 2:
 		vt.setProtectedMode(protectedModeOff)

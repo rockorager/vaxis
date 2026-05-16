@@ -117,3 +117,23 @@ func TestSaveCursorRestoresProtectedPen(t *testing.T) {
 		t.Fatal("restored cursor did not restore protected pen")
 	}
 }
+
+func TestDECSCAIgnoresInvalidParameterLists(t *testing.T) {
+	vt := New()
+	vt.resize(4, 1)
+
+	vt.update(testCSI('q', []uint32{1}, '"'))
+	vt.update(testCSI('q', []uint32{0, 1}, '"'))
+	vt.update(testPrint("x"))
+
+	if !vt.activeScreen.cell(0, 0).protected {
+		t.Fatal("multi-parameter DECSCA changed protected pen")
+	}
+
+	vt.update(testCSI('q', []uint32{3}, '"'))
+	vt.update(testPrint("y"))
+
+	if !vt.activeScreen.cell(0, 1).protected {
+		t.Fatal("invalid DECSCA value changed protected pen")
+	}
+}
