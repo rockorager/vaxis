@@ -329,6 +329,14 @@ func (vt *Model) xtwinops(seq ansi.CSI) {
 		return
 	}
 	switch ps(seq) {
+	case 14:
+		if vt.size.XPixel > 0 && vt.size.YPixel > 0 {
+			vt.enqueueReplyString(fmt.Sprintf("\x1B[4;%d;%dt", vt.size.YPixel, vt.size.XPixel))
+		}
+	case 16:
+		if vt.size.Cols > 0 && vt.size.Rows > 0 && vt.size.XPixel > 0 && vt.size.YPixel > 0 {
+			vt.enqueueReplyString(fmt.Sprintf("\x1B[6;%d;%dt", vt.size.YPixel/vt.size.Rows, vt.size.XPixel/vt.size.Cols))
+		}
 	case 18:
 		vt.enqueueReplyString(fmt.Sprintf("\x1B[8;%d;%dt", vt.height(), vt.width()))
 	case 21:

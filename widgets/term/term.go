@@ -53,6 +53,7 @@ type Model struct {
 	tabStop   []column
 	title     string
 	theme     vaxis.ColorThemeMode
+	size      vaxis.Resize
 	status    statusDisplay
 
 	primaryKittyKeyboard kittyKeyboardStack
@@ -239,6 +240,8 @@ func (vt *Model) Update(msg vaxis.Event) {
 			vt.writePtyString(fmt.Sprintf("\x1b[?997;%dn", msg.Mode))
 			return
 		}
+	case vaxis.Resize:
+		vt.size = msg
 	}
 }
 

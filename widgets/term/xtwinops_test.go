@@ -5,6 +5,8 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"git.sr.ht/~rockorager/vaxis"
 )
 
 func TestXTWINOPSTextAreaSizeCharacters(t *testing.T) {
@@ -16,6 +18,40 @@ func TestXTWINOPSTextAreaSizeCharacters(t *testing.T) {
 	if got, want := readReply(t, r, len("\x1B[8;24;80t")), "\x1B[8;24;80t"; got != want {
 		t.Fatalf("text area size report = %q, want %q", got, want)
 	}
+}
+
+func TestXTWINOPSTextAreaSizePixels(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.resize(80, 24)
+	vt.Update(vaxis.Resize{Cols: 80, Rows: 24, XPixel: 720, YPixel: 432})
+
+	vt.update(testCSI('t', []uint32{14}))
+
+	if got, want := readReply(t, r, len("\x1B[4;432;720t")), "\x1B[4;432;720t"; got != want {
+		t.Fatalf("text area pixel size report = %q, want %q", got, want)
+	}
+}
+
+func TestXTWINOPSCellSizePixels(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.resize(80, 24)
+	vt.Update(vaxis.Resize{Cols: 80, Rows: 24, XPixel: 720, YPixel: 432})
+
+	vt.update(testCSI('t', []uint32{16}))
+
+	if got, want := readReply(t, r, len("\x1B[6;18;9t")), "\x1B[6;18;9t"; got != want {
+		t.Fatalf("cell pixel size report = %q, want %q", got, want)
+	}
+}
+
+func TestXTWINOPSPixelReportsRequirePixelSize(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.resize(80, 24)
+
+	vt.update(testCSI('t', []uint32{14}))
+	vt.update(testCSI('t', []uint32{16}))
+
+	assertNoReply(t, r)
 }
 
 func TestXTWINOPSReportTitle(t *testing.T) {
