@@ -781,9 +781,6 @@ outerNew:
 	if cursor.Hyperlink != "" {
 		vx.tw.writeOSC8("", "")
 	}
-	if vx.cursorNext.visible && !vx.cursorLast.visible {
-		_, _ = vx.tw.WriteString(vx.showCursor())
-	}
 }
 
 func (vx *Vaxis) handleSequence(seq ansi.Sequence) {

@@ -125,6 +125,63 @@ func TestViewportClampsWhenScrollbackPruned(t *testing.T) {
 	}
 }
 
+func TestCursorHiddenWhenViewportScrolledBack(t *testing.T) {
+	vt := New()
+	vt.resize(5, 3)
+	atomicStore(&vt.focused, true)
+	vt.mode.dectcem = true
+	writeViewportLines(vt, "1ABCD", "2EFGH", "3IJKL", "4ABCD")
+	vt.cursor.row = 2
+
+	if _, _, ok := vt.cursorViewportPosition(); !ok {
+		t.Fatal("cursor should be visible at active viewport")
+	}
+
+	vt.scrollViewport(1)
+
+	if _, _, ok := vt.cursorViewportPosition(); ok {
+		t.Fatal("cursor should be hidden while viewing scrollback")
+	}
+}
+
+func TestCursorMappedWhenScrolledViewportIncludesCursorRow(t *testing.T) {
+	vt := New()
+	vt.resize(5, 3)
+	atomicStore(&vt.focused, true)
+	vt.mode.dectcem = true
+	writeViewportLines(vt, "1ABCD", "2EFGH", "3IJKL", "4ABCD")
+	vt.cursor.row = 0
+	vt.cursor.col = 2
+
+	vt.scrollViewport(1)
+
+	col, rw, ok := vt.cursorViewportPosition()
+	if !ok {
+		t.Fatal("cursor should be visible when active cursor row remains in viewport")
+	}
+	if col != 2 || rw != 1 {
+		t.Fatalf("cursor viewport position = %d,%d, want 2,1", col, rw)
+	}
+}
+
+func TestCursorHiddenDuringSynchronizedOutput(t *testing.T) {
+	vt := New()
+	vt.resize(5, 3)
+	atomicStore(&vt.focused, true)
+	vt.mode.dectcem = true
+
+	if _, _, ok := vt.cursorViewportPosition(); !ok {
+		t.Fatal("cursor should be visible before synchronized output")
+	}
+
+	vt.setSynchronizedOutput(true)
+	defer vt.setSynchronizedOutput(false)
+
+	if _, _, ok := vt.cursorViewportPosition(); ok {
+		t.Fatal("cursor should be hidden during synchronized output")
+	}
+}
+
 func TestEraseDisplayClearsScrollback(t *testing.T) {
 	vt := New()
 	vt.resize(5, 3)

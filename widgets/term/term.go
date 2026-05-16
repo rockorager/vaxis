@@ -1126,7 +1126,7 @@ func (vt *Model) Draw(win vaxis.Window) {
 	if int(width) != vt.width() || int(height) != vt.height() {
 		win.Width = width
 		win.Height = height
-		vt.Resize(width, height)
+		vt.resize(width, height)
 	}
 	for r := 0; r < vt.height(); r += 1 {
 		line := vt.visibleLine(r)
@@ -1145,8 +1145,10 @@ func (vt *Model) Draw(win vaxis.Window) {
 			col += w
 		}
 	}
-	if vt.scrollOffset == 0 && vt.mode.dectcem && atomicLoad(&vt.focused) {
-		win.ShowCursor(int(vt.cursor.col), int(vt.cursor.row), vt.effectiveCursorStyle())
+	if cursorCol, cursorRow, ok := vt.cursorViewportPosition(); ok {
+		win.ShowCursor(cursorCol, cursorRow, vt.effectiveCursorStyle())
+	} else if win.Vx != nil {
+		win.Vx.HideCursor()
 	}
 	vx := win.Vx
 	vt.vx = vx
@@ -1176,6 +1178,23 @@ outer:
 			vxImage: vxImg,
 		})
 	}
+}
+
+func (vt *Model) cursorViewportPosition() (int, int, bool) {
+	if vt.mode.synchronizedOutput || !vt.mode.dectcem || !atomicLoad(&vt.focused) {
+		return 0, 0, false
+	}
+	historyLen := vt.activeScreen.scrollbackLen()
+	topSourceRow := historyLen
+	if vt.scrollOffset > 0 && historyLen > 0 {
+		topSourceRow = historyLen - vt.scrollOffset
+	}
+	cursorSourceRow := historyLen + int(vt.cursor.row)
+	viewportRow := cursorSourceRow - topSourceRow
+	if viewportRow < 0 || viewportRow >= vt.height() {
+		return 0, 0, false
+	}
+	return int(vt.cursor.col), viewportRow, true
 }
 
 func (vt *Model) renderCell(cell vaxis.Cell) vaxis.Cell {
