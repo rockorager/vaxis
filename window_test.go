@@ -20,7 +20,7 @@ func printTruncateLine(win Window) string {
 	cols, _ := win.Size()
 	var b strings.Builder
 	for col := 0; col < cols; col++ {
-		b.WriteString(win.Vx.screenNext.buf[0][col].Character.Grapheme)
+		b.WriteString(win.Vx.screenNext.cell(col, 0).Character.Grapheme)
 	}
 	return b.String()
 }
@@ -57,9 +57,9 @@ func TestNestedWindowSetCellClipsToParent(t *testing.T) {
 	child := parent.New(1, 0, 2, 2)
 	child.SetCell(1, 0, Cell{Character: Character{Grapheme: "x", Width: 1}})
 
-	for row := range vx.screenNext.buf {
-		for col := range vx.screenNext.buf[row] {
-			if got := vx.screenNext.buf[row][col].Grapheme; got != "" {
+	for row := 0; row < vx.screenNext.rows; row += 1 {
+		for col := 0; col < vx.screenNext.cols; col += 1 {
+			if got := vx.screenNext.cell(col, row).Grapheme; got != "" {
 				t.Fatalf("unexpected cell at %d,%d = %q", col, row, got)
 			}
 		}
@@ -78,7 +78,7 @@ func TestNestedWindowSetCellWritesAbsolutePosition(t *testing.T) {
 	child := parent.New(1, 1, 2, 2)
 	child.SetCell(0, 0, Cell{Character: Character{Grapheme: "x", Width: 1}})
 
-	if got, want := vx.screenNext.buf[2][2].Grapheme, "x"; got != want {
+	if got, want := vx.screenNext.cell(2, 2).Grapheme, "x"; got != want {
 		t.Fatalf("nested cell = %q, want %q", got, want)
 	}
 }
@@ -90,13 +90,13 @@ func TestNestedWindowSetStyleWritesAbsolutePosition(t *testing.T) {
 	}
 	vx.screenNext.resize(4, 4)
 	vx.screenLast.resize(4, 4)
-	vx.screenNext.buf[2][2] = Cell{Character: Character{Grapheme: "x", Width: 1}}
+	vx.screenNext.setCellDirect(2, 2, Cell{Character: Character{Grapheme: "x", Width: 1}})
 
 	parent := vx.Window().New(1, 1, 3, 3)
 	child := parent.New(1, 1, 2, 2)
 	child.SetStyle(0, 0, Style{Attribute: AttrBold})
 
-	if got, want := vx.screenNext.buf[2][2].Attribute, AttrBold; got != want {
+	if got, want := vx.screenNext.cell(2, 2).Attribute, AttrBold; got != want {
 		t.Fatalf("nested style = %v, want %v", got, want)
 	}
 }
@@ -108,13 +108,13 @@ func TestNestedWindowSetStyleClipsToParent(t *testing.T) {
 	}
 	vx.screenNext.resize(4, 4)
 	vx.screenLast.resize(4, 4)
-	vx.screenNext.buf[2][3] = Cell{Character: Character{Grapheme: "x", Width: 1}}
+	vx.screenNext.setCellDirect(3, 2, Cell{Character: Character{Grapheme: "x", Width: 1}})
 
 	parent := vx.Window().New(1, 1, 2, 2)
 	child := parent.New(1, 0, 2, 2)
 	child.SetStyle(1, 0, Style{Attribute: AttrBold})
 
-	if got := vx.screenNext.buf[2][3].Attribute; got != 0 {
+	if got := vx.screenNext.cell(3, 2).Attribute; got != 0 {
 		t.Fatalf("clipped style changed to %v, want default", got)
 	}
 }

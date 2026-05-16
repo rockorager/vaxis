@@ -545,32 +545,34 @@ outerNew:
 		_, _ = vx.tw.WriteString(tparm(mouseShape, vx.mouseShapeNext))
 		vx.mouseShapeLast = vx.mouseShapeNext
 	}
-	for row := range vx.screenNext.buf {
+	for row := 0; row < vx.screenNext.rows; row += 1 {
 		reposition = true
-		for col := 0; col < len(vx.screenNext.buf[row]); col += 1 {
-			next := vx.screenNext.buf[row][col]
+		nextRow := vx.screenNext.row(row)
+		lastRow := vx.screenLast.row(row)
+		for col := 0; col < len(nextRow); col += 1 {
+			next := nextRow[col]
 			if next.sixel {
-				vx.screenLast.buf[row][col].sixel = true
+				lastRow[col].sixel = true
 				reposition = true
 				continue
 			}
-			if next == vx.screenLast.buf[row][col] && !vx.refresh {
+			if next == lastRow[col] && !vx.refresh {
 				reposition = true
 				// Advance the column by the width of this
 				// character
 				skip := vx.advance(next)
 				// skip := advance(next.Content)
 				for i := 1; i < skip+1; i += 1 {
-					if col+i >= len(vx.screenNext.buf[row]) {
+					if col+i >= len(nextRow) {
 						break
 					}
 					// null out any cells we end up skipping
-					vx.screenLast.buf[row][col+i] = Cell{}
+					lastRow[col+i] = Cell{}
 				}
 				col += skip
 				continue
 			}
-			vx.screenLast.buf[row][col] = next
+			lastRow[col] = next
 			if reposition {
 				if cursor.Hyperlink != "" {
 					cursor.Hyperlink = ""
@@ -769,11 +771,11 @@ outerNew:
 			}
 			skip := vx.advance(next)
 			for i := 1; i < skip+1; i += 1 {
-				if col+i >= len(vx.screenNext.buf[row]) {
+				if col+i >= len(nextRow) {
 					break
 				}
 				// null out any cells we end up skipping
-				vx.screenLast.buf[row][col+i] = Cell{}
+				lastRow[col+i] = Cell{}
 			}
 			col += skip
 		}

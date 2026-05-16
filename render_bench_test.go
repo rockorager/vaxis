@@ -22,7 +22,7 @@ func benchmarkRenderRefreshRGB(b *testing.B, cols int, rows int) {
 
 	for row := 0; row < rows; row += 1 {
 		for col := 0; col < cols; col += 1 {
-			vx.screenNext.buf[row][col] = Cell{
+			vx.screenNext.setCellDirect(col, row, Cell{
 				Character: Character{Grapheme: "a", Width: 1},
 				Style: Style{
 					Foreground:     RGBColor(uint8(col), uint8(row), uint8(col+row)),
@@ -30,7 +30,7 @@ func benchmarkRenderRefreshRGB(b *testing.B, cols int, rows int) {
 					UnderlineColor: RGBColor(uint8(col+1), uint8(row+1), uint8(col)),
 					UnderlineStyle: UnderlineSingle,
 				},
-			}
+			})
 		}
 	}
 
@@ -87,8 +87,8 @@ func benchmarkRenderPartialRGB(b *testing.B, cols int, rows int, dirtyPct int) {
 
 	for row := 0; row < rows; row += 1 {
 		for col := 0; col < cols; col += 1 {
-			vx.screenNext.buf[row][col] = base
-			vx.screenLast.buf[row][col] = base
+			vx.screenNext.setCellDirect(col, row, base)
+			vx.screenLast.setCellDirect(col, row, base)
 		}
 	}
 
@@ -118,7 +118,7 @@ func benchmarkRenderPartialRGB(b *testing.B, cols int, rows int, dirtyPct int) {
 		for _, pos := range positions {
 			row := pos / cols
 			col := pos % cols
-			vx.screenNext.buf[row][col] = cell
+			vx.screenNext.setCellDirect(col, row, cell)
 		}
 		vx.render()
 		vx.tw.buf.Reset()

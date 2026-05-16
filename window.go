@@ -109,7 +109,7 @@ func (win Window) SetCell(col int, row int, cell Cell) {
 	if row < 0 || col < 0 {
 		return
 	}
-	vx.screenNext.buf[row][col] = cell
+	vx.screenNext.setCellDirect(col, row, cell)
 }
 
 // SetStyle changes the style at a given location, leaving the text in place.
@@ -149,7 +149,7 @@ func (win Window) SetStyle(col int, row int, style Style) {
 	if row < 0 || col < 0 {
 		return
 	}
-	vx.screenNext.buf[row][col].Style = style
+	vx.screenNext.setStyleDirect(col, row, style)
 }
 
 // ShowCursor shows the cursor at colxrow, relative to this Window's location
