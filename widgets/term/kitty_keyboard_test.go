@@ -15,6 +15,23 @@ func TestKittyKeyboardQueryDisabledByDefault(t *testing.T) {
 	assertNoReply(t, r)
 }
 
+func TestWithVaxisDisablesKittyKeyboardWithoutHostSupport(t *testing.T) {
+	vx := &vaxis.Vaxis{}
+	vt, r := newReplyTestModel(t, WithVaxis(vx))
+	vt.resize(80, 24)
+
+	if vt.vx != vx {
+		t.Fatal("WithVaxis did not attach host Vaxis")
+	}
+	if vt.EnableKittyKeyboard {
+		t.Fatal("WithVaxis enabled Kitty keyboard without host support")
+	}
+
+	vt.update(testCSI('u', nil, '?'))
+
+	assertNoReply(t, r)
+}
+
 func TestKittyKeyboardQueryReportsCurrentFlags(t *testing.T) {
 	vt, r := newReplyTestModel(t, WithKittyKeyboard(true))
 	vt.resize(80, 24)

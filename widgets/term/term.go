@@ -92,6 +92,18 @@ type cursorState struct {
 
 type Option func(*Model)
 
+// WithVaxis attaches the host Vaxis instance used to render this terminal.
+// Kitty keyboard passthrough is enabled only when the host terminal advertised
+// support to Vaxis.
+func WithVaxis(vx *vaxis.Vaxis) Option {
+	return func(m *Model) {
+		m.vx = vx
+		m.EnableKittyKeyboard = vx != nil && vx.CanKittyKeyboard()
+	}
+}
+
+// WithKittyKeyboard controls Kitty keyboard passthrough directly. Most callers
+// should prefer WithVaxis so passthrough follows detected host capabilities.
 func WithKittyKeyboard(enabled bool) Option {
 	return func(m *Model) {
 		m.EnableKittyKeyboard = enabled
