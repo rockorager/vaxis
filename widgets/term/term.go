@@ -677,6 +677,7 @@ func (vt *Model) print(seq ansi.Print) {
 			},
 			Style: vt.cursor.Style,
 		},
+		protected: vt.cursor.protected,
 	}
 
 	vt.activeScreen.setCell(rw, col, cell)
@@ -689,6 +690,7 @@ func (vt *Model) print(seq ansi.Print) {
 		trailing := vt.activeScreen.cell(rw, col+i)
 		trailing.Character.Grapheme = " "
 		trailing.Style = vt.cursor.Style
+		trailing.protected = vt.cursor.protected
 	}
 
 	switch {

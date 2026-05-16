@@ -73,7 +73,20 @@ type mode struct {
 	focusEvents bool
 	// Unsolicited color scheme change notifications
 	colorScheme bool
+
+	// Most recent character protection mode. As in Ghostty, DECSCA off clears
+	// the cursor pen but does not reset this because erase semantics depend on
+	// whether ISO protection was most recently active.
+	protected protectedMode
 }
+
+type protectedMode int
+
+const (
+	protectedModeOff protectedMode = iota
+	protectedModeISO
+	protectedModeDEC
+)
 
 func (vt *Model) sm(params ansi.CSI) {
 	for _, param := range params.Params() {
@@ -228,7 +241,7 @@ func (vt *Model) switchAltScreen(mode int, enabled bool) {
 
 	wasAlt := vt.mode.smcup
 	if mode == 1047 && !enabled && wasAlt {
-		vt.ed(2)
+		vt.ed(2, false)
 	}
 
 	if enabled {
@@ -239,7 +252,7 @@ func (vt *Model) switchAltScreen(mode int, enabled bool) {
 		vt.mode.altScroll = true
 		vt.scrollOffset = 0
 		if mode == 1049 {
-			vt.ed(2)
+			vt.ed(2, false)
 		}
 		return
 	}

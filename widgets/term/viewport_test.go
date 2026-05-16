@@ -112,7 +112,7 @@ func TestEraseDisplayClearsScrollback(t *testing.T) {
 	writeViewportLines(vt, "1ABCD", "2EFGH", "3IJKL", "4ABCD", "5EFGH")
 	vt.scrollViewport(2)
 
-	vt.ed(3)
+	vt.ed(3, false)
 
 	if got := vt.primaryScreen.scrollbackLen(); got != 0 {
 		t.Fatalf("scrollback length = %d, want 0", got)

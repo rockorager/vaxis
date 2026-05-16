@@ -199,26 +199,27 @@ func (vt *Model) cht(ps int) {
 	vt.cursor.col = newcol
 }
 
-// Erase in Display (ED) CSI Ps J
-func (vt *Model) ed(ps int) {
+// Erase in Display (ED) CSI Ps J and DECSED CSI ? Ps J
+func (vt *Model) ed(ps int, forceProtected bool) {
+	protect := forceProtected || vt.mode.protected == protectedModeISO
 	switch ps {
 
 	// Erases from the cursor to the end of the screen, including the cursor
 	// position. Line attribute becomes single-height, single-width for all
 	// completely erased lines.
 	case 0:
-		vt.el(0)
+		vt.el(0, forceProtected)
 		for r := vt.cursor.row + 1; r < row(vt.height()); r += 1 {
-			vt.activeScreen.eraseRow(r, 0, column(vt.width()-1), vt.cursor.Style.Background)
+			vt.activeScreen.eraseRowProtected(r, 0, column(vt.width()-1), vt.cursor.Style.Background, protect)
 		}
 
 	// Erases from the beginning of the screen to the cursor, including the
 	// cursor position. Line attribute becomes single-height, single-width
 	// for all completely erased lines.
 	case 1:
-		vt.el(1)
+		vt.el(1, forceProtected)
 		for r := row(0); r < vt.cursor.row; r += 1 {
-			vt.activeScreen.eraseRow(r, 0, column(vt.width()-1), vt.cursor.Style.Background)
+			vt.activeScreen.eraseRowProtected(r, 0, column(vt.width()-1), vt.cursor.Style.Background, protect)
 		}
 
 	// Erases the complete display. All lines are erased and changed to
@@ -226,11 +227,7 @@ func (vt *Model) ed(ps int) {
 	case 2:
 		vt.resetPendingWrap()
 		for r := row(0); r < row(vt.height()); r += 1 {
-			for col := column(0); col < column(vt.width()); col += 1 {
-				vt.activeScreen.eraseCell(r, col, vt.cursor.Style.Background)
-			}
-			vt.activeScreen.row(r).wrapped = false
-			vt.activeScreen.row(r).wrapContinuation = false
+			vt.activeScreen.eraseRowProtected(r, 0, column(vt.width()-1), vt.cursor.Style.Background, protect)
 		}
 
 	// Erases saved lines in the scrollback buffer.
@@ -240,8 +237,9 @@ func (vt *Model) ed(ps int) {
 	}
 }
 
-// Erase in Line (EL) CSI Ps K
-func (vt *Model) el(ps int) {
+// Erase in Line (EL) CSI Ps K and DECSEL CSI ? Ps K
+func (vt *Model) el(ps int, forceProtected bool) {
+	protect := forceProtected || vt.mode.protected == protectedModeISO
 	r := vt.cursor.row
 	switch ps {
 	// Erases from the cursor to the end of the line, including the cursor
@@ -249,7 +247,7 @@ func (vt *Model) el(ps int) {
 	case 0:
 		vt.resetWrap()
 		for col := vt.cursor.col; col < column(vt.width()); col += 1 {
-			vt.activeScreen.eraseCell(r, col, vt.cursor.Style.Background)
+			vt.activeScreen.eraseCellProtected(r, col, vt.cursor.Style.Background, protect)
 		}
 
 	// Erases from the beginning of the line to the cursor, including the
@@ -257,14 +255,14 @@ func (vt *Model) el(ps int) {
 	case 1:
 		vt.resetPendingWrap()
 		for col := column(0); col <= vt.cursor.col; col += 1 {
-			vt.activeScreen.eraseCell(r, col, vt.cursor.Style.Background)
+			vt.activeScreen.eraseCellProtected(r, col, vt.cursor.Style.Background, protect)
 		}
 
 	// Erases the complete line.
 	case 2:
 		vt.resetPendingWrap()
 		for col := column(0); col < column(vt.width()); col += 1 {
-			vt.activeScreen.eraseCell(r, col, vt.cursor.Style.Background)
+			vt.activeScreen.eraseCellProtected(r, col, vt.cursor.Style.Background, protect)
 		}
 	}
 }
@@ -391,11 +389,21 @@ func (vt *Model) ech(ps int) {
 		ps = 1
 	}
 
+	protect := vt.mode.protected == protectedModeISO
 	for i := column(0); i < column(ps); i += 1 {
 		if vt.cursor.col+i == column(vt.width()) {
 			return
 		}
-		vt.activeScreen.eraseCell(vt.cursor.row, vt.cursor.col+i, vt.cursor.Style.Background)
+		vt.activeScreen.eraseCellProtected(vt.cursor.row, vt.cursor.col+i, vt.cursor.Style.Background, protect)
+	}
+}
+
+func (vt *Model) decsca(seq ansi.CSI) {
+	switch ps(seq) {
+	case 0, 2:
+		vt.setProtectedMode(protectedModeOff)
+	case 1:
+		vt.setProtectedMode(protectedModeDEC)
 	}
 }
 

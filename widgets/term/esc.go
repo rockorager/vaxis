@@ -28,6 +28,10 @@ func (vt *Model) esc(esc string) {
 		vt.charsets.saved = vt.charsets.selected
 		vt.charsets.singleShift = true
 		vt.charsets.selected = g3
+	case "V":
+		vt.setProtectedMode(protectedModeISO)
+	case "W":
+		vt.setProtectedMode(protectedModeOff)
 	case "Z":
 		vt.primaryDeviceAttributes()
 	case "=":
@@ -68,6 +72,19 @@ func (vt *Model) esc(esc string) {
 		vt.charsets.designations[g3] = ascii
 	case "#8":
 		vt.decaln()
+	}
+}
+
+func (vt *Model) setProtectedMode(mode protectedMode) {
+	switch mode {
+	case protectedModeOff:
+		vt.cursor.protected = false
+	case protectedModeISO:
+		vt.cursor.protected = true
+		vt.mode.protected = protectedModeISO
+	case protectedModeDEC:
+		vt.cursor.protected = true
+		vt.mode.protected = protectedModeDEC
 	}
 }
 

@@ -76,6 +76,10 @@ func applyESC(vt *Model, seq ansi.ESC) {
 			vt.charsets.saved = vt.charsets.selected
 			vt.charsets.selected = g3
 			vt.charsets.singleShift = true
+		case 'V':
+			vt.setProtectedMode(protectedModeISO)
+		case 'W':
+			vt.setProtectedMode(protectedModeOff)
 		case 'Z':
 			vt.primaryDeviceAttributes()
 		case '=':
@@ -145,9 +149,9 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 		case 'I':
 			vt.cht(ps(seq))
 		case 'J':
-			vt.ed(ps(seq))
+			vt.ed(ps(seq), false)
 		case 'K':
-			vt.el(ps(seq))
+			vt.el(ps(seq), false)
 		case 'L':
 			vt.il(ps(seq))
 		case 'M':
@@ -211,12 +215,20 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 			switch seq.Final {
 			case 'h':
 				vt.decset(seq)
+			case 'J':
+				vt.ed(ps(seq), true)
+			case 'K':
+				vt.el(ps(seq), true)
 			case 'l':
 				vt.decrst(seq)
 			}
 		case ' ':
 			if seq.Final == 'q' {
 				vt.cursor.style = vaxis.CursorStyle(ps(seq))
+			}
+		case '"':
+			if seq.Final == 'q' {
+				vt.decsca(seq)
 			}
 		case '$':
 			if seq.Final == 'p' {

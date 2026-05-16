@@ -178,11 +178,32 @@ func (s screenBuffer) eraseCell(r row, c column, bg vaxis.Color) {
 	s.state.cells[s.offset(r, c)].erase(bg)
 }
 
+func (s screenBuffer) eraseCellProtected(r row, c column, bg vaxis.Color, protect bool) {
+	cell := &s.state.cells[s.offset(r, c)]
+	if protect && cell.protected {
+		return
+	}
+	cell.erase(bg)
+}
+
 func (s screenBuffer) eraseRowRange(r row, left column, right column, bg vaxis.Color) {
 	line := s.line(r)
 	for col := left; col <= right; col += 1 {
 		line[col].erase(bg)
 	}
+}
+
+func (s screenBuffer) eraseRowRangeProtected(r row, left column, right column, bg vaxis.Color, protect bool) bool {
+	line := s.line(r)
+	skipped := false
+	for col := left; col <= right; col += 1 {
+		if protect && line[col].protected {
+			skipped = true
+			continue
+		}
+		line[col].erase(bg)
+	}
+	return skipped
 }
 
 func (s screenBuffer) copyRow(dst row, src row) {
@@ -208,6 +229,13 @@ func (s screenBuffer) copyRowFrom(dst row, src screenBuffer, srcRow row) {
 func (s screenBuffer) eraseRow(r row, left column, right column, bg vaxis.Color) {
 	s.eraseRowRange(r, left, right, bg)
 	if left == 0 && right >= column(s.width()-1) {
+		s.state.rows[r] = screenRow{}
+	}
+}
+
+func (s screenBuffer) eraseRowProtected(r row, left column, right column, bg vaxis.Color, protect bool) {
+	skipped := s.eraseRowRangeProtected(r, left, right, bg, protect)
+	if !skipped && left == 0 && right >= column(s.width()-1) {
 		s.state.rows[r] = screenRow{}
 	}
 }

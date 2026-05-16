@@ -93,7 +93,7 @@ func TestEditOperationsResetSoftWrap(t *testing.T) {
 		{
 			name: "erase line",
 			edit: func(vt *Model) {
-				vt.el(0)
+				vt.el(0, false)
 			},
 		},
 	}
@@ -188,7 +188,7 @@ func TestEraseLineCompletePreservesSoftWrapMetadata(t *testing.T) {
 	vt.cursor.row = 0
 	vt.cursor.col = 1
 
-	vt.el(2)
+	vt.el(2, false)
 
 	if !vt.activeScreen.row(0).wrapped {
 		t.Fatal("complete line erase cleared source row wrap metadata")
@@ -208,7 +208,7 @@ func TestEraseDisplayClearsFullyErasedRowMetadata(t *testing.T) {
 	vt.cursor.row = 0
 	vt.cursor.col = 1
 
-	vt.ed(0)
+	vt.ed(0, false)
 
 	if vt.activeScreen.row(1).wrapped {
 		t.Fatal("erase display below kept wrapped metadata on fully erased row")

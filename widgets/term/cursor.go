@@ -11,4 +11,6 @@ type cursor struct {
 	// position
 	row row    // 0-indexed
 	col column // 0-indexed
+
+	protected bool
 }
