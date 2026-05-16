@@ -146,17 +146,35 @@ func (vt *Model) cha(ps int) {
 // Move cursor to the absolute position
 func (vt *Model) cup(pm ansi.CSI) {
 	vt.resetWrap()
+	r := 0
+	c := 0
 	switch pm.NumParameters {
 	case 0:
-		vt.cursor.row = 0
-		vt.cursor.col = 0
 	case 1:
-		vt.cursor.row = row(pm.Param(0) - 1)
-		vt.cursor.col = 0
+		r = pm.Param(0) - 1
 	default:
-		vt.cursor.row = row(pm.Param(0) - 1)
-		vt.cursor.col = column(pm.Param(1) - 1)
+		r = pm.Param(0) - 1
+		c = pm.Param(1) - 1
 	}
+	if r < 0 {
+		r = 0
+	}
+	if c < 0 {
+		c = 0
+	}
+	if vt.mode.decom {
+		vt.cursor.row = vt.margin.top + row(r)
+		vt.cursor.col = vt.margin.left + column(c)
+		if vt.cursor.row > vt.margin.bottom {
+			vt.cursor.row = vt.margin.bottom
+		}
+		if vt.cursor.col > vt.margin.right {
+			vt.cursor.col = vt.margin.right
+		}
+		return
+	}
+	vt.cursor.row = row(r)
+	vt.cursor.col = column(c)
 	if vt.cursor.col > column(vt.width()-1) {
 		vt.cursor.col = column(vt.width() - 1)
 	}
@@ -512,6 +530,37 @@ func (vt *Model) decstbm(pm ansi.CSI) {
 	vt.resetWrap()
 	vt.margin.top = top
 	vt.margin.bottom = bot
+	vt.cursor.row = 0
+	vt.cursor.col = 0
+}
+
+// Set left and right margins (DECSLRM) CSI Ps ; Ps s
+func (vt *Model) decslrm(pm ansi.CSI) {
+	if !vt.mode.declrmm {
+		return
+	}
+	left := column(0)
+	right := column(vt.width() - 1)
+	switch pm.NumParameters {
+	case 0:
+	case 1:
+		left = column(pm.Param(0) - 1)
+	default:
+		left = column(pm.Param(0) - 1)
+		right = column(pm.Param(1) - 1)
+	}
+	if left < 0 {
+		left = 0
+	}
+	if right < 0 || right >= column(vt.width()) {
+		right = column(vt.width() - 1)
+	}
+	if left >= right {
+		return
+	}
+	vt.resetWrap()
+	vt.margin.left = left
+	vt.margin.right = right
 	vt.cursor.row = 0
 	vt.cursor.col = 0
 }

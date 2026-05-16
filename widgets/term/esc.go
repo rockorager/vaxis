@@ -106,6 +106,7 @@ func (vt *Model) decsc() {
 		decawm:  vt.mode.decawm,
 		decom:   vt.mode.decom,
 		lastCol: vt.lastCol,
+		saved:   true,
 		charsets: charsets{
 			selected: vt.charsets.selected,
 			saved:    vt.charsets.saved,
@@ -136,6 +137,9 @@ func (vt *Model) decrc() {
 	default:
 		state = vt.primaryState
 	}
+	if !state.saved {
+		state = defaultCursorState()
+	}
 
 	vt.cursor = state.cursor
 	vt.charsets = charsets{
@@ -150,7 +154,8 @@ func (vt *Model) decrc() {
 	}
 	vt.mode.decawm = state.decawm
 	vt.mode.decom = state.decom
-	vt.lastCol = state.lastCol
+	vt.clampCursor()
+	vt.lastCol = state.lastCol && vt.cursor.col >= vt.margin.right
 }
 
 // Reset Initial State (RIS) ESC-c
@@ -179,6 +184,8 @@ func (vt *Model) ris() {
 		decawm:  true,
 		dectcem: true,
 	}
+	vt.primaryState = defaultCursorState()
+	vt.altState = defaultCursorState()
 	vt.setDefaultTabStops()
 }
 

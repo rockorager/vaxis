@@ -46,6 +46,8 @@ type mode struct {
 	deckpam bool
 	// Normal keypad
 	deckpnm bool
+	// Enable left and right margins
+	declrmm bool
 
 	// xterm
 	//
@@ -123,6 +125,8 @@ func (vt *Model) decset(params ansi.CSI) {
 			vt.mode.decarm = true
 		case 25:
 			vt.mode.dectcem = true
+		case 69:
+			vt.mode.declrmm = true
 		case 1000:
 			vt.mode.mouseButtons = true
 		case 1002:
@@ -173,6 +177,8 @@ func (vt *Model) decrst(params ansi.CSI) {
 			vt.mode.decarm = false
 		case 25:
 			vt.mode.dectcem = false
+		case 69:
+			vt.mode.declrmm = false
 		case 1000:
 			vt.mode.mouseButtons = false
 		case 1002:
@@ -286,6 +292,13 @@ func (vt *Model) decrqm(pd int) {
 		}
 	case 25:
 		switch vt.mode.dectcem {
+		case true:
+			ps = 1
+		case false:
+			ps = 2
+		}
+	case 69:
+		switch vt.mode.declrmm {
 		case true:
 			ps = 1
 		case false:

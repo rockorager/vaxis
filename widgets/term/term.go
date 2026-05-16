@@ -75,6 +75,7 @@ type cursorState struct {
 	decawm   bool
 	decom    bool
 	lastCol  bool
+	saved    bool
 }
 
 type margin struct {
@@ -99,28 +100,8 @@ func New() *Model {
 			decawm:  true,
 			dectcem: true,
 		},
-		primaryState: cursorState{
-			charsets: charsets{
-				designations: map[charsetDesignator]charset{
-					g0: ascii,
-					g1: ascii,
-					g2: ascii,
-					g3: ascii,
-				},
-			},
-			decawm: true,
-		},
-		altState: cursorState{
-			charsets: charsets{
-				designations: map[charsetDesignator]charset{
-					g0: ascii,
-					g1: ascii,
-					g2: ascii,
-					g3: ascii,
-				},
-			},
-			decawm: true,
-		},
+		primaryState: defaultCursorState(),
+		altState:     defaultCursorState(),
 		eventHandler: func(ev vaxis.Event) {},
 		// Buffering to 2 events. If there is ever a case where one
 		// sequence can trigger two events, this should be increased
@@ -129,6 +110,20 @@ func New() *Model {
 	}
 	m.setDefaultTabStops()
 	return m
+}
+
+func defaultCursorState() cursorState {
+	return cursorState{
+		charsets: charsets{
+			designations: map[charsetDesignator]charset{
+				g0: ascii,
+				g1: ascii,
+				g2: ascii,
+				g3: ascii,
+			},
+		},
+		decawm: true,
+	}
 }
 
 func (vt *Model) StartWithSize(cmd *exec.Cmd, width int, height int) error {
@@ -393,44 +388,162 @@ func (vt *Model) Resize(w int, h int) {
 
 func (vt *Model) resize(w int, h int) {
 	primary := vt.primaryScreen
-	vt.altScreen = newScreenBuffer(w, h, 0)
-	vt.primaryScreen = newScreenBuffer(w, h, defaultScrollbackLines)
-	last := vt.cursor.row
-	vt.margin.bottom = row(h) - 1
-	vt.margin.right = column(w) - 1
-	vt.cursor.row = 0
-	vt.cursor.col = 0
-	vt.lastCol = false
-	vt.activeScreen = vt.primaryScreen
+	alt := vt.altScreen
+	if primary.width() == w {
+		resized, primaryDelta, ok := primary.resizeHeight(h, vt.cursor.Style.Background)
+		if !ok {
+			goto reflowResize
+		}
+		vt.primaryScreen = resized
+		cursorDelta := primaryDelta
+		if alt.width() == w {
+			resizedAlt, altDelta, ok := alt.resizeHeight(h, vt.cursor.Style.Background)
+			if ok {
+				vt.altScreen = resizedAlt
+				if vt.mode.smcup {
+					cursorDelta = altDelta
+				}
+				if vt.altState.saved {
+					vt.altState.cursor.row += row(altDelta)
+				}
+			} else {
+				vt.altScreen = newScreenBuffer(w, h, 0)
+			}
+		} else {
+			vt.altScreen = newScreenBuffer(w, h, 0)
+		}
+		vt.resetMargins(w, h)
+		vt.cursor.row += row(cursorDelta)
+		if vt.primaryState.saved {
+			vt.primaryState.cursor.row += row(primaryDelta)
+		}
+		if vt.cursor.col >= column(w) {
+			vt.cursor.col = column(w) - 1
+		}
+		if vt.primaryState.saved && vt.primaryState.cursor.col >= column(w) {
+			vt.primaryState.cursor.col = column(w) - 1
+		}
+		if vt.altState.saved && vt.altState.cursor.col >= column(w) {
+			vt.altState.cursor.col = column(w) - 1
+		}
+		vt.clampScrollOffset()
+		if vt.mode.smcup {
+			vt.activeScreen = vt.altScreen
+		} else {
+			vt.activeScreen = vt.primaryScreen
+		}
+		vt.clampCursor()
+		return
+	}
 
-	// transfer primary to new, skipping the last row
-	for r := 0; r < primary.height(); r += 1 {
-		if r == int(last) {
-			break
-		}
-		if primary.width() == 0 {
-			continue
-		}
-		wrapped := false
-		for col := 0; col < primary.width(); col += 1 {
-			cell := *primary.cell(row(r), column(col))
-			vt.cursor.Style = cell.Style
-			vt.print(ansi.Print{
-				Grapheme: cell.Character.Grapheme,
-				Width:    cell.Character.Width,
-			})
-		}
-		wrapped = primary.row(row(r)).wrapped
-		if !wrapped {
-			vt.nel()
-		}
+reflowResize:
+	vt.resetMargins(w, h)
+	vt.lastCol = false
+	if vt.primaryState.saved {
+		vt.primaryState.lastCol = false
 	}
-	switch vt.mode.smcup {
-	case false:
-		vt.activeScreen = vt.primaryScreen
-	default:
+	if vt.altState.saved {
+		vt.altState.lastCol = false
+	}
+	if !vt.mode.decawm {
+		vt.resizeNoReflow(w, h, primary, alt)
+		return
+	}
+	if vt.mode.smcup {
+		if resized, savedRow, savedCol, ok := primary.resizeReflowCursor(w, h, vt.cursor.Style.Background, vt.primaryState.cursor.row, vt.primaryState.cursor.col, vt.primaryState.saved); ok {
+			vt.primaryScreen = resized
+			if vt.primaryState.saved {
+				vt.primaryState.cursor.row = savedRow
+				vt.primaryState.cursor.col = savedCol
+			}
+		} else {
+			vt.primaryScreen = newScreenBuffer(w, h, defaultScrollbackLines)
+		}
+		resizedAlt, newRow, newCol, ok := alt.resizeReflowCursor(w, h, vt.cursor.Style.Background, vt.cursor.row, vt.cursor.col, true)
+		if ok {
+			vt.altScreen = resizedAlt
+			vt.cursor.row = newRow
+			vt.cursor.col = newCol
+		} else {
+			vt.altScreen = newScreenBuffer(w, h, 0)
+		}
+		if _, savedRow, savedCol, ok := alt.resizeReflowCursor(w, h, vt.cursor.Style.Background, vt.altState.cursor.row, vt.altState.cursor.col, vt.altState.saved); ok && vt.altState.saved {
+			vt.altState.cursor.row = savedRow
+			vt.altState.cursor.col = savedCol
+		}
 		vt.activeScreen = vt.altScreen
+	} else {
+		resized, newRow, newCol, ok := primary.resizeReflowCursor(w, h, vt.cursor.Style.Background, vt.cursor.row, vt.cursor.col, true)
+		if ok {
+			vt.primaryScreen = resized
+			vt.cursor.row = newRow
+			vt.cursor.col = newCol
+		} else {
+			vt.primaryScreen = newScreenBuffer(w, h, defaultScrollbackLines)
+		}
+		if _, savedRow, savedCol, ok := primary.resizeReflowCursor(w, h, vt.cursor.Style.Background, vt.primaryState.cursor.row, vt.primaryState.cursor.col, vt.primaryState.saved); ok && vt.primaryState.saved {
+			vt.primaryState.cursor.row = savedRow
+			vt.primaryState.cursor.col = savedCol
+		}
+		if resizedAlt, ok := alt.resizeReflow(w, h, vt.cursor.Style.Background); ok {
+			vt.altScreen = resizedAlt
+		} else {
+			vt.altScreen = newScreenBuffer(w, h, 0)
+		}
+		if _, savedRow, savedCol, ok := alt.resizeReflowCursor(w, h, vt.cursor.Style.Background, vt.altState.cursor.row, vt.altState.cursor.col, vt.altState.saved); ok && vt.altState.saved {
+			vt.altState.cursor.row = savedRow
+			vt.altState.cursor.col = savedCol
+		}
+		vt.activeScreen = vt.primaryScreen
 	}
+	vt.clampCursor()
+	if vt.cursor.col >= column(w) {
+		vt.cursor.col = column(w) - 1
+	}
+	vt.clampScrollOffset()
+}
+
+func (vt *Model) resizeNoReflow(w int, h int, primary screenBuffer, alt screenBuffer) {
+	if vt.mode.smcup {
+		if resized, ok := primary.resizeNoReflow(w, h, vt.cursor.Style.Background); ok {
+			vt.primaryScreen = resized
+		} else {
+			vt.primaryScreen = newScreenBuffer(w, h, defaultScrollbackLines)
+		}
+		resizedAlt, newRow, newCol, ok := alt.resizeNoReflowCursor(w, h, vt.cursor.Style.Background, vt.cursor.row, vt.cursor.col, true)
+		if ok {
+			vt.altScreen = resizedAlt
+			vt.cursor.row = newRow
+			vt.cursor.col = newCol
+		} else {
+			vt.altScreen = newScreenBuffer(w, h, 0)
+		}
+		vt.activeScreen = vt.altScreen
+	} else {
+		resized, newRow, newCol, ok := primary.resizeNoReflowCursor(w, h, vt.cursor.Style.Background, vt.cursor.row, vt.cursor.col, true)
+		if ok {
+			vt.primaryScreen = resized
+			vt.cursor.row = newRow
+			vt.cursor.col = newCol
+		} else {
+			vt.primaryScreen = newScreenBuffer(w, h, defaultScrollbackLines)
+		}
+		if resizedAlt, ok := alt.resizeNoReflow(w, h, vt.cursor.Style.Background); ok {
+			vt.altScreen = resizedAlt
+		} else {
+			vt.altScreen = newScreenBuffer(w, h, 0)
+		}
+		vt.activeScreen = vt.primaryScreen
+	}
+	vt.clampCursor()
+	vt.clampScrollOffset()
+}
+
+func (vt *Model) resetMargins(w int, h int) {
+	vt.margin.top = 0
+	vt.margin.bottom = row(h) - 1
+	vt.margin.left = 0
+	vt.margin.right = column(w) - 1
 }
 
 func (vt *Model) width() int {
@@ -459,6 +572,21 @@ func (vt *Model) resetWrap() {
 
 func (vt *Model) resetPendingWrap() {
 	vt.lastCol = false
+	if vt.cursor.col > vt.margin.right {
+		vt.cursor.col = vt.margin.right
+	}
+}
+
+func (vt *Model) clampCursor() {
+	if vt.cursor.row < 0 {
+		vt.cursor.row = 0
+	}
+	if vt.cursor.col < 0 {
+		vt.cursor.col = 0
+	}
+	if vt.cursor.row >= row(vt.height()) {
+		vt.cursor.row = row(vt.height()) - 1
+	}
 	if vt.cursor.col > vt.margin.right {
 		vt.cursor.col = vt.margin.right
 	}
