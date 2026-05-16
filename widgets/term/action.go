@@ -105,6 +105,8 @@ func applyESC(vt *Model, seq ansi.ESC) {
 
 func (vt *Model) designateGCharset(designator charsetDesignator, final rune) {
 	switch final {
+	case 'A':
+		vt.charsets.designations[designator] = british
 	case '0':
 		vt.charsets.designations[designator] = decSpecialAndLineDrawing
 	case 'B':

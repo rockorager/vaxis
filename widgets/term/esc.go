@@ -44,6 +44,14 @@ func (vt *Model) esc(esc string) {
 		vt.charsets.designations[g2] = decSpecialAndLineDrawing
 	case "+0":
 		vt.charsets.designations[g3] = decSpecialAndLineDrawing
+	case "(A":
+		vt.charsets.designations[g0] = british
+	case ")A":
+		vt.charsets.designations[g1] = british
+	case "*A":
+		vt.charsets.designations[g2] = british
+	case "+A":
+		vt.charsets.designations[g3] = british
 	case "(B":
 		vt.charsets.designations[g0] = ascii
 	case ")B":
@@ -131,21 +139,12 @@ func (vt *Model) decaln() {
 // Save Cursor DECSC ESC-7
 func (vt *Model) decsc() {
 	state := cursorState{
-		cursor:  vt.cursor,
-		decawm:  vt.mode.decawm,
-		decom:   vt.mode.decom,
-		lastCol: vt.lastCol,
-		saved:   true,
-		charsets: charsets{
-			selected: vt.charsets.selected,
-			saved:    vt.charsets.saved,
-			designations: map[charsetDesignator]charset{
-				g0: vt.charsets.designations[g0],
-				g1: vt.charsets.designations[g1],
-				g2: vt.charsets.designations[g2],
-				g3: vt.charsets.designations[g3],
-			},
-		},
+		cursor:   vt.cursor,
+		decawm:   vt.mode.decawm,
+		decom:    vt.mode.decom,
+		lastCol:  vt.lastCol,
+		saved:    true,
+		charsets: vt.charsets,
 	}
 	switch {
 	case vt.mode.smcup:
@@ -171,16 +170,7 @@ func (vt *Model) decrc() {
 	}
 
 	vt.cursor = state.cursor
-	vt.charsets = charsets{
-		selected: state.charsets.selected,
-		saved:    state.charsets.saved,
-		designations: map[charsetDesignator]charset{
-			g0: state.charsets.designations[g0],
-			g1: state.charsets.designations[g1],
-			g2: state.charsets.designations[g2],
-			g3: state.charsets.designations[g3],
-		},
-	}
+	vt.charsets = state.charsets
 	vt.mode.decawm = state.decawm
 	vt.mode.decom = state.decom
 	vt.clampCursor()
@@ -199,16 +189,7 @@ func (vt *Model) ris() {
 	vt.cursor.col = 0
 	vt.lastCol = false
 	vt.activeScreen = vt.primaryScreen
-	vt.charsets = charsets{
-		selected: 0,
-		saved:    0,
-		designations: map[charsetDesignator]charset{
-			g0: ascii,
-			g1: ascii,
-			g2: ascii,
-			g3: ascii,
-		},
-	}
+	vt.charsets = charsets{}
 	vt.mode = mode{
 		decawm:  true,
 		dectcem: true,

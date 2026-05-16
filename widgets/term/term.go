@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+	"unicode/utf8"
 
 	"git.sr.ht/~rockorager/vaxis"
 	"git.sr.ht/~rockorager/vaxis/ansi"
@@ -44,7 +45,6 @@ type Model struct {
 	cursor   cursor
 	margin   margin
 	mode     mode
-	sShift   charset
 	tabStop  []column
 	// lastCol is a flag indicating we printed in the last col
 	lastCol bool
@@ -88,14 +88,6 @@ type margin struct {
 func New() *Model {
 	m := &Model{
 		OSC8: true,
-		charsets: charsets{
-			designations: map[charsetDesignator]charset{
-				g0: ascii,
-				g1: ascii,
-				g2: ascii,
-				g3: ascii,
-			},
-		},
 		mode: mode{
 			decawm:  true,
 			dectcem: true,
@@ -114,14 +106,6 @@ func New() *Model {
 
 func defaultCursorState() cursorState {
 	return cursorState{
-		charsets: charsets{
-			designations: map[charsetDesignator]charset{
-				g0: ascii,
-				g1: ascii,
-				g2: ascii,
-				g3: ascii,
-			},
-		},
 		decawm: true,
 	}
 }
@@ -609,11 +593,19 @@ func (vt *Model) clampCursor() {
 // print sets the current cell contents to the given rune. The attributes will
 // be copied from the current cursor attributes
 func (vt *Model) print(seq ansi.Print) {
-	if len(seq.Grapheme) == 1 &&
-		vt.charsets.designations[vt.charsets.selected] == decSpecialAndLineDrawing {
-		shifted, ok := decSpecial[seq.Grapheme[0]]
-		if ok {
+	if len(seq.Grapheme) == 1 {
+		set := vt.charsets.designations[vt.charsets.selected]
+		shifted := applyCharset(set, rune(seq.Grapheme[0]))
+		if shifted != rune(seq.Grapheme[0]) {
 			seq.Grapheme = string(shifted)
+		}
+	} else {
+		set := vt.charsets.designations[vt.charsets.selected]
+		r, _ := utf8.DecodeRuneInString(seq.Grapheme)
+		shifted := applyCharset(set, r)
+		if shifted == ' ' {
+			seq.Grapheme = " "
+			seq.Width = 1
 		}
 	}
 

@@ -67,6 +67,30 @@ func TestSingleShiftAppliesToOneGraphicCharacter(t *testing.T) {
 	}
 }
 
+func TestCharsetBritishDesignation(t *testing.T) {
+	vt := New()
+	vt.resize(4, 1)
+
+	vt.update(testESC('A', '('))
+	vt.update(testPrint("#"))
+
+	if got, want := vt.String(), "£   "; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestTableCharsetPrintsNonASCIIAsSpace(t *testing.T) {
+	vt := New()
+	vt.resize(4, 1)
+
+	vt.update(testESC('0', '('))
+	vt.update(testPrint("😀"))
+
+	if got, want := vt.String(), "    "; got != want {
+		t.Fatalf("screen mismatch: got %q want %q", got, want)
+	}
+}
+
 func TestOriginModeMovesCursorToHome(t *testing.T) {
 	vt := New()
 	vt.resize(8, 5)
