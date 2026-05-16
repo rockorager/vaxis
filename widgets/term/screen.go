@@ -190,6 +190,16 @@ func (s screenBuffer) copyRow(dst row, src row) {
 	s.state.rows[dst] = s.state.rows[src]
 }
 
+func (s screenBuffer) copyRowRange(dst row, src row, left column, right column) {
+	if left == 0 && right >= column(s.width()-1) {
+		s.copyRow(dst, src)
+		return
+	}
+	dstLine := s.line(dst)
+	srcLine := s.line(src)
+	copy(dstLine[left:right+1], srcLine[left:right+1])
+}
+
 func (s screenBuffer) copyRowFrom(dst row, src screenBuffer, srcRow row) {
 	copy(s.line(dst), src.line(srcRow))
 	s.state.rows[dst] = src.state.rows[srcRow]
@@ -197,7 +207,9 @@ func (s screenBuffer) copyRowFrom(dst row, src screenBuffer, srcRow row) {
 
 func (s screenBuffer) eraseRow(r row, left column, right column, bg vaxis.Color) {
 	s.eraseRowRange(r, left, right, bg)
-	s.state.rows[r] = screenRow{}
+	if left == 0 && right >= column(s.width()-1) {
+		s.state.rows[r] = screenRow{}
+	}
 }
 
 func (s screenBuffer) offset(r row, c column) int {
@@ -217,7 +229,7 @@ func (s screenBuffer) scrollUp(top row, bottom row, left column, right column, n
 			s.eraseRow(row(r), left, right, bg)
 			continue
 		}
-		s.copyRow(row(r), row(r+n))
+		s.copyRowRange(row(r), row(r+n), left, right)
 	}
 	return captured
 }
@@ -228,7 +240,7 @@ func (s screenBuffer) scrollDown(top row, bottom row, left column, right column,
 			s.eraseRow(r, left, right, bg)
 			continue
 		}
-		s.copyRow(r, r-row(n))
+		s.copyRowRange(r, r-row(n), left, right)
 	}
 }
 

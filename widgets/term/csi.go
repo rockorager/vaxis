@@ -309,7 +309,7 @@ func (vt *Model) il(ps int) {
 
 	// move the lines first
 	for r := vt.margin.bottom; r >= (vt.cursor.row + row(ps)); r -= 1 {
-		vt.activeScreen.copyRow(r, r-row(ps))
+		vt.activeScreen.copyRowRange(r, r-row(ps), vt.margin.left, vt.margin.right)
 	}
 
 	// insert the blank lines (we do this by erasing the cells)
@@ -352,7 +352,7 @@ func (vt *Model) dl(ps int) {
 
 	for r := vt.cursor.row; r <= vt.margin.bottom; r += 1 {
 		if r <= vt.margin.bottom-row(ps) {
-			vt.activeScreen.copyRow(r, r+row(ps))
+			vt.activeScreen.copyRowRange(r, r+row(ps), vt.margin.left, vt.margin.right)
 			continue
 		}
 		vt.activeScreen.eraseRow(r, vt.margin.left, vt.margin.right, vt.cursor.Style.Background)
