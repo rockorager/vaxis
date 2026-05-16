@@ -353,7 +353,7 @@ func (vt *Model) inBandSizeReport() {
 }
 
 func (vt *Model) inBandSizeReportString() string {
-	if vt.size.Cols <= 0 || vt.size.Rows <= 0 || vt.size.XPixel <= 0 || vt.size.YPixel <= 0 {
+	if vt.size.Cols <= 0 || vt.size.Rows <= 0 {
 		return ""
 	}
 	return fmt.Sprintf(

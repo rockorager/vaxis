@@ -369,14 +369,16 @@ func TestInBandSizeReportOnEnable(t *testing.T) {
 	}
 }
 
-func TestInBandSizeReportRequiresPixelSize(t *testing.T) {
+func TestInBandSizeReportDoesNotRequirePixelSize(t *testing.T) {
 	vt, r := newReplyTestModel(t)
 	vt.resize(80, 24)
 	vt.Update(vaxis.Resize{Cols: 80, Rows: 24})
 
 	vt.update(testCSI('h', []uint32{2048}, '?'))
 
-	assertNoReply(t, r)
+	if got, want := readReply(t, r, len("\x1B[48;24;80;0;0t")), "\x1B[48;24;80;0;0t"; got != want {
+		t.Fatalf("in-band size report with zero pixels = %q, want %q", got, want)
+	}
 }
 
 func TestInBandSizeReportOnResizeUpdate(t *testing.T) {
@@ -392,6 +394,24 @@ func TestInBandSizeReportOnResizeUpdate(t *testing.T) {
 
 	if got, want := readReply(t, r, len("\x1B[48;30;100;600;1000t")), "\x1B[48;30;100;600;1000t"; got != want {
 		t.Fatalf("resize in-band size report = %q, want %q", got, want)
+	}
+}
+
+func TestInBandSizeReportEmitsZeroPixels(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.resize(80, 24)
+	vt.Update(vaxis.Resize{Cols: 80, Rows: 24})
+
+	vt.update(testCSI('h', []uint32{2048}, '?'))
+
+	if got, want := readReply(t, r, len("\x1B[48;24;80;0;0t")), "\x1B[48;24;80;0;0t"; got != want {
+		t.Fatalf("in-band size report with zero pixels = %q, want %q", got, want)
+	}
+
+	vt.Update(vaxis.Resize{Cols: 100, Rows: 30})
+
+	if got, want := readReply(t, r, len("\x1B[48;30;100;0;0t")), "\x1B[48;30;100;0;0t"; got != want {
+		t.Fatalf("resize in-band size report with zero pixels = %q, want %q", got, want)
 	}
 }
 
