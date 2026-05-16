@@ -159,6 +159,150 @@ func TestEraseCellResetsForegroundAndKeepsBackground(t *testing.T) {
 	}
 }
 
+func TestBlankProducingOperationsResetStyleAndKeepBackground(t *testing.T) {
+	type pos struct {
+		row row
+		col column
+	}
+	fg := vaxis.IndexColor(1)
+	bg := vaxis.IndexColor(2)
+	styled := vaxis.Style{
+		Foreground:     fg,
+		Background:     vaxis.IndexColor(3),
+		UnderlineColor: vaxis.IndexColor(4),
+		UnderlineStyle: vaxis.UnderlineSingle,
+		Attribute:      vaxis.AttrBold,
+	}
+
+	tests := []struct {
+		name   string
+		width  int
+		height int
+		row    row
+		col    column
+		run    func(*Model)
+		checks []pos
+	}{
+		{
+			name:   "ICH inserted blanks",
+			width:  6,
+			height: 1,
+			col:    1,
+			run:    func(vt *Model) { vt.ich(2) },
+			checks: []pos{{0, 1}, {0, 2}},
+		},
+		{
+			name:   "DCH blank fill",
+			width:  6,
+			height: 1,
+			col:    2,
+			run:    func(vt *Model) { vt.dch(2) },
+			checks: []pos{{0, 4}, {0, 5}},
+		},
+		{
+			name:   "ECH erased chars",
+			width:  6,
+			height: 1,
+			col:    1,
+			run:    func(vt *Model) { vt.ech(2) },
+			checks: []pos{{0, 1}, {0, 2}},
+		},
+		{
+			name:   "EL right",
+			width:  5,
+			height: 1,
+			col:    2,
+			run:    func(vt *Model) { vt.el(0, false) },
+			checks: []pos{{0, 2}, {0, 3}, {0, 4}},
+		},
+		{
+			name:   "EL left",
+			width:  5,
+			height: 1,
+			col:    2,
+			run:    func(vt *Model) { vt.el(1, false) },
+			checks: []pos{{0, 0}, {0, 1}, {0, 2}},
+		},
+		{
+			name:   "EL complete",
+			width:  5,
+			height: 1,
+			col:    2,
+			run:    func(vt *Model) { vt.el(2, false) },
+			checks: []pos{{0, 0}, {0, 1}, {0, 2}, {0, 3}, {0, 4}},
+		},
+		{
+			name:   "ED below",
+			width:  3,
+			height: 3,
+			row:    1,
+			col:    1,
+			run:    func(vt *Model) { vt.ed(0, false) },
+			checks: []pos{{1, 1}, {1, 2}, {2, 0}, {2, 1}, {2, 2}},
+		},
+		{
+			name:   "ED above",
+			width:  3,
+			height: 3,
+			row:    1,
+			col:    1,
+			run:    func(vt *Model) { vt.ed(1, false) },
+			checks: []pos{{0, 0}, {0, 1}, {0, 2}, {1, 0}, {1, 1}},
+		},
+		{
+			name:   "ED complete",
+			width:  3,
+			height: 2,
+			row:    1,
+			col:    1,
+			run:    func(vt *Model) { vt.ed(2, false) },
+			checks: []pos{{0, 0}, {0, 1}, {0, 2}, {1, 0}, {1, 1}, {1, 2}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vt := New()
+			vt.resize(tt.width, tt.height)
+			for r := row(0); r < row(tt.height); r += 1 {
+				for c := column(0); c < column(tt.width); c += 1 {
+					vt.activeScreen.setCell(r, c, cell{Cell: vaxis.Cell{
+						Character: vaxis.Character{Grapheme: "X", Width: 1},
+						Style:     styled,
+					}})
+				}
+			}
+			vt.cursor.row = tt.row
+			vt.cursor.col = tt.col
+			vt.cursor.Style = vaxis.Style{Background: bg}
+
+			tt.run(vt)
+
+			for _, check := range tt.checks {
+				cell := vt.activeScreen.cell(check.row, check.col)
+				if got := cell.Foreground; got != 0 {
+					t.Fatalf("cell %d,%d foreground = %v, want default", check.col, check.row, got)
+				}
+				if got := cell.Attribute; got != 0 {
+					t.Fatalf("cell %d,%d attributes = %v, want default", check.col, check.row, got)
+				}
+				if got := cell.UnderlineColor; got != 0 {
+					t.Fatalf("cell %d,%d underline color = %v, want default", check.col, check.row, got)
+				}
+				if got := cell.UnderlineStyle; got != vaxis.UnderlineOff {
+					t.Fatalf("cell %d,%d underline style = %v, want off", check.col, check.row, got)
+				}
+				if got := cell.Background; got != bg {
+					t.Fatalf("cell %d,%d background = %v, want %v", check.col, check.row, got, bg)
+				}
+				if got := cell.Grapheme; got != "" {
+					t.Fatalf("cell %d,%d grapheme = %q, want empty", check.col, check.row, got)
+				}
+			}
+		})
+	}
+}
+
 func TestInsertBlanksMoreThanLineWidth(t *testing.T) {
 	vt := New()
 	vt.resize(3, 2)
