@@ -262,10 +262,10 @@ func applyCSI(vt *Model, seq ansi.CSI) {
 		case 'r':
 			vt.decstbm(seq)
 		case 's':
-			if vt.mode.declrmm {
-				vt.decslrm(seq)
-			} else {
+			if seq.NumParameters == 0 && !vt.mode.declrmm {
 				vt.decsc()
+			} else {
+				vt.decslrm(seq)
 			}
 		case 't':
 			vt.xtwinops(seq)

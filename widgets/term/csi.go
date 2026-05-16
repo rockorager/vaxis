@@ -578,29 +578,31 @@ func (vt *Model) rep(ps int) {
 
 // Set top and bottom margins CSI Ps ; Ps r
 func (vt *Model) decstbm(pm ansi.CSI) {
-	var (
-		top row
-		bot row
-	)
+	if pm.NumParameters > 2 {
+		return
+	}
+	topReq := 0
+	botReq := 0
 	switch pm.NumParameters {
 	case 0:
-		top = 0
-		bot = row(vt.height()) - 1
 	case 1:
-		top = row(pm.Param(0) - 1)
-		bot = row(vt.height()) - 1
-	default:
-		top = row(pm.Param(0) - 1)
-		bot = row(pm.Param(1) - 1)
+		topReq = pm.Param(0)
+	case 2:
+		topReq = pm.Param(0)
+		botReq = pm.Param(1)
+	}
+	top := max(1, topReq)
+	bot := vt.height()
+	if botReq > 0 {
+		bot = min(vt.height(), botReq)
 	}
 	if top >= bot {
 		return
 	}
 	vt.resetWrap()
-	vt.margin.top = top
-	vt.margin.bottom = bot
-	vt.cursor.row = 0
-	vt.cursor.col = 0
+	vt.margin.top = row(top - 1)
+	vt.margin.bottom = row(bot - 1)
+	vt.setCursorPos(1, 1)
 }
 
 // Set left and right margins (DECSLRM) CSI Ps ; Ps s
@@ -608,28 +610,29 @@ func (vt *Model) decslrm(pm ansi.CSI) {
 	if !vt.mode.declrmm {
 		return
 	}
-	left := column(0)
-	right := column(vt.width() - 1)
+	if pm.NumParameters > 2 {
+		return
+	}
+	leftReq := 0
+	rightReq := 0
 	switch pm.NumParameters {
 	case 0:
 	case 1:
-		left = column(pm.Param(0) - 1)
-	default:
-		left = column(pm.Param(0) - 1)
-		right = column(pm.Param(1) - 1)
+		leftReq = pm.Param(0)
+	case 2:
+		leftReq = pm.Param(0)
+		rightReq = pm.Param(1)
 	}
-	if left < 0 {
-		left = 0
-	}
-	if right < 0 || right >= column(vt.width()) {
-		right = column(vt.width() - 1)
+	left := max(1, leftReq)
+	right := vt.width()
+	if rightReq > 0 {
+		right = min(vt.width(), rightReq)
 	}
 	if left >= right {
 		return
 	}
 	vt.resetWrap()
-	vt.margin.left = left
-	vt.margin.right = right
-	vt.cursor.row = 0
-	vt.cursor.col = 0
+	vt.margin.left = column(left - 1)
+	vt.margin.right = column(right - 1)
+	vt.setCursorPos(1, 1)
 }
