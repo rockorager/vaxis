@@ -232,7 +232,13 @@ func (vt *Model) deviceStatusReport(n int) {
 	case 5:
 		vt.enqueueReplyString("\x1B[0n")
 	case 6:
-		resp := fmt.Sprintf("\x1B[%d;%dR", vt.cursor.row+1, vt.cursor.col+1)
+		reportRow := vt.cursor.row
+		reportCol := vt.cursor.col
+		if vt.mode.decom {
+			reportRow = max(0, reportRow-vt.margin.top)
+			reportCol = max(0, reportCol-vt.margin.left)
+		}
+		resp := fmt.Sprintf("\x1B[%d;%dR", reportRow+1, reportCol+1)
 		vt.enqueueReplyString(resp)
 	}
 }
