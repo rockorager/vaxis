@@ -15,9 +15,9 @@ func newWriterTestVaxis(out *bytes.Buffer) *Vaxis {
 	vx.screenNext.resize(2, 1)
 	vx.screenLast.resize(2, 1)
 	vx.tw = &writer{
-		buf: bytes.NewBuffer(make([]byte, 0, 256)),
-		w:   out,
-		vx:  vx,
+		buf:      bytes.NewBuffer(make([]byte, 0, 256)),
+		terminal: &terminalWriter{w: out},
+		vx:       vx,
 	}
 	return vx
 }
@@ -47,6 +47,53 @@ func TestRenderFrameAlwaysHidesCursorBeforeDrawing(t *testing.T) {
 	}
 	if strings.Index(got, hide) > strings.Index(got, show) {
 		t.Fatalf("cursor was shown before it was hidden: %q", got)
+	}
+}
+
+func TestControlWriteBypassesRenderFrame(t *testing.T) {
+	var out bytes.Buffer
+	vx := newWriterTestVaxis(&out)
+	vx.caps.synchronizedUpdate = true
+
+	if _, err := vx.tw.WriteControlString("control"); err != nil {
+		t.Fatal(err)
+	}
+
+	got := out.String()
+	if got != "control" {
+		t.Fatalf("control write = %q, want raw control bytes", got)
+	}
+	if vx.tw.Len() != 0 {
+		t.Fatalf("frame buffer len = %d, want 0", vx.tw.Len())
+	}
+	if strings.Contains(got, decrst(cursorVisibility)) || strings.Contains(got, decset(synchronizedUpdate)) {
+		t.Fatalf("control write included render frame sequences: %q", got)
+	}
+}
+
+func TestRenderWriteUsesFrameWrapping(t *testing.T) {
+	var out bytes.Buffer
+	vx := newWriterTestVaxis(&out)
+	vx.caps.synchronizedUpdate = true
+
+	if _, err := vx.tw.WriteString("render"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := vx.tw.Flush(); err != nil {
+		t.Fatal(err)
+	}
+
+	got := out.String()
+	for _, want := range []string{
+		decrst(cursorVisibility),
+		decset(synchronizedUpdate),
+		"render",
+		sgrReset,
+		decrst(synchronizedUpdate),
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("render output %q missing %q", got, want)
+		}
 	}
 }
 

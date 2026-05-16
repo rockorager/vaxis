@@ -15,9 +15,9 @@ func benchmarkRenderRefreshRGB(b *testing.B, cols int, rows int) {
 	vx.caps.rgb = true
 	vx.caps.styledUnderlines = true
 	vx.tw = &writer{
-		buf: bytes.NewBuffer(make([]byte, 0, 1<<20)),
-		w:   io.Discard,
-		vx:  vx,
+		buf:      bytes.NewBuffer(make([]byte, 0, 1<<20)),
+		terminal: &terminalWriter{w: io.Discard},
+		vx:       vx,
 	}
 
 	for row := 0; row < rows; row += 1 {
@@ -61,9 +61,9 @@ func benchmarkRenderPartialRGB(b *testing.B, cols int, rows int, dirtyPct int) {
 	vx.caps.rgb = true
 	vx.caps.styledUnderlines = true
 	vx.tw = &writer{
-		buf: bytes.NewBuffer(make([]byte, 0, 1<<20)),
-		w:   io.Discard,
-		vx:  vx,
+		buf:      bytes.NewBuffer(make([]byte, 0, 1<<20)),
+		terminal: &terminalWriter{w: io.Discard},
+		vx:       vx,
 	}
 
 	base := Cell{

@@ -2,27 +2,48 @@ package vaxis
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"strconv"
 	"sync"
 )
 
-// writer is a buffered writer for a terminal. If the terminal supports
-// synchronized output, all writes will be wrapped with synchronized mode
-// set/reset. The internal buffer will be reset upon flushing
-type writer struct {
-	buf *bytes.Buffer
+type terminalWriter struct {
 	w   io.Writer
-	vx  *Vaxis
 	mut sync.Mutex
+}
+
+func (tw *terminalWriter) WriteRaw(p []byte) (n int, err error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+	tw.mut.Lock()
+	defer tw.mut.Unlock()
+	return tw.w.Write(p)
+}
+
+func (tw *terminalWriter) WriteRawString(s string) (n int, err error) {
+	if s == "" {
+		return 0, nil
+	}
+	tw.mut.Lock()
+	defer tw.mut.Unlock()
+	return io.WriteString(tw.w, s)
+}
+
+// writer buffers render-frame output. Render writes get wrapped with cursor and
+// synchronized-output state at flush time; control writes bypass the frame buffer
+// and go straight to terminalWriter.
+type writer struct {
+	buf      *bytes.Buffer
+	terminal *terminalWriter
+	vx       *Vaxis
 }
 
 func newWriter(vx *Vaxis) *writer {
 	return &writer{
-		buf: bytes.NewBuffer(make([]byte, 0, 8192)),
-		w:   vx.console,
-		vx:  vx,
+		buf:      bytes.NewBuffer(make([]byte, 0, 8192)),
+		terminal: &terminalWriter{w: vx.console},
+		vx:       vx,
 	}
 }
 
@@ -116,39 +137,56 @@ func (w *writer) WriteString(s string) (n int, err error) {
 	return w.buf.WriteString(s)
 }
 
-func (w *writer) Printf(s string, args ...any) (n int, err error) {
-	return fmt.Fprintf(w, s, args...)
-}
-
 func (w *writer) Len() int {
 	return w.buf.Len()
 }
 
-// WriteStringLocked writes to the underlying terminal while the mutex is held.
-// This does not handle any mouse nor synchronization state and is intended to
-// be used for one-off synchronized sequence writes to the terminal
-func (w *writer) WriteStringLocked(s string) (n int, err error) {
-	w.mut.Lock()
-	defer w.mut.Unlock()
-	return io.WriteString(w.w, s)
+func (w *writer) WriteControl(p []byte) (n int, err error) {
+	return w.terminal.WriteRaw(p)
+}
+
+func (w *writer) WriteControlString(s string) (n int, err error) {
+	return w.terminal.WriteRawString(s)
+}
+
+func (w *writer) writeControlCUP(row int, col int) {
+	buf := [32]byte{}
+	b := buf[:0]
+	b = append(b, '\x1b', '[')
+	b = strconv.AppendInt(b, int64(row), 10)
+	b = append(b, ';')
+	b = strconv.AppendInt(b, int64(col), 10)
+	b = append(b, 'H')
+	_, _ = w.WriteControl(b)
+}
+
+func (w *writer) writeControlExplicitWidth(width int, grapheme string) {
+	buf := bytes.NewBuffer(make([]byte, 0, 16+len(grapheme)))
+	buf.WriteString("\x1b]66;w=")
+	tmp := [24]byte{}
+	buf.Write(strconv.AppendInt(tmp[:0], int64(width), 10))
+	buf.WriteByte(';')
+	buf.WriteString(grapheme)
+	buf.WriteString("\x1b\\")
+	_, _ = w.WriteControl(buf.Bytes())
 }
 
 func (w *writer) Flush() (n int, err error) {
 	if w.buf.Len() == 0 {
 		// If we didn't write any visual changes, make sure we make any
-		// cursor changes here. Write directly to tty for these as
-		// they are short and don't require synchronization
+		// cursor changes here. These still go through terminalWriter so
+		// cursor-only frames serialize with control writes.
 		switch {
 		case !w.vx.cursorNext.visible && w.vx.cursorLast.visible:
-			return w.w.Write([]byte(decrst(cursorVisibility)))
+			return w.WriteControlString(decrst(cursorVisibility))
 		case w.vx.cursorNext.visible && !w.vx.cursorLast.visible:
-			return w.w.Write([]byte(w.vx.showCursor()))
+			return w.WriteControlString(w.vx.showCursor())
 		case w.vx.cursorNext.visible && w.vx.cursorNext.row != w.vx.cursorLast.row:
-			return w.w.Write([]byte(w.vx.showCursor()))
+			return w.WriteControlString(w.vx.showCursor())
 		case w.vx.cursorNext.visible && w.vx.cursorNext.col != w.vx.cursorLast.col:
-			return w.w.Write([]byte(w.vx.showCursor()))
+			return w.WriteControlString(w.vx.showCursor())
 		case w.vx.cursorNext.visible && w.vx.cursorNext.style != w.vx.cursorLast.style:
-			return w.w.Write([]byte(w.vx.showCursor()))
+			return w.WriteControlString(w.vx.showCursor())
 		default:
 			return 0, nil
 		}
@@ -161,7 +199,5 @@ func (w *writer) Flush() (n int, err error) {
 	if w.vx.caps.synchronizedUpdate {
 		w.buf.WriteString(decrst(synchronizedUpdate))
 	}
-	w.mut.Lock()
-	defer w.mut.Unlock()
-	return w.w.Write(w.buf.Bytes())
+	return w.WriteControl(w.buf.Bytes())
 }

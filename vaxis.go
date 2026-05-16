@@ -1173,7 +1173,7 @@ func (vx *Vaxis) QueryColorContext(ctx context.Context, c Color) Color {
 	}
 
 	drainQueryResponses(vx.chColor)
-	vx.tw.WriteStringLocked(tparm(osc4, p[0]))
+	vx.writeControlString(tparm(osc4, p[0]))
 	var resp string
 	select {
 	case resp = <-vx.chColor:
@@ -1226,7 +1226,7 @@ func (vx *Vaxis) QueryForegroundContext(ctx context.Context) Color {
 	}
 
 	drainQueryResponses(vx.chFg)
-	vx.tw.WriteStringLocked(osc10)
+	vx.writeControlString(osc10)
 	var resp string
 	select {
 	case resp = <-vx.chFg:
@@ -1275,7 +1275,7 @@ func (vx *Vaxis) QueryBackgroundContext(ctx context.Context) Color {
 	}
 
 	drainQueryResponses(vx.chBg)
-	vx.tw.WriteStringLocked(osc11)
+	vx.writeControlString(osc11)
 	var resp string
 	select {
 	case resp = <-vx.chBg:
@@ -1310,6 +1310,26 @@ func postQueryResponse(ch chan string, resp string) {
 	}
 }
 
+func (vx *Vaxis) writeControl(p []byte) {
+	if vx.tw != nil {
+		_, _ = vx.tw.WriteControl(p)
+		return
+	}
+	if vx.console != nil {
+		_, _ = vx.console.Write(p)
+	}
+}
+
+func (vx *Vaxis) writeControlString(s string) {
+	if vx.tw != nil {
+		_, _ = vx.tw.WriteControlString(s)
+		return
+	}
+	if vx.console != nil {
+		_, _ = io.WriteString(vx.console, s)
+	}
+}
+
 func (vx *Vaxis) sendQueries() {
 	// always query in the alt screen so a terminal who doesn't understand
 	// this doesn't get messed up. We are in full control of the alt screen
@@ -1321,24 +1341,24 @@ func (vx *Vaxis) sendQueries() {
 		vx.PostEvent(truecolor{})
 	}
 
-	_, _ = vx.tw.WriteString(userCursorStyle)
-	_, _ = vx.tw.WriteString(decrqm(synchronizedUpdate))
-	_, _ = vx.tw.WriteString(decrqm(unicodeCore))
-	_, _ = vx.tw.WriteString(decrqm(colorThemeUpdates))
-	_, _ = vx.tw.WriteString(decrqm(mouseSGRPixels))
+	_, _ = vx.tw.WriteControlString(userCursorStyle)
+	_, _ = vx.tw.WriteControlString(decrqm(synchronizedUpdate))
+	_, _ = vx.tw.WriteControlString(decrqm(unicodeCore))
+	_, _ = vx.tw.WriteControlString(decrqm(colorThemeUpdates))
+	_, _ = vx.tw.WriteControlString(decrqm(mouseSGRPixels))
 	// We blindly enable in band resize. We get a response immediately if it
 	// is supported
-	_, _ = vx.tw.WriteString(decset(inBandResize))
-	_, _ = vx.tw.WriteString(xtversion)
-	_, _ = vx.tw.WriteString(kittyKBQuery)
-	_, _ = vx.tw.WriteString(kittyGquery)
-	_, _ = vx.tw.WriteString(xtsmSixelGeom)
+	_, _ = vx.tw.WriteControlString(decset(inBandResize))
+	_, _ = vx.tw.WriteControlString(xtversion)
+	_, _ = vx.tw.WriteControlString(kittyKBQuery)
+	_, _ = vx.tw.WriteControlString(kittyGquery)
+	_, _ = vx.tw.WriteControlString(xtsmSixelGeom)
 	// Can the terminal report its own size?
-	_, _ = vx.tw.WriteString(textAreaSize)
+	_, _ = vx.tw.WriteControlString(textAreaSize)
 
 	// Explicit width query
-	_, _ = vx.tw.WriteString("\x1b[H")
-	vx.tw.writeExplicitWidth(1, " ")
+	vx.tw.writeControlCUP(1, 1)
+	vx.tw.writeControlExplicitWidth(1, " ")
 	_, col := vx.CursorPosition()
 	if col == 1 {
 		log.Debug("[capability] explicit width supported")
@@ -1349,126 +1369,121 @@ func (vx *Vaxis) sendQueries() {
 
 	// Query some terminfo capabilities
 	// Just another way to see if we have RGB support
-	_, _ = vx.tw.WriteString(xtgettcap("RGB"))
+	_, _ = vx.tw.WriteControlString(xtgettcap("RGB"))
 	// Does the terminal respond to OSC 4/10/11 queries?
 	// Use color index 8 for OSC 4 to ignore buggy implementations that only respond to 0-7.
-	_, _ = vx.tw.WriteString(tparm(osc4, 8))
-	_, _ = vx.tw.WriteString(osc10)
-	_, _ = vx.tw.WriteString(osc11)
+	_, _ = vx.tw.WriteControlString(tparm(osc4, 8))
+	_, _ = vx.tw.WriteControlString(osc10)
+	_, _ = vx.tw.WriteControlString(osc11)
 	// Back up the current app ID
-	_, _ = vx.tw.WriteString(getAppID)
+	_, _ = vx.tw.WriteControlString(getAppID)
 	// We request Smulx to check for styled underlines. Technically, Smulx
 	// only means the terminal supports different underline types (curly,
 	// dashed, etc), but we'll assume the terminal also suppports underline
 	// colors (CSI 58 : ...)
-	_, _ = vx.tw.WriteString(xtgettcap("Smulx"))
+	_, _ = vx.tw.WriteControlString(xtgettcap("Smulx"))
 	// Need to send tertiary for VTE based terminals. These don't respond to
 	// XTGETTCAP
-	_, _ = vx.tw.WriteString(tertiaryAttributes)
+	_, _ = vx.tw.WriteControlString(tertiaryAttributes)
 	// Send Device Attributes is last. Everything responds, and when we get
 	// a response we'll return from init
-	_, _ = vx.tw.WriteString(primaryAttributes)
-	_, _ = vx.tw.Flush()
+	_, _ = vx.tw.WriteControlString(primaryAttributes)
 }
 
 // enableModes enables all the modes we want
 func (vx *Vaxis) enableModes() {
 	// kitty keyboard
 	if vx.caps.kittyKeyboard {
-		_, _ = vx.tw.WriteString(tparm(kittyKBEnable, vx.kittyFlags))
+		_, _ = vx.tw.WriteControlString(tparm(kittyKBEnable, vx.kittyFlags))
 	}
 	// sixel scrolling
 	if vx.caps.sixels {
-		_, _ = vx.tw.WriteString(decset(sixelScrolling))
+		_, _ = vx.tw.WriteControlString(decset(sixelScrolling))
 	}
 	// Mode 2027, unicode segmentation (for correct emoji/wc widths). We
 	// only enable if we don't also have explicitWidth
 	if vx.caps.unicodeCore && !vx.caps.explicitWidth {
-		_, _ = vx.tw.WriteString(decset(unicodeCore))
+		_, _ = vx.tw.WriteControlString(decset(unicodeCore))
 	}
 
 	// Mode 2031: color scheme updates
 	if vx.caps.colorThemeUpdates {
-		_, _ = vx.tw.WriteString(decset(colorThemeUpdates))
+		_, _ = vx.tw.WriteControlString(decset(colorThemeUpdates))
 		// Let's query the current mode also
-		_, _ = vx.tw.WriteString(tparm(dsr, colorThemeReq))
+		_, _ = vx.tw.WriteControlString(tparm(dsr, colorThemeReq))
 	}
 	if vx.caps.inBandResize {
-		_, _ = vx.tw.WriteString(decset(inBandResize))
+		_, _ = vx.tw.WriteControlString(decset(inBandResize))
 	}
 
-	_, _ = vx.tw.WriteString(decset(mouseFocusEvents)) // window focus events
+	_, _ = vx.tw.WriteControlString(decset(mouseFocusEvents)) // window focus events
 	// TODO: query for bracketed paste support?
-	_, _ = vx.tw.WriteString(decset(bracketedPaste)) // bracketed paste
-	_, _ = vx.tw.WriteString(decset(cursorKeys))     // application cursor keys
-	_, _ = vx.tw.WriteString(applicationMode)        // application cursor keys mode
+	_, _ = vx.tw.WriteControlString(decset(bracketedPaste)) // bracketed paste
+	_, _ = vx.tw.WriteControlString(decset(cursorKeys))     // application cursor keys
+	_, _ = vx.tw.WriteControlString(applicationMode)        // application cursor keys mode
 
 	// TODO: Query for mouse modes or just hope for the best? In the
 	// meantime, we enable button events, then all events. Terminals which
 	// support both will enable the latter. Terminals which support only the
 	// first will enable button events, then ignore the all events mode.
 	if !vx.disableMouse {
-		_, _ = vx.tw.WriteString(decset(mouseButtonEvents))
-		_, _ = vx.tw.WriteString(decset(mouseAllEvents))
-		_, _ = vx.tw.WriteString(decset(mouseSGR))
+		_, _ = vx.tw.WriteControlString(decset(mouseButtonEvents))
+		_, _ = vx.tw.WriteControlString(decset(mouseAllEvents))
+		_, _ = vx.tw.WriteControlString(decset(mouseSGR))
 		if vx.caps.sgrPixels {
-			_, _ = vx.tw.WriteString(decset(mouseSGRPixels))
+			_, _ = vx.tw.WriteControlString(decset(mouseSGRPixels))
 		}
 	}
-	_, _ = vx.tw.Flush()
 }
 
 func (vx *Vaxis) disableModes() {
-	_, _ = vx.tw.WriteString(sgrReset)               // reset fg, bg, attrs
-	_, _ = vx.tw.WriteString(decrst(bracketedPaste)) // bracketed paste
-	_, _ = vx.tw.WriteString(decrst(mouseFocusEvents))
+	_, _ = vx.tw.WriteControlString(sgrReset)               // reset fg, bg, attrs
+	_, _ = vx.tw.WriteControlString(decrst(bracketedPaste)) // bracketed paste
+	_, _ = vx.tw.WriteControlString(decrst(mouseFocusEvents))
 	if vx.caps.kittyKeyboard {
-		_, _ = vx.tw.WriteString(kittyKBPop) // kitty keyboard
+		_, _ = vx.tw.WriteControlString(kittyKBPop) // kitty keyboard
 	}
-	_, _ = vx.tw.WriteString(decrst(cursorKeys))
-	_, _ = vx.tw.WriteString(numericMode)
+	_, _ = vx.tw.WriteControlString(decrst(cursorKeys))
+	_, _ = vx.tw.WriteControlString(numericMode)
 	if !vx.disableMouse {
-		_, _ = vx.tw.WriteString(decrst(mouseButtonEvents))
-		_, _ = vx.tw.WriteString(decrst(mouseAllEvents))
-		_, _ = vx.tw.WriteString(decrst(mouseSGR))
+		_, _ = vx.tw.WriteControlString(decrst(mouseButtonEvents))
+		_, _ = vx.tw.WriteControlString(decrst(mouseAllEvents))
+		_, _ = vx.tw.WriteControlString(decrst(mouseSGR))
 
 		if vx.caps.sgrPixels {
-			_, _ = vx.tw.WriteString(decrst(mouseSGRPixels))
+			_, _ = vx.tw.WriteControlString(decrst(mouseSGRPixels))
 		}
 	}
 	if vx.caps.sixels {
-		_, _ = vx.tw.WriteString(decrst(sixelScrolling))
+		_, _ = vx.tw.WriteControlString(decrst(sixelScrolling))
 	}
 	if vx.caps.unicodeCore && !vx.caps.explicitWidth {
-		_, _ = vx.tw.WriteString(decrst(unicodeCore))
+		_, _ = vx.tw.WriteControlString(decrst(unicodeCore))
 	}
 	if vx.caps.colorThemeUpdates {
-		_, _ = vx.tw.WriteString(decrst(colorThemeUpdates))
+		_, _ = vx.tw.WriteControlString(decrst(colorThemeUpdates))
 	}
 	if vx.caps.osc176 {
-		_, _ = vx.tw.WriteString(tparm(setAppID, vx.appIDLast))
+		_, _ = vx.tw.WriteControlString(tparm(setAppID, vx.appIDLast))
 	}
 	if vx.caps.inBandResize {
-		_, _ = vx.tw.WriteString(decrst(inBandResize))
+		_, _ = vx.tw.WriteControlString(decrst(inBandResize))
 	}
 	// Most terminals default to "text" mouse shape
-	_, _ = vx.tw.WriteString(tparm(mouseShape, MouseShapeTextInput))
-	_, _ = vx.tw.Flush()
+	_, _ = vx.tw.WriteControlString(tparm(mouseShape, MouseShapeTextInput))
 }
 
 func (vx *Vaxis) enterAltScreen() {
 	vx.tw.vx.refresh = true
-	_, _ = vx.tw.WriteString(decset(alternateScreen))
-	_, _ = vx.tw.WriteString(decrst(cursorVisibility))
-	_, _ = vx.tw.Flush()
+	_, _ = vx.tw.WriteControlString(decset(alternateScreen))
+	_, _ = vx.tw.WriteControlString(decrst(cursorVisibility))
 }
 
 func (vx *Vaxis) exitAltScreen() {
 	vx.HideCursor()
-	_, _ = vx.tw.WriteString(decset(cursorVisibility))
-	_, _ = vx.tw.WriteString(clear)
-	_, _ = vx.tw.WriteString(decrst(alternateScreen))
-	_, _ = vx.tw.Flush()
+	_, _ = vx.tw.WriteControlString(decset(cursorVisibility))
+	_, _ = vx.tw.WriteControlString(clear)
+	_, _ = vx.tw.WriteControlString(decrst(alternateScreen))
 }
 
 // Suspend takes Vaxis out of fullscreen state, disables all terminal modes,
@@ -1486,20 +1501,19 @@ func (vx *Vaxis) Suspend() error {
 	//    loop
 	// 3. Confirm we have closed
 	vx.parser.Close()
-	io.WriteString(vx.console, primaryAttributes)
+	vx.writeControlString(primaryAttributes)
 	vx.parser.WaitClose()
 
 	vx.disableModes()
 	vx.exitAltScreen()
 
 	// Reset to user value, or CursorDefault.
-	_, _ = vx.tw.WriteString(tparm(cursorStyleSet, int(vx.userCursorStyle)))
+	_, _ = vx.tw.WriteControlString(tparm(cursorStyleSet, int(vx.userCursorStyle)))
 	// Always show the cursor on exit
-	_, _ = vx.tw.WriteString(decset(cursorVisibility))
+	_, _ = vx.tw.WriteControlString(decset(cursorVisibility))
 	// Reset internal state to match reality
 	vx.cursorLast.style = vx.userCursorStyle
 
-	vx.tw.vx.tw.Flush()
 	signal.Stop(vx.chSigKill)
 	signal.Stop(vx.chSigWinSz)
 	vx.console.Reset()
@@ -1619,7 +1633,7 @@ func (vx *Vaxis) showCursor() string {
 func (vx *Vaxis) CursorPosition() (row int, col int) {
 	// DSRCPR - reports cursor position
 	atomicStore(&vx.reqCursorPos, true)
-	_, _ = io.WriteString(vx.console, dsrcpr)
+	vx.writeControlString(dsrcpr)
 	timeout := time.NewTimer(50 * time.Millisecond)
 	select {
 	case <-timeout.C:
@@ -1651,7 +1665,7 @@ func (vx *Vaxis) cursorStyle() string {
 // ClipboardPush copies the provided string to the system clipboard
 func (vx *Vaxis) ClipboardPush(s string) {
 	b64 := base64.StdEncoding.EncodeToString([]byte(s))
-	_, _ = io.WriteString(vx.console, tparm(osc52put, b64))
+	vx.writeControlString(tparm(osc52put, b64))
 }
 
 // ClipboardPop requests the content from the system clipboard. ClipboardPop works by
@@ -1660,7 +1674,7 @@ func (vx *Vaxis) ClipboardPush(s string) {
 // a context to set a deadline for this function to return. An error will be
 // returned if the context is cancelled.
 func (vx *Vaxis) ClipboardPop(ctx context.Context) (string, error) {
-	_, _ = io.WriteString(vx.console, osc52pop)
+	vx.writeControlString(osc52pop)
 	select {
 	case str := <-vx.chClipboard:
 		return str, nil
@@ -1673,30 +1687,30 @@ func (vx *Vaxis) ClipboardPop(ctx context.Context) (string, error) {
 // string, OSC9 will be used - otherwise osc777 is used
 func (vx *Vaxis) Notify(title string, body string) {
 	if title == "" {
-		_, _ = io.WriteString(vx.console, tparm(osc9notify, body))
+		vx.writeControlString(tparm(osc9notify, body))
 		return
 	}
-	_, _ = io.WriteString(vx.console, tparm(osc777notify, title, body))
+	vx.writeControlString(tparm(osc777notify, title, body))
 }
 
 // SetTitle sets the terminal's title via OSC 2
 func (vx *Vaxis) SetTitle(s string) {
-	_, _ = io.WriteString(vx.console, tparm(setTitle, s))
+	vx.writeControlString(tparm(setTitle, s))
 }
 
 // SetPath sets the terminal's working directory via OSC 7
 func (vx *Vaxis) NotifyWorkingDirectory(s string) {
-	_, _ = io.WriteString(vx.console, tparm(setCWD, s))
+	vx.writeControlString(tparm(setCWD, s))
 }
 
 // SetAppID sets the terminal's application ID via OSC 176
 func (vx *Vaxis) SetAppID(s string) {
-	_, _ = io.WriteString(vx.console, tparm(setAppID, s))
+	vx.writeControlString(tparm(setAppID, s))
 }
 
 // Bell sends a BEL control signal to the terminal
 func (vx *Vaxis) Bell() {
-	_, _ = vx.console.Write([]byte{0x07})
+	vx.writeControl([]byte{0x07})
 }
 
 // advance returns the extra amount to advance the column by when rendering

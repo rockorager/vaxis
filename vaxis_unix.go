@@ -4,7 +4,6 @@ package vaxis
 
 import (
 	"fmt"
-	"io"
 	"os/signal"
 	"syscall"
 	"time"
@@ -42,7 +41,7 @@ func (vx *Vaxis) reportWinsize() (Resize, error) {
 	}
 	if vx.xtwinops && vx.caps.reportSizeChars && vx.caps.reportSizePixels {
 		log.Trace("requesting screen size from terminal")
-		io.WriteString(vx.console, textAreaSize)
+		vx.writeControlString(textAreaSize)
 		deadline := time.NewTimer(100 * time.Millisecond)
 		select {
 		case <-deadline.C:

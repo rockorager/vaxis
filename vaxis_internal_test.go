@@ -64,10 +64,10 @@ func TestQueryColorContextUsesFreshResponse(t *testing.T) {
 	vx.chColor <- "4;8;rgb:ff/ff/ff"
 	vx.tw = &writer{
 		buf: bytes.NewBuffer(nil),
-		w: queryResponseWriter{
+		terminal: &terminalWriter{w: queryResponseWriter{
 			ch:   vx.chColor,
 			resp: "4;8;rgb:01/02/03",
-		},
+		}},
 		vx: vx,
 	}
 
@@ -102,9 +102,9 @@ func TestQueryColorContextTimesOut(t *testing.T) {
 		chColor: make(chan string, 1),
 	}
 	vx.tw = &writer{
-		buf: bytes.NewBuffer(nil),
-		w:   io.Discard,
-		vx:  vx,
+		buf:      bytes.NewBuffer(nil),
+		terminal: &terminalWriter{w: io.Discard},
+		vx:       vx,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
@@ -128,10 +128,10 @@ func TestQueryForegroundContextUsesFreshResponse(t *testing.T) {
 	vx.chFg <- "10;rgb:ff/ff/ff"
 	vx.tw = &writer{
 		buf: bytes.NewBuffer(nil),
-		w: queryResponseWriter{
+		terminal: &terminalWriter{w: queryResponseWriter{
 			ch:   vx.chFg,
 			resp: "10;rgb:01/02/03",
-		},
+		}},
 		vx: vx,
 	}
 
@@ -150,9 +150,9 @@ func TestQueryForegroundContextTimesOut(t *testing.T) {
 		chFg: make(chan string, 1),
 	}
 	vx.tw = &writer{
-		buf: bytes.NewBuffer(nil),
-		w:   io.Discard,
-		vx:  vx,
+		buf:      bytes.NewBuffer(nil),
+		terminal: &terminalWriter{w: io.Discard},
+		vx:       vx,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
@@ -176,10 +176,10 @@ func TestQueryBackgroundContextUsesFreshResponse(t *testing.T) {
 	vx.chBg <- "11;rgb:ff/ff/ff"
 	vx.tw = &writer{
 		buf: bytes.NewBuffer(nil),
-		w: queryResponseWriter{
+		terminal: &terminalWriter{w: queryResponseWriter{
 			ch:   vx.chBg,
 			resp: "11;rgb:01/02/03",
-		},
+		}},
 		vx: vx,
 	}
 
@@ -198,9 +198,9 @@ func TestQueryBackgroundContextTimesOut(t *testing.T) {
 		chBg: make(chan string, 1),
 	}
 	vx.tw = &writer{
-		buf: bytes.NewBuffer(nil),
-		w:   io.Discard,
-		vx:  vx,
+		buf:      bytes.NewBuffer(nil),
+		terminal: &terminalWriter{w: io.Discard},
+		vx:       vx,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
