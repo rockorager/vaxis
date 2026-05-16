@@ -692,6 +692,7 @@ func (vt *Model) resize(w int, h int) {
 
 	primary := vt.primaryScreen
 	alt := vt.altScreen
+	oldSourceRows := primary.scrollbackLen() + primary.height()
 	viewportSourceRow := -1
 	if vt.scrollOffset > 0 && !vt.mode.smcup {
 		viewportSourceRow = primary.scrollbackLen() - vt.scrollOffset
@@ -739,7 +740,8 @@ func (vt *Model) resize(w int, h int) {
 		} else {
 			vt.activeScreen = vt.primaryScreen
 		}
-		vt.reflowGraphics(primary, oldWidth)
+		droppedSourceRows := oldSourceRows - (vt.primaryScreen.scrollbackLen() + vt.primaryScreen.height())
+		vt.reflowGraphics(primary, oldWidth, max(0, droppedSourceRows))
 		vt.clampCursor()
 		return
 	}
@@ -812,7 +814,7 @@ reflowResize:
 		vt.cursor.col = column(w) - 1
 	}
 	vt.remapViewportAfterReflow(primary, viewportSourceRow, w)
-	vt.reflowGraphics(primary, oldWidth)
+	vt.reflowGraphics(primary, oldWidth, primary.reflowDroppedSourceRows(w, h))
 	vt.clampScrollOffset()
 }
 
@@ -868,11 +870,12 @@ func (vt *Model) remapViewportAfterReflow(oldPrimary screenBuffer, viewportSourc
 	vt.scrollOffset = historyLen - reflowRow
 }
 
-func (vt *Model) reflowGraphics(oldPrimary screenBuffer, oldWidth int) {
+func (vt *Model) reflowGraphics(oldPrimary screenBuffer, oldWidth int, droppedSourceRows int) {
 	if vt.mode.smcup || len(vt.graphics) == 0 {
 		return
 	}
 	if oldWidth <= 0 || oldWidth == vt.width() {
+		vt.shiftGraphicsSourceRows(droppedSourceRows)
 		vt.validateGraphics()
 		return
 	}
@@ -883,7 +886,7 @@ func (vt *Model) reflowGraphics(oldPrimary screenBuffer, oldWidth int) {
 			img.destroy()
 			continue
 		}
-		img.sourceRow = sourceRow
+		img.sourceRow = sourceRow - droppedSourceRows
 		img.origin.col = col
 		if !vt.graphicFits(img) {
 			img.destroy()
@@ -1360,6 +1363,7 @@ func (vt *Model) clearGraphicsLocked() {
 		for _, cached := range img.vaxii {
 			cached.vx.RemoveImage(cached.vxImage)
 		}
+		img.destroy()
 	}
 	vt.graphics = nil
 }

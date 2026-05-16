@@ -603,6 +603,15 @@ func (s screenBuffer) reflowSourcePosition(width int, sourceRow int, sourceCol i
 	return reflowRow, reflowCol, ok
 }
 
+func (s screenBuffer) reflowDroppedSourceRows(width int, height int) int {
+	if s.state == nil || width <= 0 || height <= 0 {
+		return 0
+	}
+	rows, _, _, _ := s.reflowRows(width, -1, 0, 0)
+	dropped := len(rows) - (s.state.scrollbackLimit + height)
+	return max(0, dropped)
+}
+
 func (s screenBuffer) reflowRows(width int, cursorSourceRow int, cursorSourceCol int, minActiveRows int) ([]screenLine, int, int, bool) {
 	var rows []screenLine
 	var logical []cell

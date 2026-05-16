@@ -17,6 +17,22 @@ func testDECRQSS(data string) ansi.DCS {
 	}
 }
 
+type recordingImage struct {
+	destroyed int
+}
+
+func (img *recordingImage) Draw(vaxis.Window) {}
+
+func (img *recordingImage) Destroy() {
+	img.destroyed += 1
+}
+
+func (img *recordingImage) Resize(int, int) {}
+
+func (img *recordingImage) CellSize() (int, int) {
+	return 0, 0
+}
+
 func TestUnknownDCSIgnored(t *testing.T) {
 	vt, r := newReplyTestModel(t)
 	vt.resize(80, 24)
@@ -511,6 +527,104 @@ func TestSixelDroppedOnNoReflowWidthChange(t *testing.T) {
 
 	if len(vt.graphics) != 0 {
 		t.Fatalf("graphics len = %d, want 0", len(vt.graphics))
+	}
+}
+
+func TestSixelSourceRowsShiftWhenSameWidthResizeTrimsScrollback(t *testing.T) {
+	vt := New()
+	vt.resize(5, 3)
+	vt.primaryScreen.state.scrollbackLimit = 0
+	vt.size = vaxis.Resize{Cols: 5, Rows: 3, XPixel: 5, YPixel: 18}
+	vt.cursor.row = 2
+	vt.cursor.col = 1
+
+	vt.update(ansi.DCS{
+		Final: 'q',
+		Data:  []rune("#0;2;100;0;0#0@"),
+	})
+
+	if len(vt.graphics) != 1 {
+		t.Fatalf("graphics len before resize = %d, want 1", len(vt.graphics))
+	}
+	if got, want := vt.graphics[0].sourceRow, 2; got != want {
+		t.Fatalf("sixel source row before resize = %d, want %d", got, want)
+	}
+
+	vt.resize(5, 1)
+
+	if len(vt.graphics) != 1 {
+		t.Fatalf("graphics len after resize = %d, want 1", len(vt.graphics))
+	}
+	img := vt.graphics[0]
+	if img.sourceRow != 0 || img.origin.col != 1 {
+		t.Fatalf("sixel source/origin = %d,%d, want 0,1", img.sourceRow, img.origin.col)
+	}
+	visible := vt.visibleGraphics()
+	if len(visible) != 1 {
+		t.Fatalf("visible graphics len = %d, want 1", len(visible))
+	}
+	if visible[0].row != 0 || visible[0].col != 1 {
+		t.Fatalf("visible sixel = %d,%d, want 0,1", visible[0].row, visible[0].col)
+	}
+}
+
+func TestSixelSourceRowsShiftWhenReflowResizeTrimsScrollback(t *testing.T) {
+	vt := New()
+	vt.resize(4, 2)
+	vt.primaryScreen.state.scrollbackLimit = 0
+	vt.size = vaxis.Resize{Cols: 4, Rows: 2, XPixel: 4, YPixel: 12}
+	setScreenLine(vt.primaryScreen, 0, "abcd")
+	setScreenLine(vt.primaryScreen, 1, "x")
+	vt.cursor.row = 1
+	vt.cursor.col = 0
+
+	vt.update(ansi.DCS{
+		Final: 'q',
+		Data:  []rune("#0;2;100;0;0#0@"),
+	})
+
+	if len(vt.graphics) != 1 {
+		t.Fatalf("graphics len before resize = %d, want 1", len(vt.graphics))
+	}
+	if got, want := vt.graphics[0].sourceRow, 1; got != want {
+		t.Fatalf("sixel source row before resize = %d, want %d", got, want)
+	}
+
+	vt.resize(2, 2)
+
+	if len(vt.graphics) != 1 {
+		t.Fatalf("graphics len after resize = %d, want 1", len(vt.graphics))
+	}
+	img := vt.graphics[0]
+	if img.sourceRow != 1 || img.origin.col != 0 {
+		t.Fatalf("sixel source/origin = %d,%d, want 1,0", img.sourceRow, img.origin.col)
+	}
+	visible := vt.visibleGraphics()
+	if len(visible) != 1 {
+		t.Fatalf("visible graphics len = %d, want 1", len(visible))
+	}
+	if visible[0].row != 1 || visible[0].col != 0 {
+		t.Fatalf("visible sixel = %d,%d, want 1,0", visible[0].row, visible[0].col)
+	}
+}
+
+func TestClearGraphicsDestroysCachedImages(t *testing.T) {
+	vxImage := &recordingImage{}
+	vt := New()
+	vt.graphics = []*Image{{
+		vaxii: []*vaxisImage{{
+			vx:      &vaxis.Vaxis{},
+			vxImage: vxImage,
+		}},
+	}}
+
+	vt.clearGraphicsLocked()
+
+	if len(vt.graphics) != 0 {
+		t.Fatalf("graphics len = %d, want 0", len(vt.graphics))
+	}
+	if got, want := vxImage.destroyed, 1; got != want {
+		t.Fatalf("destroy calls = %d, want %d", got, want)
 	}
 }
 
