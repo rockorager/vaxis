@@ -1256,6 +1256,42 @@ func TestOSC4ColorQueryWithoutVaxisDoesNotReply(t *testing.T) {
 	assertNoReply(t, r)
 }
 
+func TestOSCColorReplyUsesST(t *testing.T) {
+	tests := []struct {
+		name     string
+		selector string
+		want     string
+	}{
+		{
+			name:     "palette",
+			selector: "4;8",
+			want:     "\x1b]4;8;rgb:01/02/03\x1b\\",
+		},
+		{
+			name:     "foreground",
+			selector: "10",
+			want:     "\x1b]10;rgb:01/02/03\x1b\\",
+		},
+		{
+			name:     "background",
+			selector: "11",
+			want:     "\x1b]11;rgb:01/02/03\x1b\\",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := oscColorReply(tt.selector, []uint8{1, 2, 3})
+			if got != tt.want {
+				t.Fatalf("reply = %q, want %q", got, tt.want)
+			}
+			if strings.HasSuffix(got, "\x07") {
+				t.Fatal("reply used BEL terminator")
+			}
+		})
+	}
+}
+
 func TestOSC4MalformedColorQueryIgnored(t *testing.T) {
 	vt, r := newReplyTestModel(t)
 

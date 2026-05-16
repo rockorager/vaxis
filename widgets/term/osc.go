@@ -12,6 +12,11 @@ import (
 )
 
 const maxTitleLen = 1024
+const oscStringTerminator = "\x1b\\"
+
+func oscColorReply(selector string, rgb []uint8) string {
+	return fmt.Sprintf("\x1b]%s;rgb:%02x/%02x/%02x%s", selector, rgb[0], rgb[1], rgb[2], oscStringTerminator)
+}
 
 func (vt *Model) osc(data string) {
 	selector, val, found := cutString(data, ";")
@@ -76,8 +81,7 @@ func (vt *Model) osc(data string) {
 				if len(rgb) == 0 {
 					return "", false
 				}
-				resp := fmt.Sprintf("\x1b]10;rgb:%02x/%02x/%02x\x07", rgb[0], rgb[1], rgb[2])
-				return resp, true
+				return oscColorReply("10", rgb), true
 			})
 			return
 		}
@@ -93,8 +97,7 @@ func (vt *Model) osc(data string) {
 				if len(rgb) == 0 {
 					return "", false
 				}
-				resp := fmt.Sprintf("\x1b]11;rgb:%02x/%02x/%02x\x07", rgb[0], rgb[1], rgb[2])
-				return resp, true
+				return oscColorReply("11", rgb), true
 			})
 			return
 		}
@@ -628,7 +631,7 @@ loop:
 			if len(rgb) == 0 {
 				continue
 			}
-			fmt.Fprintf(&b, "\x1b]4;%d;rgb:%02x/%02x/%02x\x07", index, rgb[0], rgb[1], rgb[2])
+			b.WriteString(oscColorReply(fmt.Sprintf("4;%d", index), rgb))
 		}
 		resp := b.String()
 		return resp, resp != ""
