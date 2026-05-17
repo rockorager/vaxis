@@ -115,7 +115,7 @@ func TestProviderNotifiesDependents(t *testing.T) {
 	}
 }
 
-func TestProviderUsesShouldNotify(t *testing.T) {
+func TestProviderShouldNotifyCanSuppressDependentRebuild(t *testing.T) {
 	called := false
 	root := ui.Provider[string]{Value: "a", ChildWidget: providerText{}, ShouldNotify: func(old, next string) bool {
 		called = true
@@ -127,6 +127,11 @@ func TestProviderUsesShouldNotify(t *testing.T) {
 	app.Pump(ui.Size{Width: 1, Height: 1})
 	if !called {
 		t.Fatal("expected ShouldNotify to be called")
+	}
+	p := ui.NewPainter(ui.Size{Width: 1, Height: 1})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Character.Grapheme; got != "a" {
+		t.Fatalf("provider text = %q, want stale a", got)
 	}
 }
 
@@ -282,6 +287,9 @@ func TestQuitCallbackDoesNotPanic(t *testing.T) {
 	app := ui.NewApp(ui.Button("quit", func(ctx ui.EventContext) { ctx.Quit() }))
 	app.Pump(ui.Size{Width: 20, Height: 1})
 	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
+	if !app.ShouldQuit() {
+		t.Fatal("expected app to request quit")
+	}
 }
 
 func TestFocusTraversalSkipsUnmountedFocus(t *testing.T) {
@@ -298,5 +306,76 @@ func TestFocusTraversalSkipsUnmountedFocus(t *testing.T) {
 	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
 	if pressed != 2 {
 		t.Fatalf("pressed = %d, want remaining button after unmount", pressed)
+	}
+}
+
+func TestButtonActivatesOnMouseClick(t *testing.T) {
+	pressed := false
+	app := ui.NewApp(ui.Button("click", func(ctx ui.EventContext) { pressed = true }))
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	app.Send(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress})
+	if !pressed {
+		t.Fatal("expected mouse click to activate button")
+	}
+}
+
+func TestMouseClickOutsideWidgetIsIgnored(t *testing.T) {
+	pressed := false
+	app := ui.NewApp(ui.Row(ui.Button("click", func(ctx ui.EventContext) { pressed = true })))
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	app.Send(vaxis.Mouse{Col: 10, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress})
+	if pressed {
+		t.Fatal("button should not activate for outside click")
+	}
+}
+
+func TestRightMouseClickDoesNotActivateButton(t *testing.T) {
+	pressed := false
+	app := ui.NewApp(ui.Button("click", func(ctx ui.EventContext) { pressed = true }))
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	app.Send(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseRightButton, EventType: vaxis.EventPress})
+	if pressed {
+		t.Fatal("button should not activate for right click")
+	}
+}
+
+func TestTextUsesThemeStyle(t *testing.T) {
+	style := ui.Style{Foreground: vaxis.ColorRed}
+	app := ui.NewApp(ui.Text("x"), ui.WithTheme(ui.Theme{Text: style}))
+	app.Pump(ui.Size{Width: 1, Height: 1})
+	p := ui.NewPainter(ui.Size{Width: 1, Height: 1})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Style; got != style {
+		t.Fatalf("style = %#v, want %#v", got, style)
+	}
+}
+
+func TestButtonUsesFocusedThemeStyle(t *testing.T) {
+	focused := ui.Style{Foreground: vaxis.ColorGreen}
+	app := ui.NewApp(ui.Button("go", nil), ui.WithTheme(ui.Theme{Button: ui.ButtonTheme{Focused: focused}}))
+	app.Pump(ui.Size{Width: 4, Height: 1})
+	p := ui.NewPainter(ui.Size{Width: 4, Height: 1})
+	app.Paint(p)
+	if got := p.Cell(1, 0).Style; got != focused {
+		t.Fatalf("style = %#v, want focused %#v", got, focused)
+	}
+}
+
+func TestButtonStyleUpdatesOnFocusChange(t *testing.T) {
+	focused := ui.Style{Foreground: vaxis.ColorGreen}
+	app := ui.NewApp(ui.Row(
+		ui.Button("a", nil),
+		ui.Button("b", nil),
+	), ui.WithTheme(ui.Theme{Button: ui.ButtonTheme{Focused: focused}}))
+	app.Pump(ui.Size{Width: 8, Height: 1})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyTab})
+	app.Pump(ui.Size{Width: 8, Height: 1})
+	p := ui.NewPainter(ui.Size{Width: 8, Height: 1})
+	app.Paint(p)
+	if got := p.Cell(1, 0).Style; got == focused {
+		t.Fatal("first button should no longer have focused style")
+	}
+	if got := p.Cell(4, 0).Style; got != focused {
+		t.Fatalf("second button style = %#v, want focused %#v", got, focused)
 	}
 }

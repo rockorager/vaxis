@@ -7,20 +7,26 @@ type App struct {
 	focusables []Element
 	focused    Element
 	quit       bool
+	theme      Theme
 }
 
 func NewApp(root Widget, opts ...Option) *App {
 	owner := NewBuildOwner()
-	app := &App{build: owner}
+	options := options{theme: DefaultTheme()}
+	for _, opt := range opts {
+		opt(&options)
+	}
+	app := &App{build: owner, theme: options.theme}
 	owner.app = app
-	owner.Mount(Provider[Theme]{Value: DefaultTheme(), ChildWidget: root})
+	owner.Mount(Provider[Theme]{Value: app.theme, ChildWidget: root})
 	return app
 }
 
 func (a *App) UpdateRoot(root Widget) {
-	a.build.UpdateRoot(Provider[Theme]{Value: DefaultTheme(), ChildWidget: root})
+	a.build.UpdateRoot(Provider[Theme]{Value: a.theme, ChildWidget: root})
 }
-func (a *App) Send(ev Event) { a.dispatchEvent(ev) }
+func (a *App) Send(ev Event)    { a.dispatchEvent(ev) }
+func (a *App) ShouldQuit() bool { return a.quit }
 
 func (a *App) Pump(size Size) {
 	a.size = size
@@ -32,6 +38,12 @@ func (a *App) Pump(size Size) {
 }
 
 func (a *App) dispatchEvent(ev Event) EventResult {
+	if mouse, ok := ev.(Mouse); ok {
+		path := a.hitPath(Point{X: mouse.Col, Y: mouse.Row})
+		if len(path) > 0 {
+			return a.dispatchPath(path, ev)
+		}
+	}
 	if key, ok := ev.(Key); ok {
 		if key.MatchString("Tab") {
 			a.focusNext()
@@ -46,7 +58,10 @@ func (a *App) dispatchEvent(ev Event) EventResult {
 	if target == nil {
 		target = a.build.Root()
 	}
-	path := a.pathTo(target)
+	return a.dispatchPath(a.pathTo(target), ev)
+}
+
+func (a *App) dispatchPath(path []Element, ev Event) EventResult {
 	for i := 0; i < len(path)-1; i++ {
 		if a.handle(path[i], CapturePhase, ev) == EventHandled {
 			return EventHandled
@@ -103,7 +118,7 @@ func (a *App) registerFocusable(e Element) {
 	}
 	a.focusables = append(a.focusables, e)
 	if a.focused == nil {
-		a.focused = e
+		a.setFocused(e)
 	}
 }
 
@@ -136,7 +151,71 @@ func (a *App) moveFocus(delta int) {
 		}
 	}
 	idx = (idx + delta + len(a.focusables)) % len(a.focusables)
-	a.focused = a.focusables[idx]
+	a.setFocused(a.focusables[idx])
+}
+
+func (a *App) setFocused(next Element) {
+	old := a.focused
+	a.focused = next
+	a.notifyFocusChanged(old)
+	a.notifyFocusChanged(next)
+}
+
+func (a *App) notifyFocusChanged(e Element) {
+	if e == nil {
+		return
+	}
+	if f, ok := e.Base().widget.(FocusWidget); ok && f.Node != nil && f.Node.onChange != nil {
+		f.Node.onChange()
+	}
+}
+
+func (a *App) hitPath(pt Point) []Element { return hitElement(a.build.Root(), pt) }
+
+func hitElement(e Element, pt Point) []Element {
+	ro := findRenderObject(e)
+	if ro != nil && !pointInSize(pt, ro.Base().Size()) {
+		return nil
+	}
+	var best []Element
+	e.VisitChildren(func(child Element) {
+		if best != nil {
+			return
+		}
+		if path := hitElement(child, childPoint(e, child, pt)); path != nil {
+			best = path
+		}
+	})
+	if best != nil {
+		return append([]Element{e}, best...)
+	}
+	if ro != nil {
+		return []Element{e}
+	}
+	return nil
+}
+
+func childPoint(parent, child Element, pt Point) Point {
+	pro := findRenderObject(parent)
+	if pro == nil {
+		return pt
+	}
+	switch r := pro.(type) {
+	case *RenderPadding:
+		return Point{X: pt.X - r.Insets.Left, Y: pt.Y - r.Insets.Top}
+	case *RenderCenter:
+		return Point{X: pt.X - r.offset.X, Y: pt.Y - r.offset.Y}
+	case *RenderFlex:
+		if ro := findRenderObject(child); ro != nil {
+			pd, _ := ro.Base().ParentData().(FlexParentData)
+			return Point{X: pt.X - pd.Offset.X, Y: pt.Y - pd.Offset.Y}
+		}
+	}
+	return pt
+}
+
+func pointInSize(pt Point, size Size) bool {
+	return pt.X >= 0 && pt.Y >= 0 && pt.X < size.Width && pt.Y < size.Height
 }
 
 func (a *App) Paint(p *Painter) {
@@ -146,4 +225,6 @@ func (a *App) Paint(p *Painter) {
 }
 
 type Option func(*options)
-type options struct{}
+type options struct{ theme Theme }
+
+func WithTheme(theme Theme) Option { return func(o *options) { o.theme = theme } }

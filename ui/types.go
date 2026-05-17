@@ -16,11 +16,19 @@ type Segment = vaxis.Segment
 type Event = vaxis.Event
 type Key = vaxis.Key
 type Mouse = vaxis.Mouse
+type MouseButton = vaxis.MouseButton
 type FocusIn = vaxis.FocusIn
 type FocusOut = vaxis.FocusOut
 type Resize = vaxis.Resize
 type MouseShape = vaxis.MouseShape
 type Image = vaxis.Image
+
+const (
+	MouseLeftButton   = vaxis.MouseLeftButton
+	MouseMiddleButton = vaxis.MouseMiddleButton
+	MouseRightButton  = vaxis.MouseRightButton
+	EventPress        = vaxis.EventPress
+)
 
 type Widget = any
 

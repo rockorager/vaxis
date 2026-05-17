@@ -36,13 +36,14 @@ type EventCallback func(EventContext, Event) EventResult
 type KeyCallback func(EventContext, Key) EventResult
 
 type FocusNode struct {
-	app     *App
-	element Element
+	app      *App
+	element  Element
+	onChange func()
 }
 
 func (n *FocusNode) RequestFocus() {
 	if n != nil && n.app != nil && n.element != nil {
-		n.app.focused = n.element
+		n.app.setFocused(n.element)
 	}
 }
 func (n *FocusNode) HasFocus() bool { return n != nil && n.app != nil && n.app.focused == n.element }

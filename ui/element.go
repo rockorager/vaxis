@@ -16,7 +16,7 @@ type ElementBase struct {
 func (e *ElementBase) Base() *ElementBase { return e }
 func (e *ElementBase) Widget() Widget     { return e.widget }
 func (e *ElementBase) MarkNeedsBuild() {
-	if e.owner == nil || e.dirty {
+	if e.owner == nil || e.self() == nil || e.dirty {
 		return
 	}
 	e.dirty = true
@@ -81,7 +81,7 @@ func (o *BuildOwner) BuildScope() {
 		dirty := o.dirty
 		o.dirty = nil
 		for _, e := range dirty {
-			if e.Base().dirty {
+			if e.Base().owner != nil && e.Base().dirty {
 				e.Base().dirty = false
 				e.Rebuild()
 			}
@@ -134,4 +134,6 @@ func (o *BuildOwner) unmount(e Element) {
 		d.dispose()
 	}
 	delete(o.elements, e.Base())
+	e.Base().owner = nil
+	e.Base().parent = nil
 }

@@ -29,6 +29,11 @@ func (e *providerElement[T]) Rebuild() {
 		if e.shouldNotify != nil {
 			notify = e.shouldNotify(e.value, w.Value)
 		}
+		e.value = w.Value
+		e.shouldNotify = w.ShouldNotify
+		if !notify {
+			return
+		}
 		if notify {
 			for dep := range e.dependents {
 				dep.Base().MarkNeedsBuild()
