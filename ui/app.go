@@ -208,18 +208,16 @@ func childPoint(parent, child Element, pt Point) Point {
 	if pro == nil {
 		return pt
 	}
-	switch r := pro.(type) {
-	case *RenderPadding:
-		return Point{X: pt.X - r.Insets.Left, Y: pt.Y - r.Insets.Top}
-	case *RenderCenter:
-		return Point{X: pt.X - r.offset.X, Y: pt.Y - r.offset.Y}
-	case *RenderFlex:
-		if ro := findRenderObject(child); ro != nil {
-			pd, _ := ro.Base().ParentData().(FlexParentData)
-			return Point{X: pt.X - pd.Offset.X, Y: pt.Y - pd.Offset.Y}
-		}
+	op, ok := pro.(ChildOffsetProvider)
+	if !ok {
+		return pt
 	}
-	return pt
+	ro := findRenderObject(child)
+	if ro == nil {
+		return pt
+	}
+	off := op.ChildOffset(ro)
+	return Point{X: pt.X - off.X, Y: pt.Y - off.Y}
 }
 
 func pointInSize(pt Point, size Size) bool {

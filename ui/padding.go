@@ -35,4 +35,8 @@ func (r *RenderPadding) Paint(p *Painter, off Offset) {
 	}
 }
 
+func (r *RenderPadding) ChildOffset(RenderObject) Offset {
+	return Offset{X: r.Insets.Left, Y: r.Insets.Top}
+}
+
 func (r *RenderPadding) HitTest(*HitTestResult, Point) bool { return false }

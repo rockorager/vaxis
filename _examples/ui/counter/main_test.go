@@ -13,8 +13,11 @@ func TestCounterExampleKeyboard(t *testing.T) {
 	if !app.Contains("count: 0") {
 		t.Fatalf("initial frame missing count: %q", app.Text())
 	}
+	if got := app.Cell(5, 0).Character.Grapheme; got != "┌" {
+		t.Fatalf("panel border starts at cell (5,0) = %q, want ┌", got)
+	}
 	if got := app.Cell(6, 1).Character.Grapheme; got != "c" {
-		t.Fatalf("centered count starts at cell (6,1) = %q, want c", got)
+		t.Fatalf("padded count starts at cell (6,1) = %q, want c", got)
 	}
 
 	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})

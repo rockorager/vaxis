@@ -91,6 +91,19 @@ func (r *MultiChildRenderObject) VisitChildren(fn func(RenderObject)) {
 	}
 }
 
+type ChildOffsetProvider interface {
+	ChildOffset(RenderObject) Offset
+}
+
+func (r *SingleChildRenderObject) ChildOffset(RenderObject) Offset { return Offset{} }
+
+func (r *MultiChildRenderObject) ChildOffset(child RenderObject) Offset {
+	if pd, ok := child.Base().ParentData().(interface{ RenderOffset() Offset }); ok {
+		return pd.RenderOffset()
+	}
+	return Offset{}
+}
+
 type HitTestResult struct{ Path []RenderObject }
 
 type renderObjectElement struct {

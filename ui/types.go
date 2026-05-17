@@ -20,8 +20,12 @@ type MouseButton = vaxis.MouseButton
 type FocusIn = vaxis.FocusIn
 type FocusOut = vaxis.FocusOut
 type Resize = vaxis.Resize
+type Redraw = vaxis.Redraw
+type SyncFunc = vaxis.SyncFunc
 type MouseShape = vaxis.MouseShape
 type Image = vaxis.Image
+
+func RGB(r, g, b uint8) Color { return vaxis.RGBColor(r, g, b) }
 
 const (
 	MouseLeftButton   = vaxis.MouseLeftButton

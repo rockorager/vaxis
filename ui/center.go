@@ -29,4 +29,6 @@ func (r *RenderCenter) Paint(p *Painter, off Offset) {
 	}
 }
 
+func (r *RenderCenter) ChildOffset(RenderObject) Offset { return r.offset }
+
 func (r *RenderCenter) HitTest(*HitTestResult, Point) bool { return false }

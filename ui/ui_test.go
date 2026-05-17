@@ -319,6 +319,26 @@ func TestButtonActivatesOnMouseClick(t *testing.T) {
 	}
 }
 
+func TestMouseHitTestingUsesCustomRenderChildOffset(t *testing.T) {
+	pressed := false
+	app := ui.NewApp(offsetBox{offset: ui.Offset{X: 4, Y: 2}, child: ui.Button("hit", func(ctx ui.EventContext) { pressed = true })})
+	app.Pump(ui.Size{Width: 20, Height: 5})
+	app.Send(vaxis.Mouse{Col: 5, Row: 2, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress})
+	if !pressed {
+		t.Fatal("expected click translated through custom render child offset to activate button")
+	}
+}
+
+func TestMouseHitTestingMissesCustomRenderChildOffset(t *testing.T) {
+	pressed := false
+	app := ui.NewApp(offsetBox{offset: ui.Offset{X: 4, Y: 2}, child: ui.Button("hit", func(ctx ui.EventContext) { pressed = true })})
+	app.Pump(ui.Size{Width: 20, Height: 5})
+	app.Send(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress})
+	if pressed {
+		t.Fatal("button should not activate outside custom render child offset")
+	}
+}
+
 func TestMouseClickOutsideWidgetIsIgnored(t *testing.T) {
 	pressed := false
 	app := ui.NewApp(ui.Row(ui.Button("click", func(ctx ui.EventContext) { pressed = true })))
@@ -379,3 +399,98 @@ func TestButtonStyleUpdatesOnFocusChange(t *testing.T) {
 		t.Fatalf("second button style = %#v, want focused %#v", got, focused)
 	}
 }
+
+func TestDecoratedBoxPaintsFillBehindChild(t *testing.T) {
+	style := ui.Style{Background: vaxis.ColorBlue}
+	app := ui.NewApp(ui.DecoratedBox(ui.Decoration{Style: style}, ui.Padding(ui.All(1), ui.Text("x"))))
+	app.Pump(ui.Size{Width: 3, Height: 3})
+	p := ui.NewPainter(ui.Size{Width: 3, Height: 3})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Style; got != style {
+		t.Fatalf("fill style = %#v, want %#v", got, style)
+	}
+	if got := p.Cell(1, 1).Character.Grapheme; got != "x" {
+		t.Fatalf("child cell = %q, want x", got)
+	}
+}
+
+func TestDecoratedBoxPaintsBorder(t *testing.T) {
+	style := ui.Style{Foreground: vaxis.ColorRed}
+	app := ui.NewApp(ui.DecoratedBox(ui.Decoration{Border: ui.BorderAll(style)}, ui.Padding(ui.All(1), ui.Text("x"))))
+	app.Pump(ui.Size{Width: 3, Height: 3})
+	p := ui.NewPainter(ui.Size{Width: 3, Height: 3})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Character.Grapheme; got != "┌" {
+		t.Fatalf("top-left border = %q, want ┌", got)
+	}
+	if got := p.Cell(2, 1).Character.Grapheme; got != "│" {
+		t.Fatalf("right border = %q, want │", got)
+	}
+	if got := p.Cell(0, 0).Style; got != style {
+		t.Fatalf("border style = %#v, want %#v", got, style)
+	}
+}
+
+func TestDecoratedBoxUpdateRequestsPaintFrame(t *testing.T) {
+	app := ui.NewApp(ui.DecoratedBox(ui.Decoration{Style: ui.Style{Background: vaxis.ColorBlue}}, ui.Text("x")))
+	app.Pump(ui.Size{Width: 1, Height: 1})
+	app.UpdateRoot(ui.DecoratedBox(ui.Decoration{Style: ui.Style{Background: vaxis.ColorRed}}, ui.Text("x")))
+	if !app.FrameRequested() {
+		t.Fatal("decoration update should request a paint frame")
+	}
+}
+
+func TestPanelAppliesBackgroundBorderAndPadding(t *testing.T) {
+	background := ui.RGB(0, 0, 128)
+	border := ui.RGB(0, 255, 255)
+	app := ui.NewApp(ui.Panel(ui.PanelStyle{Background: background, Border: ui.BorderLine(border), Padding: ui.All(2)}, ui.Text("x")))
+	app.Pump(ui.Size{Width: 5, Height: 5})
+	p := ui.NewPainter(ui.Size{Width: 5, Height: 5})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Character.Grapheme; got != "┌" {
+		t.Fatalf("panel border = %q, want ┌", got)
+	}
+	if got := p.Cell(0, 0).Style.Foreground; got != border {
+		t.Fatalf("panel border color = %#v, want %#v", got, border)
+	}
+	if got := p.Cell(2, 2).Character.Grapheme; got != "x" {
+		t.Fatalf("panel padded child = %q, want x", got)
+	}
+	if got := p.Cell(1, 1).Style.Background; got != background {
+		t.Fatalf("panel background = %#v, want %#v", got, background)
+	}
+}
+
+type offsetBox struct {
+	offset ui.Offset
+	child  ui.Widget
+}
+
+func (b offsetBox) Child() ui.Widget { return b.child }
+func (b offsetBox) CreateRenderObject(ctx ui.BuildContext) ui.RenderObject {
+	return &offsetRender{offset: b.offset}
+}
+func (b offsetBox) UpdateRenderObject(ctx ui.BuildContext, ro ui.RenderObject) {
+	ro.(*offsetRender).offset = b.offset
+}
+
+type offsetRender struct {
+	ui.SingleChildRenderObject
+	offset ui.Offset
+}
+
+func (r *offsetRender) Layout(ctx ui.LayoutContext, c ui.Constraints) {
+	if child := r.Child(); child != nil {
+		child.Layout(ctx, c)
+	}
+	r.SetSize(c.Constrain(ui.Size{Width: 20, Height: 5}))
+}
+
+func (r *offsetRender) Paint(p *ui.Painter, off ui.Offset) {
+	if child := r.Child(); child != nil {
+		child.Paint(p, off.Add(r.offset))
+	}
+}
+
+func (r *offsetRender) HitTest(*ui.HitTestResult, ui.Point) bool { return false }
+func (r *offsetRender) ChildOffset(ui.RenderObject) ui.Offset    { return r.offset }

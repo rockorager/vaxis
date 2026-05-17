@@ -27,6 +27,8 @@ type FlexParentData struct {
 	Offset Offset
 }
 
+func (d FlexParentData) RenderOffset() Offset { return d.Offset }
+
 type RenderFlex struct {
 	MultiChildRenderObject
 	Axis Axis
