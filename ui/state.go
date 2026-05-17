@@ -57,6 +57,14 @@ func (e *statefulElement) VisitChildren(fn func(Element)) {
 	}
 }
 
+func (e *statefulElement) HandleEvent(ctx EventContext, ev Event) EventResult {
+	h, ok := e.state.(EventHandler)
+	if !ok {
+		return EventIgnored
+	}
+	return h.HandleEvent(ctx, ev)
+}
+
 func (e *statefulElement) dispose() {
 	if d, ok := e.state.(StateDisposer); ok {
 		d.Dispose()

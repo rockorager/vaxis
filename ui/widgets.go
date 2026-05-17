@@ -252,8 +252,43 @@ type FocusWidget struct {
 	ChildWidget Widget
 }
 
-func Focus(node *FocusNode, child Widget) Widget    { return FocusWidget{Node: node, ChildWidget: child} }
-func (w FocusWidget) Build(ctx BuildContext) Widget { return w.ChildWidget }
+func Focus(node *FocusNode, child Widget) Widget { return FocusWidget{Node: node, ChildWidget: child} }
+func (w FocusWidget) CreateElement() Element     { return &focusElement{} }
+
+type focusElement struct {
+	ElementBase
+	child Element
+}
+
+func (e *focusElement) mounted() {
+	w := e.widget.(FocusWidget)
+	if w.Node != nil {
+		w.Node.attach(e.owner.app, e)
+	}
+	e.owner.app.registerFocusable(e)
+}
+
+func (e *focusElement) unmounted() {
+	w := e.widget.(FocusWidget)
+	if w.Node != nil {
+		w.Node.detach(e)
+	}
+	e.owner.app.unregisterFocusable(e)
+}
+
+func (e *focusElement) Rebuild() {
+	w := e.widget.(FocusWidget)
+	if w.Node != nil {
+		w.Node.attach(e.owner.app, e)
+	}
+	e.child = e.UpdateChild(e.child, w.ChildWidget, nil)
+}
+
+func (e *focusElement) VisitChildren(fn func(Element)) {
+	if e.child != nil {
+		fn(e.child)
+	}
+}
 
 type KeymapWidget struct {
 	Bindings    map[string]VoidCallback
@@ -263,7 +298,38 @@ type KeymapWidget struct {
 func Keymap(bindings map[string]VoidCallback, child Widget) Widget {
 	return KeymapWidget{Bindings: bindings, ChildWidget: child}
 }
-func (w KeymapWidget) Build(ctx BuildContext) Widget { return w.ChildWidget }
+func (w KeymapWidget) CreateElement() Element { return &keymapElement{} }
+
+type keymapElement struct {
+	ElementBase
+	child Element
+}
+
+func (e *keymapElement) Rebuild() {
+	e.child = e.UpdateChild(e.child, e.widget.(KeymapWidget).ChildWidget, nil)
+}
+
+func (e *keymapElement) VisitChildren(fn func(Element)) {
+	if e.child != nil {
+		fn(e.child)
+	}
+}
+
+func (e *keymapElement) HandleEvent(ctx EventContext, ev Event) EventResult {
+	key, ok := ev.(Key)
+	if !ok {
+		return EventIgnored
+	}
+	for binding, cb := range e.widget.(KeymapWidget).Bindings {
+		if key.MatchString(binding) {
+			if cb != nil {
+				cb(ctx)
+			}
+			return EventHandled
+		}
+	}
+	return EventIgnored
+}
 
 type ButtonWidget struct {
 	Label     string
@@ -273,4 +339,31 @@ type ButtonWidget struct {
 func Button(label string, onPressed VoidCallback) Widget {
 	return ButtonWidget{Label: label, OnPressed: onPressed}
 }
-func (w ButtonWidget) Build(ctx BuildContext) Widget { return Padding(Symmetric(1, 0), Text(w.Label)) }
+func (w ButtonWidget) CreateState() State { return &buttonState{} }
+
+type buttonState struct {
+	StateBase
+	node FocusNode
+}
+
+func (s *buttonState) Build(ctx BuildContext) Widget {
+	w := s.Widget().(ButtonWidget)
+	return Focus(&s.node, Padding(Symmetric(1, 0), Text(w.Label)))
+}
+
+func (s *buttonState) HandleEvent(ctx EventContext, ev Event) EventResult {
+	if ctx.Phase() != TargetPhase && ctx.Phase() != BubblePhase {
+		return EventIgnored
+	}
+	key, ok := ev.(Key)
+	if !ok {
+		return EventIgnored
+	}
+	if key.MatchString("Enter") || key.MatchString("Space") {
+		if cb := s.Widget().(ButtonWidget).OnPressed; cb != nil {
+			cb(ctx)
+		}
+		return EventHandled
+	}
+	return EventIgnored
+}

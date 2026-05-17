@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"git.sr.ht/~rockorager/vaxis"
 	"git.sr.ht/~rockorager/vaxis/ui"
 	"git.sr.ht/~rockorager/vaxis/ui/uitest"
 )
@@ -195,5 +196,107 @@ func TestDidUpdateWidgetCalledOnCompatibleUpdate(t *testing.T) {
 	app.Paint(p)
 	if got := p.Cell(0, 0).Character.Grapheme; got != "1" {
 		t.Fatalf("updates = %q, want 1", got)
+	}
+}
+
+func TestButtonActivatesFocusedButton(t *testing.T) {
+	pressed := 0
+	app := ui.NewApp(ui.Row(
+		ui.Button("one", func(ctx ui.EventContext) { pressed += 1 }),
+		ui.Button("two", func(ctx ui.EventContext) { pressed += 10 }),
+	))
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
+	if pressed != 1 {
+		t.Fatalf("pressed = %d, want first button", pressed)
+	}
+	app.Send(vaxis.Key{Keycode: vaxis.KeyTab})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
+	if pressed != 11 {
+		t.Fatalf("pressed = %d, want second button after tab", pressed)
+	}
+}
+
+func TestFocusNodeRequestFocus(t *testing.T) {
+	var n1, n2 ui.FocusNode
+	app := ui.NewApp(ui.Row(
+		ui.Focus(&n1, ui.Text("one")),
+		ui.Focus(&n2, ui.Text("two")),
+	))
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	n2.RequestFocus()
+	if !n2.HasFocus() || n1.HasFocus() {
+		t.Fatal("expected second focus node to have focus")
+	}
+}
+
+func TestKeymapCaptureHandlesBeforeFocusedButton(t *testing.T) {
+	called := false
+	button := false
+	app := ui.NewApp(ui.Keymap(map[string]ui.VoidCallback{
+		"Enter": func(ctx ui.EventContext) { called = true },
+	}, ui.Button("button", func(ctx ui.EventContext) { button = true })))
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
+	if !called {
+		t.Fatal("expected keymap callback")
+	}
+	if button {
+		t.Fatal("button should not run after capture keymap handled event")
+	}
+}
+
+func TestKeymapIgnoredEventContinuesToFocusedButton(t *testing.T) {
+	button := false
+	app := ui.NewApp(ui.Keymap(map[string]ui.VoidCallback{
+		"Ctrl+x": func(ctx ui.EventContext) {},
+	}, ui.Button("button", func(ctx ui.EventContext) { button = true })))
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
+	if !button {
+		t.Fatal("expected button to receive event after keymap ignored it")
+	}
+}
+
+func TestShiftTabMovesFocusPrevious(t *testing.T) {
+	pressed := 0
+	app := ui.NewApp(ui.Row(
+		ui.Button("one", func(ctx ui.EventContext) { pressed = 1 }),
+		ui.Button("two", func(ctx ui.EventContext) { pressed = 2 }),
+	))
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyTab, Modifiers: vaxis.ModShift})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
+	if pressed != 2 {
+		t.Fatalf("pressed = %d, want previous focus to wrap to second button", pressed)
+	}
+}
+
+func TestNilButtonCallbackStillHandlesActivation(t *testing.T) {
+	app := ui.NewApp(ui.Button("noop", nil))
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
+}
+
+func TestQuitCallbackDoesNotPanic(t *testing.T) {
+	app := ui.NewApp(ui.Button("quit", func(ctx ui.EventContext) { ctx.Quit() }))
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
+}
+
+func TestFocusTraversalSkipsUnmountedFocus(t *testing.T) {
+	pressed := 0
+	app := ui.NewApp(ui.Row(
+		ui.Button("one", func(ctx ui.EventContext) { pressed = 1 }),
+		ui.Button("two", func(ctx ui.EventContext) { pressed = 2 }),
+	))
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	app.UpdateRoot(ui.Row(
+		ui.Button("two", func(ctx ui.EventContext) { pressed = 2 }),
+	))
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
+	if pressed != 2 {
+		t.Fatalf("pressed = %d, want remaining button after unmount", pressed)
 	}
 }

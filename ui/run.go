@@ -11,8 +11,9 @@ func Run(root Widget, opts ...Option) error {
 
 	app := NewApp(root, opts...)
 	for ev := range vx.Events() {
-		if _, ok := ev.(vaxis.Redraw); ok {
-			// fall through to render
+		app.Send(ev)
+		if app.quit {
+			return nil
 		}
 		win := vx.Window()
 		size := Size{Width: win.Width, Height: win.Height}

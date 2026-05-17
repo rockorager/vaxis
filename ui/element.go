@@ -58,6 +58,7 @@ type BuildOwner struct {
 	root     Element
 	dirty    []Element
 	elements map[*ElementBase]Element
+	app      *App
 }
 
 func NewBuildOwner() *BuildOwner { return &BuildOwner{elements: make(map[*ElementBase]Element)} }
@@ -119,10 +120,16 @@ func (o *BuildOwner) mount(e Element, parent Element, widget Widget) {
 	b.parent = parent
 	b.owner = o
 	o.elements[b] = e
+	if m, ok := e.(interface{ mounted() }); ok {
+		m.mounted()
+	}
 }
 
 func (o *BuildOwner) unmount(e Element) {
 	e.VisitChildren(func(child Element) { o.unmount(child) })
+	if u, ok := e.(interface{ unmounted() }); ok {
+		u.unmounted()
+	}
 	if d, ok := e.(interface{ dispose() }); ok {
 		d.dispose()
 	}
