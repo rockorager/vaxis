@@ -32,12 +32,20 @@ func (r *Runner) RequestFrame(now time.Time) {
 }
 
 func (r *Runner) HandleEvent(ev Event, now time.Time) {
+	if fn, ok := ev.(SyncFunc); ok {
+		fn()
+		r.RequestFrame(now)
+		return
+	}
 	r.app.Send(ev)
 	if r.app.ShouldQuit() {
 		r.done = true
 		return
 	}
 	if _, ok := ev.(Resize); ok {
+		r.app.RequestFrame()
+	}
+	if _, ok := ev.(Redraw); ok {
 		r.app.RequestFrame()
 	}
 	if r.app.FrameRequested() && !r.scheduler.Scheduled() {

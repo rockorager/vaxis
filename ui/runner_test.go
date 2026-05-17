@@ -98,6 +98,59 @@ func TestRunnerResizeSchedulesFrame(t *testing.T) {
 	}
 }
 
+func TestRunnerRedrawSchedulesFrame(t *testing.T) {
+	now := time.Unix(10, 0)
+	backend := newFakeBackend(ui.Size{Width: 1, Height: 1})
+	runner := ui.NewRunner(ui.NewApp(ui.Text("x")), backend, ui.NewFrameScheduler(time.Second/60))
+	runner.Start(now)
+	if err := runner.HandleFrame(now); err != nil {
+		t.Fatal(err)
+	}
+	runner.HandleEvent(vaxis.Redraw{}, now.Add(time.Millisecond))
+	if _, ok := runner.NextFrame(); !ok {
+		t.Fatal("redraw should schedule frame")
+	}
+}
+
+func TestRunnerResizeRelayoutsAtBackendSize(t *testing.T) {
+	now := time.Unix(10, 0)
+	backend := newFakeBackend(ui.Size{Width: 5, Height: 1})
+	runner := ui.NewRunner(ui.NewApp(ui.Center(ui.Text("x"))), backend, ui.NewFrameScheduler(time.Second/60))
+	runner.Start(now)
+	if err := runner.HandleFrame(now); err != nil {
+		t.Fatal(err)
+	}
+	if got := backend.frames[0].Cell(2, 0).Character.Grapheme; got != "x" {
+		t.Fatalf("initial centered cell = %q, want x", got)
+	}
+	backend.size = ui.Size{Width: 9, Height: 1}
+	runner.HandleEvent(vaxis.Resize{Cols: 9, Rows: 1}, now.Add(time.Millisecond))
+	if err := runner.HandleFrame(now.Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if got := backend.frames[1].Cell(4, 0).Character.Grapheme; got != "x" {
+		t.Fatalf("resized centered cell = %q, want x", got)
+	}
+}
+
+func TestRunnerSyncFuncRunsAndSchedulesFrame(t *testing.T) {
+	now := time.Unix(10, 0)
+	backend := newFakeBackend(ui.Size{Width: 1, Height: 1})
+	runner := ui.NewRunner(ui.NewApp(ui.Text("x")), backend, ui.NewFrameScheduler(time.Second/60))
+	runner.Start(now)
+	if err := runner.HandleFrame(now); err != nil {
+		t.Fatal(err)
+	}
+	called := false
+	runner.HandleEvent(vaxis.SyncFunc(func() { called = true }), now.Add(time.Millisecond))
+	if !called {
+		t.Fatal("sync func was not called")
+	}
+	if _, ok := runner.NextFrame(); !ok {
+		t.Fatal("sync func should schedule frame")
+	}
+}
+
 func TestRunnerQuitEventStopsRunner(t *testing.T) {
 	now := time.Unix(10, 0)
 	backend := newFakeBackend(ui.Size{Width: 20, Height: 1})
