@@ -1,13 +1,14 @@
 package ui
 
 type App struct {
-	build      *BuildOwner
-	rootRO     RenderObject
-	size       Size
-	focusables []Element
-	focused    Element
-	quit       bool
-	theme      Theme
+	build          *BuildOwner
+	rootRO         RenderObject
+	size           Size
+	focusables     []Element
+	focused        Element
+	quit           bool
+	theme          Theme
+	frameRequested bool
 }
 
 func NewApp(root Widget, opts ...Option) *App {
@@ -25,15 +26,19 @@ func NewApp(root Widget, opts ...Option) *App {
 func (a *App) UpdateRoot(root Widget) {
 	a.build.UpdateRoot(Provider[Theme]{Value: a.theme, ChildWidget: root})
 }
-func (a *App) Send(ev Event)    { a.dispatchEvent(ev) }
-func (a *App) ShouldQuit() bool { return a.quit }
+func (a *App) Send(ev Event)        { a.dispatchEvent(ev) }
+func (a *App) ShouldQuit() bool     { return a.quit }
+func (a *App) RequestFrame()        { a.frameRequested = true }
+func (a *App) FrameRequested() bool { return a.frameRequested }
 
 func (a *App) Pump(size Size) {
+	a.frameRequested = false
 	a.size = size
 	a.build.BuildScope()
 	a.rootRO = findRenderObject(a.build.Root())
 	if a.rootRO != nil {
 		a.rootRO.Layout(LayoutContext{}, Tight(size))
+		clearNeedsLayout(a.rootRO)
 	}
 }
 
@@ -155,6 +160,9 @@ func (a *App) moveFocus(delta int) {
 }
 
 func (a *App) setFocused(next Element) {
+	if a.focused == next {
+		return
+	}
 	old := a.focused
 	a.focused = next
 	a.notifyFocusChanged(old)
@@ -173,7 +181,7 @@ func (a *App) notifyFocusChanged(e Element) {
 func (a *App) hitPath(pt Point) []Element { return hitElement(a.build.Root(), pt) }
 
 func hitElement(e Element, pt Point) []Element {
-	ro := findRenderObject(e)
+	ro := ownRenderObject(e)
 	if ro != nil && !pointInSize(pt, ro.Base().Size()) {
 		return nil
 	}
@@ -196,7 +204,7 @@ func hitElement(e Element, pt Point) []Element {
 }
 
 func childPoint(parent, child Element, pt Point) Point {
-	pro := findRenderObject(parent)
+	pro := ownRenderObject(parent)
 	if pro == nil {
 		return pt
 	}
@@ -218,10 +226,28 @@ func pointInSize(pt Point, size Size) bool {
 	return pt.X >= 0 && pt.Y >= 0 && pt.X < size.Width && pt.Y < size.Height
 }
 
+func ownRenderObject(e Element) RenderObject {
+	if r, ok := e.(interface{ RenderObject() RenderObject }); ok {
+		return r.RenderObject()
+	}
+	return nil
+}
+
 func (a *App) Paint(p *Painter) {
 	if a.rootRO != nil {
 		a.rootRO.Paint(p, Offset{})
+		clearNeedsPaint(a.rootRO)
 	}
+}
+
+func clearNeedsLayout(ro RenderObject) {
+	ro.Base().ClearNeedsLayout()
+	ro.VisitChildren(clearNeedsLayout)
+}
+
+func clearNeedsPaint(ro RenderObject) {
+	ro.Base().ClearNeedsPaint()
+	ro.VisitChildren(clearNeedsPaint)
 }
 
 type Option func(*options)

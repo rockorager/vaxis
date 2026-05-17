@@ -1,32 +1,51 @@
 package ui
 
-import "git.sr.ht/~rockorager/vaxis"
+import (
+	"time"
+
+	"git.sr.ht/~rockorager/vaxis"
+)
 
 func Run(root Widget, opts ...Option) error {
 	vx, err := vaxis.New(vaxis.Options{})
 	if err != nil {
 		return err
 	}
-	defer vx.Close()
+	backend := vaxisBackend{vx: vx}
+	defer backend.Close()
+	return runWithBackend(root, backend, opts...)
+}
 
-	app := NewApp(root, opts...)
-	for ev := range vx.Events() {
-		app.Send(ev)
-		if app.quit {
-			return nil
+func runWithBackend(root Widget, backend Backend, opts ...Option) error {
+	runner := NewRunner(NewApp(root, opts...), backend, NewFrameScheduler(DefaultFrameInterval))
+	frameTimer := time.NewTimer(time.Hour)
+	frameTimer.Stop()
+	schedule := func() {
+		due, ok := runner.NextFrame()
+		if !ok {
+			return
 		}
-		win := vx.Window()
-		size := Size{Width: win.Width, Height: win.Height}
-		app.Pump(size)
-		painter := NewPainter(size)
-		app.Paint(painter)
-		win.Clear()
-		for y := 0; y < size.Height; y++ {
-			for x := 0; x < size.Width; x++ {
-				win.SetCell(x, y, painter.Cell(x, y))
-			}
-		}
-		vx.Render()
+		frameTimer.Reset(time.Until(due))
 	}
-	return nil
+	runner.Start(time.Now())
+	schedule()
+	events := backend.Events()
+	for {
+		select {
+		case ev, ok := <-events:
+			if !ok {
+				return nil
+			}
+			runner.HandleEvent(ev, time.Now())
+			if runner.Done() {
+				return nil
+			}
+			schedule()
+		case <-frameTimer.C:
+			if err := runner.HandleFrame(time.Now()); err != nil {
+				return err
+			}
+			schedule()
+		}
+	}
 }

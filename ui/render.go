@@ -21,17 +21,44 @@ type RenderObject interface {
 }
 
 type RenderObjectBase struct {
-	size       Size
-	parentData any
+	size             Size
+	parentData       any
+	owner            *App
+	parent           RenderObject
+	needsLayout      bool
+	needsPaint       bool
+	relayoutBoundary bool
 }
 
 func (r *RenderObjectBase) Base() *RenderObjectBase { return r }
 func (r *RenderObjectBase) Size() Size              { return r.size }
 func (r *RenderObjectBase) SetSize(size Size)       { r.size = size }
-func (r *RenderObjectBase) MarkNeedsLayout()        {}
-func (r *RenderObjectBase) MarkNeedsPaint()         {}
-func (r *RenderObjectBase) ParentData() any         { return r.parentData }
-func (r *RenderObjectBase) SetParentData(v any)     { r.parentData = v }
+func (r *RenderObjectBase) MarkNeedsLayout() {
+	if r.needsLayout {
+		return
+	}
+	r.needsLayout = true
+	r.MarkNeedsPaint()
+	if r.parent != nil && !r.relayoutBoundary {
+		r.parent.Base().MarkNeedsLayout()
+	}
+}
+func (r *RenderObjectBase) MarkNeedsPaint() {
+	if r.needsPaint {
+		return
+	}
+	r.needsPaint = true
+	if r.owner != nil {
+		r.owner.RequestFrame()
+	}
+}
+func (r *RenderObjectBase) ParentData() any            { return r.parentData }
+func (r *RenderObjectBase) SetParentData(v any)        { r.parentData = v }
+func (r *RenderObjectBase) SetRelayoutBoundary(v bool) { r.relayoutBoundary = v }
+func (r *RenderObjectBase) NeedsLayout() bool          { return r.needsLayout }
+func (r *RenderObjectBase) NeedsPaint() bool           { return r.needsPaint }
+func (r *RenderObjectBase) ClearNeedsLayout()          { r.needsLayout = false }
+func (r *RenderObjectBase) ClearNeedsPaint()           { r.needsPaint = false }
 
 type LeafRenderObject struct{ RenderObjectBase }
 
@@ -80,6 +107,7 @@ func (e *renderObjectElement) Rebuild() {
 	w := e.widget.(RenderObjectWidget)
 	if e.renderObject == nil {
 		e.renderObject = w.CreateRenderObject(e.Context())
+		e.renderObject.Base().owner = e.owner.app
 	} else {
 		w.UpdateRenderObject(e.Context(), e.renderObject)
 	}
@@ -120,12 +148,22 @@ func (e *renderObjectElement) syncRenderChildren() {
 	case interface{ SetChild(RenderObject) }:
 		if len(renders) > 0 {
 			r.SetChild(renders[0])
+			attachRenderTree(renders[0], e.owner.app, e.renderObject)
 		} else {
 			r.SetChild(nil)
 		}
 	case interface{ SetChildren([]RenderObject) }:
 		r.SetChildren(renders)
+		for _, child := range renders {
+			attachRenderTree(child, e.owner.app, e.renderObject)
+		}
 	}
+}
+
+func attachRenderTree(ro RenderObject, owner *App, parent RenderObject) {
+	ro.Base().owner = owner
+	ro.Base().parent = parent
+	ro.VisitChildren(func(child RenderObject) { attachRenderTree(child, owner, ro) })
 }
 
 func oldAt(children []Element, i int) Element {

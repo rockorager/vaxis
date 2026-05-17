@@ -21,6 +21,7 @@ func (e *ElementBase) MarkNeedsBuild() {
 	}
 	e.dirty = true
 	e.owner.dirty = append(e.owner.dirty, e.self())
+	e.owner.app.RequestFrame()
 }
 
 func (e *ElementBase) Context() BuildContext { return BuildContext{element: e.self()} }

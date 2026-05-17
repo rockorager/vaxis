@@ -27,6 +27,10 @@ func (a *App) Pump(width, height int) {
 
 func (a *App) Send(ev ui.Event)      { a.app.Send(ev) }
 func (a *App) Cell(x, y int) ui.Cell { return a.painter.Cell(x, y) }
+func (a *App) ShouldQuit() bool      { return a.app.ShouldQuit() }
+func (a *App) Contains(text string) bool {
+	return strings.Contains(a.Text(), text)
+}
 
 func (a *App) Text() string {
 	if a.painter == nil {
