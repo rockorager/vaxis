@@ -1,0 +1,81 @@
+package ui
+
+type State interface{ Build(BuildContext) Widget }
+
+type StateBase struct{ element *statefulElement }
+
+func (s *StateBase) SetState(fn func()) {
+	if fn == nil {
+		panic("ui: SetState called with nil function")
+	}
+	fn()
+	s.MarkNeedsBuild()
+}
+
+func (s *StateBase) MarkNeedsBuild()       { s.element.MarkNeedsBuild() }
+func (s *StateBase) Context() BuildContext { return s.element.Context() }
+func (s *StateBase) Widget() Widget        { return s.element.widget }
+
+type stateBaseSetter interface{ setElement(*statefulElement) }
+
+func (s *StateBase) setElement(e *statefulElement) { s.element = e }
+
+type StateInitializer interface{ InitState() }
+type StateDisposer interface{ Dispose() }
+type StateUpdater interface{ DidUpdateWidget(old Widget) }
+
+type statefulElement struct {
+	ElementBase
+	state State
+	child Element
+}
+
+func newStatefulElement(w StatefulWidget) Element { return &statefulElement{} }
+
+func (e *statefulElement) update(next Widget) {
+	if u, ok := e.state.(StateUpdater); ok {
+		u.DidUpdateWidget(next)
+	}
+}
+
+func (e *statefulElement) Rebuild() {
+	if e.state == nil {
+		e.state = e.widget.(StatefulWidget).CreateState()
+		if setter, ok := e.state.(stateBaseSetter); ok {
+			setter.setElement(e)
+		}
+		if init, ok := e.state.(StateInitializer); ok {
+			init.InitState()
+		}
+	}
+	e.child = e.UpdateChild(e.child, e.state.Build(e.Context()), nil)
+}
+
+func (e *statefulElement) VisitChildren(fn func(Element)) {
+	if e.child != nil {
+		fn(e.child)
+	}
+}
+
+func (e *statefulElement) dispose() {
+	if d, ok := e.state.(StateDisposer); ok {
+		d.Dispose()
+	}
+}
+
+type statelessElement struct {
+	ElementBase
+	child Element
+}
+
+func newStatelessElement(w StatelessWidget) Element { return &statelessElement{} }
+
+func (e *statelessElement) Rebuild() {
+	e.child = e.UpdateChild(e.child, e.widget.(StatelessWidget).Build(e.Context()), nil)
+}
+
+func (e *statelessElement) VisitChildren(fn func(Element)) {
+	if e.child != nil {
+		fn(e.child)
+	}
+}

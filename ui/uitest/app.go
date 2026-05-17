@@ -1,0 +1,40 @@
+package uitest
+
+import (
+	"strings"
+
+	"git.sr.ht/~rockorager/vaxis/ui"
+)
+
+type App struct {
+	app     *ui.App
+	size    ui.Size
+	painter *ui.Painter
+}
+
+func New(root ui.Widget) *App {
+	return &App{app: ui.NewApp(root), size: ui.Size{Width: 80, Height: 24}}
+}
+
+func (a *App) Pump(width, height int) {
+	if width > 0 && height > 0 {
+		a.size = ui.Size{Width: width, Height: height}
+	}
+	a.app.Pump(a.size)
+	a.painter = ui.NewPainter(a.size)
+	a.app.Paint(a.painter)
+}
+
+func (a *App) Send(ev ui.Event)      { a.app.Send(ev) }
+func (a *App) Cell(x, y int) ui.Cell { return a.painter.Cell(x, y) }
+
+func (a *App) Text() string {
+	if a.painter == nil {
+		return ""
+	}
+	var b strings.Builder
+	for _, cell := range a.painter.Cells() {
+		b.WriteString(cell.Character.Grapheme)
+	}
+	return b.String()
+}
