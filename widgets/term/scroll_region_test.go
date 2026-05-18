@@ -80,7 +80,7 @@ func TestIndexBottomOfPrimaryScreenPreservesBackgroundOnBlankLine(t *testing.T) 
 	vt.cursor.row = 4
 	vt.cursor.col = 0
 	vt.update(testPrint("A"))
-	vt.cursor.Style.Background = bg
+	vt.cursor.Background = bg
 
 	vt.ind()
 
@@ -103,7 +103,7 @@ func TestIndexBottomOfScrollRegionPreservesBackgroundOnBlankLine(t *testing.T) {
 	setScreenLine(vt.primaryScreen, 3, "X    ")
 	vt.cursor.row = 2
 	vt.cursor.col = 0
-	vt.cursor.Style.Background = bg
+	vt.cursor.Background = bg
 
 	vt.ind()
 
@@ -252,7 +252,7 @@ func TestIndexBottomOfScrollRegionBlankLinePreservesBackground(t *testing.T) {
 	setScreenLine(vt.primaryScreen, 3, "X    ")
 	vt.cursor.row = 2
 	vt.cursor.col = 0
-	vt.cursor.Style.Background = bg
+	vt.cursor.Background = bg
 
 	vt.ind()
 

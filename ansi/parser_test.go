@@ -20,8 +20,8 @@ func escSeq(final rune, intermediates string) ESC {
 func TestParserInputModeEmitsBareEscapeAfterTimeout(t *testing.T) {
 	r, w := io.Pipe()
 	parse := NewParser(r, ParserModeInput)
-	defer r.Close()
-	defer w.Close()
+	defer func() { _ = r.Close() }()
+	defer func() { _ = w.Close() }()
 
 	if _, err := w.Write([]byte{0x1B}); err != nil {
 		t.Fatal(err)
@@ -40,8 +40,8 @@ func TestParserInputModeEmitsBareEscapeAfterTimeout(t *testing.T) {
 func TestParserOutputModeDoesNotEmitBareEscapeAfterTimeout(t *testing.T) {
 	r, w := io.Pipe()
 	parse := NewParser(r, ParserModeOutput)
-	defer r.Close()
-	defer w.Close()
+	defer func() { _ = r.Close() }()
+	defer func() { _ = w.Close() }()
 
 	if _, err := w.Write([]byte{0x1B}); err != nil {
 		t.Fatal(err)

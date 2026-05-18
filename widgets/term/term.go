@@ -2,6 +2,7 @@ package term
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -583,12 +584,12 @@ func (vt *Model) recover() {
 		return
 	}
 	ret := strings.Builder{}
-	ret.WriteString(fmt.Sprintf("cursor row=%d col=%d\n", vt.cursor.row, vt.cursor.col))
-	ret.WriteString(fmt.Sprintf("margin left=%d right=%d\n", vt.margin.left, vt.margin.right))
-	ret.WriteString(fmt.Sprintf("%s\n", err))
+	fmt.Fprintf(&ret, "cursor row=%d col=%d\n", vt.cursor.row, vt.cursor.col)
+	fmt.Fprintf(&ret, "margin left=%d right=%d\n", vt.margin.left, vt.margin.right)
+	fmt.Fprintf(&ret, "%s\n", err)
 	ret.Write(debug.Stack())
 
-	vt.postEvent(EventPanic(fmt.Errorf(ret.String())))
+	vt.postEvent(EventPanic(errors.New(ret.String())))
 	vt.Close()
 }
 
@@ -700,14 +701,14 @@ func (vt *Model) resize(w int, h int) {
 		viewportSourceRow = primary.scrollbackLen() - vt.scrollOffset
 	}
 	if primary.width() == w {
-		resized, primaryDelta, ok := primary.resizeHeight(h, vt.cursor.Style.Background)
+		resized, primaryDelta, ok := primary.resizeHeight(h, vt.cursor.Background)
 		if !ok {
 			goto reflowResize
 		}
 		vt.primaryScreen = resized
 		cursorDelta := primaryDelta
 		if alt.width() == w {
-			resizedAlt, altDelta, ok := alt.resizeHeight(h, vt.cursor.Style.Background)
+			resizedAlt, altDelta, ok := alt.resizeHeight(h, vt.cursor.Background)
 			if ok {
 				vt.altScreen = resizedAlt
 				if vt.mode.smcup {
@@ -765,7 +766,7 @@ reflowResize:
 		return
 	}
 	if vt.mode.smcup {
-		if resized, savedRow, savedCol, ok := primary.resizeReflowCursor(w, h, vt.cursor.Style.Background, vt.primaryState.cursor.row, vt.primaryState.cursor.col, vt.primaryState.saved); ok {
+		if resized, savedRow, savedCol, ok := primary.resizeReflowCursor(w, h, vt.cursor.Background, vt.primaryState.cursor.row, vt.primaryState.cursor.col, vt.primaryState.saved); ok {
 			vt.primaryScreen = resized
 			if vt.primaryState.saved {
 				vt.primaryState.cursor.row = savedRow
@@ -774,7 +775,7 @@ reflowResize:
 		} else {
 			vt.primaryScreen = newScreenBuffer(w, h, defaultScrollbackLines)
 		}
-		resizedAlt, newRow, newCol, ok := alt.resizeNoReflowCursor(w, h, vt.cursor.Style.Background, vt.cursor.row, vt.cursor.col, true)
+		resizedAlt, newRow, newCol, ok := alt.resizeNoReflowCursor(w, h, vt.cursor.Background, vt.cursor.row, vt.cursor.col, true)
 		if ok {
 			vt.altScreen = resizedAlt
 			vt.cursor.row = newRow
@@ -782,13 +783,13 @@ reflowResize:
 		} else {
 			vt.altScreen = newScreenBuffer(w, h, 0)
 		}
-		if _, savedRow, savedCol, ok := alt.resizeNoReflowCursor(w, h, vt.cursor.Style.Background, vt.altState.cursor.row, vt.altState.cursor.col, vt.altState.saved); ok && vt.altState.saved {
+		if _, savedRow, savedCol, ok := alt.resizeNoReflowCursor(w, h, vt.cursor.Background, vt.altState.cursor.row, vt.altState.cursor.col, vt.altState.saved); ok && vt.altState.saved {
 			vt.altState.cursor.row = savedRow
 			vt.altState.cursor.col = savedCol
 		}
 		vt.activeScreen = vt.altScreen
 	} else {
-		resized, newRow, newCol, ok := primary.resizeReflowCursor(w, h, vt.cursor.Style.Background, vt.cursor.row, vt.cursor.col, true)
+		resized, newRow, newCol, ok := primary.resizeReflowCursor(w, h, vt.cursor.Background, vt.cursor.row, vt.cursor.col, true)
 		if ok {
 			vt.primaryScreen = resized
 			vt.cursor.row = newRow
@@ -796,16 +797,16 @@ reflowResize:
 		} else {
 			vt.primaryScreen = newScreenBuffer(w, h, defaultScrollbackLines)
 		}
-		if _, savedRow, savedCol, ok := primary.resizeReflowCursor(w, h, vt.cursor.Style.Background, vt.primaryState.cursor.row, vt.primaryState.cursor.col, vt.primaryState.saved); ok && vt.primaryState.saved {
+		if _, savedRow, savedCol, ok := primary.resizeReflowCursor(w, h, vt.cursor.Background, vt.primaryState.cursor.row, vt.primaryState.cursor.col, vt.primaryState.saved); ok && vt.primaryState.saved {
 			vt.primaryState.cursor.row = savedRow
 			vt.primaryState.cursor.col = savedCol
 		}
-		if resizedAlt, ok := alt.resizeNoReflow(w, h, vt.cursor.Style.Background); ok {
+		if resizedAlt, ok := alt.resizeNoReflow(w, h, vt.cursor.Background); ok {
 			vt.altScreen = resizedAlt
 		} else {
 			vt.altScreen = newScreenBuffer(w, h, 0)
 		}
-		if _, savedRow, savedCol, ok := alt.resizeNoReflowCursor(w, h, vt.cursor.Style.Background, vt.altState.cursor.row, vt.altState.cursor.col, vt.altState.saved); ok && vt.altState.saved {
+		if _, savedRow, savedCol, ok := alt.resizeNoReflowCursor(w, h, vt.cursor.Background, vt.altState.cursor.row, vt.altState.cursor.col, vt.altState.saved); ok && vt.altState.saved {
 			vt.altState.cursor.row = savedRow
 			vt.altState.cursor.col = savedCol
 		}
@@ -822,12 +823,12 @@ reflowResize:
 
 func (vt *Model) resizeNoReflow(w int, h int, primary screenBuffer, alt screenBuffer) {
 	if vt.mode.smcup {
-		if resized, ok := primary.resizeNoReflow(w, h, vt.cursor.Style.Background); ok {
+		if resized, ok := primary.resizeNoReflow(w, h, vt.cursor.Background); ok {
 			vt.primaryScreen = resized
 		} else {
 			vt.primaryScreen = newScreenBuffer(w, h, defaultScrollbackLines)
 		}
-		resizedAlt, newRow, newCol, ok := alt.resizeNoReflowCursor(w, h, vt.cursor.Style.Background, vt.cursor.row, vt.cursor.col, true)
+		resizedAlt, newRow, newCol, ok := alt.resizeNoReflowCursor(w, h, vt.cursor.Background, vt.cursor.row, vt.cursor.col, true)
 		if ok {
 			vt.altScreen = resizedAlt
 			vt.cursor.row = newRow
@@ -837,7 +838,7 @@ func (vt *Model) resizeNoReflow(w int, h int, primary screenBuffer, alt screenBu
 		}
 		vt.activeScreen = vt.altScreen
 	} else {
-		resized, newRow, newCol, ok := primary.resizeNoReflowCursor(w, h, vt.cursor.Style.Background, vt.cursor.row, vt.cursor.col, true)
+		resized, newRow, newCol, ok := primary.resizeNoReflowCursor(w, h, vt.cursor.Background, vt.cursor.row, vt.cursor.col, true)
 		if ok {
 			vt.primaryScreen = resized
 			vt.cursor.row = newRow
@@ -845,7 +846,7 @@ func (vt *Model) resizeNoReflow(w int, h int, primary screenBuffer, alt screenBu
 		} else {
 			vt.primaryScreen = newScreenBuffer(w, h, defaultScrollbackLines)
 		}
-		if resizedAlt, ok := alt.resizeNoReflow(w, h, vt.cursor.Style.Background); ok {
+		if resizedAlt, ok := alt.resizeNoReflow(w, h, vt.cursor.Background); ok {
 			vt.altScreen = resizedAlt
 		} else {
 			vt.altScreen = newScreenBuffer(w, h, 0)
@@ -1084,12 +1085,12 @@ func (vt *Model) print(seq ansi.Print) {
 	rw := vt.cursor.row
 
 	if vt.mode.irm {
-		vt.eraseWideAt(rw, col, vt.cursor.Style.Background, false)
+		vt.eraseWideAt(rw, col, vt.cursor.Background, false)
 		line := vt.activeScreen.line(rw)
 		for i := rightLimit; i >= col+column(w); i -= 1 {
 			line[i] = line[i-column(w)]
 		}
-		vt.eraseWideOverflow(rw, col, rightLimit, vt.cursor.Style.Background)
+		vt.eraseWideOverflow(rw, col, rightLimit, vt.cursor.Background)
 	}
 	if col > column(vt.width())-1 {
 		col = column(vt.width()) - 1
@@ -1097,7 +1098,7 @@ func (vt *Model) print(seq ansi.Print) {
 	if rw > row(vt.height()-1) {
 		rw = row(vt.height() - 1)
 	}
-	vt.eraseWideAt(rw, col, vt.cursor.Style.Background, false)
+	vt.eraseWideAt(rw, col, vt.cursor.Background, false)
 
 	cell := cell{
 		Cell: vaxis.Cell{
@@ -1119,7 +1120,7 @@ func (vt *Model) print(seq ansi.Print) {
 			break
 		}
 		trailing := vt.activeScreen.cell(rw, col+i)
-		trailing.Character.Grapheme = " "
+		trailing.Grapheme = " "
 		trailing.Style = vt.cursor.Style
 		trailing.protected = vt.cursor.protected
 		trailing.semanticContent = vt.cursor.semanticContent
@@ -1214,31 +1215,31 @@ func (vt *Model) appendZeroWidth(grapheme string) {
 	}
 
 	cell := vt.activeScreen.cell(vt.cursor.row, col)
-	if cell.Character.Width == 0 && cell.Character.Grapheme == " " && col > 0 {
+	if cell.Width == 0 && cell.Grapheme == " " && col > 0 {
 		col--
 		cell = vt.activeScreen.cell(vt.cursor.row, col)
 	}
-	if cell.Character.Grapheme == "" {
+	if cell.Grapheme == "" {
 		return
 	}
-	oldGrapheme := cell.Character.Grapheme
-	oldWidth := cell.Character.Width
+	oldGrapheme := cell.Grapheme
+	oldWidth := cell.Width
 	if isVariationSelector(grapheme) {
 		base, _ := utf8.DecodeRuneInString(oldGrapheme)
 		if !uucode.IsEmojiVariationBase(base) {
 			return
 		}
 	}
-	cell.Character.Grapheme += grapheme
+	cell.Grapheme += grapheme
 	if !vt.mode.graphemeCluster {
 		return
 	}
-	newWidth := uucode.StringWidth(cell.Character.Grapheme)
+	newWidth := uucode.StringWidth(cell.Grapheme)
 	switch {
 	case oldWidth > 1 && newWidth == 1:
-		cell.Character.Width = 1
+		cell.Width = 1
 		for i := column(1); i < column(oldWidth) && col+i < column(vt.width()); i += 1 {
-			vt.activeScreen.eraseCell(vt.cursor.row, col+i, cell.Style.Background)
+			vt.activeScreen.eraseCell(vt.cursor.row, col+i, cell.Background)
 		}
 		if vt.lastCol {
 			vt.resetPendingWrap()
@@ -1251,9 +1252,9 @@ func (vt *Model) appendZeroWidth(grapheme string) {
 					vt.activeScreen.row(vt.cursor.row).wrapped = true
 				}
 				wrappedCell := *cell
-				wrappedCell.Character.Width = newWidth
-				cell.Character.Grapheme = " "
-				cell.Character.Width = 0
+				wrappedCell.Width = newWidth
+				cell.Grapheme = " "
+				cell.Width = 0
 				if vt.cursor.row == vt.margin.bottom {
 					vt.scrollUp(1)
 				} else if vt.cursor.row < row(vt.height()-1) {
@@ -1268,8 +1269,8 @@ func (vt *Model) appendZeroWidth(grapheme string) {
 				vt.activeScreen.setCell(vt.cursor.row, vt.cursor.col, wrappedCell)
 				for i := column(1); i < column(newWidth) && vt.cursor.col+i <= vt.margin.right; i += 1 {
 					tail := vt.activeScreen.cell(vt.cursor.row, vt.cursor.col+i)
-					tail.Character.Grapheme = " "
-					tail.Character.Width = 0
+					tail.Grapheme = " "
+					tail.Width = 0
 					tail.Style = wrappedCell.Style
 					tail.protected = wrappedCell.protected
 					tail.semanticContent = wrappedCell.semanticContent
@@ -1282,15 +1283,15 @@ func (vt *Model) appendZeroWidth(grapheme string) {
 				}
 				return
 			}
-			cell.Character.Grapheme = oldGrapheme
-			cell.Character.Width = oldWidth
+			cell.Grapheme = oldGrapheme
+			cell.Width = oldWidth
 			return
 		}
-		cell.Character.Width = newWidth
+		cell.Width = newWidth
 		for i := column(1); i < column(newWidth); i += 1 {
 			tail := vt.activeScreen.cell(vt.cursor.row, col+i)
-			tail.Character.Grapheme = " "
-			tail.Character.Width = 0
+			tail.Grapheme = " "
+			tail.Width = 0
 			tail.Style = cell.Style
 			tail.protected = cell.protected
 			tail.semanticContent = cell.semanticContent
@@ -1318,7 +1319,7 @@ func (vt *Model) scrollUp(n int) {
 		vt.margin.left,
 		vt.margin.right,
 		n,
-		vt.cursor.Style.Background,
+		vt.cursor.Background,
 	)
 	if captured > 0 {
 		vt.shiftGraphicsSourceRows(historyLen + captured - vt.activeScreen.scrollbackLen())
@@ -1340,7 +1341,7 @@ func (vt *Model) scrollDown(n int) {
 		vt.margin.left,
 		vt.margin.right,
 		n,
-		vt.cursor.Style.Background,
+		vt.cursor.Background,
 	)
 }
 

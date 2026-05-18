@@ -50,7 +50,7 @@ func TestTextFieldPlaceholderAndCursorStyles(t *testing.T) {
 	app.Pump(ui.Size{Width: 20, Height: 1})
 	p := ui.NewPainter(ui.Size{Width: 20, Height: 1})
 	app.Paint(p)
-	if got := p.Cell(6, 0).Character.Grapheme; got != "n" {
+	if got := p.Cell(6, 0).Grapheme; got != "n" {
 		t.Fatalf("placeholder = %q, want n", got)
 	}
 	if got := p.Cell(6, 0).Style; got != theme.TextField.Placeholder {
@@ -76,14 +76,14 @@ func TestTextFieldCursorDoesNotFillFocusedBackground(t *testing.T) {
 	if got := p.Cell(1, 0).Style; got != theme.TextField.Cursor {
 		t.Fatalf("cursor cell style = %#v, want cursor %#v", got, theme.TextField.Cursor)
 	}
-	if got := p.Cell(4, 0).Style.Background; got != theme.TextField.Focused.Background {
+	if got := p.Cell(4, 0).Background; got != theme.TextField.Focused.Background {
 		t.Fatalf("field fill background = %#v, want focused background %#v", got, theme.TextField.Focused.Background)
 	}
 	app.Send(vaxis.Key{Keycode: vaxis.KeyEnd})
 	app.Pump(ui.Size{Width: 10, Height: 1})
 	p = ui.NewPainter(ui.Size{Width: 10, Height: 1})
 	app.Paint(p)
-	if got := p.Cell(1, 0).Style.Background; got != theme.TextField.Focused.Background {
+	if got := p.Cell(1, 0).Background; got != theme.TextField.Focused.Background {
 		t.Fatalf("typed text background = %#v, want focused background %#v", got, theme.TextField.Focused.Background)
 	}
 	if got := p.Cell(4, 0).Style; got != theme.TextField.Cursor {
@@ -116,10 +116,10 @@ func TestTextFieldScrollsHorizontallyToKeepCursorVisible(t *testing.T) {
 	app.Pump(ui.Size{Width: 10, Height: 1})
 	p := ui.NewPainter(ui.Size{Width: 10, Height: 1})
 	app.Paint(p)
-	if got := p.Cell(1, 0).Character.Grapheme; got != "…" {
+	if got := p.Cell(1, 0).Grapheme; got != "…" {
 		t.Fatalf("scrolled leading overflow = %q, want ellipsis", got)
 	}
-	if got := p.Cell(2, 0).Character.Grapheme; got != "f" {
+	if got := p.Cell(2, 0).Grapheme; got != "f" {
 		t.Fatalf("scrolled visible text = %q, want f", got)
 	}
 	if got := p.Cell(3, 0).Style; got != theme.TextField.Cursor {
@@ -132,16 +132,16 @@ func TestTextFieldScrollsHorizontallyToKeepCursorVisible(t *testing.T) {
 	app.Pump(ui.Size{Width: 10, Height: 1})
 	p = ui.NewPainter(ui.Size{Width: 10, Height: 1})
 	app.Paint(p)
-	if got := p.Cell(1, 0).Character.Grapheme; got != "…" {
+	if got := p.Cell(1, 0).Grapheme; got != "…" {
 		t.Fatalf("left-scrolled leading overflow = %q, want ellipsis", got)
 	}
-	if got := p.Cell(2, 0).Character.Grapheme; got != "c" {
+	if got := p.Cell(2, 0).Grapheme; got != "c" {
 		t.Fatalf("left-scrolled cursor text = %q, want c", got)
 	}
 	if got := p.Cell(2, 0).Style; got != theme.TextField.Cursor {
 		t.Fatalf("left-scrolled cursor style = %#v, want cursor %#v", got, theme.TextField.Cursor)
 	}
-	if got := p.Cell(3, 0).Character.Grapheme; got != "…" {
+	if got := p.Cell(3, 0).Grapheme; got != "…" {
 		t.Fatalf("left-scrolled trailing overflow = %q, want ellipsis", got)
 	}
 }
@@ -159,7 +159,7 @@ func TestTextFieldTrailingEllipsisStaysPinnedWhileCursorMoves(t *testing.T) {
 	app.Pump(ui.Size{Width: 10, Height: 1})
 	p := ui.NewPainter(ui.Size{Width: 10, Height: 1})
 	app.Paint(p)
-	if got := p.Cell(5, 0).Character.Grapheme; got != "…" {
+	if got := p.Cell(5, 0).Grapheme; got != "…" {
 		t.Fatalf("trailing ellipsis before cursor move = %q, want ellipsis", got)
 	}
 
@@ -168,7 +168,7 @@ func TestTextFieldTrailingEllipsisStaysPinnedWhileCursorMoves(t *testing.T) {
 		app.Pump(ui.Size{Width: 10, Height: 1})
 		p = ui.NewPainter(ui.Size{Width: 10, Height: 1})
 		app.Paint(p)
-		if got := p.Cell(5, 0).Character.Grapheme; got != "…" {
+		if got := p.Cell(5, 0).Grapheme; got != "…" {
 			t.Fatalf("trailing ellipsis after cursor move %d = %q, want ellipsis pinned", i+1, got)
 		}
 	}
@@ -209,7 +209,7 @@ func TestTextFieldCursorAdvancesWithControlledSetState(t *testing.T) {
 	app.Pump(ui.Size{Width: 20, Height: 1})
 	p := ui.NewPainter(ui.Size{Width: 20, Height: 1})
 	app.Paint(p)
-	if got := p.Cell(1, 0).Character.Grapheme; got != "a" {
+	if got := p.Cell(1, 0).Grapheme; got != "a" {
 		t.Fatalf("after first key text cell = %q, want a", got)
 	}
 	if got := p.Cell(2, 0).Style; got != theme.TextField.Cursor {
@@ -220,10 +220,10 @@ func TestTextFieldCursorAdvancesWithControlledSetState(t *testing.T) {
 	app.Pump(ui.Size{Width: 20, Height: 1})
 	p = ui.NewPainter(ui.Size{Width: 20, Height: 1})
 	app.Paint(p)
-	if got := p.Cell(1, 0).Character.Grapheme; got != "a" {
+	if got := p.Cell(1, 0).Grapheme; got != "a" {
 		t.Fatalf("after second key first text cell = %q, want a", got)
 	}
-	if got := p.Cell(2, 0).Character.Grapheme; got != "b" {
+	if got := p.Cell(2, 0).Grapheme; got != "b" {
 		t.Fatalf("after second key second text cell = %q, want b", got)
 	}
 	if got := p.Cell(3, 0).Style; got != theme.TextField.Cursor {
@@ -271,7 +271,7 @@ func TestTextFieldObscuresDisplayedValue(t *testing.T) {
 	p := ui.NewPainter(ui.Size{Width: 20, Height: 1})
 	app.Paint(p)
 	for i := 1; i <= 6; i++ {
-		if got := p.Cell(i, 0).Character.Grapheme; got != "•" {
+		if got := p.Cell(i, 0).Grapheme; got != "•" {
 			t.Fatalf("obscured cell %d = %q, want bullet", i, got)
 		}
 	}

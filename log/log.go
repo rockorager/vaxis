@@ -60,7 +60,7 @@ func Trace(format string, args ...any) {
 		return
 	}
 	message := fmtMessage(format, args...)
-	traceLogger.Output(calldepth, message)
+	_ = traceLogger.Output(calldepth, message)
 }
 
 func Debug(format string, args ...any) {
@@ -68,7 +68,7 @@ func Debug(format string, args ...any) {
 		return
 	}
 	message := fmtMessage(format, args...)
-	debugLogger.Output(calldepth, message)
+	_ = debugLogger.Output(calldepth, message)
 }
 
 func Info(format string, args ...any) {
@@ -76,7 +76,7 @@ func Info(format string, args ...any) {
 		return
 	}
 	message := fmtMessage(format, args...)
-	infoLogger.Output(calldepth, message)
+	_ = infoLogger.Output(calldepth, message)
 }
 
 func Warn(format string, args ...any) {
@@ -84,7 +84,7 @@ func Warn(format string, args ...any) {
 		return
 	}
 	message := fmtMessage(format, args...)
-	warnLogger.Output(calldepth, message)
+	_ = warnLogger.Output(calldepth, message)
 }
 
 func Error(format string, args ...any) {
@@ -92,5 +92,5 @@ func Error(format string, args ...any) {
 		return
 	}
 	message := fmtMessage(format, args...)
-	errorLogger.Output(calldepth, message)
+	_ = errorLogger.Output(calldepth, message)
 }

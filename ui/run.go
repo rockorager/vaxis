@@ -13,7 +13,7 @@ func Run(root Widget, opts ...Option) error {
 		return err
 	}
 	backend := vaxisBackend{vx: vx}
-	defer backend.Close()
+	defer func() { _ = backend.Close() }()
 	return runWithBackend(root, backend, opts...)
 }
 

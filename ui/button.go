@@ -42,11 +42,6 @@ func (s *buttonState) Build(ctx BuildContext) Widget {
 	)})
 }
 
-func buttonWidth(label string) int {
-	w := buttonWidthFor(label, DefaultTheme().Button.Padding, DefaultTheme().Button.MinWidth)
-	return w
-}
-
 func buttonWidthFor(label string, padding Insets, minWidth int) int {
 	if minWidth <= 0 {
 		minWidth = DefaultTheme().Button.MinWidth

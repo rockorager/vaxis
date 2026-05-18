@@ -200,7 +200,7 @@ func (p *Parser) print(r rune) {
 			return
 		}
 		if uucode.IsBreak(r, next, &state) {
-			p.r.UnreadRune()
+			_ = p.r.UnreadRune()
 			p.emit(asciiPrint[r])
 			return
 		}
@@ -215,7 +215,7 @@ func (p *Parser) print(r rune) {
 				break
 			}
 			if uucode.IsBreak(prev, next, &state) {
-				p.r.UnreadRune()
+				_ = p.r.UnreadRune()
 				break
 			}
 			bldr.WriteRune(next)
@@ -237,7 +237,7 @@ func (p *Parser) print(r rune) {
 			break
 		}
 		if uucode.IsBreak(prev, next, &state) {
-			p.r.UnreadRune()
+			_ = p.r.UnreadRune()
 			break
 		}
 		bldr.WriteRune(next)

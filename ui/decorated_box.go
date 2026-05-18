@@ -108,7 +108,7 @@ func (r *RenderDecoratedBox) paintBorder(p *Painter, off Offset, size Size) {
 		}
 	}
 	if border.Top && border.Left {
-		p.DrawCell(Point{X: off.X, Y: off.Y}, Cell{Character: chars.TopLeft, Style: border.Style})
+		p.DrawCell(Point(off), Cell{Character: chars.TopLeft, Style: border.Style})
 	}
 	if border.Top && border.Right {
 		p.DrawCell(Point{X: off.X + size.Width - 1, Y: off.Y}, Cell{Character: chars.TopRight, Style: border.Style})

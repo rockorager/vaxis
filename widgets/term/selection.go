@@ -603,7 +603,7 @@ func (vt *Model) nextSelectionPoint(point selectionPoint) (selectionPoint, bool)
 }
 
 func selectionCellHasText(cell cell) bool {
-	return cell.Grapheme != "" && !(cell.Width == 0 && cell.Grapheme == " ")
+	return cell.Grapheme != "" && (cell.Width != 0 || cell.Grapheme != " ")
 }
 
 func selectionCellBoundary(cell cell) bool {

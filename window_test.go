@@ -24,7 +24,7 @@ func printTruncateLine(win Window) string {
 	cols, _ := win.Size()
 	var b strings.Builder
 	for col := 0; col < cols; col++ {
-		b.WriteString(win.Vx.screenNext.cell(col, 0).Character.Grapheme)
+		b.WriteString(win.Vx.screenNext.cell(col, 0).Grapheme)
 	}
 	return b.String()
 }

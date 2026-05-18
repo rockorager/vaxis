@@ -29,16 +29,16 @@ func (vt *Model) ich(ps int) {
 	if remaining := int(vt.margin.right-col) + 1; ps > remaining {
 		ps = remaining
 	}
-	vt.eraseWideAt(row, col, vt.cursor.Style.Background, false)
-	vt.eraseWideHeadAt(row, vt.margin.right, vt.cursor.Style.Background, false)
+	vt.eraseWideAt(row, col, vt.cursor.Background, false)
+	vt.eraseWideHeadAt(row, vt.margin.right, vt.cursor.Background, false)
 	line := vt.activeScreen.line(row)
 	for i := vt.margin.right; i >= col+column(ps); i -= 1 {
 		line[i] = line[i-column(ps)]
 	}
 	for i := 0; i < ps; i += 1 {
-		line[col+column(i)].erase(vt.cursor.Style.Background)
+		line[col+column(i)].erase(vt.cursor.Background)
 	}
-	vt.eraseWideOverflow(row, col, vt.margin.right, vt.cursor.Style.Background)
+	vt.eraseWideOverflow(row, col, vt.margin.right, vt.cursor.Background)
 }
 
 // Cursur Up (CUU) CSI Ps A
@@ -256,7 +256,7 @@ func (vt *Model) ed(ps int, forceProtected bool) {
 	case 0:
 		vt.el(0, forceProtected)
 		for r := vt.cursor.row + 1; r < row(vt.height()); r += 1 {
-			vt.activeScreen.eraseRowProtected(r, 0, column(vt.width()-1), vt.cursor.Style.Background, protect)
+			vt.activeScreen.eraseRowProtected(r, 0, column(vt.width()-1), vt.cursor.Background, protect)
 		}
 
 	// Erases from the beginning of the screen to the cursor, including the
@@ -265,7 +265,7 @@ func (vt *Model) ed(ps int, forceProtected bool) {
 	case 1:
 		vt.el(1, forceProtected)
 		for r := row(0); r < vt.cursor.row; r += 1 {
-			vt.activeScreen.eraseRowProtected(r, 0, column(vt.width()-1), vt.cursor.Style.Background, protect)
+			vt.activeScreen.eraseRowProtected(r, 0, column(vt.width()-1), vt.cursor.Background, protect)
 		}
 
 		// Erases the complete display. All lines are erased and changed to
@@ -273,12 +273,12 @@ func (vt *Model) ed(ps int, forceProtected bool) {
 	case 2:
 		vt.clearSelectionLocked()
 		if vt.shouldScrollClearAtSemanticPrompt() {
-			vt.activeScreen.scrollClear(vt.cursor.Style.Background)
+			vt.activeScreen.scrollClear(vt.cursor.Background)
 		}
 		vt.clearGraphicsLocked()
 		vt.resetPendingWrap()
 		for r := row(0); r < row(vt.height()); r += 1 {
-			vt.activeScreen.eraseRowProtected(r, 0, column(vt.width()-1), vt.cursor.Style.Background, protect)
+			vt.activeScreen.eraseRowProtected(r, 0, column(vt.width()-1), vt.cursor.Background, protect)
 		}
 
 	// Erases saved lines in the scrollback buffer.
@@ -295,7 +295,7 @@ func (vt *Model) ed(ps int, forceProtected bool) {
 		vt.clearGraphicsLocked()
 		vt.resetPendingWrap()
 		for r := row(0); r < row(vt.height()); r += 1 {
-			vt.activeScreen.eraseRowProtected(r, 0, column(vt.width()-1), vt.cursor.Style.Background, protect)
+			vt.activeScreen.eraseRowProtected(r, 0, column(vt.width()-1), vt.cursor.Background, protect)
 		}
 	}
 }
@@ -322,25 +322,25 @@ func (vt *Model) el(ps int, forceProtected bool) {
 	// position. Line attribute is not affected.
 	case 0:
 		vt.resetWrap()
-		vt.eraseWideAt(r, vt.cursor.col, vt.cursor.Style.Background, protect)
+		vt.eraseWideAt(r, vt.cursor.col, vt.cursor.Background, protect)
 		for col := vt.cursor.col; col < column(vt.width()); col += 1 {
-			vt.activeScreen.eraseCellProtected(r, col, vt.cursor.Style.Background, protect)
+			vt.activeScreen.eraseCellProtected(r, col, vt.cursor.Background, protect)
 		}
 
 	// Erases from the beginning of the line to the cursor, including the
 	// cursor position. Line attribute is not affected.
 	case 1:
 		vt.resetPendingWrap()
-		vt.eraseWideAt(r, vt.cursor.col, vt.cursor.Style.Background, protect)
+		vt.eraseWideAt(r, vt.cursor.col, vt.cursor.Background, protect)
 		for col := column(0); col <= vt.cursor.col; col += 1 {
-			vt.activeScreen.eraseCellProtected(r, col, vt.cursor.Style.Background, protect)
+			vt.activeScreen.eraseCellProtected(r, col, vt.cursor.Background, protect)
 		}
 
 	// Erases the complete line.
 	case 2:
 		vt.resetPendingWrap()
 		for col := column(0); col < column(vt.width()); col += 1 {
-			vt.activeScreen.eraseCellProtected(r, col, vt.cursor.Style.Background, protect)
+			vt.activeScreen.eraseCellProtected(r, col, vt.cursor.Background, protect)
 		}
 	}
 }
@@ -378,13 +378,13 @@ func (vt *Model) il(ps int) {
 	// move the lines first
 	for r := vt.margin.bottom; r >= (vt.cursor.row + row(ps)); r -= 1 {
 		vt.activeScreen.copyRowRange(r, r-row(ps), vt.margin.left, vt.margin.right)
-		vt.activeScreen.repairWideRangeBoundaries(r, vt.margin.left, vt.margin.right, vt.cursor.Style.Background)
+		vt.activeScreen.repairWideRangeBoundaries(r, vt.margin.left, vt.margin.right, vt.cursor.Background)
 	}
 
 	// insert the blank lines (we do this by erasing the cells)
 	for r := row(0); r < row(ps); r += 1 {
-		vt.activeScreen.eraseRow(vt.cursor.row+r, vt.margin.left, vt.margin.right, vt.cursor.Style.Background)
-		vt.activeScreen.repairWideRangeBoundaries(vt.cursor.row+r, vt.margin.left, vt.margin.right, vt.cursor.Style.Background)
+		vt.activeScreen.eraseRow(vt.cursor.row+r, vt.margin.left, vt.margin.right, vt.cursor.Background)
+		vt.activeScreen.repairWideRangeBoundaries(vt.cursor.row+r, vt.margin.left, vt.margin.right, vt.cursor.Background)
 	}
 	vt.cursor.col = vt.margin.left
 }
@@ -422,14 +422,14 @@ func (vt *Model) dl(ps int) {
 	for r := vt.cursor.row; r <= vt.margin.bottom; r += 1 {
 		if r <= vt.margin.bottom-row(ps) {
 			vt.activeScreen.copyRowRange(r, r+row(ps), vt.margin.left, vt.margin.right)
-			vt.activeScreen.repairWideRangeBoundaries(r, vt.margin.left, vt.margin.right, vt.cursor.Style.Background)
+			vt.activeScreen.repairWideRangeBoundaries(r, vt.margin.left, vt.margin.right, vt.cursor.Background)
 			if vt.margin.left == 0 && vt.margin.right >= column(vt.width()-1) {
 				vt.activeScreen.repairEmptySoftWrap(r)
 			}
 			continue
 		}
-		vt.activeScreen.eraseRow(r, vt.margin.left, vt.margin.right, vt.cursor.Style.Background)
-		vt.activeScreen.repairWideRangeBoundaries(r, vt.margin.left, vt.margin.right, vt.cursor.Style.Background)
+		vt.activeScreen.eraseRow(r, vt.margin.left, vt.margin.right, vt.cursor.Background)
+		vt.activeScreen.repairWideRangeBoundaries(r, vt.margin.left, vt.margin.right, vt.cursor.Background)
 		if vt.margin.left == 0 && vt.margin.right >= column(vt.width()-1) {
 			vt.activeScreen.repairEmptySoftWrap(r)
 		}
@@ -454,16 +454,16 @@ func (vt *Model) dch(ps int) {
 	}
 	vt.resetWrap()
 	row := vt.cursor.row
-	vt.eraseWideAt(row, vt.cursor.col, vt.cursor.Style.Background, false)
-	vt.eraseWideHeadAt(row, vt.margin.right, vt.cursor.Style.Background, false)
+	vt.eraseWideAt(row, vt.cursor.col, vt.cursor.Background, false)
+	vt.eraseWideHeadAt(row, vt.margin.right, vt.cursor.Background, false)
 	for col := vt.cursor.col; col <= vt.margin.right; col += 1 {
 		if col+column(ps) > vt.margin.right {
-			vt.activeScreen.eraseCell(row, col, vt.cursor.Style.Background)
+			vt.activeScreen.eraseCell(row, col, vt.cursor.Background)
 			continue
 		}
 		vt.activeScreen.setCell(row, col, *vt.activeScreen.cell(row, col+column(ps)))
 	}
-	vt.eraseWideOverflow(row, vt.cursor.col, vt.margin.right, vt.cursor.Style.Background)
+	vt.eraseWideOverflow(row, vt.cursor.col, vt.margin.right, vt.cursor.Background)
 }
 
 // Erase Characters (ECH) CSI Ps X
@@ -479,13 +479,13 @@ func (vt *Model) ech(ps int) {
 	}
 
 	protect := vt.mode.protected == protectedModeISO
-	vt.eraseWideAt(vt.cursor.row, vt.cursor.col, vt.cursor.Style.Background, protect)
-	vt.eraseWideAt(vt.cursor.row, vt.cursor.col+column(ps)-1, vt.cursor.Style.Background, protect)
+	vt.eraseWideAt(vt.cursor.row, vt.cursor.col, vt.cursor.Background, protect)
+	vt.eraseWideAt(vt.cursor.row, vt.cursor.col+column(ps)-1, vt.cursor.Background, protect)
 	for i := column(0); i < column(ps); i += 1 {
 		if vt.cursor.col+i == column(vt.width()) {
 			return
 		}
-		vt.activeScreen.eraseCellProtected(vt.cursor.row, vt.cursor.col+i, vt.cursor.Style.Background, protect)
+		vt.activeScreen.eraseCellProtected(vt.cursor.row, vt.cursor.col+i, vt.cursor.Background, protect)
 	}
 }
 
@@ -601,10 +601,10 @@ func (vt *Model) ctc(seq ansi.CSI, private bool) {
 		return
 	}
 
-	switch {
-	case seq.NumParameters == 0:
+	switch seq.NumParameters {
+	case 0:
 		vt.hts()
-	case seq.NumParameters == 1:
+	case 1:
 		switch ps(seq) {
 		case 0:
 			vt.hts()

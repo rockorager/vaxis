@@ -208,7 +208,7 @@ func TestEraseLineRightPreservesBackgroundSGR(t *testing.T) {
 	printText(vt, "ABC")
 	vt.update(testCSI('H', []uint32{1, 2}))
 	bg := vaxis.IndexColor(3)
-	vt.cursor.Style.Background = bg
+	vt.cursor.Background = bg
 
 	vt.el(0, false)
 
@@ -247,7 +247,7 @@ func TestEraseLineLeftPreservesBackgroundSGR(t *testing.T) {
 	printText(vt, "ABC")
 	vt.update(testCSI('H', []uint32{1, 2}))
 	bg := vaxis.IndexColor(4)
-	vt.cursor.Style.Background = bg
+	vt.cursor.Background = bg
 
 	vt.el(1, false)
 
@@ -267,7 +267,7 @@ func TestEraseLineCompletePreservesBackgroundSGR(t *testing.T) {
 	printText(vt, "ABC")
 	vt.update(testCSI('H', []uint32{1, 2}))
 	bg := vaxis.IndexColor(5)
-	vt.cursor.Style.Background = bg
+	vt.cursor.Background = bg
 
 	vt.el(2, false)
 

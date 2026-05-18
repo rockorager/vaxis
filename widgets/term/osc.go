@@ -464,7 +464,7 @@ func (vt *Model) clearPromptForRedraw() {
 		return
 	}
 
-	bg := vt.cursor.Style.Background
+	bg := vt.cursor.Background
 	right := column(vt.primaryScreen.width() - 1)
 	if vt.shellRedrawsPrompt == semanticPromptRedrawLast {
 		vt.primaryScreen.eraseRow(vt.cursor.row, 0, right, bg)

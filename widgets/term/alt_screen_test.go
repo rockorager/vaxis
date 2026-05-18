@@ -44,7 +44,7 @@ func TestMode47CopiesCursorStateBothDirections(t *testing.T) {
 	primaryFG := vaxis.RGBColor(0xff, 0, 0x7f)
 	altFG := vaxis.RGBColor(0, 0xff, 0)
 	vt.cursor.Foreground = primaryFG
-	vt.cursor.Style.Foreground = primaryFG
+	vt.cursor.Foreground = primaryFG
 	vt.cursor.row = 1
 	vt.cursor.col = 2
 
@@ -57,7 +57,7 @@ func TestMode47CopiesCursorStateBothDirections(t *testing.T) {
 	}
 
 	vt.cursor.Foreground = altFG
-	vt.cursor.Style.Foreground = altFG
+	vt.cursor.Foreground = altFG
 	vt.cursor.row = 0
 	vt.cursor.col = 4
 
@@ -91,7 +91,7 @@ func TestMode1047CopiesCursorStateBothDirections(t *testing.T) {
 	primaryFG := vaxis.RGBColor(0xff, 0, 0x7f)
 	altFG := vaxis.RGBColor(0, 0xff, 0)
 	vt.cursor.Foreground = primaryFG
-	vt.cursor.Style.Foreground = primaryFG
+	vt.cursor.Foreground = primaryFG
 	vt.cursor.row = 1
 	vt.cursor.col = 2
 
@@ -104,7 +104,7 @@ func TestMode1047CopiesCursorStateBothDirections(t *testing.T) {
 	}
 
 	vt.cursor.Foreground = altFG
-	vt.cursor.Style.Foreground = altFG
+	vt.cursor.Foreground = altFG
 	vt.cursor.row = 0
 	vt.cursor.col = 4
 

@@ -7,10 +7,3 @@ if [ -n "$one_line_funcs" ]; then
 	echo "$one_line_funcs"
 	exit 1
 fi
-
-files=$(gofumpt -l $(find . -name '*.go' -not -path './.git/*'))
-if [ -n "$files" ]; then
-	echo "Go files need formatting:"
-	echo "$files"
-	exit 1
-fi

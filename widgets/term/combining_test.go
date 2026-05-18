@@ -56,10 +56,10 @@ func TestZeroWidthPrintAttachesToWideCharacterHead(t *testing.T) {
 	vt.update(ansi.Print{Grapheme: "橋", Width: 2})
 	vt.update(ansi.Print{Grapheme: "\u0300", Width: 0})
 
-	if got, want := vt.activeScreen.cell(0, 0).Character.Grapheme, "橋̀"; got != want {
+	if got, want := vt.activeScreen.cell(0, 0).Grapheme, "橋̀"; got != want {
 		t.Fatalf("wide cell grapheme = %q, want %q", got, want)
 	}
-	if got, want := vt.activeScreen.cell(0, 0).Character.Width, 2; got != want {
+	if got, want := vt.activeScreen.cell(0, 0).Width, 2; got != want {
 		t.Fatalf("wide cell width = %d, want %d", got, want)
 	}
 }

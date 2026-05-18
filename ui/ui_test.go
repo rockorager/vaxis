@@ -21,7 +21,7 @@ func TestTextPaints(t *testing.T) {
 func TestCenterPaintsChildCentered(t *testing.T) {
 	app := uitest.New(ui.Center(ui.Text{Value: "hi"}))
 	app.Pump(6, 3)
-	if got := app.Cell(2, 1).Character.Grapheme; got != "h" {
+	if got := app.Cell(2, 1).Grapheme; got != "h" {
 		t.Fatalf("centered cell = %q, want h", got)
 	}
 }
@@ -48,7 +48,7 @@ func TestStatePreservedAcrossCompatibleUpdate(t *testing.T) {
 	app.Pump(ui.Size{Width: 1, Height: 1})
 	p := ui.NewPainter(ui.Size{Width: 1, Height: 1})
 	app.Paint(p)
-	if got := p.Cell(0, 0).Character.Grapheme; got != "1" {
+	if got := p.Cell(0, 0).Grapheme; got != "1" {
 		t.Fatalf("state text = %q, want preserved 1", got)
 	}
 }
@@ -73,7 +73,7 @@ func TestStateRecreatedWhenKeyChanges(t *testing.T) {
 	app.Pump(ui.Size{Width: 1, Height: 1})
 	p := ui.NewPainter(ui.Size{Width: 1, Height: 1})
 	app.Paint(p)
-	if got := p.Cell(0, 0).Character.Grapheme; got != "9" {
+	if got := p.Cell(0, 0).Grapheme; got != "9" {
 		t.Fatalf("state text = %q, want recreated 9", got)
 	}
 }
@@ -122,7 +122,7 @@ func TestProviderNotifiesDependents(t *testing.T) {
 	app.Pump(ui.Size{Width: 1, Height: 1})
 	p := ui.NewPainter(ui.Size{Width: 1, Height: 1})
 	app.Paint(p)
-	if got := p.Cell(0, 0).Character.Grapheme; got != "b" {
+	if got := p.Cell(0, 0).Grapheme; got != "b" {
 		t.Fatalf("provider text = %q, want b", got)
 	}
 }
@@ -142,7 +142,7 @@ func TestProviderShouldNotifyCanSuppressDependentRebuild(t *testing.T) {
 	}
 	p := ui.NewPainter(ui.Size{Width: 1, Height: 1})
 	app.Paint(p)
-	if got := p.Cell(0, 0).Character.Grapheme; got != "a" {
+	if got := p.Cell(0, 0).Grapheme; got != "a" {
 		t.Fatalf("provider text = %q, want stale a", got)
 	}
 }
@@ -150,7 +150,7 @@ func TestProviderShouldNotifyCanSuppressDependentRebuild(t *testing.T) {
 func TestPaddingOffsetsChild(t *testing.T) {
 	app := uitest.New(ui.Padding(ui.All(1), ui.Text{Value: "x"}))
 	app.Pump(3, 3)
-	if got := app.Cell(1, 1).Character.Grapheme; got != "x" {
+	if got := app.Cell(1, 1).Grapheme; got != "x" {
 		t.Fatalf("padded cell = %q, want x", got)
 	}
 }
@@ -182,7 +182,7 @@ func TestRowColumnAndExpandedPaintInExpectedPositions(t *testing.T) {
 			app := uitest.New(tt.root)
 			app.Pump(tt.w, tt.h)
 			for pt, want := range tt.checks {
-				if got := app.Cell(pt.X, pt.Y).Character.Grapheme; got != want {
+				if got := app.Cell(pt.X, pt.Y).Grapheme; got != want {
 					t.Fatalf("cell %v = %q, want %q", pt, got, want)
 				}
 			}
@@ -216,7 +216,7 @@ func TestDidUpdateWidgetCalledOnCompatibleUpdate(t *testing.T) {
 	app.Pump(ui.Size{Width: 1, Height: 1})
 	p := ui.NewPainter(ui.Size{Width: 1, Height: 1})
 	app.Paint(p)
-	if got := p.Cell(0, 0).Character.Grapheme; got != "1" {
+	if got := p.Cell(0, 0).Grapheme; got != "1" {
 		t.Fatalf("updates = %q, want 1", got)
 	}
 }
@@ -424,16 +424,16 @@ func TestButtonPaddingAndMinWidth(t *testing.T) {
 	app.Pump(ui.Size{Width: 10, Height: 3})
 	p := ui.NewPainter(ui.Size{Width: 10, Height: 3})
 	app.Paint(p)
-	if got := p.Cell(0, 0).Style.Background; got == 0 {
+	if got := p.Cell(0, 0).Background; got == 0 {
 		t.Fatal("button padding should paint styled surface")
 	}
-	if got := p.Cell(3, 1).Character.Grapheme; got != "[" {
+	if got := p.Cell(3, 1).Grapheme; got != "[" {
 		t.Fatalf("focused marker at padded center = %q, want [", got)
 	}
-	if got := p.Cell(4, 1).Character.Grapheme; got != "g" {
+	if got := p.Cell(4, 1).Grapheme; got != "g" {
 		t.Fatalf("label at padded center = %q, want g", got)
 	}
-	if got := p.Cell(9, 2).Style.Background; got == 0 {
+	if got := p.Cell(9, 2).Background; got == 0 {
 		t.Fatal("button min width and vertical padding should paint full surface")
 	}
 }
@@ -446,13 +446,13 @@ func TestButtonUsesThemePaddingAndMinWidth(t *testing.T) {
 	app.Pump(ui.Size{Width: 12, Height: 1})
 	p := ui.NewPainter(ui.Size{Width: 12, Height: 1})
 	app.Paint(p)
-	if got := p.Cell(4, 0).Character.Grapheme; got != "[" {
+	if got := p.Cell(4, 0).Grapheme; got != "[" {
 		t.Fatalf("theme-padded focused marker = %q, want [", got)
 	}
-	if got := p.Cell(5, 0).Character.Grapheme; got != "x" {
+	if got := p.Cell(5, 0).Grapheme; got != "x" {
 		t.Fatalf("theme-padded label = %q, want x", got)
 	}
-	if got := p.Cell(11, 0).Style.Background; got == 0 {
+	if got := p.Cell(11, 0).Background; got == 0 {
 		t.Fatal("theme min width should paint full surface")
 	}
 }
@@ -477,11 +477,11 @@ func TestTextFillsConstrainedBackground(t *testing.T) {
 	app.Pump(ui.Size{Width: 5, Height: 2})
 	p := ui.NewPainter(ui.Size{Width: 5, Height: 2})
 	app.Paint(p)
-	if got := p.Cell(0, 0).Character.Grapheme; got != "h" {
+	if got := p.Cell(0, 0).Grapheme; got != "h" {
 		t.Fatalf("text glyph = %q, want h", got)
 	}
 	for _, pt := range []ui.Point{{X: 2, Y: 0}, {X: 4, Y: 0}, {X: 0, Y: 1}, {X: 4, Y: 1}} {
-		if got := p.Cell(pt.X, pt.Y).Style.Background; got != style.Background {
+		if got := p.Cell(pt.X, pt.Y).Background; got != style.Background {
 			t.Fatalf("background at %v = %#v, want %#v", pt, got, style.Background)
 		}
 	}
@@ -500,7 +500,7 @@ func TestRichTextDoesNotInferConstrainedBackground(t *testing.T) {
 	p := ui.NewPainter(ui.Size{Width: 6, Height: 2})
 	app.Paint(p)
 	for _, pt := range []ui.Point{{X: 2, Y: 0}, {X: 5, Y: 0}, {X: 0, Y: 1}, {X: 5, Y: 1}} {
-		if got := p.Cell(pt.X, pt.Y).Style.Background; got != 0 {
+		if got := p.Cell(pt.X, pt.Y).Background; got != 0 {
 			t.Fatalf("rich text inferred background at %v = %#v, want default", pt, got)
 		}
 	}
@@ -515,13 +515,13 @@ func TestRichTextPaintsStyledSpans(t *testing.T) {
 	app.Pump(ui.Size{Width: 8, Height: 1})
 	p := ui.NewPainter(ui.Size{Width: 8, Height: 1})
 	app.Paint(p)
-	if got := p.Cell(0, 0).Character.Grapheme; got != "h" {
+	if got := p.Cell(0, 0).Grapheme; got != "h" {
 		t.Fatalf("first span = %q, want h", got)
 	}
-	if got := p.Cell(3, 0).Character.Grapheme; got != "t" {
+	if got := p.Cell(3, 0).Grapheme; got != "t" {
 		t.Fatalf("second span = %q, want t", got)
 	}
-	if got := p.Cell(3, 0).Style.Attribute; got != ui.AttrBold {
+	if got := p.Cell(3, 0).Attribute; got != ui.AttrBold {
 		t.Fatalf("second span attr = %#v, want bold", got)
 	}
 }
@@ -543,10 +543,10 @@ func TestTextSoftWrapsWords(t *testing.T) {
 	app.Pump(ui.Size{Width: 6, Height: 3})
 	p := ui.NewPainter(ui.Size{Width: 6, Height: 3})
 	app.Paint(p)
-	if got := p.Cell(0, 0).Character.Grapheme; got != "h" {
+	if got := p.Cell(0, 0).Grapheme; got != "h" {
 		t.Fatalf("first line = %q, want h", got)
 	}
-	if got := p.Cell(0, 1).Character.Grapheme; got != "w" {
+	if got := p.Cell(0, 1).Grapheme; got != "w" {
 		t.Fatalf("second line = %q, want w", got)
 	}
 }
@@ -556,10 +556,10 @@ func TestTextSoftWrapBreaksLongWords(t *testing.T) {
 	app.Pump(ui.Size{Width: 3, Height: 3})
 	p := ui.NewPainter(ui.Size{Width: 3, Height: 3})
 	app.Paint(p)
-	if got := p.Cell(2, 0).Character.Grapheme; got != "c" {
+	if got := p.Cell(2, 0).Grapheme; got != "c" {
 		t.Fatalf("first line end = %q, want c", got)
 	}
-	if got := p.Cell(0, 1).Character.Grapheme; got != "d" {
+	if got := p.Cell(0, 1).Grapheme; got != "d" {
 		t.Fatalf("second line start = %q, want d", got)
 	}
 }
@@ -569,10 +569,10 @@ func TestTextHardNewlineBreaksWhenSoftWrapFalse(t *testing.T) {
 	app.Pump(ui.Size{Width: 3, Height: 3})
 	p := ui.NewPainter(ui.Size{Width: 3, Height: 3})
 	app.Paint(p)
-	if got := p.Cell(0, 0).Character.Grapheme; got != "a" {
+	if got := p.Cell(0, 0).Grapheme; got != "a" {
 		t.Fatalf("first line = %q, want a", got)
 	}
-	if got := p.Cell(0, 1).Character.Grapheme; got != "b" {
+	if got := p.Cell(0, 1).Grapheme; got != "b" {
 		t.Fatalf("second line = %q, want b", got)
 	}
 }
@@ -582,7 +582,7 @@ func TestTextMaxLinesEllipsis(t *testing.T) {
 	app.Pump(ui.Size{Width: 4, Height: 1})
 	p := ui.NewPainter(ui.Size{Width: 4, Height: 1})
 	app.Paint(p)
-	if got := p.Cell(3, 0).Character.Grapheme; got != "…" {
+	if got := p.Cell(3, 0).Grapheme; got != "…" {
 		t.Fatalf("ellipsis = %q, want …", got)
 	}
 }
@@ -592,7 +592,7 @@ func TestTextAlignCenter(t *testing.T) {
 	app.Pump(ui.Size{Width: 5, Height: 1})
 	p := ui.NewPainter(ui.Size{Width: 5, Height: 1})
 	app.Paint(p)
-	if got := p.Cell(2, 0).Character.Grapheme; got != "x" {
+	if got := p.Cell(2, 0).Grapheme; got != "x" {
 		t.Fatalf("centered text = %q, want x", got)
 	}
 }
@@ -603,10 +603,10 @@ func TestRichTextWrapPreservesSpanStyle(t *testing.T) {
 	app.Pump(ui.Size{Width: 3, Height: 2})
 	p := ui.NewPainter(ui.Size{Width: 3, Height: 2})
 	app.Paint(p)
-	if got := p.Cell(0, 1).Character.Grapheme; got != "b" {
+	if got := p.Cell(0, 1).Grapheme; got != "b" {
 		t.Fatalf("wrapped rich text = %q, want b", got)
 	}
-	if got := p.Cell(0, 1).Style.Attribute; got != ui.AttrBold {
+	if got := p.Cell(0, 1).Attribute; got != ui.AttrBold {
 		t.Fatalf("wrapped rich text attr = %#v, want bold", got)
 	}
 }
@@ -617,16 +617,16 @@ func TestButtonUsesFocusedThemeStyle(t *testing.T) {
 	app.Pump(ui.Size{Width: 6, Height: 1})
 	p := ui.NewPainter(ui.Size{Width: 6, Height: 1})
 	app.Paint(p)
-	if got := p.Cell(1, 0).Character.Grapheme; got != "[" {
+	if got := p.Cell(1, 0).Grapheme; got != "[" {
 		t.Fatalf("focused left marker = %q, want [", got)
 	}
-	if got := p.Cell(2, 0).Character.Grapheme; got != "g" {
+	if got := p.Cell(2, 0).Grapheme; got != "g" {
 		t.Fatalf("centered label starts at cell 2 = %q, want g", got)
 	}
 	if got := p.Cell(2, 0).Style; got != focused {
 		t.Fatalf("label style = %#v, want focused %#v", got, focused)
 	}
-	if got := p.Cell(4, 0).Character.Grapheme; got != "]" {
+	if got := p.Cell(4, 0).Grapheme; got != "]" {
 		t.Fatalf("focused right marker = %q, want ]", got)
 	}
 }
@@ -642,10 +642,10 @@ func TestButtonStyleUpdatesOnFocusChange(t *testing.T) {
 	app.Pump(ui.Size{Width: 10, Height: 1})
 	p := ui.NewPainter(ui.Size{Width: 10, Height: 1})
 	app.Paint(p)
-	if got := p.Cell(0, 0).Character.Grapheme; got == "[" {
+	if got := p.Cell(0, 0).Grapheme; got == "[" {
 		t.Fatal("first button should no longer show focus marker")
 	}
-	if got := p.Cell(6, 0).Character.Grapheme; got != "[" {
+	if got := p.Cell(6, 0).Grapheme; got != "[" {
 		t.Fatalf("second button left marker = %q, want [", got)
 	}
 	if got := p.Cell(7, 0).Style; got != focused {
@@ -665,10 +665,10 @@ func TestDecoratedBoxPaintsFillBehindChild(t *testing.T) {
 	if got := p.Cell(0, 0).Style; got != style {
 		t.Fatalf("fill style = %#v, want %#v", got, style)
 	}
-	if got := p.Cell(1, 1).Character.Grapheme; got != "x" {
+	if got := p.Cell(1, 1).Grapheme; got != "x" {
 		t.Fatalf("child cell = %q, want x", got)
 	}
-	if got := p.Cell(1, 1).Style.Background; got != style.Background {
+	if got := p.Cell(1, 1).Background; got != style.Background {
 		t.Fatalf("child background = %#v, want inherited decoration background %#v", got, style.Background)
 	}
 }
@@ -679,10 +679,10 @@ func TestDecoratedBoxPaintsBorder(t *testing.T) {
 	app.Pump(ui.Size{Width: 3, Height: 3})
 	p := ui.NewPainter(ui.Size{Width: 3, Height: 3})
 	app.Paint(p)
-	if got := p.Cell(0, 0).Character.Grapheme; got != "┌" {
+	if got := p.Cell(0, 0).Grapheme; got != "┌" {
 		t.Fatalf("top-left border = %q, want ┌", got)
 	}
-	if got := p.Cell(2, 1).Character.Grapheme; got != "│" {
+	if got := p.Cell(2, 1).Grapheme; got != "│" {
 		t.Fatalf("right border = %q, want │", got)
 	}
 	if got := p.Cell(0, 0).Style; got != style {
@@ -704,13 +704,13 @@ func TestSizedBoxTightensChild(t *testing.T) {
 	app.Pump(ui.Size{Width: 10, Height: 3})
 	p := ui.NewPainter(ui.Size{Width: 10, Height: 3})
 	app.Paint(p)
-	if got := p.Cell(0, 0).Character.Grapheme; got != "a" {
+	if got := p.Cell(0, 0).Grapheme; got != "a" {
 		t.Fatalf("first cell = %q, want a", got)
 	}
-	if got := p.Cell(1, 0).Character.Grapheme; got != "b" {
+	if got := p.Cell(1, 0).Grapheme; got != "b" {
 		t.Fatalf("second cell = %q, want b", got)
 	}
-	if got := p.Cell(2, 0).Character.Grapheme; got != "" {
+	if got := p.Cell(2, 0).Grapheme; got != "" {
 		t.Fatalf("third cell = %q, want clipped empty cell", got)
 	}
 }
@@ -720,7 +720,7 @@ func TestAlignPositionsChild(t *testing.T) {
 	app.Pump(ui.Size{Width: 4, Height: 3})
 	p := ui.NewPainter(ui.Size{Width: 4, Height: 3})
 	app.Paint(p)
-	if got := p.Cell(3, 2).Character.Grapheme; got != "x" {
+	if got := p.Cell(3, 2).Grapheme; got != "x" {
 		t.Fatalf("bottom-right aligned cell = %q, want x", got)
 	}
 }

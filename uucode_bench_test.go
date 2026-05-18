@@ -7,6 +7,8 @@ import (
 	"github.com/rockorager/go-uucode"
 )
 
+var benchmarkUucodeResult []string
+
 func BenchmarkUucode(b *testing.B) {
 	const testString = "😀🔮🌏📝test string"
 
@@ -22,6 +24,7 @@ func BenchmarkUucode(b *testing.B) {
 				}
 				result = append(result, string(ch))
 			}
+			benchmarkUucodeResult = result
 		}
 	})
 
@@ -32,6 +35,7 @@ func BenchmarkUucode(b *testing.B) {
 			for cluster, ok := g.Next(); ok; cluster, ok = g.Next() {
 				result = append(result, testString[cluster.Start:cluster.End])
 			}
+			benchmarkUucodeResult = result
 		}
 	})
 }

@@ -6,13 +6,6 @@ import (
 	"github.com/rockorager/go-uucode"
 )
 
-const scrolloff = 4
-
-var truncator = vaxis.Character{
-	Grapheme: "…",
-	Width:    1,
-}
-
 type TextField struct {
 	Value    string
 	Style    vaxis.Style

@@ -498,11 +498,6 @@ func (s screenBuffer) resizeHeight(newHeight int, bg vaxis.Color) (screenBuffer,
 	}
 }
 
-func (s screenBuffer) resizeReflow(newWidth int, newHeight int, bg vaxis.Color) (screenBuffer, bool) {
-	next, _, _, ok := s.resizeReflowCursor(newWidth, newHeight, bg, 0, 0, false)
-	return next, ok
-}
-
 func (s screenBuffer) resizeNoReflow(newWidth int, newHeight int, bg vaxis.Color) (screenBuffer, bool) {
 	next, _, _, ok := s.resizeNoReflowCursor(newWidth, newHeight, bg, 0, 0, false)
 	return next, ok

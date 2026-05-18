@@ -13,10 +13,11 @@ func (vt *Model) handleMouse(msg vaxis.Mouse) string {
 		if vt.mode.altScroll && vt.mode.smcup {
 			// Translate wheel motion into arrows up and down
 			// 3x rows
-			if msg.Button == vaxis.MouseWheelUp {
+			switch msg.Button {
+			case vaxis.MouseWheelUp:
 				vt.clearSelectionLocked()
 				return "\x1bOA\x1bOA\x1bOA"
-			} else if msg.Button == vaxis.MouseWheelDown {
+			case vaxis.MouseWheelDown:
 				vt.clearSelectionLocked()
 				return "\x1bOB\x1bOB\x1bOB"
 			}

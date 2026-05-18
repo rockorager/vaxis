@@ -43,10 +43,10 @@ func TestREPUsesCurrentCursorStyle(t *testing.T) {
 	vt.update(testCSI('b', []uint32{1}))
 
 	cell := vt.activeScreen.cell(0, 1)
-	if got, want := cell.Character.Grapheme, "A"; got != want {
+	if got, want := cell.Grapheme, "A"; got != want {
 		t.Fatalf("repeated grapheme = %q, want %q", got, want)
 	}
-	if got, want := cell.Style.Foreground, vaxis.IndexColor(1); got != want {
+	if got, want := cell.Foreground, vaxis.IndexColor(1); got != want {
 		t.Fatalf("repeated foreground = %v, want %v", got, want)
 	}
 }
@@ -136,10 +136,10 @@ func TestREPRepeatsWideCharacter(t *testing.T) {
 	if got, want := vt.activeScreen.cell(0, 2).Character, (vaxis.Character{Grapheme: "界", Width: 2}); got != want {
 		t.Fatalf("repeated cell = %#v, want %#v", got, want)
 	}
-	if got := vt.activeScreen.cell(0, 1).Character.Width; got != 0 {
+	if got := vt.activeScreen.cell(0, 1).Width; got != 0 {
 		t.Fatalf("first wide tail width = %d, want 0", got)
 	}
-	if got := vt.activeScreen.cell(0, 3).Character.Width; got != 0 {
+	if got := vt.activeScreen.cell(0, 3).Width; got != 0 {
 		t.Fatalf("repeated wide tail width = %d, want 0", got)
 	}
 }

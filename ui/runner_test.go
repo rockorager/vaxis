@@ -61,7 +61,7 @@ func TestRunnerRendersInitialFrame(t *testing.T) {
 	if len(backend.frames) != 1 {
 		t.Fatalf("frames = %d, want 1", len(backend.frames))
 	}
-	if got := backend.frames[0].Cell(0, 0).Character.Grapheme; got != "h" {
+	if got := backend.frames[0].Cell(0, 0).Grapheme; got != "h" {
 		t.Fatalf("first cell = %q, want h", got)
 	}
 }
@@ -179,7 +179,7 @@ func TestRunnerResizeRelayoutsAtBackendSize(t *testing.T) {
 	if err := runner.HandleFrame(now); err != nil {
 		t.Fatal(err)
 	}
-	if got := backend.frames[0].Cell(2, 0).Character.Grapheme; got != "x" {
+	if got := backend.frames[0].Cell(2, 0).Grapheme; got != "x" {
 		t.Fatalf("initial centered cell = %q, want x", got)
 	}
 	backend.size = ui.Size{Width: 9, Height: 1}
@@ -187,7 +187,7 @@ func TestRunnerResizeRelayoutsAtBackendSize(t *testing.T) {
 	if err := runner.HandleFrame(now.Add(time.Second)); err != nil {
 		t.Fatal(err)
 	}
-	if got := backend.frames[1].Cell(4, 0).Character.Grapheme; got != "x" {
+	if got := backend.frames[1].Cell(4, 0).Grapheme; got != "x" {
 		t.Fatalf("resized centered cell = %q, want x", got)
 	}
 }

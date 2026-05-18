@@ -39,18 +39,12 @@ type mode struct {
 	reverseWrapExtended bool
 	// Autorepeat mode
 	decarm bool
-	// Printer form feed mode
-	decpff bool
-	// Printer extent mode
-	decpex bool
 	// Text Cursor Enable mode
 	dectcem bool
 	// Cursor blinking mode
 	cursorBlinking bool
 	// Allow column mode switching.
 	enableMode3 bool
-	// National replacement character sets
-	decnrcm bool
 	// Application keypad
 	deckpam bool
 	// Normal keypad

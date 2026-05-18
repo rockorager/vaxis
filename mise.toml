@@ -8,12 +8,16 @@ GOFLAGS = "-ldflags=-linkmode=external"
 
 [tasks.check]
 description = "Run formatting checks and tests"
-run = """
-scripts/check-go-style.sh
-golangci-lint run ./...
-go test ./...
-"""
+run = [
+  "scripts/check-multiline-functions.sh",
+  "scripts/gofumpt.sh",
+  "golangci-lint run ./...",
+  "go test ./...",
+]
 
 [tasks.fix]
-description = "Format Go files"
-run = "gofumpt -w $(find . -name '*.go' -not -path './.git/*')"
+description = "Apply automatic lint fixes and format Go files"
+run = [
+  "golangci-lint run --fix ./... || true",
+  "gofumpt -w $(find . -name '*.go' -not -path './.git/*')",
+]

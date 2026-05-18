@@ -68,7 +68,7 @@ func (a *App) Text() string {
 	}
 	var b strings.Builder
 	for _, cell := range a.painter.Cells() {
-		b.WriteString(cell.Character.Grapheme)
+		b.WriteString(cell.Grapheme)
 	}
 	return b.String()
 }

@@ -21,10 +21,10 @@ func TestFlexMainAxisAlignmentPositionsChildren(t *testing.T) {
 			app.Pump(Size{Width: 10, Height: 1})
 			p := NewPainter(Size{Width: 10, Height: 1})
 			app.Paint(p)
-			if got := p.Cell(tt.wantFirst, 0).Character.Grapheme; got != "a" {
+			if got := p.Cell(tt.wantFirst, 0).Grapheme; got != "a" {
 				t.Fatalf("first child at %d = %q, want a", tt.wantFirst, got)
 			}
-			if got := p.Cell(tt.wantLast, 0).Character.Grapheme; got != "b" {
+			if got := p.Cell(tt.wantLast, 0).Grapheme; got != "b" {
 				t.Fatalf("last child at %d = %q, want b", tt.wantLast, got)
 			}
 		})
@@ -47,7 +47,7 @@ func TestFlexCrossAxisAlignmentPositionsChildren(t *testing.T) {
 			app.Pump(Size{Width: 1, Height: 5})
 			p := NewPainter(Size{Width: 1, Height: 5})
 			app.Paint(p)
-			if got := p.Cell(0, tt.wantY).Character.Grapheme; got != "x" {
+			if got := p.Cell(0, tt.wantY).Grapheme; got != "x" {
 				t.Fatalf("child at y=%d = %q, want x", tt.wantY, got)
 			}
 		})
@@ -59,7 +59,7 @@ func TestFlexDefaultsMatchFlutter(t *testing.T) {
 	app.Pump(Size{Width: 1, Height: 5})
 	p := NewPainter(Size{Width: 1, Height: 5})
 	app.Paint(p)
-	if got := p.Cell(0, 2).Character.Grapheme; got != "x" {
+	if got := p.Cell(0, 2).Grapheme; got != "x" {
 		t.Fatalf("default row cross-axis position = %q at center, want x", got)
 	}
 	row := findRenderObject(app.build.Root()).(*RenderFlex)

@@ -110,7 +110,7 @@ func TestInsertBlanksPreservesBackgroundSGR(t *testing.T) {
 	printText(vt, "ABC")
 	vt.update(testCSI('H', []uint32{1, 1}))
 	bg := vaxis.IndexColor(2)
-	vt.cursor.Style.Background = bg
+	vt.cursor.Background = bg
 
 	vt.ich(2)
 
@@ -491,7 +491,7 @@ func TestDeleteCharsPreservesBackgroundSGR(t *testing.T) {
 	printText(vt, "ABC123")
 	vt.update(testCSI('H', []uint32{1, 3}))
 	bg := vaxis.IndexColor(4)
-	vt.cursor.Style.Background = bg
+	vt.cursor.Background = bg
 
 	vt.dch(2)
 
@@ -539,7 +539,7 @@ func TestEraseCharsPreservesBackgroundSGR(t *testing.T) {
 	printText(vt, "ABC")
 	vt.update(testCSI('H', []uint32{1, 1}))
 	bg := vaxis.IndexColor(6)
-	vt.cursor.Style.Background = bg
+	vt.cursor.Background = bg
 
 	vt.ech(2)
 

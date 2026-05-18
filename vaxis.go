@@ -444,8 +444,8 @@ func (vx *Vaxis) Close() {
 
 	defer close(vx.chQuit)
 
-	vx.Suspend()
-	vx.console.Close()
+	_ = vx.Suspend()
+	_ = vx.console.Close()
 
 	log.Info("Renders: %d", vx.renders)
 	if vx.renders != 0 {
@@ -1516,7 +1516,7 @@ func (vx *Vaxis) Suspend() error {
 
 	signal.Stop(vx.chSigKill)
 	signal.Stop(vx.chSigWinSz)
-	vx.console.Reset()
+	_ = vx.console.Reset()
 	return nil
 }
 

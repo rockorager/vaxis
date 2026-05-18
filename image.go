@@ -136,14 +136,14 @@ func (k *KittyImage) Draw(win Window) {
 	pid := uint(col)<<16 | uint(row)
 	writeFunc := func(w io.Writer) {
 		if !atomicLoad(&k.uploaded) {
-			w.Write(k.buf.Bytes())
+			_, _ = w.Write(k.buf.Bytes())
 			atomicStore(&k.uploaded, true)
 			k.buf.Reset()
 		}
-		fmt.Fprintf(w, "\x1B_Ga=p,i=%d,p=%d,C=1\x1B\\", k.id, pid)
+		_, _ = fmt.Fprintf(w, "\x1B_Ga=p,i=%d,p=%d,C=1\x1B\\", k.id, pid)
 	}
 	deleteFunc := func(w io.Writer) {
-		fmt.Fprintf(w, "\x1B_Ga=d,d=i,i=%d,p=%d\x1B\\", k.id, pid)
+		_, _ = fmt.Fprintf(w, "\x1B_Ga=d,d=i,i=%d,p=%d\x1B\\", k.id, pid)
 	}
 	placement := &placement{
 		col:      col,
@@ -210,7 +210,7 @@ func (k *KittyImage) Resize(w int, h int) {
 			log.Error("couldn't encode kitty image: %v", err)
 			return
 		}
-		wc.Close()
+		_ = wc.Close()
 		b := make([]byte, 4096)
 		atomicStore(&k.uploaded, false)
 		for buf.Len() > 0 {
@@ -275,13 +275,13 @@ func (s *Sixel) Draw(win Window) {
 				})
 			}
 		}
-		w.Write(s.buf.Bytes())
+		_, _ = w.Write(s.buf.Bytes())
 	}
 	col, row := win.Origin()
 	pw, ph := s.w, s.h
 	deleteFunc := func(w io.Writer) {
 		for y := 0; y < ph; y += 1 {
-			fmt.Fprintf(w, "\x1b[%d;%dH%*s", row+y+1, col+1, pw, "")
+			_, _ = fmt.Fprintf(w, "\x1b[%d;%dH%*s", row+y+1, col+1, pw, "")
 		}
 	}
 	log.Trace("placing sixel image at cell %d,%d", col, row)

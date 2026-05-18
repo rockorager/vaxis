@@ -36,7 +36,3 @@ func (c *cell) erase(bg vaxis.Color) {
 }
 
 // selectiveErase removes the cell content, but keeps the attributes
-func (c *cell) selectiveErase() {
-	c.Grapheme = " "
-	c.semanticContent = semanticOutput
-}

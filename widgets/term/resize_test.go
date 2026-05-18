@@ -111,7 +111,7 @@ func TestResizeSameWidthLessRowsWithEmptyTrailingScrollback(t *testing.T) {
 	vt := New()
 	vt.resize(5, 3)
 	writeViewportLines(vt, "1    ", "2    ", "3    ", "4    ", "5    ", "6    ", "7    ", "8    ")
-	vt.primaryScreen.scrollClear(vt.cursor.Style.Background)
+	vt.primaryScreen.scrollClear(vt.cursor.Background)
 	vt.cursor.row = 0
 	vt.cursor.col = 0
 	printText(vt, "A")
