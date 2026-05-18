@@ -1,5 +1,7 @@
 package ui
 
+import "time"
+
 type App struct {
 	build           *BuildOwner
 	rootRO          RenderObject
@@ -14,6 +16,7 @@ type App struct {
 	dispatch        func(func())
 	pendingFocus    []Element
 	hoverPath       []Element
+	animations      map[*AnimationController]struct{}
 }
 
 func NewApp(root Widget, opts ...Option) *App {
@@ -47,6 +50,30 @@ func (a *App) RequestFrame() {
 
 func (a *App) FrameRequested() bool {
 	return a.frameRequested
+}
+
+func (a *App) registerAnimation(controller *AnimationController) {
+	if a.animations == nil {
+		a.animations = make(map[*AnimationController]struct{})
+	}
+	a.animations[controller] = struct{}{}
+	a.RequestFrame()
+}
+
+func (a *App) unregisterAnimation(controller *AnimationController) {
+	delete(a.animations, controller)
+}
+
+func (a *App) tickAnimations(now time.Time) {
+	for controller := range a.animations {
+		if controller.tick(now) && controller.owner != nil && controller.owner.element != nil {
+			controller.owner.MarkNeedsBuild()
+		}
+	}
+}
+
+func (a *App) hasActiveAnimations() bool {
+	return len(a.animations) > 0
 }
 
 func (a *App) MouseShape() MouseShape {

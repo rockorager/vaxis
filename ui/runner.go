@@ -66,6 +66,7 @@ func (r *Runner) HandleEvent(ev Event, now time.Time) {
 }
 
 func (r *Runner) HandleFrame(now time.Time) error {
+	r.app.tickAnimations(now)
 	if !r.app.FrameRequested() {
 		r.scheduler.DidFrame(now)
 		return nil
@@ -79,7 +80,7 @@ func (r *Runner) HandleFrame(now time.Time) error {
 		return err
 	}
 	r.scheduler.DidFrame(now)
-	if r.app.FrameRequested() {
+	if r.app.FrameRequested() || r.app.hasActiveAnimations() {
 		r.scheduler.Request(now)
 	}
 	return nil

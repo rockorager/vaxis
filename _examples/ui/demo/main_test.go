@@ -26,7 +26,15 @@ func TestDemoExampleNavigationAndControls(t *testing.T) {
 	if !app.Contains("Controls") || !app.Contains("count: 0") {
 		t.Fatalf("controls page missing content: %q", app.Text())
 	}
+	app.Key("n")
+	app.Pump(90, 20)
+	if !app.Contains("Animation") || !app.Contains("status: running") {
+		t.Fatalf("animation page missing content: %q", app.Text())
+	}
+	app.Key("p")
+	app.Pump(90, 20)
 
+	app.Tab()
 	app.Tab()
 	app.Tab()
 	app.Tab()
@@ -65,6 +73,7 @@ func TestDemoExampleLeavesArrowsForTextField(t *testing.T) {
 	app.Key("n")
 	app.Pump(90, 20)
 
+	app.Tab()
 	app.Tab()
 	app.Tab()
 	app.Tab()

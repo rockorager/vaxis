@@ -2,7 +2,10 @@ package ui
 
 type State interface{ Build(BuildContext) Widget }
 
-type StateBase struct{ element *statefulElement }
+type StateBase struct {
+	element    *statefulElement
+	animations []*AnimationController
+}
 
 func (s *StateBase) SetState(fn func()) {
 	if fn == nil {
@@ -30,10 +33,36 @@ func (s *StateBase) Widget() Widget {
 	return s.element.widget
 }
 
+func (s *StateBase) NewAnimation(opts AnimationOptions) *AnimationController {
+	if s.element == nil || s.element.owner == nil {
+		panic("ui: NewAnimation called after Dispose")
+	}
+	curve := opts.Curve
+	if curve == nil {
+		curve = Linear
+	}
+	controller := &AnimationController{
+		owner:    s,
+		duration: opts.Duration,
+		curve:    curve,
+	}
+	s.animations = append(s.animations, controller)
+	return controller
+}
+
 type stateBaseSetter interface{ setElement(*statefulElement) }
 
 func (s *StateBase) setElement(e *statefulElement) {
 	s.element = e
+}
+
+type stateBaseAnimationDisposer interface{ disposeAnimations() }
+
+func (s *StateBase) disposeAnimations() {
+	for _, controller := range s.animations {
+		controller.dispose()
+	}
+	s.animations = nil
 }
 
 type (
@@ -96,6 +125,9 @@ func (e *statefulElement) MouseShape(ctx EventContext, mouse Mouse) MouseShape {
 func (e *statefulElement) dispose() {
 	if d, ok := e.state.(StateDisposer); ok {
 		d.Dispose()
+	}
+	if d, ok := e.state.(stateBaseAnimationDisposer); ok {
+		d.disposeAnimations()
 	}
 	if setter, ok := e.state.(stateBaseSetter); ok {
 		setter.setElement(nil)
