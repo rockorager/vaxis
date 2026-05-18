@@ -26,6 +26,7 @@ type DemoState struct {
 	count int
 	ticks int
 	name  string
+	notes string
 	anim  *ui.AnimationController
 	stop  chan struct{}
 }
@@ -167,6 +168,11 @@ func (s *DemoState) controlsPage() ui.Widget {
 		ui.Text{Value: "Name"},
 		ui.TextField{Value: s.name, Placeholder: "type here", OnChanged: func(ctx ui.EventContext, value string) {
 			s.SetState(func() { s.name = value })
+		}},
+		ui.SizedBox{Height: 1},
+		ui.Text{Value: "Notes"},
+		ui.TextArea{Value: s.notes, Placeholder: "write a note", MinHeight: 3, SoftWrap: true, OnChanged: func(ctx ui.EventContext, value string) {
+			s.SetState(func() { s.notes = value })
 		}},
 		ui.SizedBox{Height: 1},
 		ui.Flex{Axis: ui.Horizontal, CrossAxisAlignment: ui.CrossAxisCenter, ChildrenWidget: []ui.Widget{

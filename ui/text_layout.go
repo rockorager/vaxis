@@ -63,6 +63,7 @@ func LayoutText(spans []TextSpan, c Constraints, opts TextLayoutOptions) TextLay
 	line := newLine(pos)
 	word := []textAtom{}
 	wordWidth := 0
+	endedWithNewline := false
 	flushLine := func(nextStart TextPosition) {
 		appendWord(&line, word)
 		word = nil
@@ -90,8 +91,10 @@ func LayoutText(spans []TextSpan, c Constraints, opts TextLayoutOptions) TextLay
 			pos = end
 			if ch.Grapheme == "\n" {
 				flushLine(pos)
+				endedWithNewline = true
 				continue
 			}
+			endedWithNewline = false
 			atom := textAtom{char: ch, style: span.Style, position: start, end: end}
 			if !opts.SoftWrap || maxWidth == Unbounded {
 				appendAtom(&line, atom)
@@ -123,7 +126,7 @@ func LayoutText(spans []TextSpan, c Constraints, opts TextLayoutOptions) TextLay
 		}
 	}
 	appendWord(&line, word)
-	if len(lines) == 0 || line.Width > 0 || len(line.Runs) > 0 {
+	if len(lines) == 0 || line.Width > 0 || len(line.Runs) > 0 || endedWithNewline {
 		lines = append(lines, line)
 	}
 	if opts.MaxLines > 0 && len(lines) > opts.MaxLines {

@@ -39,6 +39,7 @@ func TestDemoExampleNavigationAndControls(t *testing.T) {
 	app.Tab()
 	app.Tab()
 	app.Tab()
+	app.Tab()
 	app.Enter()
 	app.Pump(90, 20)
 	if !app.Contains("count: -1") {
@@ -89,6 +90,28 @@ func TestDemoExampleLeavesArrowsForTextField(t *testing.T) {
 	}
 	if !app.Contains("Controls") {
 		t.Fatalf("left arrow should not navigate pages: %q", app.Text())
+	}
+}
+
+func TestDemoExampleTextAreaAcceptsMultilineInput(t *testing.T) {
+	app := uitest.New(Demo{})
+	app.Pump(90, 20)
+	app.Key("n")
+	app.Pump(90, 20)
+	app.Key("n")
+	app.Pump(90, 20)
+
+	app.Tab()
+	app.Tab()
+	app.Tab()
+	app.Tab()
+	app.Tab()
+	app.Key("alpha")
+	app.Enter()
+	app.Key("beta")
+	app.Pump(90, 20)
+	if !app.Contains("alpha") || !app.Contains("beta") {
+		t.Fatalf("expected textarea to show multiline input: %q", app.Text())
 	}
 }
 

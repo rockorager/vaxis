@@ -28,6 +28,12 @@ func TestTextAreaEditsControlledMultilineValue(t *testing.T) {
 	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
 	app.UpdateRoot(h)
 	app.Pump(ui.Size{Width: 12, Height: 4})
+	p := ui.NewPainter(ui.Size{Width: 12, Height: 4})
+	app.Paint(p)
+	if cursor, ok := p.Cursor(); !ok || cursor.Col != 1 || cursor.Row != 1 {
+		t.Fatalf("cursor after enter = %#v ok=%v, want 1,1", cursor, ok)
+	}
+
 	app.Send(vaxis.Key{Text: "b", Keycode: 'b'})
 	app.UpdateRoot(h)
 	app.Pump(ui.Size{Width: 12, Height: 4})
@@ -35,7 +41,7 @@ func TestTextAreaEditsControlledMultilineValue(t *testing.T) {
 	if h.value != "a\nb" {
 		t.Fatalf("value = %q, want a\\nb", h.value)
 	}
-	p := ui.NewPainter(ui.Size{Width: 12, Height: 4})
+	p = ui.NewPainter(ui.Size{Width: 12, Height: 4})
 	app.Paint(p)
 	if got := p.Cell(1, 0).Grapheme; got != "a" {
 		t.Fatalf("first line = %q, want a", got)
@@ -82,6 +88,33 @@ func TestTextAreaMovesVisuallyThroughWrappedLines(t *testing.T) {
 	}
 	if cursor, ok := p.Cursor(); !ok || cursor.Col != 2 || cursor.Row != 1 {
 		t.Fatalf("cursor = %#v ok=%v, want 2,1", cursor, ok)
+	}
+}
+
+func TestTextAreaKeepsCursorVisibleAtSoftWrapBoundary(t *testing.T) {
+	tests := []struct {
+		name string
+		text string
+	}{
+		{name: "printable", text: "abc"},
+		{name: "space", text: "ab "},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := &textAreaHarness{}
+			app := ui.NewApp(h)
+			app.Pump(ui.Size{Width: 5, Height: 4})
+
+			app.Send(vaxis.Key{Text: tt.text, Keycode: []rune(tt.text)[0]})
+			app.UpdateRoot(h)
+			app.Pump(ui.Size{Width: 5, Height: 4})
+
+			p := ui.NewPainter(ui.Size{Width: 5, Height: 4})
+			app.Paint(p)
+			if cursor, ok := p.Cursor(); !ok || cursor.Col != 1 || cursor.Row != 1 {
+				t.Fatalf("cursor after %q = %#v ok=%v, want 1,1", tt.text, cursor, ok)
+			}
+		})
 	}
 }
 
