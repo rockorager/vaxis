@@ -101,8 +101,76 @@ func TestTextFieldKeepsEndCursorVisiblePastMinimumWidth(t *testing.T) {
 	app.Pump(ui.Size{Width: 20, Height: 1})
 	p := ui.NewPainter(ui.Size{Width: 20, Height: 1})
 	app.Paint(p)
-	if got := p.Cell(10, 0).Style; got != theme.TextField.Cursor {
+	if got := p.Cell(1, 0).Style; got != theme.TextField.Cursor {
 		t.Fatalf("end cursor style = %#v, want cursor %#v", got, theme.TextField.Cursor)
+	}
+}
+
+func TestTextFieldScrollsHorizontallyToKeepCursorVisible(t *testing.T) {
+	h := &textFieldHarness{value: "abcdef"}
+	theme := ui.DefaultTheme()
+	theme.TextField.MinWidth = 5
+	app := ui.NewApp(h, ui.WithTheme(theme))
+	app.Pump(ui.Size{Width: 10, Height: 1})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnd})
+	app.Pump(ui.Size{Width: 10, Height: 1})
+	p := ui.NewPainter(ui.Size{Width: 10, Height: 1})
+	app.Paint(p)
+	if got := p.Cell(1, 0).Character.Grapheme; got != "…" {
+		t.Fatalf("scrolled leading overflow = %q, want ellipsis", got)
+	}
+	if got := p.Cell(2, 0).Character.Grapheme; got != "f" {
+		t.Fatalf("scrolled visible text = %q, want f", got)
+	}
+	if got := p.Cell(3, 0).Style; got != theme.TextField.Cursor {
+		t.Fatalf("scrolled cursor style = %#v, want cursor %#v", got, theme.TextField.Cursor)
+	}
+	app.Send(vaxis.Key{Keycode: vaxis.KeyLeft})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyLeft})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyLeft})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyLeft})
+	app.Pump(ui.Size{Width: 10, Height: 1})
+	p = ui.NewPainter(ui.Size{Width: 10, Height: 1})
+	app.Paint(p)
+	if got := p.Cell(1, 0).Character.Grapheme; got != "…" {
+		t.Fatalf("left-scrolled leading overflow = %q, want ellipsis", got)
+	}
+	if got := p.Cell(2, 0).Character.Grapheme; got != "c" {
+		t.Fatalf("left-scrolled cursor text = %q, want c", got)
+	}
+	if got := p.Cell(2, 0).Style; got != theme.TextField.Cursor {
+		t.Fatalf("left-scrolled cursor style = %#v, want cursor %#v", got, theme.TextField.Cursor)
+	}
+	if got := p.Cell(3, 0).Character.Grapheme; got != "…" {
+		t.Fatalf("left-scrolled trailing overflow = %q, want ellipsis", got)
+	}
+}
+
+func TestTextFieldTrailingEllipsisStaysPinnedWhileCursorMoves(t *testing.T) {
+	h := &textFieldHarness{value: "abcdef"}
+	theme := ui.DefaultTheme()
+	theme.TextField.MinWidth = 7
+	app := ui.NewApp(h, ui.WithTheme(theme))
+	app.Pump(ui.Size{Width: 10, Height: 1})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnd})
+	for i := 0; i < 5; i++ {
+		app.Send(vaxis.Key{Keycode: vaxis.KeyLeft})
+	}
+	app.Pump(ui.Size{Width: 10, Height: 1})
+	p := ui.NewPainter(ui.Size{Width: 10, Height: 1})
+	app.Paint(p)
+	if got := p.Cell(5, 0).Character.Grapheme; got != "…" {
+		t.Fatalf("trailing ellipsis before cursor move = %q, want ellipsis", got)
+	}
+
+	for i := 0; i < 3; i++ {
+		app.Send(vaxis.Key{Keycode: vaxis.KeyRight})
+		app.Pump(ui.Size{Width: 10, Height: 1})
+		p = ui.NewPainter(ui.Size{Width: 10, Height: 1})
+		app.Paint(p)
+		if got := p.Cell(5, 0).Character.Grapheme; got != "…" {
+			t.Fatalf("trailing ellipsis after cursor move %d = %q, want ellipsis pinned", i+1, got)
+		}
 	}
 }
 
@@ -158,5 +226,54 @@ func TestTextFieldCursorAdvancesWithControlledSetState(t *testing.T) {
 	}
 	if got := p.Cell(3, 0).Style; got != theme.TextField.Cursor {
 		t.Fatalf("after second key cursor style = %#v at x=3, want %#v", got, theme.TextField.Cursor)
+	}
+}
+
+func TestTextFieldRepeatedBackspaceBeforePumpUsesLatestEditState(t *testing.T) {
+	h := &textFieldHarness{value: "abcdef"}
+	app := ui.NewApp(h)
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnd})
+	for i := 0; i < 6; i++ {
+		app.Send(vaxis.Key{Keycode: vaxis.KeyBackspace})
+	}
+	app.UpdateRoot(h)
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	if h.value != "" {
+		t.Fatalf("value after repeated backspace = %q, want empty", h.value)
+	}
+	app.Send(vaxis.Key{Text: "x", Keycode: 'x'})
+	app.UpdateRoot(h)
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	if h.value != "x" {
+		t.Fatalf("value after typing at cleared field = %q, want x", h.value)
+	}
+}
+
+func TestTextFieldSubmitsCurrentValue(t *testing.T) {
+	h := &textFieldHarness{value: "hello"}
+	submitted := ""
+	app := ui.NewApp(ui.TextField{Value: h.value, OnSubmitted: func(ctx ui.EventContext, value string) { submitted = value }})
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
+	if submitted != "hello" {
+		t.Fatalf("submitted = %q, want hello", submitted)
+	}
+}
+
+func TestTextFieldObscuresDisplayedValue(t *testing.T) {
+	app := ui.NewApp(ui.TextField{Value: "secret", ObscureText: true})
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnd})
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	p := ui.NewPainter(ui.Size{Width: 20, Height: 1})
+	app.Paint(p)
+	for i := 1; i <= 6; i++ {
+		if got := p.Cell(i, 0).Character.Grapheme; got != "•" {
+			t.Fatalf("obscured cell %d = %q, want bullet", i, got)
+		}
+	}
+	if got := p.Cell(7, 0).Style; got != ui.DefaultTheme().TextField.Cursor {
+		t.Fatalf("cursor after obscured text = %#v, want cursor", got)
 	}
 }

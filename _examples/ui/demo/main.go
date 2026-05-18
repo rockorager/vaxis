@@ -55,9 +55,7 @@ func (s *DemoState) Build(ctx ui.BuildContext) ui.Widget {
 			"q":      func(ctx ui.EventContext) { ctx.Quit() },
 			"Ctrl+c": func(ctx ui.EventContext) { ctx.Quit() },
 			"n":      func(ctx ui.EventContext) { s.nextPage() },
-			"Right":  func(ctx ui.EventContext) { s.nextPage() },
 			"p":      func(ctx ui.EventContext) { s.previousPage() },
-			"Left":   func(ctx ui.EventContext) { s.previousPage() },
 		},
 		Child: ui.Padding(ui.All(1),
 			ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStretch, ChildrenWidget: []ui.Widget{
@@ -75,7 +73,7 @@ func (s *DemoState) header() ui.Widget {
 	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStretch, ChildrenWidget: []ui.Widget{
 		ui.RichText{Spans: []ui.TextSpan{
 			{Text: "Vaxis UI demo", Style: ui.Style{Attribute: ui.AttrBold}},
-			{Text: "  —  n/p or ←/→ to switch pages, Tab to move focus, q to quit"},
+			{Text: "  —  n/p to switch pages, Tab to move focus, q to quit"},
 		}},
 		ui.Flex{Axis: ui.Horizontal, MainAxisAlignment: ui.MainAxisCenter, CrossAxisAlignment: ui.CrossAxisCenter, ChildrenWidget: []ui.Widget{
 			s.navButton(0, "Home"),

@@ -3,6 +3,8 @@ package main
 import (
 	"testing"
 
+	"git.sr.ht/~rockorager/vaxis"
+	"git.sr.ht/~rockorager/vaxis/ui"
 	"git.sr.ht/~rockorager/vaxis/ui/uitest"
 )
 
@@ -54,6 +56,34 @@ func TestDemoExampleCanNavigateAwayFromFocusedButton(t *testing.T) {
 		t.Fatalf("expected to navigate away from focused controls button: %q", app.Text())
 	}
 }
+
+func TestDemoExampleLeavesArrowsForTextField(t *testing.T) {
+	app := uitest.New(Demo{})
+	app.Pump(90, 20)
+	app.Key("n")
+	app.Pump(90, 20)
+	app.Key("n")
+	app.Pump(90, 20)
+
+	app.Tab()
+	app.Tab()
+	app.Tab()
+	app.Key("a")
+	app.Pump(90, 20)
+	app.Key("b")
+	app.Pump(90, 20)
+	app.Send(uitestKeyLeft())
+	app.Key("x")
+	app.Pump(90, 20)
+	if !app.Contains("axb") {
+		t.Fatalf("expected left arrow to move text field cursor, got %q", app.Text())
+	}
+	if !app.Contains("Controls") {
+		t.Fatalf("left arrow should not navigate pages: %q", app.Text())
+	}
+}
+
+func uitestKeyLeft() ui.Event { return vaxis.Key{Keycode: vaxis.KeyLeft} }
 
 func TestDemoExampleQuitShortcut(t *testing.T) {
 	app := uitest.New(Demo{})
