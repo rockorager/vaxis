@@ -27,13 +27,25 @@ type RenderPadding struct {
 }
 
 func (r *RenderPadding) Layout(ctx LayoutContext, c Constraints) {
-	child := r.Child()
-	if child == nil {
-		r.SetSize(c.Constrain(Size{}))
-		return
+	r.SetSize(r.layout(ctx, c, false))
+}
+
+func (r *RenderPadding) DryLayout(ctx LayoutContext, c Constraints) Size {
+	return r.layout(ctx, c, true)
+}
+
+func (r *RenderPadding) layout(ctx LayoutContext, c Constraints, dry bool) Size {
+	childSize := Size{}
+	if child := r.Child(); child != nil {
+		childConstraints := c.Deflate(r.Insets)
+		if dry {
+			childSize = DryLayout(ctx, child, childConstraints)
+		} else {
+			child.Layout(ctx, childConstraints)
+			childSize = child.Base().Size()
+		}
 	}
-	child.Layout(ctx, c.Deflate(r.Insets))
-	r.SetSize(c.Constrain(child.Base().Size().Inflate(r.Insets)))
+	return c.Constrain(childSize.Inflate(r.Insets))
 }
 
 func (r *RenderPadding) Paint(p *Painter, off Offset) {

@@ -60,6 +60,10 @@ func (r *RenderText) Layout(ctx LayoutContext, c Constraints) {
 	r.SetSize(r.layout.Size)
 }
 
+func (r *RenderText) DryLayout(ctx LayoutContext, c Constraints) Size {
+	return LayoutText([]TextSpan{{Text: r.Text, Style: r.Style}}, c, r.Options).Size
+}
+
 func (r *RenderText) Paint(p *Painter, off Offset) {
 	if r.Options.Overflow != TextOverflowVisible {
 		p.PushClip(Rect{X: off.X, Y: off.Y, Width: r.Size().Width, Height: r.Size().Height})

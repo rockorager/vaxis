@@ -34,6 +34,10 @@ func (r *RenderSizedBox) Layout(ctx LayoutContext, c Constraints) {
 	r.SetSize(size)
 }
 
+func (r *RenderSizedBox) DryLayout(_ LayoutContext, c Constraints) Size {
+	return c.Constrain(Size{Width: r.Width, Height: r.Height})
+}
+
 func (r *RenderSizedBox) Paint(p *Painter, off Offset) {
 	if child := r.Child(); child != nil {
 		p.PushClip(Rect{X: off.X, Y: off.Y, Width: r.Size().Width, Height: r.Size().Height})

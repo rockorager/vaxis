@@ -95,7 +95,32 @@ type RenderFlex struct {
 }
 
 func (r *RenderFlex) Layout(ctx LayoutContext, c Constraints) {
+	size, childSizes := r.layoutSizes(ctx, c, false)
+	freeSpace := max(0, mainSize(r.Axis, size)-mainUsedSize(r.Axis, childSizes))
+	leading, between := mainAxisGaps(r.MainAxisAlignment, freeSpace, len(childSizes))
+	pos := leading
+	for i, child := range r.Children() {
+		pd, _ := child.Base().ParentData().(FlexParentData)
+		crossOffset := crossAxisOffset(r.CrossAxisAlignment, crossSize(r.Axis, size), crossSize(r.Axis, childSizes[i]))
+		if r.Axis == Horizontal {
+			pd.Offset = Offset{X: pos, Y: crossOffset}
+		} else {
+			pd.Offset = Offset{X: crossOffset, Y: pos}
+		}
+		child.Base().SetParentData(pd)
+		pos += mainSize(r.Axis, childSizes[i]) + between
+	}
+	r.SetSize(size)
+}
+
+func (r *RenderFlex) DryLayout(ctx LayoutContext, c Constraints) Size {
+	size, _ := r.layoutSizes(ctx, c, true)
+	return size
+}
+
+func (r *RenderFlex) layoutSizes(ctx LayoutContext, c Constraints, dry bool) (Size, []Size) {
 	children := r.Children()
+	childSizes := make([]Size, len(children))
 	mainUsed, cross := 0, 0
 	flexTotal := 0
 	for _, child := range children {
@@ -103,13 +128,13 @@ func (r *RenderFlex) Layout(ctx LayoutContext, c Constraints) {
 			flexTotal += pd.Flex
 		}
 	}
-	for _, child := range children {
+	for i, child := range children {
 		pd, _ := child.Base().ParentData().(FlexParentData)
 		if pd.Flex > 0 {
 			continue
 		}
-		child.Layout(ctx, r.childConstraints(c, 0, FlexFitLoose))
-		s := child.Base().Size()
+		s := r.layoutChild(ctx, child, r.childConstraints(c, 0, FlexFitLoose), dry)
+		childSizes[i] = s
 		mainUsed += mainSize(r.Axis, s)
 		cross = max(cross, crossSize(r.Axis, s))
 	}
@@ -119,7 +144,7 @@ func (r *RenderFlex) Layout(ctx LayoutContext, c Constraints) {
 	}
 	remainingFlex := flexTotal
 	remainingSpace := remaining
-	for _, child := range children {
+	for i, child := range children {
 		pd, _ := child.Base().ParentData().(FlexParentData)
 		if pd.Flex <= 0 {
 			continue
@@ -130,27 +155,28 @@ func (r *RenderFlex) Layout(ctx LayoutContext, c Constraints) {
 		}
 		remainingFlex -= pd.Flex
 		remainingSpace -= share
-		child.Layout(ctx, r.childConstraints(c, share, pd.Fit))
-		s := child.Base().Size()
+		s := r.layoutChild(ctx, child, r.childConstraints(c, share, pd.Fit), dry)
+		childSizes[i] = s
 		mainUsed += mainSize(r.Axis, s)
 		cross = max(cross, crossSize(r.Axis, s))
 	}
-	size := r.flexSize(c, mainUsed, cross)
-	freeSpace := max(0, mainSize(r.Axis, size)-mainUsed)
-	leading, between := mainAxisGaps(r.MainAxisAlignment, freeSpace, len(children))
-	pos := leading
-	for _, child := range children {
-		pd, _ := child.Base().ParentData().(FlexParentData)
-		crossOffset := crossAxisOffset(r.CrossAxisAlignment, crossSize(r.Axis, size), crossSize(r.Axis, child.Base().Size()))
-		if r.Axis == Horizontal {
-			pd.Offset = Offset{X: pos, Y: crossOffset}
-		} else {
-			pd.Offset = Offset{X: crossOffset, Y: pos}
-		}
-		child.Base().SetParentData(pd)
-		pos += mainSize(r.Axis, child.Base().Size()) + between
+	return r.flexSize(c, mainUsed, cross), childSizes
+}
+
+func (r *RenderFlex) layoutChild(ctx LayoutContext, child RenderObject, c Constraints, dry bool) Size {
+	if dry {
+		return DryLayout(ctx, child, c)
 	}
-	r.SetSize(size)
+	child.Layout(ctx, c)
+	return child.Base().Size()
+}
+
+func mainUsedSize(axis Axis, sizes []Size) int {
+	used := 0
+	for _, size := range sizes {
+		used += mainSize(axis, size)
+	}
+	return used
 }
 
 func (r *RenderFlex) childConstraints(c Constraints, flexMain int, fit FlexFit) Constraints {

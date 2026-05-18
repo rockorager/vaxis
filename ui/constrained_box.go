@@ -27,14 +27,24 @@ type RenderConstrainedBox struct {
 }
 
 func (r *RenderConstrainedBox) Layout(ctx LayoutContext, c Constraints) {
+	r.SetSize(r.layout(ctx, c, false))
+}
+
+func (r *RenderConstrainedBox) DryLayout(ctx LayoutContext, c Constraints) Size {
+	return r.layout(ctx, c, true)
+}
+
+func (r *RenderConstrainedBox) layout(ctx LayoutContext, c Constraints, dry bool) Size {
 	constraints := normalizeAdditionalConstraints(r.AdditionalConstraints).Enforce(c)
 	child := r.Child()
 	if child == nil {
-		r.SetSize(constraints.Constrain(Size{}))
-		return
+		return constraints.Constrain(Size{})
+	}
+	if dry {
+		return c.Constrain(DryLayout(ctx, child, constraints))
 	}
 	child.Layout(ctx, constraints)
-	r.SetSize(c.Constrain(child.Base().Size()))
+	return c.Constrain(child.Base().Size())
 }
 
 func (r *RenderConstrainedBox) Paint(p *Painter, off Offset) {

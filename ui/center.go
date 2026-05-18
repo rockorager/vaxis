@@ -33,6 +33,10 @@ func (r *RenderCenter) Layout(ctx LayoutContext, c Constraints) {
 	r.SetSize(size)
 }
 
+func (r *RenderCenter) DryLayout(_ LayoutContext, c Constraints) Size {
+	return c.Constrain(Size{Width: maxFinite(c.MaxWidth), Height: maxFinite(c.MaxHeight)})
+}
+
 func (r *RenderCenter) Paint(p *Painter, off Offset) {
 	if child := r.Child(); child != nil {
 		child.Paint(p, off.Add(r.offset))

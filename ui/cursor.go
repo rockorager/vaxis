@@ -34,13 +34,22 @@ type RenderCursor struct {
 }
 
 func (r *RenderCursor) Layout(ctx LayoutContext, c Constraints) {
-	child := r.Child()
-	if child == nil {
-		r.SetSize(c.Constrain(Size{}))
-		return
+	r.SetSize(r.layout(ctx, c, false))
+}
+
+func (r *RenderCursor) DryLayout(ctx LayoutContext, c Constraints) Size {
+	return r.layout(ctx, c, true)
+}
+
+func (r *RenderCursor) layout(ctx LayoutContext, c Constraints, dry bool) Size {
+	if child := r.Child(); child != nil {
+		if dry {
+			return c.Constrain(DryLayout(ctx, child, c))
+		}
+		child.Layout(ctx, c)
+		return c.Constrain(child.Base().Size())
 	}
-	child.Layout(ctx, c)
-	r.SetSize(c.Constrain(child.Base().Size()))
+	return c.Constrain(Size{})
 }
 
 func (r *RenderCursor) Paint(p *Painter, off Offset) {

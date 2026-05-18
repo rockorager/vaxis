@@ -23,6 +23,20 @@ type RenderObject interface {
 	VisitChildren(func(RenderObject))
 }
 
+type DryLayouter interface {
+	DryLayout(LayoutContext, Constraints) Size
+}
+
+func DryLayout(ctx LayoutContext, ro RenderObject, c Constraints) Size {
+	if ro == nil {
+		return c.Constrain(Size{})
+	}
+	if d, ok := ro.(DryLayouter); ok {
+		return c.Constrain(d.DryLayout(ctx, c))
+	}
+	return c.Constrain(ro.Base().Size())
+}
+
 type RenderObjectBase struct {
 	size             Size
 	parentData       any
