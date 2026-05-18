@@ -479,7 +479,7 @@ func (vx *Vaxis) render() {
 	vx.mu.Lock()
 	defer vx.mu.Unlock()
 	var (
-		reposition = true
+		reposition bool
 		cursor     Style
 	)
 outerLast:
