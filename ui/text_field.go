@@ -172,7 +172,7 @@ func textFieldSpans(chars []Character, selection TextSelection, cursor, scroll, 
 	for i, ch := range chars[scroll:min(len(chars), scroll+max(0, right-left))] {
 		cellStyle := style
 		pos := TextPosition{ByteOffset: textFieldByteOffset(chars, scroll+i)}
-		if textCellSelected(TextCell{Text: ch.Grapheme, Position: pos}, selection) {
+		if selection.IntersectsCell(TextCell{Text: ch.Grapheme, Position: pos}) {
 			cellStyle = selectionStyle
 		}
 		cells[left+i] = TextSpan{Text: ch.Grapheme, Style: cellStyle}

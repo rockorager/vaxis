@@ -31,6 +31,10 @@ type TextCell struct {
 	Synthetic bool
 }
 
+func (c TextCell) End() TextPosition {
+	return advanceTextPosition(c.Position, c.Text)
+}
+
 type TextPosition struct {
 	Span           int
 	ByteOffset     int

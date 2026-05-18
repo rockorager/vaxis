@@ -257,13 +257,13 @@ func (r *renderTextArea) Paint(p *Painter, off Offset) {
 		x := line.Offset - r.scrollCol()
 		for _, cell := range line.Cells {
 			style := cell.Style
-			if r.Focused && textCellSelected(cell, r.Selection) {
+			if r.Focused && r.Selection.IntersectsCell(cell) {
 				style = mergeStyle(style, r.SelectionStyle)
 			}
 			p.DrawText(Offset{X: off.X + x, Y: y}, cell.Text, style)
 			x += cell.Width
 		}
-		if r.Focused && len(line.Cells) == 0 && textLineBreakSelected(line, r.Selection) {
+		if r.Focused && len(line.Cells) == 0 && r.Selection.ContainsLineBreak(line) {
 			p.DrawCell(Point{X: off.X + x, Y: y}, Cell{Character: Character{Grapheme: " ", Width: 1}, Style: r.SelectionStyle})
 		}
 	}
@@ -278,23 +278,6 @@ func (r *renderTextArea) Paint(p *Painter, off Offset) {
 
 func (r *renderTextArea) HitTest(*HitTestResult, Point) bool {
 	return true
-}
-
-func textCellSelected(cell TextCell, selection TextSelection) bool {
-	if selection.IsCollapsed() {
-		return false
-	}
-	selection = selection.Normalized()
-	end := advanceTextPosition(cell.Position, cell.Text)
-	return compareTextPosition(selection.Base, end) < 0 && compareTextPosition(cell.Position, selection.Extent) < 0
-}
-
-func textLineBreakSelected(line TextLine, selection TextSelection) bool {
-	if selection.IsCollapsed() {
-		return false
-	}
-	selection = selection.Normalized()
-	return compareTextPosition(selection.Base, line.End) <= 0 && compareTextPosition(line.End, selection.Extent) < 0
 }
 
 func (r *renderTextArea) textLayout(c Constraints) TextLayout {

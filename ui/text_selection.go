@@ -27,3 +27,19 @@ func (s TextSelection) Contains(pos TextPosition) bool {
 	s = s.Normalized()
 	return compareTextPosition(s.Base, pos) <= 0 && compareTextPosition(pos, s.Extent) < 0
 }
+
+func (s TextSelection) IntersectsCell(cell TextCell) bool {
+	if s.IsCollapsed() {
+		return false
+	}
+	s = s.Normalized()
+	return compareTextPosition(s.Base, cell.End()) < 0 && compareTextPosition(cell.Position, s.Extent) < 0
+}
+
+func (s TextSelection) ContainsLineBreak(line TextLine) bool {
+	if s.IsCollapsed() {
+		return false
+	}
+	s = s.Normalized()
+	return compareTextPosition(s.Base, line.End) <= 0 && compareTextPosition(line.End, s.Extent) < 0
+}
