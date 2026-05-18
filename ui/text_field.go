@@ -65,85 +65,16 @@ func (s *textFieldState) content(w TextField, displayValue string, cursor, scrol
 }
 
 func (s *textFieldState) HandleEvent(ctx EventContext, ev Event) EventResult {
-	if ctx.Phase() != TargetPhase && ctx.Phase() != BubblePhase {
-		return EventIgnored
-	}
-	key, ok := ev.(Key)
-	if !ok {
-		mouse, ok := ev.(Mouse)
-		if !ok {
-			return EventIgnored
-		}
-		return s.handleMouse(mouse)
-	}
-	if keyIsRelease(key) {
-		return EventIgnored
-	}
-	w := s.Widget().(TextField)
-	changed := false
-	handled := true
-	switch {
-	case key.MatchString("Ctrl+a"):
-		handled = s.buffer.SelectAll()
-	case key.MatchString("Ctrl+c"):
-		if s.buffer.HasSelection() {
-			ctx.Copy(s.buffer.SelectedText())
-		}
-	case key.MatchString("Ctrl+Shift+Left"):
-		handled = s.buffer.ExtendWordLeft()
-	case key.MatchString("Ctrl+Shift+Right"):
-		handled = s.buffer.ExtendWordRight()
-	case key.MatchString("Ctrl+Left"):
-		handled = s.buffer.MoveWordLeft()
-	case key.MatchString("Ctrl+Right"):
-		handled = s.buffer.MoveWordRight()
-	case key.MatchString("Shift+Left"):
-		handled = s.buffer.ExtendLeft()
-	case key.MatchString("Shift+Right"):
-		handled = s.buffer.ExtendRight()
-	case key.MatchString("Shift+Home"):
-		handled = s.buffer.ExtendHome()
-	case key.MatchString("Shift+End"):
-		handled = s.buffer.ExtendEnd()
-	case key.Keycode == KeyLeft:
-		handled = s.buffer.MoveLeft()
-	case key.Keycode == KeyRight:
-		handled = s.buffer.MoveRight()
-	case key.Keycode == KeyHome:
-		handled = s.buffer.MoveHome()
-	case key.Keycode == KeyEnd:
-		handled = s.buffer.MoveEnd()
-	case key.MatchString("Enter"):
-		if w.OnSubmitted != nil {
-			w.OnSubmitted(ctx, s.buffer.Text())
-		}
-		return EventHandled
-	case key.Keycode == KeyBackspace:
-		if key.MatchString("Ctrl+Backspace") {
-			changed = s.buffer.DeleteWordBackward()
-		} else {
-			changed = s.buffer.DeleteBackward()
-		}
-	case key.Keycode == KeyDelete:
-		if key.MatchString("Ctrl+Delete") {
-			changed = s.buffer.DeleteWordForward()
-		} else {
-			changed = s.buffer.DeleteForward()
-		}
-	case key.Text != "":
-		changed = s.buffer.InsertSingleLine(key.Text)
-	default:
-		return EventIgnored
-	}
-	if changed {
-		s.change(ctx)
-		return EventHandled
-	}
-	if handled {
-		s.MarkNeedsBuild()
-		return EventHandled
-	}
-	return EventHandled
+	return textEditorEventHandler{
+		buffer:           &s.buffer,
+		selecting:        &s.selecting,
+		insertMode:       textEditorSingleLine,
+		requestFocus:     s.node.RequestFocus,
+		markNeedsBuild:   s.MarkNeedsBuild,
+		change:           s.change,
+		submit:           s.submit,
+		positionForMouse: s.positionForMouse,
+	}.HandleEvent(ctx, ev)
 }
 
 func (s *textFieldState) change(ctx EventContext) {
@@ -156,43 +87,14 @@ func (s *textFieldState) change(ctx EventContext) {
 	s.SetState(func() {})
 }
 
-func (s *textFieldState) handleMouse(mouse Mouse) EventResult {
-	if mouse.Button != MouseLeftButton {
-		if mouse.EventType == EventRelease {
-			s.selecting = false
-			return EventHandled
-		}
-		return EventIgnored
-	}
-	pos := s.positionForMouse(mouse)
-	switch mouse.EventType {
-	case EventPress:
-		s.node.RequestFocus()
-		s.selecting = true
-		s.buffer.CollapseSelection(pos)
-		s.MarkNeedsBuild()
-		return EventHandled
-	case EventMotion:
-		if !s.selecting {
-			return EventIgnored
-		}
-		s.buffer.ExtendSelection(pos)
-		s.MarkNeedsBuild()
-		return EventHandled
-	case EventRelease:
-		if !s.selecting {
-			return EventIgnored
-		}
-		s.selecting = false
-		s.buffer.ExtendSelection(pos)
-		s.MarkNeedsBuild()
-		return EventHandled
-	default:
-		return EventIgnored
+func (s *textFieldState) submit(ctx EventContext, value string) {
+	w := s.Widget().(TextField)
+	if w.OnSubmitted != nil {
+		w.OnSubmitted(ctx, value)
 	}
 }
 
-func (s *textFieldState) positionForMouse(mouse Mouse) TextPosition {
+func (s *textFieldState) positionForMouse(mouse Mouse) (TextPosition, bool) {
 	w := s.Widget().(TextField)
 	theme := MustDepend[Theme](s.Context()).TextField
 	padding := textFieldPadding(w, theme)
@@ -201,7 +103,7 @@ func (s *textFieldState) positionForMouse(mouse Mouse) TextPosition {
 		col--
 	}
 	offset := clampInt(s.scroll+col, 0, s.buffer.Len())
-	return s.buffer.positionForOffset(offset)
+	return s.buffer.positionForOffset(offset), true
 }
 
 func (s *textFieldState) MouseShape(EventContext, Mouse) MouseShape {
