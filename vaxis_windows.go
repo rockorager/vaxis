@@ -30,34 +30,75 @@ func (vx *Vaxis) setupSignals() {
 
 func (vx *Vaxis) winch() {
 	ticker := time.NewTicker(100 * time.Millisecond)
+	lastSize := Resize{}
 	for {
 		<-ticker.C
-		if atomicLoad(&vx.resize) {
-			continue
-		}
 		ws, err := vx.reportWinsize()
 		if err != nil {
 			log.Error("couldn't report winsize", "error", err)
 			return
 		}
-		if ws.Cols != vx.winSize.Cols || ws.Rows != vx.winSize.Rows {
-			atomicStore(&vx.resize, true)
-			vx.PostEvent(Redraw{})
+		vx.mu.Lock()
+		ready := vx.ready
+		applied := vx.winSize
+		vx.mu.Unlock()
+		if !ready {
+			lastSize = ws
+			continue
+		}
+		if lastSize == (Resize{}) {
+			lastSize = applied
+		}
+		changed := ws != lastSize
+		lastSize = ws
+		if changed {
+			vx.PostEvent(ws)
 		}
 	}
 }
 
 func (vx *Vaxis) reportWinsize() (Resize, error) {
-	if vx.caps.reportSizeChars && vx.caps.reportSizePixels {
+	vx.mu.Lock()
+	inBandResize := vx.caps.inBandResize
+	reportSizeChars := vx.caps.reportSizeChars
+	reportSizePixels := vx.caps.reportSizePixels
+	vx.mu.Unlock()
+	if inBandResize {
+		select {
+		case report := <-vx.chSizeReport:
+			if report.chars && report.pixels {
+				return report.size, nil
+			}
+		default:
+		}
+	}
+	if reportSizeChars && reportSizePixels {
 		log.Trace("requesting screen size from terminal")
+		vx.drainSizeReports()
 		vx.writeControlString(textAreaSize)
 		deadline := time.NewTimer(100 * time.Millisecond)
-		select {
-		case <-deadline.C:
-			return Resize{}, fmt.Errorf("screen size request deadline exceeded")
-		case <-vx.chSizeDone:
-			return vx.nextSize, nil
+		defer deadline.Stop()
+		size := Resize{}
+		chars := false
+		pixels := false
+		for !chars || !pixels {
+			select {
+			case <-deadline.C:
+				return Resize{}, fmt.Errorf("screen size request deadline exceeded")
+			case report := <-vx.chSizeReport:
+				if report.chars {
+					size.Cols = report.size.Cols
+					size.Rows = report.size.Rows
+					chars = true
+				}
+				if report.pixels {
+					size.XPixel = report.size.XPixel
+					size.YPixel = report.size.YPixel
+					pixels = true
+				}
+			}
 		}
+		return size, nil
 	}
 	log.Trace("requesting screen size from console")
 	ws, err := vx.console.Size()

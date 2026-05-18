@@ -476,6 +476,7 @@ func (a *App) Run(w Widget) error {
 		case ev := <-a.vx.Events():
 			switch ev := ev.(type) {
 			case vaxis.Resize:
+				a.vx.Resize(ev)
 				// Trigger a redraw on resize
 				a.redraw = true
 			case vaxis.Mouse:

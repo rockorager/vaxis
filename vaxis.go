@@ -11,7 +11,6 @@ import (
 	"os/signal"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/containerd/console"
@@ -46,6 +45,12 @@ type cursorState struct {
 	col     int
 	style   CursorStyle
 	visible bool
+}
+
+type sizeReport struct {
+	size   Resize
+	chars  bool
+	pixels bool
 }
 
 // Options are the runtime options which must be supplied to a new [Vaxis]
@@ -112,12 +117,12 @@ type Vaxis struct {
 	chCursorPos      chan [2]int
 	chQuit           chan bool
 	winSize          Resize
-	nextSize         Resize
-	chSizeDone       chan bool
+	chSizeReport     chan sizeReport
+	ready            bool
 	caps             capabilities
 	graphicsProtocol int
 	graphicsIDNext   uint64
-	reqCursorPos     int32
+	reqCursorPos     bool
 	charCache        map[string]int
 	cursorNext       cursorState
 	cursorLast       cursorState
@@ -143,8 +148,7 @@ type Vaxis struct {
 	renders int
 	elapsed time.Duration
 
-	mu     sync.Mutex
-	resize int32
+	mu sync.Mutex
 
 	noSignals bool
 }
@@ -228,7 +232,7 @@ func New(opts Options) (*Vaxis, error) {
 	vx.chSigKill = make(chan os.Signal, 1)
 	vx.chCursorPos = make(chan [2]int)
 	vx.chQuit = make(chan bool)
-	vx.chSizeDone = make(chan bool, 1)
+	vx.chSizeReport = make(chan sizeReport, 8)
 	vx.charCache = make(map[string]int, 256)
 	vx.chFg = make(chan string, 1)
 	vx.chBg = make(chan string, 1)
@@ -334,10 +338,6 @@ outer:
 				vx.mu.Lock()
 				vx.termID = ev
 				vx.mu.Unlock()
-			case inBandResizeEvents:
-				vx.mu.Lock()
-				vx.caps.inBandResize = true
-				vx.mu.Unlock()
 			case capabilitySgrPixels:
 				log.Info("[capability] SGR Pixels supported")
 				if !opts.EnableSGRPixels {
@@ -384,12 +384,15 @@ outer:
 		log.Debug("pixel size not reported, setting graphics protocol to half block")
 		vx.graphicsProtocol = halfBlock
 	}
+	vx.mu.Lock()
 	vx.screenNext.resize(ws.Cols, ws.Rows)
 	vx.screenLast.resize(ws.Cols, ws.Rows)
 	vx.winSize = ws
+	vx.ready = true
+	vx.mu.Unlock()
 	// Set the next style to be a CursorBlock by default.
 	vx.cursorNext.style = CursorBlock
-	vx.PostEvent(vx.winSize)
+	vx.PostEvent(ws)
 	return vx, nil
 }
 
@@ -454,34 +457,21 @@ func (vx *Vaxis) Close() {
 	log.Info("Cached characters: %d", len(vx.charCache))
 }
 
-// Resize manually triggers a resize event. Normally, vaxis listens to SIGWINCH
-// for resize events, however in some use cases a manual resize trigger may be
-// needed
-func (vx *Vaxis) Resize() {
-	atomicStore(&vx.resize, true)
-	vx.PostEvent(Redraw{})
+// Resize applies a resize event to Vaxis' internal screen buffers. Applications
+// should call this when handling a [Resize] event before drawing the next frame.
+func (vx *Vaxis) Resize(size Resize) {
+	vx.mu.Lock()
+	defer vx.mu.Unlock()
+	if size.Cols != vx.winSize.Cols || size.Rows != vx.winSize.Rows {
+		vx.screenNext.resize(size.Cols, size.Rows)
+		vx.screenLast.resize(size.Cols, size.Rows)
+	}
+	vx.winSize = size
+	vx.refresh = true
 }
 
 // Render renders the model's content to the terminal
 func (vx *Vaxis) Render() {
-	if atomicLoad(&vx.resize) {
-		defer atomicStore(&vx.resize, false)
-		ws, err := vx.reportWinsize()
-		if err != nil {
-			log.Error("couldn't report winsize: %v", err)
-			return
-		}
-		if ws.Cols != vx.winSize.Cols || ws.Rows != vx.winSize.Rows || ws.XPixel != vx.winSize.XPixel || ws.YPixel != vx.winSize.YPixel {
-			if ws.Cols != vx.winSize.Cols || ws.Rows != vx.winSize.Rows {
-				vx.screenNext.resize(ws.Cols, ws.Rows)
-				vx.screenLast.resize(ws.Cols, ws.Rows)
-			}
-			vx.winSize = ws
-			vx.refresh = true
-			vx.PostEvent(vx.winSize)
-			return
-		}
-	}
 	start := time.Now()
 	// defer renderBuf.Reset()
 	vx.render()
@@ -837,8 +827,11 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 			//
 			// Kitty keyboard protocol disambiguates this scenario,
 			// hopefully people are using that
-			if atomicLoad(&vx.reqCursorPos) {
-				atomicStore(&vx.reqCursorPos, false)
+			vx.mu.Lock()
+			reqCursorPos := vx.reqCursorPos
+			vx.reqCursorPos = false
+			vx.mu.Unlock()
+			if reqCursorPos {
 				if seq.NumParameters != 2 {
 					log.Error("not enough DSRCPR params")
 					return
@@ -944,7 +937,11 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 				}
 			}
 		case 'M', 'm':
-			mouse, ok := parseMouseEvent(seq, vx.winSize, vx.caps.sgrPixels)
+			vx.mu.Lock()
+			ws := vx.winSize
+			sgrPixels := vx.caps.sgrPixels
+			vx.mu.Unlock()
+			mouse, ok := parseMouseEvent(seq, ws, sgrPixels)
 			if ok {
 				vx.PostEventBlocking(mouse)
 			}
@@ -961,8 +958,6 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 			switch typ {
 			case 4:
 				vx.mu.Lock()
-				vx.nextSize.XPixel = w
-				vx.nextSize.YPixel = h
 				report := vx.caps.reportSizePixels
 				vx.mu.Unlock()
 				if !report {
@@ -971,10 +966,12 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 					vx.PostEventBlocking(textAreaPix{})
 					return
 				}
+				vx.postSizeReport(sizeReport{
+					size:   Resize{XPixel: w, YPixel: h},
+					pixels: true,
+				})
 			case 8:
 				vx.mu.Lock()
-				vx.nextSize.Cols = w
-				vx.nextSize.Rows = h
 				report := vx.caps.reportSizeChars
 				vx.mu.Unlock()
 				if !report {
@@ -985,23 +982,36 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 					vx.PostEventBlocking(textAreaChar{})
 					return
 				}
-				vx.chSizeDone <- true
+				vx.postSizeReport(sizeReport{
+					size:  Resize{Cols: w, Rows: h},
+					chars: true,
+				})
 			case 48:
 				// CSI <type> ; <height> ; <width> ; <height_pix> ; <width_pix> t
 				switch seq.NumParameters {
 				case 5:
-					atomicStore(&vx.resize, true)
-					vx.mu.Lock()
-					vx.nextSize.Cols = w
-					vx.nextSize.Rows = h
-					vx.nextSize.YPixel = seq.Param(3)
-					vx.nextSize.XPixel = seq.Param(4)
-					resize := vx.caps.inBandResize
-					vx.mu.Unlock()
-					if !resize {
-						vx.PostEventBlocking(inBandResizeEvents{})
+					size := Resize{
+						Cols:   w,
+						Rows:   h,
+						YPixel: seq.Param(3),
+						XPixel: seq.Param(4),
 					}
-					vx.Resize()
+					vx.mu.Lock()
+					changed := size != vx.winSize
+					ready := vx.ready
+					vx.caps.inBandResize = true
+					vx.mu.Unlock()
+					if !ready {
+						vx.postSizeReport(sizeReport{
+							size:   size,
+							chars:  true,
+							pixels: true,
+						})
+						return
+					}
+					if changed {
+						vx.PostEventBlocking(size)
+					}
 				}
 			}
 			return
@@ -1310,6 +1320,52 @@ func postQueryResponse(ch chan string, resp string) {
 	}
 }
 
+func (vx *Vaxis) drainSizeReports() {
+	for {
+		select {
+		case <-vx.chSizeReport:
+		default:
+			return
+		}
+	}
+}
+
+func (vx *Vaxis) postSizeReport(report sizeReport) {
+	select {
+	case vx.chSizeReport <- report:
+	default:
+	}
+}
+
+func (vx *Vaxis) detectResize(blocking bool) {
+	ws, err := vx.reportWinsize()
+	if err != nil {
+		log.Error("couldn't report winsize: %v", err)
+		return
+	}
+	vx.mu.Lock()
+	changed := ws != vx.winSize
+	ready := vx.ready
+	vx.mu.Unlock()
+	if !ready || !changed {
+		return
+	}
+	if blocking {
+		vx.PostEventBlocking(ws)
+		return
+	}
+	vx.PostEvent(ws)
+}
+
+func (vx *Vaxis) cellPixelSize() (int, int) {
+	vx.mu.Lock()
+	defer vx.mu.Unlock()
+	if vx.winSize.Cols == 0 || vx.winSize.Rows == 0 {
+		return 0, 0
+	}
+	return vx.winSize.XPixel / vx.winSize.Cols, vx.winSize.YPixel / vx.winSize.Rows
+}
+
 func (vx *Vaxis) writeControl(p []byte) {
 	if vx.tw != nil {
 		_, _ = vx.tw.WriteControl(p)
@@ -1562,8 +1618,7 @@ func (vx *Vaxis) openTty(tgts []*os.File) error {
 					vx.handleSequence(seq)
 				}
 			case <-vx.chSigWinSz:
-				atomicStore(&vx.resize, true)
-				vx.PostEventBlocking(Redraw{})
+				go vx.detectResize(true)
 			case <-vx.chSigKill:
 				vx.Close()
 				return
@@ -1601,7 +1656,7 @@ func (vx *Vaxis) Resume() error {
 	if !vx.noSignals {
 		vx.setupSignals()
 	}
-	atomicStore(&vx.resize, true)
+	go vx.detectResize(false)
 	return nil
 }
 
@@ -1632,13 +1687,17 @@ func (vx *Vaxis) showCursor() string {
 // -1,-1 if the query times out or fails
 func (vx *Vaxis) CursorPosition() (row int, col int) {
 	// DSRCPR - reports cursor position
-	atomicStore(&vx.reqCursorPos, true)
+	vx.mu.Lock()
+	vx.reqCursorPos = true
+	vx.mu.Unlock()
 	vx.writeControlString(dsrcpr)
 	timeout := time.NewTimer(50 * time.Millisecond)
 	select {
 	case <-timeout.C:
 		log.Warn("CursorPosition timed out")
-		atomicStore(&vx.reqCursorPos, false)
+		vx.mu.Lock()
+		vx.reqCursorPos = false
+		vx.mu.Unlock()
 		return -1, -1
 	case pos := <-vx.chCursorPos:
 		return pos[0] - 1, pos[1] - 1
@@ -1774,66 +1833,78 @@ func (vx *Vaxis) TerminalID() string {
 }
 
 func (vx *Vaxis) CanRGB() bool {
+	vx.mu.Lock()
+	defer vx.mu.Unlock()
 	return vx.caps.rgb
 }
 
 func (vx *Vaxis) CanKittyGraphics() bool {
+	vx.mu.Lock()
+	defer vx.mu.Unlock()
 	return vx.caps.kittyGraphics
 }
 
 func (vx *Vaxis) CanKittyKeyboard() bool {
+	vx.mu.Lock()
+	defer vx.mu.Unlock()
 	return vx.caps.kittyKeyboard
 }
 
 func (vx *Vaxis) CanSixel() bool {
+	vx.mu.Lock()
+	defer vx.mu.Unlock()
 	return vx.caps.sixels
 }
 
 func (vx *Vaxis) CanReportColor() bool {
+	vx.mu.Lock()
+	defer vx.mu.Unlock()
 	return vx.caps.osc4
 }
 
 func (vx *Vaxis) CanReportForegroundColor() bool {
+	vx.mu.Lock()
+	defer vx.mu.Unlock()
 	return vx.caps.osc10
 }
 
 func (vx *Vaxis) CanReportBackgroundColor() bool {
+	vx.mu.Lock()
+	defer vx.mu.Unlock()
 	return vx.caps.osc11
 }
 
 func (vx *Vaxis) CanDisplayGraphics() bool {
+	vx.mu.Lock()
+	defer vx.mu.Unlock()
 	return vx.caps.sixels || vx.caps.kittyGraphics
 }
 
 func (vx *Vaxis) CanSetAppID() bool {
+	vx.mu.Lock()
+	defer vx.mu.Unlock()
 	return vx.caps.osc176
 }
 
 func (vx *Vaxis) CanUnicodeCore() bool {
+	vx.mu.Lock()
+	defer vx.mu.Unlock()
 	return vx.caps.unicodeCore
 }
 
 func (vx *Vaxis) CanExplicitWidth() bool {
+	vx.mu.Lock()
+	defer vx.mu.Unlock()
 	return vx.caps.explicitWidth
 }
 
 func (vx *Vaxis) CanInBandResize() bool {
+	vx.mu.Lock()
+	defer vx.mu.Unlock()
 	return vx.caps.inBandResize
 }
 
 func (vx *Vaxis) nextGraphicID() uint64 {
 	vx.graphicsIDNext += 1
 	return vx.graphicsIDNext
-}
-
-func atomicLoad(val *int32) bool {
-	return atomic.LoadInt32(val) == 1
-}
-
-func atomicStore(addr *int32, val bool) {
-	if val {
-		atomic.StoreInt32(addr, 1)
-	} else {
-		atomic.StoreInt32(addr, 0)
-	}
 }

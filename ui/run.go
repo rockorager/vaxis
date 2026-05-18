@@ -47,6 +47,11 @@ func runWithBackend(root Widget, backend Backend, opts ...Option) error {
 			if !ok {
 				return nil
 			}
+			if resize, ok := ev.(Resize); ok {
+				if backend, ok := backend.(interface{ Resize(Resize) }); ok {
+					backend.Resize(resize)
+				}
+			}
 			runner.HandleEvent(ev, time.Now())
 			if runner.Done() {
 				return nil

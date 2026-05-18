@@ -13,7 +13,10 @@ import (
 )
 
 func (vx *Vaxis) setupSignals() {
-	if !vx.caps.inBandResize {
+	vx.mu.Lock()
+	inBandResize := vx.caps.inBandResize
+	vx.mu.Unlock()
+	if !inBandResize {
 		signal.Notify(
 			vx.chSigWinSz,
 			syscall.SIGWINCH,
@@ -35,24 +38,48 @@ func (vx *Vaxis) setupSignals() {
 
 // reportWinsize
 func (vx *Vaxis) reportWinsize() (Resize, error) {
-	if vx.caps.inBandResize {
-		// We already received the size if we have in band reports
-		vx.mu.Lock()
-		defer vx.mu.Unlock()
-		return vx.nextSize, nil
+	vx.mu.Lock()
+	inBandResize := vx.caps.inBandResize
+	xtwinops := vx.xtwinops
+	reportSizeChars := vx.caps.reportSizeChars
+	reportSizePixels := vx.caps.reportSizePixels
+	vx.mu.Unlock()
+	if inBandResize {
+		select {
+		case report := <-vx.chSizeReport:
+			if report.chars && report.pixels {
+				return report.size, nil
+			}
+		default:
+		}
 	}
-	if vx.xtwinops && vx.caps.reportSizeChars && vx.caps.reportSizePixels {
+	if xtwinops && reportSizeChars && reportSizePixels {
 		log.Trace("requesting screen size from terminal")
+		vx.drainSizeReports()
 		vx.writeControlString(textAreaSize)
 		deadline := time.NewTimer(100 * time.Millisecond)
-		select {
-		case <-deadline.C:
-			return Resize{}, fmt.Errorf("screen size request deadline exceeded")
-		case <-vx.chSizeDone:
-			vx.mu.Lock()
-			defer vx.mu.Unlock()
-			return vx.nextSize, nil
+		defer deadline.Stop()
+		size := Resize{}
+		chars := false
+		pixels := false
+		for !chars || !pixels {
+			select {
+			case <-deadline.C:
+				return Resize{}, fmt.Errorf("screen size request deadline exceeded")
+			case report := <-vx.chSizeReport:
+				if report.chars {
+					size.Cols = report.size.Cols
+					size.Rows = report.size.Rows
+					chars = true
+				}
+				if report.pixels {
+					size.XPixel = report.size.XPixel
+					size.YPixel = report.size.YPixel
+					pixels = true
+				}
+			}
 		}
+		return size, nil
 	}
 	log.Trace("requesting screen size from ioctl")
 	ws, err := unix.IoctlGetWinsize(int(vx.console.Fd()), unix.TIOCGWINSZ)

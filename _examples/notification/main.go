@@ -13,8 +13,9 @@ func main() {
 	vx.SetTitle("VAXIS")
 	for ev := range vx.Events() {
 		vx.Notify("Vaxis", "Can you hear us with your ears?")
-		switch ev.(type) {
+		switch ev := ev.(type) {
 		case vaxis.Resize:
+			vx.Resize(ev)
 		}
 	}
 }

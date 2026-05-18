@@ -213,3 +213,92 @@ func TestQueryBackgroundContextTimesOut(t *testing.T) {
 		t.Fatalf("QueryBackgroundContext took too long to time out: %s", elapsed)
 	}
 }
+
+func TestInBandResizePostsResizeWithoutApplying(t *testing.T) {
+	vx := &Vaxis{
+		queue:      make(chan Event, 1),
+		screenNext: newScreen(),
+		screenLast: newScreen(),
+		winSize:    Resize{Cols: 80, Rows: 24, XPixel: 800, YPixel: 480},
+		ready:      true,
+	}
+	vx.screenNext.resize(80, 24)
+	vx.screenLast.resize(80, 24)
+
+	vx.handleSequence(ansi.CSI{
+		Parameters:    [ansi.InlineCSIParams]uint32{48, 30, 100, 600, 1000},
+		NumParameters: 5,
+		Final:         't',
+	})
+
+	select {
+	case ev := <-vx.queue:
+		resize, ok := ev.(Resize)
+		if !ok {
+			t.Fatalf("event = %T, want Resize", ev)
+		}
+		want := Resize{Cols: 100, Rows: 30, XPixel: 1000, YPixel: 600}
+		if resize != want {
+			t.Fatalf("resize event = %#v, want %#v", resize, want)
+		}
+	default:
+		t.Fatal("in-band resize did not post a Resize event")
+	}
+
+	if got, want := vx.winSize, (Resize{Cols: 80, Rows: 24, XPixel: 800, YPixel: 480}); got != want {
+		t.Fatalf("winSize changed before Resize call: %#v, want %#v", got, want)
+	}
+	if got, want := vx.screenNext.size(); got != 80 || want != 24 {
+		t.Fatalf("screenNext size changed before Resize call: %dx%d, want 80x24", got, want)
+	}
+}
+
+func TestResizeAppliesResizeEvent(t *testing.T) {
+	vx := &Vaxis{
+		screenNext: newScreen(),
+		screenLast: newScreen(),
+		winSize:    Resize{Cols: 80, Rows: 24, XPixel: 800, YPixel: 480},
+	}
+	vx.screenNext.resize(80, 24)
+	vx.screenLast.resize(80, 24)
+
+	size := Resize{Cols: 100, Rows: 30, XPixel: 1000, YPixel: 600}
+	vx.Resize(size)
+
+	if vx.winSize != size {
+		t.Fatalf("winSize = %#v, want %#v", vx.winSize, size)
+	}
+	if got, want := vx.screenNext.size(); got != 100 || want != 30 {
+		t.Fatalf("screenNext size = %dx%d, want 100x30", got, want)
+	}
+	if got, want := vx.screenLast.size(); got != 100 || want != 30 {
+		t.Fatalf("screenLast size = %dx%d, want 100x30", got, want)
+	}
+	if !vx.refresh {
+		t.Fatal("Resize did not request refresh")
+	}
+}
+
+func TestResizeSameSizeIsIdempotent(t *testing.T) {
+	size := Resize{Cols: 80, Rows: 24, XPixel: 800, YPixel: 480}
+	vx := &Vaxis{
+		screenNext: newScreen(),
+		screenLast: newScreen(),
+		winSize:    size,
+	}
+	vx.screenNext.resize(80, 24)
+	vx.screenLast.resize(80, 24)
+
+	vx.Resize(size)
+	vx.Resize(size)
+
+	if vx.winSize != size {
+		t.Fatalf("winSize = %#v, want %#v", vx.winSize, size)
+	}
+	if got, want := vx.screenNext.size(); got != 80 || want != 24 {
+		t.Fatalf("screenNext size = %dx%d, want 80x24", got, want)
+	}
+	if got, want := vx.screenLast.size(); got != 80 || want != 24 {
+		t.Fatalf("screenLast size = %dx%d, want 80x24", got, want)
+	}
+}

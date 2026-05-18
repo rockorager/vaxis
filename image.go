@@ -8,6 +8,7 @@ import (
 	"image/color"
 	"image/png"
 	"io"
+	"sync/atomic"
 
 	"git.sr.ht/~rockorager/vaxis/log"
 	"git.sr.ht/~rockorager/vaxis/octreequant"
@@ -27,6 +28,18 @@ const (
 	sixelGraphics
 	kitty
 )
+
+func atomicLoad(val *int32) bool {
+	return atomic.LoadInt32(val) == 1
+}
+
+func atomicStore(addr *int32, val bool) {
+	if val {
+		atomic.StoreInt32(addr, 1)
+		return
+	}
+	atomic.StoreInt32(addr, 0)
+}
 
 // Image is a static image on the screen
 type Image interface {
@@ -167,8 +180,7 @@ func (k *KittyImage) CellSize() (w int, h int) {
 }
 
 func (k *KittyImage) cellSizeChanged() bool {
-	cellPixW := k.vx.winSize.XPixel / k.vx.winSize.Cols
-	cellPixH := k.vx.winSize.YPixel / k.vx.winSize.Rows
+	cellPixW, cellPixH := k.vx.cellPixelSize()
 	return k.cellPixW != cellPixW || k.cellPixH != cellPixH
 }
 
@@ -177,8 +189,7 @@ func (k *KittyImage) cellSizeChanged() bool {
 // separate goroutine. A [Redraw] event will be posted when complete
 func (k *KittyImage) Resize(w int, h int) {
 	// Resize the image
-	cellPixW := k.vx.winSize.XPixel / k.vx.winSize.Cols
-	cellPixH := k.vx.winSize.YPixel / k.vx.winSize.Rows
+	cellPixW, cellPixH := k.vx.cellPixelSize()
 	if k.reqW == w && k.reqH == h && k.cellPixW == cellPixW && k.cellPixH == cellPixH && k.buf.Len() == 0 && atomicLoad(&k.uploaded) {
 		return
 	}
@@ -306,8 +317,7 @@ func (s *Sixel) Destroy() {
 // upscaled, nor will it's aspect ratio be changed. Resize will be done in a
 // separate gorotuine. A Redraw event will be posted when complete
 func (s *Sixel) Resize(w int, h int) {
-	cellPixW := s.vx.winSize.XPixel / s.vx.winSize.Cols
-	cellPixH := s.vx.winSize.YPixel / s.vx.winSize.Rows
+	cellPixW, cellPixH := s.vx.cellPixelSize()
 	if s.reqW == w && s.reqH == h && s.cellPixW == cellPixW && s.cellPixH == cellPixH && s.buf.Len() != 0 {
 		return
 	}
@@ -365,8 +375,7 @@ func (s *Sixel) CellSize() (w int, h int) {
 }
 
 func (s *Sixel) cellSizeChanged() bool {
-	cellPixW := s.vx.winSize.XPixel / s.vx.winSize.Cols
-	cellPixH := s.vx.winSize.YPixel / s.vx.winSize.Rows
+	cellPixW, cellPixH := s.vx.cellPixelSize()
 	return s.cellPixW != cellPixW || s.cellPixH != cellPixH
 }
 

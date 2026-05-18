@@ -26,6 +26,7 @@ func main() {
 	for ev := range vx.Events() {
 		switch ev := ev.(type) {
 		case vaxis.Resize:
+			vx.Resize(ev)
 			w, h := vx.Window().Size()
 			vImg.Resize(w/2, h/2)
 		case vaxis.Key:

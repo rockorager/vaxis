@@ -26,6 +26,10 @@ func (b vaxisBackend) Size() Size {
 	return Size{Width: win.Width, Height: win.Height}
 }
 
+func (b vaxisBackend) Resize(size Resize) {
+	b.vx.Resize(size)
+}
+
 func (b vaxisBackend) Render(p *Painter) error {
 	win := b.vx.Window()
 	win.Clear()
