@@ -75,9 +75,18 @@ func TestRunnerAppliesMouseShapeOnMouseEvent(t *testing.T) {
 	if got := backend.mouseShapes[len(backend.mouseShapes)-1]; got != ui.MouseShapeClickable {
 		t.Fatalf("mouse shape = %q, want clickable", got)
 	}
+	if _, ok := runner.NextFrame(); !ok {
+		t.Fatal("mouse shape change should schedule a frame so Vaxis flushes the shape")
+	}
+	if err := runner.HandleFrame(now.Add(20 * time.Millisecond)); err != nil {
+		t.Fatal(err)
+	}
 	runner.HandleEvent(vaxis.Mouse{Col: 10, Row: 0, Button: vaxis.MouseNoButton, EventType: vaxis.EventMotion}, now.Add(2*time.Millisecond))
 	if got := backend.mouseShapes[len(backend.mouseShapes)-1]; got != ui.MouseShapeDefault {
 		t.Fatalf("mouse shape = %q, want default", got)
+	}
+	if _, ok := runner.NextFrame(); !ok {
+		t.Fatal("mouse shape reset should schedule a frame so Vaxis flushes the shape")
 	}
 }
 

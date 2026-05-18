@@ -1,15 +1,16 @@
 package ui
 
 type App struct {
-	build          *BuildOwner
-	rootRO         RenderObject
-	size           Size
-	focusables     []Element
-	focused        Element
-	quit           bool
-	theme          Theme
-	frameRequested bool
-	mouseShape     MouseShape
+	build           *BuildOwner
+	rootRO          RenderObject
+	size            Size
+	focusables      []Element
+	focused         Element
+	quit            bool
+	theme           Theme
+	frameRequested  bool
+	mouseShape      MouseShape
+	mouseShapeDirty bool
 }
 
 func NewApp(root Widget, opts ...Option) *App {
@@ -42,7 +43,17 @@ func (a *App) setMouseShape(shape MouseShape) {
 	if shape == "" {
 		shape = MouseShapeDefault
 	}
+	if a.MouseShape() == shape {
+		return
+	}
 	a.mouseShape = shape
+	a.mouseShapeDirty = true
+}
+
+func (a *App) consumeMouseShapeDirty() bool {
+	dirty := a.mouseShapeDirty
+	a.mouseShapeDirty = false
+	return dirty
 }
 
 func (a *App) Pump(size Size) {
@@ -61,6 +72,7 @@ func (a *App) dispatchEvent(ev Event) EventResult {
 		a.setMouseShape(MouseShapeDefault)
 		path := a.hitPath(Point{X: mouse.Col, Y: mouse.Row})
 		if len(path) > 0 {
+			a.applyMouseShape(path, mouse)
 			return a.dispatchPath(path, ev)
 		}
 	}
@@ -98,13 +110,23 @@ func (a *App) dispatchPath(path []Element, ev Event) EventResult {
 	return EventIgnored
 }
 
-func (a *App) handle(e Element, phase EventPhase, ev Event) EventResult {
-	ctx := EventContext{app: a, phase: phase}
-	if mouse, ok := ev.(Mouse); ok {
-		if mh, ok := e.(MouseShapeHandler); ok {
-			ctx.SetMouseShape(mh.MouseShape(ctx, mouse))
+func (a *App) applyMouseShape(path []Element, mouse Mouse) {
+	ctx := EventContext{app: a, phase: TargetPhase}
+	for i := len(path) - 1; i >= 0; i-- {
+		mh, ok := path[i].(MouseShapeHandler)
+		if !ok {
+			continue
+		}
+		shape := mh.MouseShape(ctx, mouse)
+		if shape != "" && shape != MouseShapeDefault {
+			a.setMouseShape(shape)
+			return
 		}
 	}
+}
+
+func (a *App) handle(e Element, phase EventPhase, ev Event) EventResult {
+	ctx := EventContext{app: a, phase: phase}
 	h, ok := e.(EventHandler)
 	if !ok {
 		return EventIgnored

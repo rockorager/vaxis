@@ -40,6 +40,9 @@ func (r *Runner) HandleEvent(ev Event, now time.Time) {
 	r.app.Send(ev)
 	if _, ok := ev.(Mouse); ok {
 		r.backend.SetMouseShape(r.app.MouseShape())
+		if r.app.consumeMouseShapeDirty() {
+			r.RequestFrame(now)
+		}
 	}
 	if r.app.ShouldQuit() {
 		r.done = true
