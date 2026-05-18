@@ -1,59 +1,98 @@
 package ui
 
-type textLayoutOptions struct {
+import "unicode/utf8"
+
+type TextLayoutOptions struct {
 	SoftWrap bool
 	Overflow TextOverflow
 	MaxLines int
 	Align    TextAlign
 }
 
-type laidOutText struct {
-	Lines []laidOutLine
+type TextLayout struct {
+	Lines []TextLine
 	Size  Size
 }
 
-type laidOutLine struct {
-	Runs  []TextSpan
-	Width int
+type TextLine struct {
+	Runs   []TextSpan
+	Width  int
+	Offset int
+	Cells  []TextCell
+	Start  TextPosition
+	End    TextPosition
+}
+
+type TextCell struct {
+	Text      string
+	Width     int
+	Style     Style
+	Position  TextPosition
+	Synthetic bool
+}
+
+type TextPosition struct {
+	Span           int
+	ByteOffset     int
+	RuneOffset     int
+	GraphemeOffset int
 }
 
 type textAtom struct {
-	char  Character
-	style Style
+	char      Character
+	style     Style
+	position  TextPosition
+	end       TextPosition
+	synthetic bool
 }
 
-func layoutText(spans []TextSpan, c Constraints, opts textLayoutOptions) laidOutText {
+type (
+	textLayoutOptions = TextLayoutOptions
+)
+
+func LayoutText(spans []TextSpan, c Constraints, opts TextLayoutOptions) TextLayout {
 	maxWidth := c.MaxWidth
 	if !opts.SoftWrap || maxWidth == Unbounded {
 		maxWidth = Unbounded
 	}
-	var lines []laidOutLine
-	line := laidOutLine{}
+	pos := TextPosition{}
+	var lines []TextLine
+	newLine := func(start TextPosition) TextLine {
+		return TextLine{Start: start, End: start}
+	}
+	line := newLine(pos)
 	word := []textAtom{}
 	wordWidth := 0
-	flushLine := func() {
+	flushLine := func(nextStart TextPosition) {
 		appendWord(&line, word)
 		word = nil
 		wordWidth = 0
 		lines = append(lines, line)
-		line = laidOutLine{}
+		line = newLine(nextStart)
 	}
-	commitLine := func() {
+	commitLine := func(nextStart TextPosition) {
 		lines = append(lines, line)
-		line = laidOutLine{}
+		line = newLine(nextStart)
 	}
 	flushWord := func() {
 		appendWord(&line, word)
 		word = nil
 		wordWidth = 0
 	}
-	for _, span := range spans {
+	for spanIndex, span := range spans {
+		pos.Span = spanIndex
+		pos.ByteOffset = 0
+		pos.RuneOffset = 0
+		pos.GraphemeOffset = 0
 		for _, ch := range vaxisCharacters(span.Text) {
+			start := pos
+			end := advanceTextPosition(pos, ch.Grapheme)
+			pos = end
 			if ch.Grapheme == "\n" {
-				flushLine()
+				flushLine(pos)
 				continue
 			}
-			atom := textAtom{char: ch, style: span.Style}
+			atom := textAtom{char: ch, style: span.Style, position: start, end: end}
 			if !opts.SoftWrap || maxWidth == Unbounded {
 				appendAtom(&line, atom)
 				continue
@@ -61,7 +100,7 @@ func layoutText(spans []TextSpan, c Constraints, opts textLayoutOptions) laidOut
 			if isSpace(ch) {
 				flushWord()
 				if line.Width+ch.Width > maxWidth && line.Width > 0 {
-					flushLine()
+					flushLine(atom.end)
 				} else if line.Width+ch.Width <= maxWidth {
 					appendAtom(&line, atom)
 				}
@@ -69,17 +108,17 @@ func layoutText(spans []TextSpan, c Constraints, opts textLayoutOptions) laidOut
 			}
 			if wordWidth+ch.Width > maxWidth && wordWidth > 0 {
 				if line.Width > 0 {
-					flushLine()
+					flushLine(word[0].position)
 				}
 				appendWord(&line, word)
 				word = nil
 				wordWidth = 0
-				flushLine()
+				flushLine(atom.position)
 			}
 			word = append(word, atom)
 			wordWidth += ch.Width
 			if line.Width+wordWidth > maxWidth && line.Width > 0 {
-				commitLine()
+				commitLine(word[0].position)
 			}
 		}
 	}
@@ -100,31 +139,96 @@ func layoutText(spans []TextSpan, c Constraints, opts textLayoutOptions) laidOut
 		width = max(width, line.Width)
 	}
 	size := c.Constrain(Size{Width: width, Height: len(lines)})
-	return laidOutText{Lines: lines, Size: size}
+	for i := range lines {
+		lines[i].Offset = textAlignOffset(size.Width, lines[i].Width, opts.Align)
+	}
+	return TextLayout{Lines: lines, Size: size}
 }
 
-func appendWord(line *laidOutLine, word []textAtom) {
+func layoutText(spans []TextSpan, c Constraints, opts textLayoutOptions) TextLayout {
+	return LayoutText(spans, c, opts)
+}
+
+func (l TextLayout) PositionForCell(row, col int) (TextPosition, bool) {
+	if row < 0 || row >= len(l.Lines) {
+		return TextPosition{}, false
+	}
+	line := l.Lines[row]
+	local := col - line.Offset
+	if local < 0 {
+		return line.Start, true
+	}
+	x := 0
+	for _, cell := range line.Cells {
+		if local >= x && local < x+cell.Width {
+			return cell.Position, true
+		}
+		x += cell.Width
+	}
+	if local >= line.Width {
+		return line.End, true
+	}
+	return TextPosition{}, false
+}
+
+func (l TextLayout) CellForPosition(pos TextPosition) (row, col int, ok bool) {
+	for y, line := range l.Lines {
+		x := 0
+		for _, cell := range line.Cells {
+			if sameTextPosition(cell.Position, pos) {
+				return y, line.Offset + x, true
+			}
+			x += cell.Width
+		}
+		if sameTextPosition(line.End, pos) {
+			return y, line.Offset + line.Width, true
+		}
+	}
+	return 0, 0, false
+}
+
+func advanceTextPosition(pos TextPosition, text string) TextPosition {
+	pos.ByteOffset += len(text)
+	pos.RuneOffset += utf8.RuneCountInString(text)
+	pos.GraphemeOffset++
+	return pos
+}
+
+func sameTextPosition(a, b TextPosition) bool {
+	return a.Span == b.Span && a.ByteOffset == b.ByteOffset
+}
+
+func appendWord(line *TextLine, word []textAtom) {
 	for _, atom := range word {
 		appendAtom(line, atom)
 	}
 }
 
-func appendAtom(line *laidOutLine, atom textAtom) {
+func appendAtom(line *TextLine, atom textAtom) {
 	if len(line.Runs) == 0 || line.Runs[len(line.Runs)-1].Style != atom.style {
 		line.Runs = append(line.Runs, TextSpan{Style: atom.style})
 	}
 	line.Runs[len(line.Runs)-1].Text += atom.char.Grapheme
 	line.Width += atom.char.Width
+	line.Cells = append(line.Cells, TextCell{
+		Text:      atom.char.Grapheme,
+		Width:     atom.char.Width,
+		Style:     atom.style,
+		Position:  atom.position,
+		Synthetic: atom.synthetic,
+	})
+	line.End = atom.end
 }
 
 func isSpace(ch Character) bool {
 	return ch.Grapheme == " " || ch.Grapheme == "\t"
 }
 
-func applyEllipsis(line *laidOutLine, maxWidth int) {
+func applyEllipsis(line *TextLine, maxWidth int) {
 	if maxWidth == Unbounded || maxWidth <= 0 {
 		line.Runs = nil
 		line.Width = 0
+		line.Cells = nil
 		return
 	}
 	atoms := lineAtoms(*line)
@@ -137,31 +241,40 @@ func applyEllipsis(line *laidOutLine, maxWidth int) {
 	if keep < len(atoms) {
 		atoms = atoms[:keep]
 	}
+	syntheticPos := line.Start
+	if len(atoms) > 0 {
+		syntheticPos = atoms[len(atoms)-1].end
+	}
 	style := Style{}
 	if len(atoms) > 0 {
 		style = atoms[len(atoms)-1].style
 	} else if len(line.Runs) > 0 {
 		style = line.Runs[0].Style
 	}
-	atoms = append(atoms, textAtom{char: Character{Grapheme: "…", Width: 1}, style: style})
+	atoms = append(atoms, textAtom{char: Character{Grapheme: "…", Width: 1}, style: style, position: syntheticPos, end: syntheticPos, synthetic: true})
 	line.Runs = nil
 	line.Width = 0
+	line.Cells = nil
 	appendWord(line, atoms)
 }
 
-func lineAtoms(line laidOutLine) []textAtom {
+func lineAtoms(line TextLine) []textAtom {
 	var atoms []textAtom
-	for _, run := range line.Runs {
-		for _, ch := range vaxisCharacters(run.Text) {
-			atoms = append(atoms, textAtom{char: ch, style: run.Style})
-		}
+	for _, cell := range line.Cells {
+		atoms = append(atoms, textAtom{
+			char:      Character{Grapheme: cell.Text, Width: cell.Width},
+			style:     cell.Style,
+			position:  cell.Position,
+			end:       advanceTextPosition(cell.Position, cell.Text),
+			synthetic: cell.Synthetic,
+		})
 	}
 	return atoms
 }
 
-func paintLaidOutText(p *Painter, off Offset, layout laidOutText, opts textLayoutOptions) {
+func paintLaidOutText(p *Painter, off Offset, layout TextLayout, opts textLayoutOptions) {
 	for y, line := range layout.Lines {
-		x := off.X + textAlignOffset(layout.Size.Width, line.Width, opts.Align)
+		x := off.X + line.Offset
 		for _, run := range line.Runs {
 			p.DrawText(Offset{X: x, Y: off.Y + y}, run.Text, run.Style)
 			x += textWidth(run.Text)

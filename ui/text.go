@@ -43,20 +43,20 @@ func (w Text) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
 	r.MarkNeedsLayout()
 }
 
-func (w Text) options() textLayoutOptions {
-	return textLayoutOptions{SoftWrap: w.SoftWrap, Overflow: w.Overflow, MaxLines: w.MaxLines, Align: w.Align}
+func (w Text) options() TextLayoutOptions {
+	return TextLayoutOptions{SoftWrap: w.SoftWrap, Overflow: w.Overflow, MaxLines: w.MaxLines, Align: w.Align}
 }
 
 type RenderText struct {
 	LeafRenderObject
 	Text    string
 	Style   Style
-	Options textLayoutOptions
-	layout  laidOutText
+	Options TextLayoutOptions
+	layout  TextLayout
 }
 
 func (r *RenderText) Layout(ctx LayoutContext, c Constraints) {
-	r.layout = layoutText([]TextSpan{{Text: r.Text, Style: r.Style}}, c, r.Options)
+	r.layout = LayoutText([]TextSpan{{Text: r.Text, Style: r.Style}}, c, r.Options)
 	r.SetSize(r.layout.Size)
 }
 

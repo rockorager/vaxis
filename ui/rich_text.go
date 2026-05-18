@@ -23,19 +23,19 @@ func (w RichText) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
 	r.MarkNeedsLayout()
 }
 
-func (w RichText) options() textLayoutOptions {
-	return textLayoutOptions{SoftWrap: w.SoftWrap, Overflow: w.Overflow, MaxLines: w.MaxLines, Align: w.Align}
+func (w RichText) options() TextLayoutOptions {
+	return TextLayoutOptions{SoftWrap: w.SoftWrap, Overflow: w.Overflow, MaxLines: w.MaxLines, Align: w.Align}
 }
 
 type RenderRichText struct {
 	LeafRenderObject
 	Spans   []TextSpan
-	Options textLayoutOptions
-	layout  laidOutText
+	Options TextLayoutOptions
+	layout  TextLayout
 }
 
 func (r *RenderRichText) Layout(ctx LayoutContext, c Constraints) {
-	r.layout = layoutText(r.Spans, c, r.Options)
+	r.layout = LayoutText(r.Spans, c, r.Options)
 	r.SetSize(r.layout.Size)
 }
 

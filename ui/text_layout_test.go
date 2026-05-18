@@ -60,3 +60,67 @@ func TestLayoutTextEllipsisUsesLastVisibleStyle(t *testing.T) {
 		t.Fatalf("ellipsis style = %#v, want red", got)
 	}
 }
+
+func TestLayoutTextMapsCellsToPositions(t *testing.T) {
+	layout := LayoutText([]TextSpan{{Text: "ab\n界c"}}, Constraints{MaxWidth: 10, MaxHeight: 10}, TextLayoutOptions{})
+	pos, ok := layout.PositionForCell(0, 1)
+	if !ok {
+		t.Fatal("PositionForCell failed")
+	}
+	if pos.Span != 0 || pos.ByteOffset != 1 || pos.RuneOffset != 1 || pos.GraphemeOffset != 1 {
+		t.Fatalf("position = %#v, want second grapheme", pos)
+	}
+	row, col, ok := layout.CellForPosition(TextPosition{Span: 0, ByteOffset: 3, RuneOffset: 3, GraphemeOffset: 3})
+	if !ok || row != 1 || col != 0 {
+		t.Fatalf("cell for wide grapheme = %d,%d ok=%v, want 1,0 true", row, col, ok)
+	}
+	pos, ok = layout.PositionForCell(1, 1)
+	if !ok || pos.ByteOffset != 3 {
+		t.Fatalf("position in second cell of wide grapheme = %#v ok=%v, want byte offset 3", pos, ok)
+	}
+	pos, ok = layout.PositionForCell(1, 3)
+	if !ok || pos.ByteOffset != len("ab\n界c") {
+		t.Fatalf("end position = %#v ok=%v, want end of source", pos, ok)
+	}
+}
+
+func TestLayoutTextMappingIncludesAlignmentOffset(t *testing.T) {
+	layout := LayoutText([]TextSpan{{Text: "ab"}}, Tight(Size{Width: 6, Height: 1}), TextLayoutOptions{Align: TextAlignCenter})
+	if got := layout.Lines[0].Offset; got != 2 {
+		t.Fatalf("offset = %d, want 2", got)
+	}
+	pos, ok := layout.PositionForCell(0, 2)
+	if !ok || pos.ByteOffset != 0 {
+		t.Fatalf("position at aligned text start = %#v ok=%v, want start", pos, ok)
+	}
+	row, col, ok := layout.CellForPosition(TextPosition{Span: 0, ByteOffset: 1, RuneOffset: 1, GraphemeOffset: 1})
+	if !ok || row != 0 || col != 3 {
+		t.Fatalf("cell for second grapheme = %d,%d ok=%v, want 0,3 true", row, col, ok)
+	}
+}
+
+func TestLayoutTextMappingTracksSpans(t *testing.T) {
+	layout := LayoutText([]TextSpan{{Text: "ab"}, {Text: "cd"}}, Constraints{MaxWidth: 10, MaxHeight: 1}, TextLayoutOptions{})
+	row, col, ok := layout.CellForPosition(TextPosition{Span: 1, ByteOffset: 1, RuneOffset: 1, GraphemeOffset: 1})
+	if !ok || row != 0 || col != 3 {
+		t.Fatalf("cell for second span = %d,%d ok=%v, want 0,3 true", row, col, ok)
+	}
+	pos, ok := layout.PositionForCell(0, 2)
+	if !ok || pos.Span != 1 || pos.ByteOffset != 0 {
+		t.Fatalf("position at first cell of second span = %#v ok=%v, want span 1 offset 0", pos, ok)
+	}
+}
+
+func TestLayoutTextEllipsisHidesClippedPositions(t *testing.T) {
+	layout := LayoutText([]TextSpan{{Text: "abcdef"}}, Constraints{MaxWidth: 3, MaxHeight: 1}, TextLayoutOptions{Overflow: TextOverflowEllipsis, MaxLines: 1})
+	if _, _, ok := layout.CellForPosition(TextPosition{Span: 0, ByteOffset: 4, RuneOffset: 4, GraphemeOffset: 4}); ok {
+		t.Fatal("hidden clipped position unexpectedly mapped to a cell")
+	}
+	pos, ok := layout.PositionForCell(0, 2)
+	if !ok || pos.ByteOffset != 2 {
+		t.Fatalf("ellipsis position = %#v ok=%v, want clipped boundary", pos, ok)
+	}
+	if !layout.Lines[0].Cells[2].Synthetic {
+		t.Fatal("ellipsis cell should be synthetic")
+	}
+}
