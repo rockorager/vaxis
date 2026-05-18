@@ -690,7 +690,7 @@ func appendLineForReflow(
 	if len(logical) == 0 {
 		logicalRow = line.row
 	}
-	var end int
+	end := len(line.cells)
 	if !line.row.wrapped {
 		end = trimTrailingBlankCells(line.cells)
 	} else {
