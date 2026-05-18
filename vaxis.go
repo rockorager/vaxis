@@ -505,7 +505,7 @@ func (vx *Vaxis) render() {
 	vx.mu.Lock()
 	defer vx.mu.Unlock()
 	var (
-		reposition = true
+		reposition bool
 		cursor     Style
 	)
 outerLast:
@@ -553,11 +553,9 @@ outerNew:
 			next := nextRow[col]
 			if next.sixel {
 				lastRow[col].sixel = true
-				reposition = true
 				continue
 			}
 			if next == lastRow[col] && !vx.refresh {
-				reposition = true
 				// Advance the column by the width of this
 				// character
 				skip := vx.advance(next)

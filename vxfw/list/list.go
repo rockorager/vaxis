@@ -193,15 +193,6 @@ func (d *Dynamic) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 		}
 	}
 
-	var totalHeight uint16
-	for _, ch := range s.Children {
-		totalHeight += ch.Surface.Size.Height
-	}
-	if d.Gap > 0 && len(s.Children) > 1 {
-		// Add gap for between each child
-		totalHeight += uint16((len(s.Children) - 1) * d.Gap)
-	}
-
 	if d.DrawCursor {
 		var row uint16
 		// Set the entire gutter to a blank cell
