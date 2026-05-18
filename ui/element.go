@@ -44,6 +44,9 @@ func (e *ElementBase) self() Element { return e.owner.elements[e] }
 type BuildContext struct{ element Element }
 
 func (c BuildContext) Widget() Widget { return c.element.Base().widget }
+func (c BuildContext) Runtime() Runtime {
+	return appRuntime{app: c.element.Base().owner.app}
+}
 func (c BuildContext) FindRenderObject() RenderObject {
 	return findRenderObject(c.element)
 }

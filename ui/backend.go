@@ -10,6 +10,7 @@ type Backend interface {
 	Events() <-chan Event
 	Size() Size
 	Render(*Painter) error
+	Dispatch(func())
 	SetMouseShape(MouseShape)
 	Close() error
 }
@@ -35,6 +36,8 @@ func (b vaxisBackend) Render(p *Painter) error {
 	b.vx.Render()
 	return nil
 }
+
+func (b vaxisBackend) Dispatch(fn func()) { b.vx.PostEvent(SyncFunc(fn)) }
 
 func (b vaxisBackend) SetMouseShape(shape MouseShape) { b.vx.SetMouseShape(shape) }
 

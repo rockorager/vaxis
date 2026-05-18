@@ -13,6 +13,7 @@ func NewRunner(app *App, backend Backend, scheduler *FrameScheduler) *Runner {
 	if scheduler == nil {
 		scheduler = NewFrameScheduler(DefaultFrameInterval)
 	}
+	app.dispatch = backend.Dispatch
 	return &Runner{app: app, backend: backend, scheduler: scheduler}
 }
 

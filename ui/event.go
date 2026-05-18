@@ -20,7 +20,19 @@ type EventContext struct {
 	phase EventPhase
 }
 
+type Runtime interface{ Dispatch(func()) }
+
+type appRuntime struct{ app *App }
+
+func (r appRuntime) Dispatch(fn func()) {
+	if fn == nil {
+		panic("ui: Dispatch called with nil function")
+	}
+	r.app.dispatch(fn)
+}
+
 func (c EventContext) Phase() EventPhase         { return c.phase }
+func (c EventContext) Runtime() Runtime          { return appRuntime{app: c.app} }
 func (c EventContext) Quit()                     { c.app.quit = true }
 func (c EventContext) SetTitle(string)           {}
 func (c EventContext) CopyToClipboard(string)    {}

@@ -11,6 +11,7 @@ type App struct {
 	frameRequested  bool
 	mouseShape      MouseShape
 	mouseShapeDirty bool
+	dispatch        func(func())
 }
 
 func NewApp(root Widget, opts ...Option) *App {
@@ -20,6 +21,7 @@ func NewApp(root Widget, opts ...Option) *App {
 		opt(&options)
 	}
 	app := &App{build: owner, theme: options.theme}
+	app.dispatch = func(fn func()) { fn() }
 	owner.app = app
 	owner.Mount(Provider[Theme]{Value: app.theme, ChildWidget: root})
 	return app

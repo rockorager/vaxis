@@ -27,6 +27,7 @@ func (b *fakeBackend) Render(p *ui.Painter) error {
 	b.frames = append(b.frames, p)
 	return b.renderErr
 }
+func (b *fakeBackend) Dispatch(fn func()) { b.events <- vaxis.SyncFunc(fn) }
 func (b *fakeBackend) SetMouseShape(shape ui.MouseShape) {
 	b.mouseShapes = append(b.mouseShapes, shape)
 }
