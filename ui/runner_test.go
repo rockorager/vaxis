@@ -1,6 +1,7 @@
 package ui_test
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ type fakeBackend struct {
 	events      chan ui.Event
 	frames      []*ui.Painter
 	mouseShapes []ui.MouseShape
+	renderErr   error
 }
 
 func newFakeBackend(size ui.Size) *fakeBackend {
@@ -23,7 +25,7 @@ func (b *fakeBackend) Events() <-chan ui.Event { return b.events }
 func (b *fakeBackend) Size() ui.Size           { return b.size }
 func (b *fakeBackend) Render(p *ui.Painter) error {
 	b.frames = append(b.frames, p)
-	return nil
+	return b.renderErr
 }
 func (b *fakeBackend) SetMouseShape(shape ui.MouseShape) {
 	b.mouseShapes = append(b.mouseShapes, shape)
@@ -46,6 +48,17 @@ func TestRunnerRendersInitialFrame(t *testing.T) {
 	}
 	if got := backend.frames[0].Cell(0, 0).Character.Grapheme; got != "h" {
 		t.Fatalf("first cell = %q, want h", got)
+	}
+}
+
+func TestRunnerPropagatesBackendRenderError(t *testing.T) {
+	now := time.Unix(10, 0)
+	backend := newFakeBackend(ui.Size{Width: 5, Height: 1})
+	backend.renderErr = errors.New("render failed")
+	runner := ui.NewRunner(ui.NewApp(ui.Text{Value: "hi"}), backend, ui.NewFrameScheduler(time.Second/60))
+	runner.Start(now)
+	if err := runner.HandleFrame(now); !errors.Is(err, backend.renderErr) {
+		t.Fatalf("HandleFrame error = %v, want %v", err, backend.renderErr)
 	}
 }
 

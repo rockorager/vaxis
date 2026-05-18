@@ -119,7 +119,15 @@ func (w ExpandedWidget) ApplyParentData(ro RenderObject) {
 	if flex <= 0 {
 		flex = 1
 	}
-	ro.Base().SetParentData(FlexParentData{Flex: flex})
+	pd, _ := ro.Base().ParentData().(FlexParentData)
+	if pd.Flex == flex {
+		return
+	}
+	pd.Flex = flex
+	ro.Base().SetParentData(pd)
+	if parent := ro.Base().parent; parent != nil {
+		parent.Base().MarkNeedsLayout()
+	}
 }
 
 func maxFinite(v int) int {

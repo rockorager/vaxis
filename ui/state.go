@@ -12,7 +12,15 @@ func (s *StateBase) SetState(fn func()) {
 	s.MarkNeedsBuild()
 }
 
-func (s *StateBase) MarkNeedsBuild()       { s.element.MarkNeedsBuild() }
+func (s *StateBase) MarkNeedsBuild() {
+	if s.element == nil || s.element.owner == nil {
+		panic("ui: MarkNeedsBuild called after Dispose")
+	}
+	if s.element.owner.building {
+		panic("ui: MarkNeedsBuild called during build")
+	}
+	s.element.MarkNeedsBuild()
+}
 func (s *StateBase) Context() BuildContext { return s.element.Context() }
 func (s *StateBase) Widget() Widget        { return s.element.widget }
 
@@ -32,9 +40,9 @@ type statefulElement struct {
 
 func newStatefulElement(w StatefulWidget) Element { return &statefulElement{} }
 
-func (e *statefulElement) update(next Widget) {
+func (e *statefulElement) update(old Widget) {
 	if u, ok := e.state.(StateUpdater); ok {
-		u.DidUpdateWidget(next)
+		u.DidUpdateWidget(old)
 	}
 }
 
@@ -76,6 +84,9 @@ func (e *statefulElement) MouseShape(ctx EventContext, mouse Mouse) MouseShape {
 func (e *statefulElement) dispose() {
 	if d, ok := e.state.(StateDisposer); ok {
 		d.Dispose()
+	}
+	if setter, ok := e.state.(stateBaseSetter); ok {
+		setter.setElement(nil)
 	}
 }
 

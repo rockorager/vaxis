@@ -71,7 +71,12 @@ type SingleChildRenderObject struct {
 }
 
 func (r *SingleChildRenderObject) Child() RenderObject         { return r.child }
-func (r *SingleChildRenderObject) SetChild(child RenderObject) { r.child = child }
+func (r *SingleChildRenderObject) SetChild(child RenderObject) {
+	if r.child != nil && r.child != child {
+		detachRenderTree(r.child)
+	}
+	r.child = child
+}
 func (r *SingleChildRenderObject) VisitChildren(fn func(RenderObject)) {
 	if r.child != nil {
 		fn(r.child)
@@ -84,7 +89,21 @@ type MultiChildRenderObject struct {
 }
 
 func (r *MultiChildRenderObject) Children() []RenderObject            { return r.children }
-func (r *MultiChildRenderObject) SetChildren(children []RenderObject) { r.children = children }
+func (r *MultiChildRenderObject) SetChildren(children []RenderObject) {
+	for _, old := range r.children {
+		kept := false
+		for _, child := range children {
+			if old == child {
+				kept = true
+				break
+			}
+		}
+		if !kept {
+			detachRenderTree(old)
+		}
+	}
+	r.children = children
+}
 func (r *MultiChildRenderObject) VisitChildren(fn func(RenderObject)) {
 	for _, child := range r.children {
 		fn(child)
@@ -177,6 +196,12 @@ func attachRenderTree(ro RenderObject, owner *App, parent RenderObject) {
 	ro.Base().owner = owner
 	ro.Base().parent = parent
 	ro.VisitChildren(func(child RenderObject) { attachRenderTree(child, owner, ro) })
+}
+
+func detachRenderTree(ro RenderObject) {
+	ro.Base().owner = nil
+	ro.Base().parent = nil
+	ro.VisitChildren(detachRenderTree)
 }
 
 func oldAt(children []Element, i int) Element {

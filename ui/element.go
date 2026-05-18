@@ -60,6 +60,7 @@ type BuildOwner struct {
 	dirty    []Element
 	elements map[*ElementBase]Element
 	app      *App
+	building bool
 }
 
 func NewBuildOwner() *BuildOwner { return &BuildOwner{elements: make(map[*ElementBase]Element)} }
@@ -78,6 +79,8 @@ func (o *BuildOwner) UpdateRoot(root Widget) {
 }
 
 func (o *BuildOwner) BuildScope() {
+	o.building = true
+	defer func() { o.building = false }()
 	for len(o.dirty) > 0 {
 		dirty := o.dirty
 		o.dirty = nil

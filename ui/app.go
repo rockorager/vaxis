@@ -178,9 +178,11 @@ func (a *App) unregisterFocusable(e Element) {
 		}
 	}
 	if a.focused == e {
+		old := a.focused
 		a.focused = nil
+		a.notifyFocusChanged(old)
 		if len(a.focusables) > 0 {
-			a.focused = a.focusables[0]
+			a.setFocused(a.focusables[0])
 		}
 	}
 }

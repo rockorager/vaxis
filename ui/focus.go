@@ -29,6 +29,26 @@ func (e *focusElement) unmounted() {
 	e.owner.app.unregisterFocusable(e)
 }
 
+func (e *focusElement) update(old Widget) {
+	oldNode := old.(FocusWidget).Node
+	nextNode := e.widget.(FocusWidget).Node
+	if oldNode == nextNode {
+		return
+	}
+	if oldNode != nil {
+		oldNode.detach(e)
+		if e.owner.app.focused == e && oldNode.onChange != nil {
+			oldNode.onChange()
+		}
+	}
+	if nextNode != nil {
+		nextNode.attach(e.owner.app, e)
+		if e.owner.app.focused == e && nextNode.onChange != nil {
+			nextNode.onChange()
+		}
+	}
+}
+
 func (e *focusElement) Rebuild() {
 	w := e.widget.(FocusWidget)
 	if w.Node != nil {
