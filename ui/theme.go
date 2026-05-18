@@ -12,6 +12,8 @@ type ButtonTheme struct {
 	Focused    Style
 	Hovered    Style
 	Pressed    Style
+	Padding    Insets
+	MinWidth   int
 	Mouse      MouseShape
 	FocusLeft  Character
 	FocusRight Character
@@ -25,6 +27,8 @@ func DefaultTheme() Theme {
 			Focused:    Style{Foreground: RGB(238, 238, 238), Background: RGB(48, 48, 48)},
 			Hovered:    Style{Foreground: RGB(238, 238, 238), Background: RGB(64, 64, 64)},
 			Pressed:    Style{Foreground: RGB(0, 0, 0), Background: RGB(0, 255, 0)},
+			Padding:    Symmetric(1, 0),
+			MinWidth:   5,
 			Mouse:      MouseShapeClickable,
 			FocusLeft:  Character{Grapheme: "[", Width: 1},
 			FocusRight: Character{Grapheme: "]", Width: 1},

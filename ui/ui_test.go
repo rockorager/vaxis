@@ -402,6 +402,44 @@ func TestButtonUsesHoveredThemeStyle(t *testing.T) {
 	}
 }
 
+func TestButtonPaddingAndMinWidth(t *testing.T) {
+	app := ui.NewApp(ui.Align{Alignment: ui.TopLeft, Child: ui.Button{Label: "go", Padding: ui.Symmetric(2, 1), MinWidth: 10}})
+	app.Pump(ui.Size{Width: 10, Height: 3})
+	p := ui.NewPainter(ui.Size{Width: 10, Height: 3})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Style.Background; got == 0 {
+		t.Fatal("button padding should paint styled surface")
+	}
+	if got := p.Cell(3, 1).Character.Grapheme; got != "[" {
+		t.Fatalf("focused marker at padded center = %q, want [", got)
+	}
+	if got := p.Cell(4, 1).Character.Grapheme; got != "g" {
+		t.Fatalf("label at padded center = %q, want g", got)
+	}
+	if got := p.Cell(9, 2).Style.Background; got == 0 {
+		t.Fatal("button min width and vertical padding should paint full surface")
+	}
+}
+
+func TestButtonUsesThemePaddingAndMinWidth(t *testing.T) {
+	theme := ui.DefaultTheme()
+	theme.Button.Padding = ui.Symmetric(3, 0)
+	theme.Button.MinWidth = 12
+	app := ui.NewApp(ui.Align{Alignment: ui.TopLeft, Child: ui.Button{Label: "x"}}, ui.WithTheme(theme))
+	app.Pump(ui.Size{Width: 12, Height: 1})
+	p := ui.NewPainter(ui.Size{Width: 12, Height: 1})
+	app.Paint(p)
+	if got := p.Cell(4, 0).Character.Grapheme; got != "[" {
+		t.Fatalf("theme-padded focused marker = %q, want [", got)
+	}
+	if got := p.Cell(5, 0).Character.Grapheme; got != "x" {
+		t.Fatalf("theme-padded label = %q, want x", got)
+	}
+	if got := p.Cell(11, 0).Style.Background; got == 0 {
+		t.Fatal("theme min width should paint full surface")
+	}
+}
+
 func TestTextUsesThemeStyle(t *testing.T) {
 	style := ui.Style{Foreground: vaxis.ColorRed}
 	app := ui.NewApp(ui.Text{Value: "x"}, ui.WithTheme(ui.Theme{Text: style}))
@@ -524,7 +562,7 @@ func TestButtonUsesFocusedThemeStyle(t *testing.T) {
 	app.Pump(ui.Size{Width: 6, Height: 1})
 	p := ui.NewPainter(ui.Size{Width: 6, Height: 1})
 	app.Paint(p)
-	if got := p.Cell(0, 0).Character.Grapheme; got != "[" {
+	if got := p.Cell(1, 0).Character.Grapheme; got != "[" {
 		t.Fatalf("focused left marker = %q, want [", got)
 	}
 	if got := p.Cell(2, 0).Character.Grapheme; got != "g" {
@@ -533,7 +571,7 @@ func TestButtonUsesFocusedThemeStyle(t *testing.T) {
 	if got := p.Cell(2, 0).Style; got != focused {
 		t.Fatalf("label style = %#v, want focused %#v", got, focused)
 	}
-	if got := p.Cell(5, 0).Character.Grapheme; got != "]" {
+	if got := p.Cell(4, 0).Character.Grapheme; got != "]" {
 		t.Fatalf("focused right marker = %q, want ]", got)
 	}
 }
@@ -552,7 +590,7 @@ func TestButtonStyleUpdatesOnFocusChange(t *testing.T) {
 	if got := p.Cell(0, 0).Character.Grapheme; got == "[" {
 		t.Fatal("first button should no longer show focus marker")
 	}
-	if got := p.Cell(5, 0).Character.Grapheme; got != "[" {
+	if got := p.Cell(6, 0).Character.Grapheme; got != "[" {
 		t.Fatalf("second button left marker = %q, want [", got)
 	}
 	if got := p.Cell(7, 0).Style; got != focused {

@@ -3,6 +3,8 @@ package ui
 type Button struct {
 	Label     string
 	OnPressed VoidCallback
+	Padding   Insets
+	MinWidth  int
 }
 
 func (w Button) CreateState() State { return &buttonState{} }
@@ -17,6 +19,7 @@ func (s *buttonState) Build(ctx BuildContext) Widget {
 	w := s.Widget().(Button)
 	s.node.onChange = s.MarkNeedsBuild
 	theme := MustDepend[Theme](ctx).Button
+	padding := buttonPadding(w, theme)
 	style := theme.Normal
 	left, right := " ", " "
 	if s.node.HasFocus() {
@@ -27,17 +30,49 @@ func (s *buttonState) Build(ctx BuildContext) Widget {
 	if s.hovered {
 		style = theme.Hovered
 	}
-	return Focus(&s.node, SizedBox{Width: buttonWidth(w.Label), Height: 1, Child: DecoratedBox(
+	return Focus(&s.node, SizedBox{Width: buttonWidthFor(w.Label, padding, buttonMinWidth(w, theme)), Height: buttonHeightFor(padding), Child: DecoratedBox(
 		Decoration{Style: style},
-		Align{Alignment: CenterAlign, Child: RichText{Spans: []TextSpan{
+		Padding(padding, Align{Alignment: CenterAlign, Child: RichText{Spans: []TextSpan{
 			{Text: left, Style: style},
-			{Text: " " + w.Label + " ", Style: style},
+			{Text: w.Label, Style: style},
 			{Text: right, Style: style},
-		}}},
+		}}}),
 	)})
 }
 
-func buttonWidth(label string) int { return max(5, textWidth(label)+4) }
+func buttonWidth(label string) int {
+	w := buttonWidthFor(label, DefaultTheme().Button.Padding, DefaultTheme().Button.MinWidth)
+	return w
+}
+
+func buttonWidthFor(label string, padding Insets, minWidth int) int {
+	if minWidth <= 0 {
+		minWidth = DefaultTheme().Button.MinWidth
+	}
+	return max(minWidth, textWidth(label)+2+padding.Left+padding.Right)
+}
+
+func buttonHeightFor(padding Insets) int { return 1 + padding.Top + padding.Bottom }
+
+func buttonPadding(w Button, theme ButtonTheme) Insets {
+	if w.Padding != (Insets{}) {
+		return w.Padding
+	}
+	if theme.Padding == (Insets{}) {
+		return DefaultTheme().Button.Padding
+	}
+	return theme.Padding
+}
+
+func buttonMinWidth(w Button, theme ButtonTheme) int {
+	if w.MinWidth > 0 {
+		return w.MinWidth
+	}
+	if theme.MinWidth <= 0 {
+		return DefaultTheme().Button.MinWidth
+	}
+	return theme.MinWidth
+}
 
 func focusMarker(ch Character, fallback string) string {
 	if ch == (Character{}) {
