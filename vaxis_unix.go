@@ -82,14 +82,11 @@ func (vx *Vaxis) reportWinsize() (Resize, error) {
 		return size, nil
 	}
 	log.Trace("requesting screen size from ioctl")
-	ws, err := unix.IoctlGetWinsize(int(vx.console.Fd()), unix.TIOCGWINSZ)
+	ws, err := unix.IoctlGetWinsize(int(vx.tty.Fd()), unix.TIOCGWINSZ)
 	if err != nil {
-		cws, err := vx.console.Size()
+		cws, err := vx.tty.Size()
 		if err == nil {
-			return Resize{
-				Cols: int(cws.Width),
-				Rows: int(cws.Height),
-			}, nil
+			return cws, nil
 		}
 
 		return Resize{}, err

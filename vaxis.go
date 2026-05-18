@@ -13,8 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/containerd/console"
-
 	"git.sr.ht/~rockorager/vaxis/ansi"
 	"git.sr.ht/~rockorager/vaxis/log"
 )
@@ -80,8 +78,8 @@ type Options struct {
 	// available. This has no effect if DisableKittyKeyboard is true
 	CSIuBitMask CSIuBitMask
 
-	// WithConsole provides the ability to use a custom console.
-	WithConsole console.Console
+	// WithConsole provides the ability to use a custom terminal transport.
+	WithConsole Console
 
 	// EnableSGRPixels provides pixel level precision of mouse movement. This has
 	// no effect if DisableMouse is true
@@ -100,7 +98,7 @@ const (
 
 type Vaxis struct {
 	queue            chan Event
-	console          console.Console
+	tty              tty
 	parser           *ansi.Parser
 	tw               *writer
 	screenNext       *screen
@@ -141,7 +139,7 @@ type Vaxis struct {
 	xtwinops bool
 
 	withTty     string
-	withConsole console.Console
+	withConsole Console
 
 	termID terminalID
 
@@ -203,25 +201,11 @@ func New(opts Options) (*Vaxis, error) {
 
 	vx.noSignals = opts.NoSignals
 
-	var tgts []*os.File
-
 	switch {
 	case opts.WithConsole != nil:
 		vx.withConsole = opts.WithConsole
 	case opts.WithTTY != "":
 		vx.withTty = opts.WithTTY
-		f, err := os.OpenFile(opts.WithTTY, os.O_RDWR, 0)
-		if err != nil {
-			return nil, err
-		}
-		tgts = []*os.File{f}
-	default:
-		f, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
-		if err != nil {
-			tgts = []*os.File{os.Stderr, os.Stdout, os.Stdin}
-			break
-		}
-		tgts = []*os.File{f, os.Stderr, os.Stdout, os.Stdin}
 	}
 
 	vx.queue = make(chan Event, opts.EventQueueSize)
@@ -238,7 +222,7 @@ func New(opts Options) (*Vaxis, error) {
 	vx.chBg = make(chan string, 1)
 	vx.chColor = make(chan string, 1)
 
-	err = vx.openTty(tgts)
+	err = vx.openTty()
 	if err != nil {
 		return nil, err
 	}
@@ -448,7 +432,7 @@ func (vx *Vaxis) Close() {
 	defer close(vx.chQuit)
 
 	_ = vx.Suspend()
-	_ = vx.console.Close()
+	_ = vx.tty.Close()
 
 	log.Info("Renders: %d", vx.renders)
 	if vx.renders != 0 {
@@ -1371,8 +1355,8 @@ func (vx *Vaxis) writeControl(p []byte) {
 		_, _ = vx.tw.WriteControl(p)
 		return
 	}
-	if vx.console != nil {
-		_, _ = vx.console.Write(p)
+	if vx.tty != nil {
+		_, _ = vx.tty.Write(p)
 	}
 }
 
@@ -1381,8 +1365,8 @@ func (vx *Vaxis) writeControlString(s string) {
 		_, _ = vx.tw.WriteControlString(s)
 		return
 	}
-	if vx.console != nil {
-		_, _ = io.WriteString(vx.console, s)
+	if vx.tty != nil {
+		_, _ = io.WriteString(vx.tty, s)
 	}
 }
 
@@ -1557,6 +1541,7 @@ func (vx *Vaxis) Suspend() error {
 	//    loop
 	// 3. Confirm we have closed
 	vx.parser.Close()
+	_ = vx.tty.StopInput()
 	vx.writeControlString(primaryAttributes)
 	vx.parser.WaitClose()
 
@@ -1572,34 +1557,34 @@ func (vx *Vaxis) Suspend() error {
 
 	signal.Stop(vx.chSigKill)
 	signal.Stop(vx.chSigWinSz)
-	_ = vx.console.Reset()
+	_ = vx.tty.Reset()
 	return nil
 }
 
 // openTty opens the /dev/tty device, makes it raw, and starts an input parser
-func (vx *Vaxis) openTty(tgts []*os.File) error {
+func (vx *Vaxis) openTty() error {
+	var t tty
 	if vx.withConsole != nil {
-		vx.console = vx.withConsole
+		t = consoleTTY{Console: vx.withConsole}
 	} else {
-		for _, s := range tgts {
-			if c, err := console.ConsoleFromFile(s); err == nil {
-				vx.console = c
-				break
-			}
+		var err error
+		t, err = openTTY(vx.withTty)
+		if err != nil {
+			return err
 		}
 	}
+	vx.tty = t
 
-	if vx.console == nil {
-		return console.ErrNotAConsole
-	}
-
-	err := vx.console.SetRaw()
+	err := vx.tty.SetRaw()
 	if err != nil {
 		return err
 	}
-
+	err = vx.tty.StartInput(vx)
+	if err != nil {
+		return err
+	}
 	vx.tw = newWriter(vx)
-	vx.parser = ansi.NewParser(vx.console, ansi.ParserModeInput)
+	vx.parser = ansi.NewParser(vx.tty, ansi.ParserModeInput)
 
 	go func() {
 		defer func() {
@@ -1632,20 +1617,7 @@ func (vx *Vaxis) openTty(tgts []*os.File) error {
 // and reenables input parsing. Upon resuming, a Resize event will be delivered.
 // It is entirely possible the terminal was resized while suspended.
 func (vx *Vaxis) Resume() error {
-	var tgts []*os.File
-	if vx.withConsole == nil {
-		tgts = []*os.File{os.Stderr, os.Stdout, os.Stdin}
-
-		if vx.withTty != "" {
-			f, err := os.OpenFile(vx.withTty, os.O_RDWR, 0)
-			if err != nil {
-				return err
-			}
-			tgts = []*os.File{f}
-		}
-	}
-
-	err := vx.openTty(tgts)
+	err := vx.openTty()
 	if err != nil {
 		return err
 	}

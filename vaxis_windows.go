@@ -24,37 +24,6 @@ func (vx *Vaxis) setupSignals() {
 		syscall.SIGSEGV,
 		syscall.SIGTERM,
 	)
-	// TODO: Use ReadConsoleInput for events??
-	go vx.winch()
-}
-
-func (vx *Vaxis) winch() {
-	ticker := time.NewTicker(100 * time.Millisecond)
-	lastSize := Resize{}
-	for {
-		<-ticker.C
-		ws, err := vx.reportWinsize()
-		if err != nil {
-			log.Error("couldn't report winsize", "error", err)
-			return
-		}
-		vx.mu.Lock()
-		ready := vx.ready
-		applied := vx.winSize
-		vx.mu.Unlock()
-		if !ready {
-			lastSize = ws
-			continue
-		}
-		if lastSize == (Resize{}) {
-			lastSize = applied
-		}
-		changed := ws != lastSize
-		lastSize = ws
-		if changed {
-			vx.PostEvent(ws)
-		}
-	}
 }
 
 func (vx *Vaxis) reportWinsize() (Resize, error) {
@@ -101,12 +70,5 @@ func (vx *Vaxis) reportWinsize() (Resize, error) {
 		return size, nil
 	}
 	log.Trace("requesting screen size from console")
-	ws, err := vx.console.Size()
-	if err != nil {
-		return Resize{}, err
-	}
-	return Resize{
-		Cols: int(ws.Width),
-		Rows: int(ws.Height),
-	}, nil
+	return vx.tty.Size()
 }

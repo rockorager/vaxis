@@ -42,7 +42,7 @@ type writer struct {
 func newWriter(vx *Vaxis) *writer {
 	return &writer{
 		buf:      bytes.NewBuffer(make([]byte, 0, 8192)),
-		terminal: &terminalWriter{w: vx.console},
+		terminal: &terminalWriter{w: vx.tty},
 		vx:       vx,
 	}
 }
