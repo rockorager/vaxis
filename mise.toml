@@ -1,0 +1,21 @@
+[tools]
+go = "1.21"
+
+[env]
+GOFLAGS = "-ldflags=-linkmode=external"
+
+[tasks.check]
+description = "Run formatting checks and tests"
+run = """
+files=$(gofmt -l $(find . -name '*.go' -not -path './.git/*'))
+if [ -n "$files" ]; then
+  echo "Go files need formatting:"
+  echo "$files"
+  exit 1
+fi
+go test ./...
+"""
+
+[tasks.fix]
+description = "Format Go files"
+run = "gofmt -w $(find . -name '*.go' -not -path './.git/*')"

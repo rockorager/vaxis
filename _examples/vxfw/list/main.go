@@ -79,7 +79,7 @@ func main() {
 		list: list.Dynamic{
 			Builder:    getWidget,
 			DrawCursor: true,
-			Gap: 1,
+			Gap:        1,
 		},
 	}
 

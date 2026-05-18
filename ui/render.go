@@ -70,7 +70,7 @@ type SingleChildRenderObject struct {
 	child RenderObject
 }
 
-func (r *SingleChildRenderObject) Child() RenderObject         { return r.child }
+func (r *SingleChildRenderObject) Child() RenderObject { return r.child }
 func (r *SingleChildRenderObject) SetChild(child RenderObject) {
 	if r.child != nil && r.child != child {
 		detachRenderTree(r.child)
@@ -88,7 +88,7 @@ type MultiChildRenderObject struct {
 	children []RenderObject
 }
 
-func (r *MultiChildRenderObject) Children() []RenderObject            { return r.children }
+func (r *MultiChildRenderObject) Children() []RenderObject { return r.children }
 func (r *MultiChildRenderObject) SetChildren(children []RenderObject) {
 	for _, old := range r.children {
 		kept := false
