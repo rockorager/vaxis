@@ -1,6 +1,7 @@
 [tools]
 go = "1.21"
-gofumpt = "latest"
+gofumpt = "0.10.0"
+golangci-lint = "2.12.2"
 
 [env]
 GOFLAGS = "-ldflags=-linkmode=external"
@@ -9,6 +10,7 @@ GOFLAGS = "-ldflags=-linkmode=external"
 description = "Run formatting checks and tests"
 run = """
 scripts/check-go-style.sh
+golangci-lint run ./...
 go test ./...
 """
 
