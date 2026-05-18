@@ -43,13 +43,20 @@ func (c EventContext) Quit() {
 	c.app.quit = true
 }
 
-func (c EventContext) SetTitle(string) {
+func (c EventContext) SetTitle(title string) {
+	c.app.setTitle(title)
 }
 
-func (c EventContext) CopyToClipboard(string) {
+func (c EventContext) Copy(text string) {
+	c.app.copyToClipboard(text)
 }
 
 func (c EventContext) Notify(title, body string) {
+	c.app.notify(title, body)
+}
+
+func (c EventContext) CopyToClipboard(text string) {
+	c.Copy(text)
 }
 
 func (c EventContext) FocusNext() {

@@ -14,7 +14,15 @@ type fakeBackend struct {
 	events      chan ui.Event
 	frames      []*ui.Painter
 	mouseShapes []ui.MouseShape
+	titles      []string
+	copies      []string
+	notices     []notice
 	renderErr   error
+}
+
+type notice struct {
+	title string
+	body  string
 }
 
 func newFakeBackend(size ui.Size) *fakeBackend {
@@ -40,6 +48,18 @@ func (b *fakeBackend) Dispatch(fn func()) {
 
 func (b *fakeBackend) SetMouseShape(shape ui.MouseShape) {
 	b.mouseShapes = append(b.mouseShapes, shape)
+}
+
+func (b *fakeBackend) SetTitle(title string) {
+	b.titles = append(b.titles, title)
+}
+
+func (b *fakeBackend) CopyToClipboard(text string) {
+	b.copies = append(b.copies, text)
+}
+
+func (b *fakeBackend) Notify(title, body string) {
+	b.notices = append(b.notices, notice{title: title, body: body})
 }
 
 func (b *fakeBackend) Close() error {
@@ -221,5 +241,35 @@ func TestRunnerQuitEventStopsRunner(t *testing.T) {
 	runner.HandleEvent(vaxis.Key{Text: "q", Keycode: 'q'}, now)
 	if !runner.Done() {
 		t.Fatal("quit shortcut should stop runner")
+	}
+}
+
+func TestRunnerEventContextEffectsUseBackend(t *testing.T) {
+	now := time.Unix(10, 0)
+	backend := newFakeBackend(ui.Size{Width: 20, Height: 1})
+	runner := ui.NewRunner(ui.NewApp(ui.Button{
+		Label: "effects",
+		OnPressed: func(ctx ui.EventContext) {
+			ctx.SetTitle("Demo")
+			ctx.Copy("copied")
+			ctx.CopyToClipboard("legacy")
+			ctx.Notify("Notice", "body")
+		},
+	}), backend, ui.NewFrameScheduler(time.Second/60))
+	runner.Start(now)
+	if err := runner.HandleFrame(now); err != nil {
+		t.Fatal(err)
+	}
+
+	runner.HandleEvent(vaxis.Key{Keycode: vaxis.KeyTab}, now)
+	runner.HandleEvent(vaxis.Key{Keycode: vaxis.KeyEnter}, now)
+	if len(backend.titles) != 1 || backend.titles[0] != "Demo" {
+		t.Fatalf("titles = %#v, want Demo", backend.titles)
+	}
+	if len(backend.copies) != 2 || backend.copies[0] != "copied" || backend.copies[1] != "legacy" {
+		t.Fatalf("copies = %#v, want copied and legacy", backend.copies)
+	}
+	if len(backend.notices) != 1 || backend.notices[0] != (notice{title: "Notice", body: "body"}) {
+		t.Fatalf("notices = %#v, want Notice/body", backend.notices)
 	}
 }

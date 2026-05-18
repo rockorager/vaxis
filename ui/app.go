@@ -14,6 +14,9 @@ type App struct {
 	mouseShape      MouseShape
 	mouseShapeDirty bool
 	dispatch        func(func())
+	setTitle        func(string)
+	copyToClipboard func(string)
+	notify          func(string, string)
 	pendingFocus    []Element
 	hoverPath       []Element
 	animations      map[*AnimationController]struct{}
@@ -27,6 +30,9 @@ func NewApp(root Widget, opts ...Option) *App {
 	}
 	app := &App{build: owner, theme: options.theme}
 	app.dispatch = func(fn func()) { fn() }
+	app.setTitle = func(string) {}
+	app.copyToClipboard = func(string) {}
+	app.notify = func(string, string) {}
 	owner.app = app
 	owner.Mount(Provider[Theme]{Value: app.theme, ChildWidget: root})
 	return app

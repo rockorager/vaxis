@@ -184,6 +184,12 @@ func (s *DemoState) controlsPage() ui.Widget {
 			}},
 			ui.SizedBox{Width: 1, Height: 1},
 			ui.Button{Label: "+", OnPressed: func(ctx ui.EventContext) { s.SetState(func() { s.count++ }) }},
+			ui.SizedBox{Width: 2, Height: 1},
+			ui.Button{Label: "Title", OnPressed: func(ctx ui.EventContext) { ctx.SetTitle("Vaxis UI demo") }},
+			ui.SizedBox{Width: 1, Height: 1},
+			ui.Button{Label: "Copy notes", OnPressed: func(ctx ui.EventContext) { ctx.Copy(s.notes) }},
+			ui.SizedBox{Width: 1, Height: 1},
+			ui.Button{Label: "Notify", OnPressed: func(ctx ui.EventContext) { ctx.Notify("Vaxis UI demo", "Notification from the controls page") }},
 		}},
 		ui.Align{Alignment: ui.CenterRight, Child: ui.Text{Value: "aligned right inside the page"}},
 	}}

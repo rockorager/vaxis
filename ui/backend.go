@@ -56,6 +56,18 @@ func (b vaxisBackend) SetMouseShape(shape MouseShape) {
 	b.vx.SetMouseShape(shape)
 }
 
+func (b vaxisBackend) SetTitle(title string) {
+	b.vx.SetTitle(title)
+}
+
+func (b vaxisBackend) CopyToClipboard(text string) {
+	b.vx.ClipboardPush(text)
+}
+
+func (b vaxisBackend) Notify(title, body string) {
+	b.vx.Notify(title, body)
+}
+
 func (b vaxisBackend) Close() error {
 	b.vx.Close()
 	return nil

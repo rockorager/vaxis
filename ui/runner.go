@@ -14,6 +14,15 @@ func NewRunner(app *App, backend Backend, scheduler *FrameScheduler) *Runner {
 		scheduler = NewFrameScheduler(DefaultFrameInterval)
 	}
 	app.dispatch = backend.Dispatch
+	if b, ok := backend.(interface{ SetTitle(string) }); ok {
+		app.setTitle = b.SetTitle
+	}
+	if b, ok := backend.(interface{ CopyToClipboard(string) }); ok {
+		app.copyToClipboard = b.CopyToClipboard
+	}
+	if b, ok := backend.(interface{ Notify(string, string) }); ok {
+		app.notify = b.Notify
+	}
 	return &Runner{app: app, backend: backend, scheduler: scheduler}
 }
 
