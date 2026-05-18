@@ -44,7 +44,9 @@ const (
 	KeyBackspace      = vaxis.KeyBackspace
 	KeyDelete         = vaxis.KeyDelete
 	KeyLeft           = vaxis.KeyLeft
+	KeyUp             = vaxis.KeyUp
 	KeyRight          = vaxis.KeyRight
+	KeyDown           = vaxis.KeyDown
 	KeyHome           = vaxis.KeyHome
 	KeyEnd            = vaxis.KeyEnd
 )
