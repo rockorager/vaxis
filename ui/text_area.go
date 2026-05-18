@@ -21,6 +21,7 @@ type textAreaState struct {
 	layout    TextLayout
 	scrollRow int
 	scrollCol int
+	selecting bool
 }
 
 func (s *textAreaState) Build(ctx BuildContext) Widget {
@@ -42,9 +43,11 @@ func (s *textAreaState) Build(ctx BuildContext) Widget {
 			Value:            s.buffer.Text(),
 			Placeholder:      w.Placeholder,
 			CursorOffset:     s.buffer.CursorOffset(),
+			Selection:        s.buffer.Selection(),
 			Focused:          s.node.HasFocus(),
 			Style:            style,
 			PlaceholderStyle: mergeStyle(style, theme.Placeholder),
+			SelectionStyle:   mergeStyle(style, theme.Selection),
 			MinWidth:         textAreaMinWidth(w, theme) - padding.Left - padding.Right,
 			MinHeight:        textAreaMinHeight(w) - padding.Top - padding.Bottom,
 			SoftWrap:         w.SoftWrap,
@@ -58,11 +61,33 @@ func (s *textAreaState) HandleEvent(ctx EventContext, ev Event) EventResult {
 	}
 	key, ok := ev.(Key)
 	if !ok {
-		return EventIgnored
+		mouse, ok := ev.(Mouse)
+		if !ok {
+			return EventIgnored
+		}
+		return s.handleMouse(mouse)
 	}
 	changed := false
 	handled := true
 	switch {
+	case key.MatchString("Ctrl+a"):
+		handled = s.buffer.SelectAll()
+	case key.MatchString("Ctrl+c"):
+		if s.buffer.HasSelection() {
+			ctx.Copy(s.buffer.SelectedText())
+		}
+	case key.MatchString("Shift+Left"):
+		handled = s.buffer.ExtendLeft()
+	case key.MatchString("Shift+Right"):
+		handled = s.buffer.ExtendRight()
+	case key.MatchString("Shift+Up"):
+		handled = s.extendUp()
+	case key.MatchString("Shift+Down"):
+		handled = s.extendDown()
+	case key.MatchString("Shift+Home"):
+		handled = s.buffer.ExtendHome()
+	case key.MatchString("Shift+End"):
+		handled = s.buffer.ExtendEnd()
 	case key.Keycode == KeyLeft:
 		handled = s.buffer.MoveLeft()
 	case key.Keycode == KeyRight:
@@ -101,6 +126,67 @@ func (s *textAreaState) MouseShape(EventContext, Mouse) MouseShape {
 	return MouseShapeTextInput
 }
 
+func (s *textAreaState) handleMouse(mouse Mouse) EventResult {
+	if mouse.Button != MouseLeftButton {
+		if mouse.EventType == EventRelease {
+			s.selecting = false
+			return EventHandled
+		}
+		return EventIgnored
+	}
+	pos, ok := s.positionForMouse(mouse)
+	if !ok {
+		return EventIgnored
+	}
+	switch mouse.EventType {
+	case EventPress:
+		s.node.RequestFocus()
+		s.selecting = true
+		s.buffer.CollapseSelection(pos)
+		s.MarkNeedsBuild()
+		return EventHandled
+	case EventMotion:
+		if !s.selecting {
+			return EventIgnored
+		}
+		s.buffer.ExtendSelection(pos)
+		s.MarkNeedsBuild()
+		return EventHandled
+	case EventRelease:
+		if !s.selecting {
+			return EventIgnored
+		}
+		s.selecting = false
+		s.buffer.ExtendSelection(pos)
+		s.MarkNeedsBuild()
+		return EventHandled
+	default:
+		return EventIgnored
+	}
+}
+
+func (s *textAreaState) positionForMouse(mouse Mouse) (TextPosition, bool) {
+	w := s.Widget().(TextArea)
+	theme := MustDepend[Theme](s.Context()).TextField
+	padding := textAreaPadding(w, theme)
+	if len(s.layout.Lines) == 0 {
+		return TextPosition{}, true
+	}
+	row := mouse.Row - padding.Top + s.scrollRow
+	col := mouse.Col - padding.Left + s.scrollCol
+	if row < 0 {
+		row = 0
+	}
+	if row >= len(s.layout.Lines) {
+		return s.layout.Lines[len(s.layout.Lines)-1].End, true
+	}
+	pos, ok := s.layout.PositionForCell(row, col)
+	if !ok {
+		return TextPosition{}, false
+	}
+	return pos, true
+}
+
 func (s *textAreaState) moveUp() bool {
 	if len(s.layout.Lines) > 0 {
 		return s.buffer.MoveVisualUp(s.layout)
@@ -113,6 +199,20 @@ func (s *textAreaState) moveDown() bool {
 		return s.buffer.MoveVisualDown(s.layout)
 	}
 	return s.buffer.MoveLineDown()
+}
+
+func (s *textAreaState) extendUp() bool {
+	if len(s.layout.Lines) > 0 {
+		return s.buffer.ExtendVisualUp(s.layout)
+	}
+	return s.buffer.ExtendLineUp()
+}
+
+func (s *textAreaState) extendDown() bool {
+	if len(s.layout.Lines) > 0 {
+		return s.buffer.ExtendVisualDown(s.layout)
+	}
+	return s.buffer.ExtendLineDown()
 }
 
 func (s *textAreaState) change(ctx EventContext) {
@@ -156,9 +256,11 @@ type textAreaView struct {
 	Value            string
 	Placeholder      string
 	CursorOffset     int
+	Selection        TextSelection
 	Focused          bool
 	Style            Style
 	PlaceholderStyle Style
+	SelectionStyle   Style
 	MinWidth         int
 	MinHeight        int
 	SoftWrap         bool
@@ -170,9 +272,11 @@ func (w textAreaView) CreateRenderObject(BuildContext) RenderObject {
 		Value:            w.Value,
 		Placeholder:      w.Placeholder,
 		CursorOffset:     w.CursorOffset,
+		Selection:        w.Selection,
 		Focused:          w.Focused,
 		Style:            w.Style,
 		PlaceholderStyle: w.PlaceholderStyle,
+		SelectionStyle:   w.SelectionStyle,
 		MinWidth:         max(1, w.MinWidth),
 		MinHeight:        max(1, w.MinHeight),
 		SoftWrap:         w.SoftWrap,
@@ -182,15 +286,18 @@ func (w textAreaView) CreateRenderObject(BuildContext) RenderObject {
 func (w textAreaView) UpdateRenderObject(_ BuildContext, ro RenderObject) {
 	r := ro.(*renderTextArea)
 	if r.State != w.State || r.Value != w.Value || r.Placeholder != w.Placeholder || r.CursorOffset != w.CursorOffset ||
-		r.Focused != w.Focused || r.Style != w.Style || r.PlaceholderStyle != w.PlaceholderStyle ||
+		r.Selection != w.Selection || r.Focused != w.Focused || r.Style != w.Style || r.PlaceholderStyle != w.PlaceholderStyle ||
+		r.SelectionStyle != w.SelectionStyle ||
 		r.MinWidth != max(1, w.MinWidth) || r.MinHeight != max(1, w.MinHeight) || r.SoftWrap != w.SoftWrap {
 		r.State = w.State
 		r.Value = w.Value
 		r.Placeholder = w.Placeholder
 		r.CursorOffset = w.CursorOffset
+		r.Selection = w.Selection
 		r.Focused = w.Focused
 		r.Style = w.Style
 		r.PlaceholderStyle = w.PlaceholderStyle
+		r.SelectionStyle = w.SelectionStyle
 		r.MinWidth = max(1, w.MinWidth)
 		r.MinHeight = max(1, w.MinHeight)
 		r.SoftWrap = w.SoftWrap
@@ -204,9 +311,11 @@ type renderTextArea struct {
 	Value            string
 	Placeholder      string
 	CursorOffset     int
+	Selection        TextSelection
 	Focused          bool
 	Style            Style
 	PlaceholderStyle Style
+	SelectionStyle   Style
 	MinWidth         int
 	MinHeight        int
 	SoftWrap         bool
@@ -235,10 +344,17 @@ func (r *renderTextArea) Paint(p *Painter, off Offset) {
 	for row := r.scrollRow(); row < len(r.layout.Lines) && row < r.scrollRow()+size.Height; row++ {
 		line := r.layout.Lines[row]
 		y := off.Y + row - r.scrollRow()
-		x := off.X + line.Offset - r.scrollCol()
-		for _, run := range line.Runs {
-			p.DrawText(Offset{X: x, Y: y}, run.Text, run.Style)
-			x += textWidth(run.Text)
+		x := line.Offset - r.scrollCol()
+		for _, cell := range line.Cells {
+			style := cell.Style
+			if r.Focused && textCellSelected(cell, r.Selection) {
+				style = mergeStyle(style, r.SelectionStyle)
+			}
+			p.DrawText(Offset{X: off.X + x, Y: y}, cell.Text, style)
+			x += cell.Width
+		}
+		if r.Focused && len(line.Cells) == 0 && textLineBreakSelected(line, r.Selection) {
+			p.DrawCell(Point{X: off.X + x, Y: y}, Cell{Character: Character{Grapheme: " ", Width: 1}, Style: r.SelectionStyle})
 		}
 	}
 	if r.Focused && r.Value != "" {
@@ -251,7 +367,24 @@ func (r *renderTextArea) Paint(p *Painter, off Offset) {
 }
 
 func (r *renderTextArea) HitTest(*HitTestResult, Point) bool {
-	return false
+	return true
+}
+
+func textCellSelected(cell TextCell, selection TextSelection) bool {
+	if selection.IsCollapsed() {
+		return false
+	}
+	selection = selection.Normalized()
+	end := advanceTextPosition(cell.Position, cell.Text)
+	return compareTextPosition(selection.Base, end) < 0 && compareTextPosition(cell.Position, selection.Extent) < 0
+}
+
+func textLineBreakSelected(line TextLine, selection TextSelection) bool {
+	if selection.IsCollapsed() {
+		return false
+	}
+	selection = selection.Normalized()
+	return compareTextPosition(selection.Base, line.End) <= 0 && compareTextPosition(line.End, selection.Extent) < 0
 }
 
 func (r *renderTextArea) textLayout(c Constraints) TextLayout {

@@ -201,6 +201,22 @@ func sameTextPosition(a, b TextPosition) bool {
 	return a.Span == b.Span && a.ByteOffset == b.ByteOffset
 }
 
+func compareTextPosition(a, b TextPosition) int {
+	if a.Span < b.Span {
+		return -1
+	}
+	if a.Span > b.Span {
+		return 1
+	}
+	if a.ByteOffset < b.ByteOffset {
+		return -1
+	}
+	if a.ByteOffset > b.ByteOffset {
+		return 1
+	}
+	return 0
+}
+
 func appendWord(line *TextLine, word []textAtom) {
 	for _, atom := range word {
 		appendAtom(line, atom)

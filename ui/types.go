@@ -40,6 +40,7 @@ const (
 	MouseMiddleButton = vaxis.MouseMiddleButton
 	MouseRightButton  = vaxis.MouseRightButton
 	EventPress        = vaxis.EventPress
+	EventRelease      = vaxis.EventRelease
 	EventMotion       = vaxis.EventMotion
 	KeyBackspace      = vaxis.KeyBackspace
 	KeyDelete         = vaxis.KeyDelete

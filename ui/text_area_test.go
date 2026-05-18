@@ -2,6 +2,7 @@ package ui_test
 
 import (
 	"testing"
+	"time"
 
 	"git.sr.ht/~rockorager/vaxis"
 	"git.sr.ht/~rockorager/vaxis/ui"
@@ -115,6 +116,134 @@ func TestTextAreaKeepsCursorVisibleAtSoftWrapBoundary(t *testing.T) {
 				t.Fatalf("cursor after %q = %#v ok=%v, want 1,1", tt.text, cursor, ok)
 			}
 		})
+	}
+}
+
+func TestTextAreaExtendsAndPaintsSelection(t *testing.T) {
+	app := ui.NewApp(ui.TextArea{Value: "abcd", SoftWrap: true})
+	app.Pump(ui.Size{Width: 10, Height: 3})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyTab})
+	app.Pump(ui.Size{Width: 10, Height: 3})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyRight, Modifiers: vaxis.ModShift})
+	app.Pump(ui.Size{Width: 10, Height: 3})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyRight, Modifiers: vaxis.ModShift})
+	app.Pump(ui.Size{Width: 10, Height: 3})
+
+	p := ui.NewPainter(ui.Size{Width: 10, Height: 3})
+	app.Paint(p)
+	want := ui.DefaultTheme().TextField.Selection.Background
+	if got := p.Cell(1, 0).Background; got != want {
+		t.Fatalf("selected first cell background = %#v, want %#v", got, want)
+	}
+	if got := p.Cell(2, 0).Background; got != want {
+		t.Fatalf("selected second cell background = %#v, want %#v", got, want)
+	}
+	if got := p.Cell(3, 0).Background; got == want {
+		t.Fatalf("unselected third cell background = %#v, should not be selection background", got)
+	}
+	if got := p.Cell(1, 0).Style; got == ui.DefaultTheme().TextField.Cursor {
+		t.Fatalf("selected cell style = %#v, should not use cursor style", got)
+	}
+	if cursor, ok := p.Cursor(); !ok || cursor.Col != 3 || cursor.Row != 0 {
+		t.Fatalf("cursor after extending selection = %#v ok=%v, want 3,0", cursor, ok)
+	}
+}
+
+func TestTextAreaCopiesSelection(t *testing.T) {
+	now := time.Unix(10, 0)
+	backend := newFakeBackend(ui.Size{Width: 10, Height: 3})
+	runner := ui.NewRunner(ui.NewApp(ui.TextArea{Value: "abcd", SoftWrap: true}), backend, ui.NewFrameScheduler(time.Second/60))
+	runner.Start(now)
+	if err := runner.HandleFrame(now); err != nil {
+		t.Fatal(err)
+	}
+
+	runner.HandleEvent(vaxis.Key{Keycode: vaxis.KeyTab}, now)
+	runner.HandleEvent(vaxis.Key{Keycode: vaxis.KeyRight, Modifiers: vaxis.ModShift}, now)
+	runner.HandleEvent(vaxis.Key{Keycode: vaxis.KeyRight, Modifiers: vaxis.ModShift}, now)
+	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
+	if len(backend.copies) != 1 || backend.copies[0] != "ab" {
+		t.Fatalf("copies = %#v, want ab", backend.copies)
+	}
+}
+
+func TestTextAreaMouseDragSelectsText(t *testing.T) {
+	app := ui.NewApp(ui.TextArea{Value: "abcd", SoftWrap: true})
+	app.Pump(ui.Size{Width: 10, Height: 3})
+
+	app.Send(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress})
+	app.Pump(ui.Size{Width: 10, Height: 3})
+	app.Send(vaxis.Mouse{Col: 3, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventMotion})
+	app.Pump(ui.Size{Width: 10, Height: 3})
+	app.Send(vaxis.Mouse{Col: 3, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventRelease})
+	app.Pump(ui.Size{Width: 10, Height: 3})
+
+	p := ui.NewPainter(ui.Size{Width: 10, Height: 3})
+	app.Paint(p)
+	want := ui.DefaultTheme().TextField.Selection.Background
+	if got := p.Cell(1, 0).Background; got != want {
+		t.Fatalf("selected first cell background = %#v, want %#v", got, want)
+	}
+	if got := p.Cell(2, 0).Background; got != want {
+		t.Fatalf("selected second cell background = %#v, want %#v", got, want)
+	}
+	if got := p.Cell(3, 0).Background; got == want {
+		t.Fatalf("unselected third cell background = %#v, should not be selection background", got)
+	}
+}
+
+func TestTextAreaMouseReverseDragCopiesSelection(t *testing.T) {
+	now := time.Unix(10, 0)
+	backend := newFakeBackend(ui.Size{Width: 10, Height: 3})
+	runner := ui.NewRunner(ui.NewApp(ui.TextArea{Value: "abcd", SoftWrap: true}), backend, ui.NewFrameScheduler(time.Second/60))
+	runner.Start(now)
+	if err := runner.HandleFrame(now); err != nil {
+		t.Fatal(err)
+	}
+
+	runner.HandleEvent(vaxis.Mouse{Col: 3, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}, now)
+	runner.HandleEvent(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventMotion}, now)
+	runner.HandleEvent(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventRelease}, now)
+	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
+	if len(backend.copies) != 1 || backend.copies[0] != "ab" {
+		t.Fatalf("copies = %#v, want ab", backend.copies)
+	}
+}
+
+func TestTextAreaPaintsSelectedEmptyLine(t *testing.T) {
+	app := ui.NewApp(ui.TextArea{Value: "a\n\nb", SoftWrap: true})
+	app.Pump(ui.Size{Width: 10, Height: 5})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyTab})
+	app.Pump(ui.Size{Width: 10, Height: 5})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyDown, Modifiers: vaxis.ModShift})
+	app.Pump(ui.Size{Width: 10, Height: 5})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyDown, Modifiers: vaxis.ModShift})
+	app.Pump(ui.Size{Width: 10, Height: 5})
+
+	p := ui.NewPainter(ui.Size{Width: 10, Height: 5})
+	app.Paint(p)
+	want := ui.DefaultTheme().TextField.Selection.Background
+	if got := p.Cell(1, 1).Background; got != want {
+		t.Fatalf("selected empty line background = %#v, want %#v", got, want)
+	}
+}
+
+func TestTextAreaSelectAllDoesNotPaintExtraCellAfterNonEmptyLineBeforeBlankLine(t *testing.T) {
+	app := ui.NewApp(ui.TextArea{Value: "abc\n\nabc", SoftWrap: true})
+	app.Pump(ui.Size{Width: 12, Height: 5})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyTab})
+	app.Pump(ui.Size{Width: 12, Height: 5})
+	app.Send(vaxis.Key{Text: "a", Keycode: 'a', Modifiers: vaxis.ModCtrl})
+	app.Pump(ui.Size{Width: 12, Height: 5})
+
+	p := ui.NewPainter(ui.Size{Width: 12, Height: 5})
+	app.Paint(p)
+	want := ui.DefaultTheme().TextField.Selection.Background
+	if got := p.Cell(1, 1).Background; got != want {
+		t.Fatalf("selected empty line background = %#v, want %#v", got, want)
+	}
+	if got := p.Cell(4, 0).Background; got == want {
+		t.Fatalf("extra cell after first line background = %#v, should not be selection background", got)
 	}
 }
 

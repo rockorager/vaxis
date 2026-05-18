@@ -9,6 +9,7 @@ type TextCursor struct {
 
 type TextBuffer struct {
 	chars              []Character
+	anchor             int
 	cursor             int
 	preferredColumn    int
 	hasPreferredColumn bool
@@ -20,6 +21,7 @@ func NewTextBuffer(text string) TextBuffer {
 
 func (b *TextBuffer) SetText(text string) {
 	b.chars = vaxisCharacters(text)
+	b.anchor = clampInt(b.anchor, 0, len(b.chars))
 	b.cursor = clampInt(b.cursor, 0, len(b.chars))
 	b.clearPreferredColumn()
 }
@@ -37,8 +39,60 @@ func (b TextBuffer) CursorOffset() int {
 }
 
 func (b *TextBuffer) SetCursorOffset(offset int) {
-	b.cursor = clampInt(offset, 0, len(b.chars))
+	b.setCursorOffset(offset, false)
 	b.clearPreferredColumn()
+}
+
+func (b TextBuffer) Selection() TextSelection {
+	return TextSelection{Base: b.positionForOffset(b.anchor), Extent: b.positionForOffset(b.CursorOffset())}
+}
+
+func (b *TextBuffer) SetSelection(selection TextSelection) bool {
+	base, ok := b.offsetForPosition(selection.Base)
+	if !ok {
+		return false
+	}
+	extent, ok := b.offsetForPosition(selection.Extent)
+	if !ok {
+		return false
+	}
+	b.anchor = base
+	b.cursor = extent
+	b.clearPreferredColumn()
+	return true
+}
+
+func (b *TextBuffer) CollapseSelection(pos TextPosition) bool {
+	offset, ok := b.offsetForPosition(pos)
+	if !ok {
+		return false
+	}
+	b.setCursorOffset(offset, false)
+	b.clearPreferredColumn()
+	return true
+}
+
+func (b *TextBuffer) ExtendSelection(pos TextPosition) bool {
+	offset, ok := b.offsetForPosition(pos)
+	if !ok {
+		return false
+	}
+	b.setCursorOffset(offset, true)
+	b.clearPreferredColumn()
+	return true
+}
+
+func (b TextBuffer) HasSelection() bool {
+	start, end := b.selectionOffsets()
+	return start != end
+}
+
+func (b TextBuffer) SelectedText() string {
+	start, end := b.selectionOffsets()
+	if start == end {
+		return ""
+	}
+	return charactersString(b.chars[start:end])
 }
 
 func (b TextBuffer) Cursor() TextCursor {
@@ -55,7 +109,7 @@ func (b TextBuffer) Cursor() TextCursor {
 }
 
 func (b *TextBuffer) SetCursor(cursor TextCursor) {
-	b.cursor = b.offsetForCursor(cursor)
+	b.setCursorOffset(b.offsetForCursor(cursor), false)
 	b.clearPreferredColumn()
 }
 
@@ -64,29 +118,35 @@ func (b *TextBuffer) Insert(text string) bool {
 	if len(insert) == 0 {
 		return false
 	}
-	cursor := b.CursorOffset()
+	start, end := b.selectionOffsets()
 	next := make([]Character, 0, len(b.chars)+len(insert))
-	next = append(next, b.chars[:cursor]...)
+	next = append(next, b.chars[:start]...)
 	next = append(next, insert...)
-	next = append(next, b.chars[cursor:]...)
+	next = append(next, b.chars[end:]...)
 	b.chars = next
-	b.cursor = cursor + len(insert)
+	b.setCursorOffset(start+len(insert), false)
 	b.clearPreferredColumn()
 	return true
 }
 
 func (b *TextBuffer) DeleteBackward() bool {
+	if b.deleteSelection() {
+		return true
+	}
 	cursor := b.CursorOffset()
 	if cursor == 0 {
 		return false
 	}
 	b.chars = append(b.chars[:cursor-1], b.chars[cursor:]...)
-	b.cursor = cursor - 1
+	b.setCursorOffset(cursor-1, false)
 	b.clearPreferredColumn()
 	return true
 }
 
 func (b *TextBuffer) DeleteForward() bool {
+	if b.deleteSelection() {
+		return true
+	}
 	cursor := b.CursorOffset()
 	if cursor >= len(b.chars) {
 		return false
@@ -97,19 +157,49 @@ func (b *TextBuffer) DeleteForward() bool {
 }
 
 func (b *TextBuffer) MoveLeft() bool {
+	if b.HasSelection() {
+		start, _ := b.selectionOffsets()
+		b.setCursorOffset(start, false)
+		b.clearPreferredColumn()
+		return true
+	}
 	if b.CursorOffset() == 0 {
 		return false
 	}
-	b.cursor--
+	b.setCursorOffset(b.cursor-1, false)
 	b.clearPreferredColumn()
 	return true
 }
 
 func (b *TextBuffer) MoveRight() bool {
+	if b.HasSelection() {
+		_, end := b.selectionOffsets()
+		b.setCursorOffset(end, false)
+		b.clearPreferredColumn()
+		return true
+	}
 	if b.CursorOffset() >= len(b.chars) {
 		return false
 	}
-	b.cursor++
+	b.setCursorOffset(b.cursor+1, false)
+	b.clearPreferredColumn()
+	return true
+}
+
+func (b *TextBuffer) ExtendLeft() bool {
+	if b.CursorOffset() == 0 {
+		return false
+	}
+	b.setCursorOffset(b.cursor-1, true)
+	b.clearPreferredColumn()
+	return true
+}
+
+func (b *TextBuffer) ExtendRight() bool {
+	if b.CursorOffset() >= len(b.chars) {
+		return false
+	}
+	b.setCursorOffset(b.cursor+1, true)
 	b.clearPreferredColumn()
 	return true
 }
@@ -117,9 +207,14 @@ func (b *TextBuffer) MoveRight() bool {
 func (b *TextBuffer) MoveHome() bool {
 	next := b.lineStart(b.CursorOffset())
 	if next == b.cursor {
+		if b.HasSelection() {
+			b.setCursorOffset(next, false)
+			b.clearPreferredColumn()
+			return true
+		}
 		return false
 	}
-	b.cursor = next
+	b.setCursorOffset(next, false)
 	b.clearPreferredColumn()
 	return true
 }
@@ -127,9 +222,34 @@ func (b *TextBuffer) MoveHome() bool {
 func (b *TextBuffer) MoveEnd() bool {
 	next := b.lineEnd(b.CursorOffset())
 	if next == b.cursor {
+		if b.HasSelection() {
+			b.setCursorOffset(next, false)
+			b.clearPreferredColumn()
+			return true
+		}
 		return false
 	}
-	b.cursor = next
+	b.setCursorOffset(next, false)
+	b.clearPreferredColumn()
+	return true
+}
+
+func (b *TextBuffer) ExtendHome() bool {
+	next := b.lineStart(b.CursorOffset())
+	if next == b.cursor {
+		return false
+	}
+	b.setCursorOffset(next, true)
+	b.clearPreferredColumn()
+	return true
+}
+
+func (b *TextBuffer) ExtendEnd() bool {
+	next := b.lineEnd(b.CursorOffset())
+	if next == b.cursor {
+		return false
+	}
+	b.setCursorOffset(next, true)
 	b.clearPreferredColumn()
 	return true
 }
@@ -140,7 +260,7 @@ func (b *TextBuffer) MoveLineUp() bool {
 		return false
 	}
 	column := b.verticalColumn(cursor.Column)
-	b.cursor = b.offsetForCursor(TextCursor{Line: cursor.Line - 1, Column: column})
+	b.setCursorOffset(b.offsetForCursor(TextCursor{Line: cursor.Line - 1, Column: column}), false)
 	return true
 }
 
@@ -150,7 +270,25 @@ func (b *TextBuffer) MoveLineDown() bool {
 		return false
 	}
 	column := b.verticalColumn(cursor.Column)
-	b.cursor = b.offsetForCursor(TextCursor{Line: cursor.Line + 1, Column: column})
+	b.setCursorOffset(b.offsetForCursor(TextCursor{Line: cursor.Line + 1, Column: column}), false)
+	return true
+}
+
+func (b *TextBuffer) ExtendLineUp() bool {
+	return b.moveLine(-1, true)
+}
+
+func (b *TextBuffer) ExtendLineDown() bool {
+	return b.moveLine(1, true)
+}
+
+func (b *TextBuffer) SelectAll() bool {
+	if len(b.chars) == 0 && b.anchor == 0 && b.cursor == 0 {
+		return false
+	}
+	b.anchor = 0
+	b.cursor = len(b.chars)
+	b.clearPreferredColumn()
 	return true
 }
 
@@ -169,7 +307,7 @@ func (b *TextBuffer) SetPosition(pos TextPosition) bool {
 	if !ok {
 		return false
 	}
-	b.cursor = offset
+	b.setCursorOffset(offset, false)
 	b.clearPreferredColumn()
 	return true
 }
@@ -191,14 +329,22 @@ func (b *TextBuffer) MoveToCell(layout TextLayout, row, col int) bool {
 }
 
 func (b *TextBuffer) MoveVisualUp(layout TextLayout) bool {
-	return b.moveVisual(layout, -1)
+	return b.moveVisual(layout, -1, false)
 }
 
 func (b *TextBuffer) MoveVisualDown(layout TextLayout) bool {
-	return b.moveVisual(layout, 1)
+	return b.moveVisual(layout, 1, false)
 }
 
-func (b *TextBuffer) moveVisual(layout TextLayout, delta int) bool {
+func (b *TextBuffer) ExtendVisualUp(layout TextLayout) bool {
+	return b.moveVisual(layout, -1, true)
+}
+
+func (b *TextBuffer) ExtendVisualDown(layout TextLayout) bool {
+	return b.moveVisual(layout, 1, true)
+}
+
+func (b *TextBuffer) moveVisual(layout TextLayout, delta int, extend bool) bool {
 	row, col, ok := b.CursorCell(layout)
 	if !ok {
 		return false
@@ -219,7 +365,20 @@ func (b *TextBuffer) moveVisual(layout TextLayout, delta int) bool {
 	if !ok {
 		return false
 	}
-	b.cursor = offset
+	b.setCursorOffset(offset, extend)
+	return true
+}
+
+func (b *TextBuffer) moveLine(delta int, extend bool) bool {
+	cursor := b.Cursor()
+	if delta < 0 && cursor.Line == 0 {
+		return false
+	}
+	if delta > 0 && cursor.Line >= b.lineCount()-1 {
+		return false
+	}
+	column := b.verticalColumn(cursor.Column)
+	b.setCursorOffset(b.offsetForCursor(TextCursor{Line: cursor.Line + delta, Column: column}), extend)
 	return true
 }
 
@@ -289,6 +448,43 @@ func (b *TextBuffer) verticalColumn(current int) int {
 
 func (b *TextBuffer) clearPreferredColumn() {
 	b.hasPreferredColumn = false
+}
+
+func (b *TextBuffer) setCursorOffset(offset int, extend bool) {
+	b.cursor = clampInt(offset, 0, len(b.chars))
+	if !extend {
+		b.anchor = b.cursor
+	}
+}
+
+func (b TextBuffer) selectionOffsets() (int, int) {
+	anchor := clampInt(b.anchor, 0, len(b.chars))
+	cursor := b.CursorOffset()
+	if anchor <= cursor {
+		return anchor, cursor
+	}
+	return cursor, anchor
+}
+
+func (b *TextBuffer) deleteSelection() bool {
+	start, end := b.selectionOffsets()
+	if start == end {
+		return false
+	}
+	b.chars = append(b.chars[:start], b.chars[end:]...)
+	b.setCursorOffset(start, false)
+	b.clearPreferredColumn()
+	return true
+}
+
+func (b TextBuffer) positionForOffset(offset int) TextPosition {
+	pos := TextPosition{}
+	for _, ch := range b.chars[:clampInt(offset, 0, len(b.chars))] {
+		pos.ByteOffset += len(ch.Grapheme)
+		pos.RuneOffset += utf8.RuneCountInString(ch.Grapheme)
+		pos.GraphemeOffset++
+	}
+	return pos
 }
 
 func (b TextBuffer) offsetForPosition(pos TextPosition) (int, bool) {

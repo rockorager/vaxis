@@ -154,3 +154,66 @@ func TestTextBufferVisualMovementUsesWrappedLayout(t *testing.T) {
 		t.Fatalf("cursor after visual up = %#v, want col 1", got)
 	}
 }
+
+func TestTextBufferSelectionReplacesAndDeletes(t *testing.T) {
+	b := NewTextBuffer("abcd")
+	b.SetCursor(TextCursor{Line: 0, Column: 1})
+	if !b.ExtendRight() {
+		t.Fatal("first extend right returned false")
+	}
+	if !b.ExtendRight() {
+		t.Fatal("second extend right returned false")
+	}
+	if got := b.SelectedText(); got != "bc" {
+		t.Fatalf("selected text = %q, want bc", got)
+	}
+	if !b.Insert("X") {
+		t.Fatal("insert returned false")
+	}
+	if got := b.Text(); got != "aXd" {
+		t.Fatalf("text after replacing selection = %q, want aXd", got)
+	}
+	if b.HasSelection() {
+		t.Fatal("selection should collapse after insert")
+	}
+	if got := b.Cursor(); got != (TextCursor{Line: 0, Column: 2}) {
+		t.Fatalf("cursor after replacing selection = %#v, want line 0 col 2", got)
+	}
+
+	b.SetCursor(TextCursor{Line: 0, Column: 0})
+	if !b.ExtendRight() {
+		t.Fatal("first extend right returned false")
+	}
+	if !b.ExtendRight() {
+		t.Fatal("second extend right returned false")
+	}
+	if !b.DeleteForward() {
+		t.Fatal("delete forward returned false")
+	}
+	if got := b.Text(); got != "d" {
+		t.Fatalf("text after deleting selection = %q, want d", got)
+	}
+	if got := b.Cursor(); got != (TextCursor{Line: 0, Column: 0}) {
+		t.Fatalf("cursor after deleting selection = %#v, want line 0 col 0", got)
+	}
+}
+
+func TestTextBufferPlainMovementCollapsesSelection(t *testing.T) {
+	b := NewTextBuffer("abcd")
+	b.SetCursor(TextCursor{Line: 0, Column: 1})
+	if !b.ExtendRight() {
+		t.Fatal("first extend right returned false")
+	}
+	if !b.ExtendRight() {
+		t.Fatal("second extend right returned false")
+	}
+	if !b.MoveLeft() {
+		t.Fatal("move left returned false")
+	}
+	if b.HasSelection() {
+		t.Fatal("selection should collapse after plain movement")
+	}
+	if got := b.Cursor(); got != (TextCursor{Line: 0, Column: 1}) {
+		t.Fatalf("cursor after collapsing left = %#v, want line 0 col 1", got)
+	}
+}

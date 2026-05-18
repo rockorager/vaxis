@@ -25,6 +25,7 @@ type TextFieldTheme struct {
 	Focused     Style
 	Placeholder Style
 	Cursor      Style
+	Selection   Style
 	Padding     Insets
 	MinWidth    int
 }
@@ -48,6 +49,7 @@ func DefaultTheme() Theme {
 			Focused:     Style{Foreground: RGB(238, 238, 238), Background: RGB(48, 48, 48)},
 			Placeholder: Style{Foreground: RGB(128, 128, 128), Background: RGB(32, 32, 32)},
 			Cursor:      Style{Foreground: RGB(0, 0, 0), Background: RGB(238, 238, 238)},
+			Selection:   Style{Background: RGB(48, 96, 160)},
 			Padding:     Symmetric(1, 0),
 			MinWidth:    10,
 		},
@@ -85,6 +87,9 @@ func themeFromTerminal(ctx context.Context, q terminalColorQuerier) Theme {
 		theme.Button.Hovered.Background = hovered
 		theme.TextField.Focused.Background = hovered
 		theme.TextField.Placeholder.Background = hovered
+	}
+	if selection, ok := blendColor(bg, RGB(80, 150, 255), 45); ok {
+		theme.TextField.Selection.Background = selection
 	}
 	if fg != 0 {
 		theme.Button.Hovered.Foreground = fg

@@ -164,16 +164,17 @@ func elementInPath(e Element, path []Element) bool {
 }
 
 func (a *App) dispatchPath(path []Element, ev Event) EventResult {
+	points := pathMousePoints(path, ev)
 	for i := 0; i < len(path)-1; i++ {
-		if a.handle(path[i], CapturePhase, ev) == EventHandled {
+		if a.handle(path[i], CapturePhase, eventForPathElement(ev, points, i)) == EventHandled {
 			return EventHandled
 		}
 	}
-	if len(path) > 0 && a.handle(path[len(path)-1], TargetPhase, ev) == EventHandled {
+	if len(path) > 0 && a.handle(path[len(path)-1], TargetPhase, eventForPathElement(ev, points, len(path)-1)) == EventHandled {
 		return EventHandled
 	}
 	for i := len(path) - 2; i >= 0; i-- {
-		if a.handle(path[i], BubblePhase, ev) == EventHandled {
+		if a.handle(path[i], BubblePhase, eventForPathElement(ev, points, i)) == EventHandled {
 			return EventHandled
 		}
 	}
@@ -182,12 +183,18 @@ func (a *App) dispatchPath(path []Element, ev Event) EventResult {
 
 func (a *App) applyMouseShape(path []Element, mouse Mouse) {
 	ctx := EventContext{app: a, phase: TargetPhase}
+	points := pathMousePoints(path, mouse)
 	for i := len(path) - 1; i >= 0; i-- {
 		mh, ok := path[i].(MouseShapeHandler)
 		if !ok {
 			continue
 		}
-		shape := mh.MouseShape(ctx, mouse)
+		local := mouse
+		if i < len(points) {
+			local.Col = points[i].X
+			local.Row = points[i].Y
+		}
+		shape := mh.MouseShape(ctx, local)
 		if shape != "" && shape != MouseShapeDefault {
 			a.setMouseShape(shape)
 			return
@@ -202,6 +209,35 @@ func (a *App) handle(e Element, phase EventPhase, ev Event) EventResult {
 		return EventIgnored
 	}
 	return h.HandleEvent(ctx, ev)
+}
+
+func pathMousePoints(path []Element, ev Event) []Point {
+	mouse, ok := ev.(Mouse)
+	if !ok {
+		return nil
+	}
+	points := make([]Point, len(path))
+	if len(path) == 0 {
+		return points
+	}
+	points[0] = Point{X: mouse.Col, Y: mouse.Row}
+	for i := 1; i < len(path); i++ {
+		points[i] = childPoint(path[i-1], path[i], points[i-1])
+	}
+	return points
+}
+
+func eventForPathElement(ev Event, points []Point, idx int) Event {
+	if len(points) == 0 || idx >= len(points) {
+		return ev
+	}
+	mouse, ok := ev.(Mouse)
+	if !ok {
+		return ev
+	}
+	mouse.Col = points[idx].X
+	mouse.Row = points[idx].Y
+	return mouse
 }
 
 func (a *App) pathTo(target Element) []Element {
