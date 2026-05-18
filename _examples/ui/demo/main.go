@@ -59,31 +59,31 @@ func (s *DemoState) Build(ctx ui.BuildContext) ui.Widget {
 			"Left":   func(ctx ui.EventContext) { s.previousPage() },
 		},
 		Child: ui.Padding(ui.All(1),
-			ui.Column(
+			ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStretch, ChildrenWidget: []ui.Widget{
 				s.header(),
 				ui.SizedBox{Height: 1},
 				s.pageBody(ctx),
 				ui.SizedBox{Height: 1},
 				s.footer(),
-			),
+			}},
 		),
 	}
 }
 
 func (s *DemoState) header() ui.Widget {
-	return ui.Column(
+	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStretch, ChildrenWidget: []ui.Widget{
 		ui.RichText{Spans: []ui.TextSpan{
 			{Text: "Vaxis UI demo", Style: ui.Style{Attribute: ui.AttrBold}},
 			{Text: "  —  n/p or ←/→ to switch pages, Tab to move focus, q to quit"},
 		}},
-		ui.Flex{Axis: ui.Horizontal, MainAxisAlignment: ui.MainAxisCenter, ChildrenWidget: []ui.Widget{
+		ui.Flex{Axis: ui.Horizontal, MainAxisAlignment: ui.MainAxisCenter, CrossAxisAlignment: ui.CrossAxisCenter, ChildrenWidget: []ui.Widget{
 			s.navButton(0, "Home"),
 			ui.SizedBox{Width: 1, Height: 1},
 			s.navButton(1, "Text"),
 			ui.SizedBox{Width: 1, Height: 1},
 			s.navButton(2, "Controls"),
 		}},
-	)
+	}}
 }
 
 func (s *DemoState) navButton(page int, label string) ui.Widget {
@@ -115,7 +115,7 @@ func (s *DemoState) pageContent() ui.Widget {
 }
 
 func (s *DemoState) homePage() ui.Widget {
-	return ui.Column(
+	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
 		ui.RichText{Spans: []ui.TextSpan{
 			{Text: "Home", Style: ui.Style{Attribute: ui.AttrBold}},
 			{Text: "\nThis example is intentionally larger than the counter. It uses state, focus, buttons, keymaps, rich text, wrapping text, alignment, themed borders, and runtime dispatch from a goroutine."},
@@ -126,11 +126,11 @@ func (s *DemoState) homePage() ui.Widget {
 			{Text: "ticks: "},
 			{Text: strconv.Itoa(s.ticks), Style: ui.Style{Attribute: ui.AttrBold}},
 		}},
-	)
+	}}
 }
 
 func (s *DemoState) textPage() ui.Widget {
-	return ui.Column(
+	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
 		ui.RichText{Spans: []ui.TextSpan{
 			{Text: "Text layout", Style: ui.Style{Attribute: ui.AttrBold}},
 			{Text: "\nRichText spans can mix emphasis while sharing the same wrapping engine as Text. "},
@@ -143,11 +143,11 @@ func (s *DemoState) textPage() ui.Widget {
 			SoftWrap: true,
 		}},
 		ui.SizedBox{Width: 72, Height: 1, Child: ui.Text{Value: "center aligned text", Align: ui.TextAlignCenter}},
-	)
+	}}
 }
 
 func (s *DemoState) controlsPage() ui.Widget {
-	return ui.Column(
+	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStretch, ChildrenWidget: []ui.Widget{
 		ui.RichText{Spans: []ui.TextSpan{
 			{Text: "Controls", Style: ui.Style{Attribute: ui.AttrBold}},
 			{Text: "\nButtons are focusable. Use Tab/Shift+Tab and Enter, or click them with the mouse."},
@@ -164,14 +164,16 @@ func (s *DemoState) controlsPage() ui.Widget {
 			ui.Button{Label: "+", OnPressed: func(ctx ui.EventContext) { s.SetState(func() { s.count++ }) }},
 		}},
 		ui.Align{Alignment: ui.CenterRight, Child: ui.Text{Value: "aligned right inside the page"}},
-	)
+	}}
 }
 
 func (s *DemoState) footer() ui.Widget {
-	return ui.RichText{Spans: []ui.TextSpan{
-		{Text: "page "},
-		{Text: strconv.Itoa(s.page + 1), Style: ui.Style{Attribute: ui.AttrBold}},
-		{Text: " / " + strconv.Itoa(len(demoPages)) + "  " + demoPages[s.page]},
+	return ui.Flex{Axis: ui.Horizontal, MainAxisAlignment: ui.MainAxisEnd, ChildrenWidget: []ui.Widget{
+		ui.RichText{Spans: []ui.TextSpan{
+			{Text: "page "},
+			{Text: strconv.Itoa(s.page + 1), Style: ui.Style{Attribute: ui.AttrBold}},
+			{Text: " / " + strconv.Itoa(len(demoPages)) + "  " + demoPages[s.page]},
+		}},
 	}}
 }
 
