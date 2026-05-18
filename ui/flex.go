@@ -49,14 +49,22 @@ type Flex struct {
 	ChildrenWidget     []Widget
 }
 
-func Row(children ...Widget) Widget { return Flex{Axis: Horizontal, ChildrenWidget: children} }
+func Row(children ...Widget) Widget {
+	return Flex{Axis: Horizontal, ChildrenWidget: children}
+}
+
 func Column(children ...Widget) Widget {
 	return Flex{Axis: Vertical, ChildrenWidget: children}
 }
-func (w Flex) Children() []Widget { return w.ChildrenWidget }
+
+func (w Flex) Children() []Widget {
+	return w.ChildrenWidget
+}
+
 func (w Flex) CreateRenderObject(ctx BuildContext) RenderObject {
 	return &RenderFlex{Axis: w.Axis, MainAxisSize: w.MainAxisSize, MainAxisAlignment: w.MainAxisAlignment, CrossAxisAlignment: w.CrossAxisAlignment}
 }
+
 func (w Flex) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
 	r := ro.(*RenderFlex)
 	if r.Axis != w.Axis || r.MainAxisSize != w.MainAxisSize || r.MainAxisAlignment != w.MainAxisAlignment || r.CrossAxisAlignment != w.CrossAxisAlignment {
@@ -74,7 +82,9 @@ type FlexParentData struct {
 	Offset Offset
 }
 
-func (d FlexParentData) RenderOffset() Offset { return d.Offset }
+func (d FlexParentData) RenderOffset() Offset {
+	return d.Offset
+}
 
 type RenderFlex struct {
 	MultiChildRenderObject
@@ -182,15 +192,23 @@ func (r *RenderFlex) Paint(p *Painter, off Offset) {
 	}
 }
 
-func (r *RenderFlex) HitTest(*HitTestResult, Point) bool { return false }
+func (r *RenderFlex) HitTest(*HitTestResult, Point) bool {
+	return false
+}
 
 type ExpandedWidget struct {
 	Flex        int
 	ChildWidget Widget
 }
 
-func Expanded(child Widget) Widget     { return ExpandedWidget{Flex: 1, ChildWidget: child} }
-func (w ExpandedWidget) Child() Widget { return w.ChildWidget }
+func Expanded(child Widget) Widget {
+	return ExpandedWidget{Flex: 1, ChildWidget: child}
+}
+
+func (w ExpandedWidget) Child() Widget {
+	return w.ChildWidget
+}
+
 func (w ExpandedWidget) ApplyParentData(ro RenderObject) {
 	flex := w.Flex
 	if flex <= 0 {
@@ -208,7 +226,11 @@ type FlexibleWidget struct {
 func Flexible(child Widget) Widget {
 	return FlexibleWidget{Flex: 1, Fit: FlexFitLoose, ChildWidget: child}
 }
-func (w FlexibleWidget) Child() Widget { return w.ChildWidget }
+
+func (w FlexibleWidget) Child() Widget {
+	return w.ChildWidget
+}
+
 func (w FlexibleWidget) ApplyParentData(ro RenderObject) {
 	flex := w.Flex
 	if flex <= 0 {
@@ -237,30 +259,35 @@ func maxFinite(v int) int {
 	}
 	return v
 }
+
 func mainSize(axis Axis, s Size) int {
 	if axis == Horizontal {
 		return s.Width
 	}
 	return s.Height
 }
+
 func crossSize(axis Axis, s Size) int {
 	if axis == Horizontal {
 		return s.Height
 	}
 	return s.Width
 }
+
 func maxMain(axis Axis, c Constraints) int {
 	if axis == Horizontal {
 		return c.MaxWidth
 	}
 	return c.MaxHeight
 }
+
 func crossMax(axis Axis, c Constraints) int {
 	if axis == Horizontal {
 		return c.MaxHeight
 	}
 	return c.MaxWidth
 }
+
 func sizeFromAxis(axis Axis, main, cross int) Size {
 	if axis == Horizontal {
 		return Size{Width: main, Height: cross}

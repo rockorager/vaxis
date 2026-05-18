@@ -37,7 +37,6 @@ func (m *List) Draw(win vaxis.Window) {
 		}
 		win.Println(i, vaxis.Segment{Text: subject, Style: style})
 	}
-
 }
 
 func (m *List) Down() {

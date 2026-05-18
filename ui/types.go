@@ -7,26 +7,32 @@ import (
 	"git.sr.ht/~rockorager/vaxis"
 )
 
-type Cell = vaxis.Cell
-type Character = vaxis.Character
-type Style = vaxis.Style
-type Color = vaxis.Color
-type AttributeMask = vaxis.AttributeMask
-type Segment = vaxis.Segment
+type (
+	Cell          = vaxis.Cell
+	Character     = vaxis.Character
+	Style         = vaxis.Style
+	Color         = vaxis.Color
+	AttributeMask = vaxis.AttributeMask
+	Segment       = vaxis.Segment
+)
 
-type Event = vaxis.Event
-type Key = vaxis.Key
-type Mouse = vaxis.Mouse
-type MouseButton = vaxis.MouseButton
-type FocusIn = vaxis.FocusIn
-type FocusOut = vaxis.FocusOut
-type Resize = vaxis.Resize
-type Redraw = vaxis.Redraw
-type SyncFunc = vaxis.SyncFunc
-type MouseShape = vaxis.MouseShape
-type Image = vaxis.Image
+type (
+	Event       = vaxis.Event
+	Key         = vaxis.Key
+	Mouse       = vaxis.Mouse
+	MouseButton = vaxis.MouseButton
+	FocusIn     = vaxis.FocusIn
+	FocusOut    = vaxis.FocusOut
+	Resize      = vaxis.Resize
+	Redraw      = vaxis.Redraw
+	SyncFunc    = vaxis.SyncFunc
+	MouseShape  = vaxis.MouseShape
+	Image       = vaxis.Image
+)
 
-func RGB(r, g, b uint8) Color { return vaxis.RGBColor(r, g, b) }
+func RGB(r, g, b uint8) Color {
+	return vaxis.RGBColor(r, g, b)
+}
 
 const (
 	MouseLeftButton   = vaxis.MouseLeftButton
@@ -99,12 +105,16 @@ type Keyed interface {
 	WidgetKey() KeyValue
 }
 
-type Point struct{ X, Y int }
-type Offset struct{ X, Y int }
-type Size struct{ Width, Height int }
-type Rect struct{ X, Y, Width, Height int }
+type (
+	Point  struct{ X, Y int }
+	Offset struct{ X, Y int }
+	Size   struct{ Width, Height int }
+	Rect   struct{ X, Y, Width, Height int }
+)
 
-func (o Offset) Add(other Offset) Offset { return Offset{X: o.X + other.X, Y: o.Y + other.Y} }
+func (o Offset) Add(other Offset) Offset {
+	return Offset{X: o.X + other.X, Y: o.Y + other.Y}
+}
 
 const Unbounded = math.MaxInt
 
@@ -121,8 +131,13 @@ func Loose(size Size) Constraints {
 	return Constraints{MaxWidth: size.Width, MaxHeight: size.Height}
 }
 
-func (c Constraints) HasBoundedWidth() bool  { return c.MaxWidth != Unbounded }
-func (c Constraints) HasBoundedHeight() bool { return c.MaxHeight != Unbounded }
+func (c Constraints) HasBoundedWidth() bool {
+	return c.MaxWidth != Unbounded
+}
+
+func (c Constraints) HasBoundedHeight() bool {
+	return c.MaxHeight != Unbounded
+}
 
 func (c Constraints) Constrain(size Size) Size {
 	if size.Width < c.MinWidth {
@@ -163,7 +178,10 @@ func (c Constraints) Deflate(in Insets) Constraints {
 
 type Insets struct{ Top, Right, Bottom, Left int }
 
-func All(v int) Insets { return Insets{Top: v, Right: v, Bottom: v, Left: v} }
+func All(v int) Insets {
+	return Insets{Top: v, Right: v, Bottom: v, Left: v}
+}
+
 func Symmetric(horizontal, vertical int) Insets {
 	return Insets{Top: vertical, Bottom: vertical, Left: horizontal, Right: horizontal}
 }

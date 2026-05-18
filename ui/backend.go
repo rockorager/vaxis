@@ -17,7 +17,9 @@ type Backend interface {
 
 type vaxisBackend struct{ vx *vaxis.Vaxis }
 
-func (b vaxisBackend) Events() <-chan Event { return b.vx.Events() }
+func (b vaxisBackend) Events() <-chan Event {
+	return b.vx.Events()
+}
 
 func (b vaxisBackend) Size() Size {
 	win := b.vx.Window()
@@ -37,9 +39,13 @@ func (b vaxisBackend) Render(p *Painter) error {
 	return nil
 }
 
-func (b vaxisBackend) Dispatch(fn func()) { b.vx.PostEvent(SyncFunc(fn)) }
+func (b vaxisBackend) Dispatch(fn func()) {
+	b.vx.PostEvent(SyncFunc(fn))
+}
 
-func (b vaxisBackend) SetMouseShape(shape MouseShape) { b.vx.SetMouseShape(shape) }
+func (b vaxisBackend) SetMouseShape(shape MouseShape) {
+	b.vx.SetMouseShape(shape)
+}
 
 func (b vaxisBackend) Close() error {
 	b.vx.Close()

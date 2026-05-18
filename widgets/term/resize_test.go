@@ -540,7 +540,8 @@ func TestResizeReflowNormalizesViewportWhenPinnedRowBecomesActive(t *testing.T) 
 func TestResizeReflowPreservesBlankActiveRowsAfterClear(t *testing.T) {
 	vt := New()
 	vt.resize(10, 5)
-	writeViewportLines(vt,
+	writeViewportLines(
+		vt,
 		"old0000000",
 		"old1111111",
 		"old2222222",

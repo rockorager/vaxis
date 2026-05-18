@@ -12,7 +12,9 @@ type TextField struct {
 	ObscureText bool
 }
 
-func (w TextField) CreateState() State { return &textFieldState{} }
+func (w TextField) CreateState() State {
+	return &textFieldState{}
+}
 
 type textFieldState struct {
 	StateBase
@@ -120,7 +122,9 @@ func (s *textFieldState) change(ctx EventContext, value string) {
 	s.SetState(func() {})
 }
 
-func (s *textFieldState) MouseShape(EventContext, Mouse) MouseShape { return MouseShapeTextInput }
+func (s *textFieldState) MouseShape(EventContext, Mouse) MouseShape {
+	return MouseShapeTextInput
+}
 
 func textFieldPadding(w TextField, theme TextFieldTheme) Insets {
 	if w.Padding != (Insets{}) {

@@ -34,7 +34,10 @@ func MustSpacer(flex uint8) *FlexItem {
 	return w
 }
 
-func (s Spacer) HandleEvent(_ vaxis.Event, _ vxfw.EventPhase) (vxfw.Command, error) { return nil, nil }
+func (s Spacer) HandleEvent(_ vaxis.Event, _ vxfw.EventPhase) (vxfw.Command, error) {
+	return nil, nil
+}
+
 func (s Spacer) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 	return vxfw.NewSurface(ctx.Min.Width, ctx.Min.Height, s), nil
 }

@@ -5,12 +5,15 @@ import (
 	"reflect"
 )
 
-type StatelessWidget interface{ Build(BuildContext) Widget }
-type StatefulWidget interface{ CreateState() State }
-type RenderObjectWidget interface {
-	CreateRenderObject(BuildContext) RenderObject
-	UpdateRenderObject(BuildContext, RenderObject)
-}
+type (
+	StatelessWidget    interface{ Build(BuildContext) Widget }
+	StatefulWidget     interface{ CreateState() State }
+	RenderObjectWidget interface {
+		CreateRenderObject(BuildContext) RenderObject
+		UpdateRenderObject(BuildContext, RenderObject)
+	}
+)
+
 type ParentDataWidget interface {
 	Child() Widget
 	ApplyParentData(RenderObject)

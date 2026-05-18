@@ -117,7 +117,9 @@ func appendAtom(line *laidOutLine, atom textAtom) {
 	line.Width += atom.char.Width
 }
 
-func isSpace(ch Character) bool { return ch.Grapheme == " " || ch.Grapheme == "\t" }
+func isSpace(ch Character) bool {
+	return ch.Grapheme == " " || ch.Grapheme == "\t"
+}
 
 func applyEllipsis(line *laidOutLine, maxWidth int) {
 	if maxWidth == Unbounded || maxWidth <= 0 {

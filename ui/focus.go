@@ -5,8 +5,13 @@ type FocusWidget struct {
 	ChildWidget Widget
 }
 
-func Focus(node *FocusNode, child Widget) Widget { return FocusWidget{Node: node, ChildWidget: child} }
-func (w FocusWidget) CreateElement() Element     { return &focusElement{} }
+func Focus(node *FocusNode, child Widget) Widget {
+	return FocusWidget{Node: node, ChildWidget: child}
+}
+
+func (w FocusWidget) CreateElement() Element {
+	return &focusElement{}
+}
 
 type focusElement struct {
 	ElementBase

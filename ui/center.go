@@ -2,10 +2,20 @@ package ui
 
 type CenterWidget struct{ ChildWidget Widget }
 
-func Center(child Widget) Widget                                            { return CenterWidget{ChildWidget: child} }
-func (w CenterWidget) Child() Widget                                        { return w.ChildWidget }
-func (w CenterWidget) CreateRenderObject(ctx BuildContext) RenderObject     { return &RenderCenter{} }
-func (w CenterWidget) UpdateRenderObject(ctx BuildContext, ro RenderObject) {}
+func Center(child Widget) Widget {
+	return CenterWidget{ChildWidget: child}
+}
+
+func (w CenterWidget) Child() Widget {
+	return w.ChildWidget
+}
+
+func (w CenterWidget) CreateRenderObject(ctx BuildContext) RenderObject {
+	return &RenderCenter{}
+}
+
+func (w CenterWidget) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
+}
 
 type RenderCenter struct {
 	SingleChildRenderObject
@@ -29,6 +39,10 @@ func (r *RenderCenter) Paint(p *Painter, off Offset) {
 	}
 }
 
-func (r *RenderCenter) ChildOffset(RenderObject) Offset { return r.offset }
+func (r *RenderCenter) ChildOffset(RenderObject) Offset {
+	return r.offset
+}
 
-func (r *RenderCenter) HitTest(*HitTestResult, Point) bool { return false }
+func (r *RenderCenter) HitTest(*HitTestResult, Point) bool {
+	return false
+}

@@ -185,7 +185,9 @@ func TestTextFieldMouseShape(t *testing.T) {
 
 type controlledTextFieldApp struct{}
 
-func (controlledTextFieldApp) CreateState() ui.State { return &controlledTextFieldState{} }
+func (controlledTextFieldApp) CreateState() ui.State {
+	return &controlledTextFieldState{}
+}
 
 type controlledTextFieldState struct {
 	ui.StateBase

@@ -11,8 +11,10 @@ import (
 	"git.sr.ht/~rockorager/vaxis"
 )
 
-const maxTitleLen = 1024
-const oscStringTerminator = "\x1b\\"
+const (
+	maxTitleLen         = 1024
+	oscStringTerminator = "\x1b\\"
+)
 
 func oscColorReply(selector string, rgb []uint8) string {
 	return fmt.Sprintf("\x1b]%s;rgb:%02x/%02x/%02x%s", selector, rgb[0], rgb[1], rgb[2], oscStringTerminator)

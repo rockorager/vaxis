@@ -2,7 +2,10 @@ package ui
 
 type LayoutContext struct{}
 
-func (LayoutContext) Characters(s string) []Character { return vaxisCharacters(s) }
+func (LayoutContext) Characters(s string) []Character {
+	return vaxisCharacters(s)
+}
+
 func (LayoutContext) MeasureText(s string, style Style) Size {
 	chars := vaxisCharacters(s)
 	w := 0
@@ -30,9 +33,18 @@ type RenderObjectBase struct {
 	relayoutBoundary bool
 }
 
-func (r *RenderObjectBase) Base() *RenderObjectBase { return r }
-func (r *RenderObjectBase) Size() Size              { return r.size }
-func (r *RenderObjectBase) SetSize(size Size)       { r.size = size }
+func (r *RenderObjectBase) Base() *RenderObjectBase {
+	return r
+}
+
+func (r *RenderObjectBase) Size() Size {
+	return r.size
+}
+
+func (r *RenderObjectBase) SetSize(size Size) {
+	r.size = size
+}
+
 func (r *RenderObjectBase) MarkNeedsLayout() {
 	if r.needsLayout {
 		return
@@ -43,6 +55,7 @@ func (r *RenderObjectBase) MarkNeedsLayout() {
 		r.parent.Base().MarkNeedsLayout()
 	}
 }
+
 func (r *RenderObjectBase) MarkNeedsPaint() {
 	if r.needsPaint {
 		return
@@ -52,31 +65,60 @@ func (r *RenderObjectBase) MarkNeedsPaint() {
 		r.owner.RequestFrame()
 	}
 }
-func (r *RenderObjectBase) ParentData() any            { return r.parentData }
-func (r *RenderObjectBase) SetParentData(v any)        { r.parentData = v }
-func (r *RenderObjectBase) SetRelayoutBoundary(v bool) { r.relayoutBoundary = v }
-func (r *RenderObjectBase) NeedsLayout() bool          { return r.needsLayout }
-func (r *RenderObjectBase) NeedsPaint() bool           { return r.needsPaint }
-func (r *RenderObjectBase) ClearNeedsLayout()          { r.needsLayout = false }
-func (r *RenderObjectBase) ClearNeedsPaint()           { r.needsPaint = false }
+
+func (r *RenderObjectBase) ParentData() any {
+	return r.parentData
+}
+
+func (r *RenderObjectBase) SetParentData(v any) {
+	r.parentData = v
+}
+
+func (r *RenderObjectBase) SetRelayoutBoundary(v bool) {
+	r.relayoutBoundary = v
+}
+
+func (r *RenderObjectBase) NeedsLayout() bool {
+	return r.needsLayout
+}
+
+func (r *RenderObjectBase) NeedsPaint() bool {
+	return r.needsPaint
+}
+
+func (r *RenderObjectBase) ClearNeedsLayout() {
+	r.needsLayout = false
+}
+
+func (r *RenderObjectBase) ClearNeedsPaint() {
+	r.needsPaint = false
+}
 
 type LeafRenderObject struct{ RenderObjectBase }
 
-func (r *LeafRenderObject) VisitChildren(func(RenderObject))   {}
-func (r *LeafRenderObject) HitTest(*HitTestResult, Point) bool { return false }
+func (r *LeafRenderObject) VisitChildren(func(RenderObject)) {
+}
+
+func (r *LeafRenderObject) HitTest(*HitTestResult, Point) bool {
+	return false
+}
 
 type SingleChildRenderObject struct {
 	RenderObjectBase
 	child RenderObject
 }
 
-func (r *SingleChildRenderObject) Child() RenderObject { return r.child }
+func (r *SingleChildRenderObject) Child() RenderObject {
+	return r.child
+}
+
 func (r *SingleChildRenderObject) SetChild(child RenderObject) {
 	if r.child != nil && r.child != child {
 		detachRenderTree(r.child)
 	}
 	r.child = child
 }
+
 func (r *SingleChildRenderObject) VisitChildren(fn func(RenderObject)) {
 	if r.child != nil {
 		fn(r.child)
@@ -88,7 +130,10 @@ type MultiChildRenderObject struct {
 	children []RenderObject
 }
 
-func (r *MultiChildRenderObject) Children() []RenderObject { return r.children }
+func (r *MultiChildRenderObject) Children() []RenderObject {
+	return r.children
+}
+
 func (r *MultiChildRenderObject) SetChildren(children []RenderObject) {
 	for _, old := range r.children {
 		kept := false
@@ -104,6 +149,7 @@ func (r *MultiChildRenderObject) SetChildren(children []RenderObject) {
 	}
 	r.children = children
 }
+
 func (r *MultiChildRenderObject) VisitChildren(fn func(RenderObject)) {
 	for _, child := range r.children {
 		fn(child)
@@ -114,7 +160,9 @@ type ChildOffsetProvider interface {
 	ChildOffset(RenderObject) Offset
 }
 
-func (r *SingleChildRenderObject) ChildOffset(RenderObject) Offset { return Offset{} }
+func (r *SingleChildRenderObject) ChildOffset(RenderObject) Offset {
+	return Offset{}
+}
 
 func (r *MultiChildRenderObject) ChildOffset(child RenderObject) Offset {
 	if pd, ok := child.Base().ParentData().(interface{ RenderOffset() Offset }); ok {
@@ -131,9 +179,13 @@ type renderObjectElement struct {
 	children     []Element
 }
 
-func newRenderObjectElement(w RenderObjectWidget) Element { return &renderObjectElement{} }
+func newRenderObjectElement(w RenderObjectWidget) Element {
+	return &renderObjectElement{}
+}
 
-func (e *renderObjectElement) RenderObject() RenderObject { return e.renderObject }
+func (e *renderObjectElement) RenderObject() RenderObject {
+	return e.renderObject
+}
 
 func (e *renderObjectElement) Rebuild() {
 	w := e.widget.(RenderObjectWidget)
@@ -162,9 +214,14 @@ func (e *renderObjectElement) VisitChildren(fn func(Element)) {
 		}
 	}
 }
-func (e *renderObjectElement) Base() *ElementBase { return &e.ElementBase }
 
-func (e *renderObjectElement) FindRenderObject() RenderObject { return e.renderObject }
+func (e *renderObjectElement) Base() *ElementBase {
+	return &e.ElementBase
+}
+
+func (e *renderObjectElement) FindRenderObject() RenderObject {
+	return e.renderObject
+}
 
 func (e *renderObjectElement) syncRenderChildren() {
 	renders := make([]RenderObject, 0, len(e.children))
@@ -211,9 +268,11 @@ func oldAt(children []Element, i int) Element {
 	return nil
 }
 
-type childProvider interface{ Children() []Widget }
-type singleChildProvider interface{ Child() Widget }
-type childWidgetProvider interface{ ChildWidget() Widget }
+type (
+	childProvider       interface{ Children() []Widget }
+	singleChildProvider interface{ Child() Widget }
+	childWidgetProvider interface{ ChildWidget() Widget }
+)
 
 func widgetChildren(w Widget) []Widget {
 	if c, ok := w.(childProvider); ok {
@@ -237,7 +296,10 @@ type parentDataElement struct {
 	child Element
 }
 
-func newParentDataElement(w ParentDataWidget) Element { return &parentDataElement{} }
+func newParentDataElement(w ParentDataWidget) Element {
+	return &parentDataElement{}
+}
+
 func (e *parentDataElement) Rebuild() {
 	w := e.widget.(ParentDataWidget)
 	e.child = e.UpdateChild(e.child, w.Child(), nil)
@@ -247,6 +309,7 @@ func (e *parentDataElement) Rebuild() {
 		}
 	}
 }
+
 func (e *parentDataElement) VisitChildren(fn func(Element)) {
 	if e.child != nil {
 		fn(e.child)

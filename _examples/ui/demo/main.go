@@ -15,7 +15,9 @@ func main() {
 
 type Demo struct{}
 
-func (Demo) CreateState() ui.State { return &DemoState{} }
+func (Demo) CreateState() ui.State {
+	return &DemoState{}
+}
 
 type DemoState struct {
 	ui.StateBase
@@ -47,7 +49,9 @@ func (s *DemoState) InitState() {
 	}()
 }
 
-func (s *DemoState) Dispose() { close(s.stop) }
+func (s *DemoState) Dispose() {
+	close(s.stop)
+}
 
 func (s *DemoState) Build(ctx ui.BuildContext) ui.Widget {
 	return ui.Keymap{
@@ -57,7 +61,8 @@ func (s *DemoState) Build(ctx ui.BuildContext) ui.Widget {
 			"n":      func(ctx ui.EventContext) { s.nextPage() },
 			"p":      func(ctx ui.EventContext) { s.previousPage() },
 		},
-		Child: ui.Padding(ui.All(1),
+		Child: ui.Padding(
+			ui.All(1),
 			ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStretch, ChildrenWidget: []ui.Widget{
 				s.header(),
 				ui.SizedBox{Height: 1},

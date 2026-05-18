@@ -83,7 +83,9 @@ func TestDemoExampleLeavesArrowsForTextField(t *testing.T) {
 	}
 }
 
-func uitestKeyLeft() ui.Event { return vaxis.Key{Keycode: vaxis.KeyLeft} }
+func uitestKeyLeft() ui.Event {
+	return vaxis.Key{Keycode: vaxis.KeyLeft}
+}
 
 func TestDemoExampleQuitShortcut(t *testing.T) {
 	app := uitest.New(Demo{})

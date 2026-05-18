@@ -113,7 +113,8 @@ type Option func(*Model)
 
 var synchronizedOutputResetDelay = time.Second
 
-func noopEventHandler(vaxis.Event) {}
+func noopEventHandler(vaxis.Event) {
+}
 
 // WithVaxis attaches the host Vaxis instance used to render this terminal.
 // Kitty keyboard passthrough is enabled only when the host terminal advertised
@@ -217,7 +218,8 @@ func (vt *Model) StartWithSize(cmd *exec.Cmd, width int, height int) error {
 			Setsid:  true,
 			Setctty: true,
 			Ctty:    1,
-		})
+		},
+	)
 	if err != nil {
 		return err
 	}

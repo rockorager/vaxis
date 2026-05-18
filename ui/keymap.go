@@ -5,7 +5,9 @@ type Keymap struct {
 	Child    Widget
 }
 
-func (w Keymap) CreateElement() Element { return &keymapElement{} }
+func (w Keymap) CreateElement() Element {
+	return &keymapElement{}
+}
 
 type keymapElement struct {
 	ElementBase

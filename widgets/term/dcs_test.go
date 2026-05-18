@@ -21,13 +21,15 @@ type recordingImage struct {
 	destroyed int
 }
 
-func (img *recordingImage) Draw(vaxis.Window) {}
+func (img *recordingImage) Draw(vaxis.Window) {
+}
 
 func (img *recordingImage) Destroy() {
 	img.destroyed += 1
 }
 
-func (img *recordingImage) Resize(int, int) {}
+func (img *recordingImage) Resize(int, int) {
+}
 
 func (img *recordingImage) CellSize() (int, int) {
 	return 0, 0

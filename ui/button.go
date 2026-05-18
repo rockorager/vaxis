@@ -7,7 +7,9 @@ type Button struct {
 	MinWidth  int
 }
 
-func (w Button) CreateState() State { return &buttonState{} }
+func (w Button) CreateState() State {
+	return &buttonState{}
+}
 
 type buttonState struct {
 	StateBase
@@ -52,7 +54,9 @@ func buttonWidthFor(label string, padding Insets, minWidth int) int {
 	return max(minWidth, textWidth(label)+2+padding.Left+padding.Right)
 }
 
-func buttonHeightFor(padding Insets) int { return 1 + padding.Top + padding.Bottom }
+func buttonHeightFor(padding Insets) int {
+	return 1 + padding.Top + padding.Bottom
+}
 
 func buttonPadding(w Button, theme ButtonTheme) Insets {
 	if w.Padding != (Insets{}) {

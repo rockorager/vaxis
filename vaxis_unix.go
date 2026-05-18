@@ -14,11 +14,13 @@ import (
 
 func (vx *Vaxis) setupSignals() {
 	if !vx.caps.inBandResize {
-		signal.Notify(vx.chSigWinSz,
+		signal.Notify(
+			vx.chSigWinSz,
 			syscall.SIGWINCH,
 		)
 	}
-	signal.Notify(vx.chSigKill,
+	signal.Notify(
+		vx.chSigKill,
 		// kill signals
 		syscall.SIGABRT,
 		syscall.SIGBUS,

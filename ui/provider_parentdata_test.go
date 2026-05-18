@@ -4,7 +4,11 @@ import "testing"
 
 type buildMutatingWidget struct{ State **buildMutatingState }
 
-func (w buildMutatingWidget) CreateState() State { s := &buildMutatingState{}; *w.State = s; return s }
+func (w buildMutatingWidget) CreateState() State {
+	s := &buildMutatingState{}
+	*w.State = s
+	return s
+}
 
 type buildMutatingState struct {
 	StateBase
@@ -34,7 +38,9 @@ func TestMarkNeedsBuildDuringBuildPanics(t *testing.T) {
 
 type providedValueConsumer struct{ Seen *[]string }
 
-func (w providedValueConsumer) CreateState() State { return &providedValueState{seen: w.Seen} }
+func (w providedValueConsumer) CreateState() State {
+	return &providedValueState{seen: w.Seen}
+}
 
 type providedValueState struct {
 	StateBase

@@ -28,7 +28,9 @@ func TestCenterPaintsChildCentered(t *testing.T) {
 
 type counter struct{ initial int }
 
-func (c counter) CreateState() ui.State { return &counterState{count: c.initial} }
+func (c counter) CreateState() ui.State {
+	return &counterState{count: c.initial}
+}
 
 type counterState struct {
 	ui.StateBase
@@ -56,8 +58,13 @@ type keyedCounter struct {
 	initial int
 }
 
-func (c keyedCounter) WidgetKey() ui.KeyValue { return c.key }
-func (c keyedCounter) CreateState() ui.State  { return &counterState{count: c.initial} }
+func (c keyedCounter) WidgetKey() ui.KeyValue {
+	return c.key
+}
+
+func (c keyedCounter) CreateState() ui.State {
+	return &counterState{count: c.initial}
+}
 
 func TestStateRecreatedWhenKeyChanges(t *testing.T) {
 	app := ui.NewApp(keyedCounter{key: "a", initial: 1})
@@ -73,8 +80,13 @@ func TestStateRecreatedWhenKeyChanges(t *testing.T) {
 
 type multiKind struct{}
 
-func (multiKind) Build(ctx ui.BuildContext) ui.Widget { return (ui.Text{Value: "bad"}) }
-func (multiKind) CreateState() ui.State               { return &counterState{} }
+func (multiKind) Build(ctx ui.BuildContext) ui.Widget {
+	return (ui.Text{Value: "bad"})
+}
+
+func (multiKind) CreateState() ui.State {
+	return &counterState{}
+}
 
 func TestInvalidWidgetPanics(t *testing.T) {
 	tests := []struct {
@@ -180,14 +192,19 @@ func TestRowColumnAndExpandedPaintInExpectedPositions(t *testing.T) {
 
 type updatingCounter struct{}
 
-func (u updatingCounter) CreateState() ui.State { return &updatingCounterState{} }
+func (u updatingCounter) CreateState() ui.State {
+	return &updatingCounterState{}
+}
 
 type updatingCounterState struct {
 	ui.StateBase
 	updates int
 }
 
-func (s *updatingCounterState) DidUpdateWidget(old ui.Widget) { s.updates++ }
+func (s *updatingCounterState) DidUpdateWidget(old ui.Widget) {
+	s.updates++
+}
+
 func (s *updatingCounterState) Build(ctx ui.BuildContext) ui.Widget {
 	return (ui.Text{Value: fmt.Sprint(s.updates)})
 }
@@ -724,10 +741,14 @@ type offsetBox struct {
 	child  ui.Widget
 }
 
-func (b offsetBox) Child() ui.Widget { return b.child }
+func (b offsetBox) Child() ui.Widget {
+	return b.child
+}
+
 func (b offsetBox) CreateRenderObject(ctx ui.BuildContext) ui.RenderObject {
 	return &offsetRender{offset: b.offset}
 }
+
 func (b offsetBox) UpdateRenderObject(ctx ui.BuildContext, ro ui.RenderObject) {
 	ro.(*offsetRender).offset = b.offset
 }
@@ -750,5 +771,10 @@ func (r *offsetRender) Paint(p *ui.Painter, off ui.Offset) {
 	}
 }
 
-func (r *offsetRender) HitTest(*ui.HitTestResult, ui.Point) bool { return false }
-func (r *offsetRender) ChildOffset(ui.RenderObject) ui.Offset    { return r.offset }
+func (r *offsetRender) HitTest(*ui.HitTestResult, ui.Point) bool {
+	return false
+}
+
+func (r *offsetRender) ChildOffset(ui.RenderObject) ui.Offset {
+	return r.offset
+}

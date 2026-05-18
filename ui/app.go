@@ -32,10 +32,23 @@ func NewApp(root Widget, opts ...Option) *App {
 func (a *App) UpdateRoot(root Widget) {
 	a.build.UpdateRoot(Provider[Theme]{Value: a.theme, ChildWidget: root})
 }
-func (a *App) Send(ev Event)        { a.dispatchEvent(ev) }
-func (a *App) ShouldQuit() bool     { return a.quit }
-func (a *App) RequestFrame()        { a.frameRequested = true }
-func (a *App) FrameRequested() bool { return a.frameRequested }
+
+func (a *App) Send(ev Event) {
+	a.dispatchEvent(ev)
+}
+
+func (a *App) ShouldQuit() bool {
+	return a.quit
+}
+
+func (a *App) RequestFrame() {
+	a.frameRequested = true
+}
+
+func (a *App) FrameRequested() bool {
+	return a.frameRequested
+}
+
 func (a *App) MouseShape() MouseShape {
 	if a.mouseShape == "" {
 		return MouseShapeDefault
@@ -209,8 +222,14 @@ func (a *App) unregisterFocusable(e Element) {
 	}
 }
 
-func (a *App) focusNext()     { a.moveFocus(1) }
-func (a *App) focusPrevious() { a.moveFocus(-1) }
+func (a *App) focusNext() {
+	a.moveFocus(1)
+}
+
+func (a *App) focusPrevious() {
+	a.moveFocus(-1)
+}
+
 func (a *App) moveFocus(delta int) {
 	if len(a.focusables) == 0 {
 		return
@@ -269,7 +288,9 @@ func (a *App) flushFocusNotifications() {
 	}
 }
 
-func (a *App) hitPath(pt Point) []Element { return hitElement(a.build.Root(), pt) }
+func (a *App) hitPath(pt Point) []Element {
+	return hitElement(a.build.Root(), pt)
+}
 
 func hitElement(e Element, pt Point) []Element {
 	ro := ownRenderObject(e)
@@ -339,10 +360,14 @@ func clearNeedsPaint(ro RenderObject) {
 	ro.VisitChildren(clearNeedsPaint)
 }
 
-type Option func(*options)
-type options struct {
-	theme    Theme
-	hasTheme bool
-}
+type (
+	Option  func(*options)
+	options struct {
+		theme    Theme
+		hasTheme bool
+	}
+)
 
-func WithTheme(theme Theme) Option { return func(o *options) { o.theme, o.hasTheme = theme, true } }
+func WithTheme(theme Theme) Option {
+	return func(o *options) { o.theme, o.hasTheme = theme, true }
+}

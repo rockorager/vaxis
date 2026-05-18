@@ -21,17 +21,31 @@ func newFakeBackend(size ui.Size) *fakeBackend {
 	return &fakeBackend{size: size, events: make(chan ui.Event, 8)}
 }
 
-func (b *fakeBackend) Events() <-chan ui.Event { return b.events }
-func (b *fakeBackend) Size() ui.Size           { return b.size }
+func (b *fakeBackend) Events() <-chan ui.Event {
+	return b.events
+}
+
+func (b *fakeBackend) Size() ui.Size {
+	return b.size
+}
+
 func (b *fakeBackend) Render(p *ui.Painter) error {
 	b.frames = append(b.frames, p)
 	return b.renderErr
 }
-func (b *fakeBackend) Dispatch(fn func()) { b.events <- vaxis.SyncFunc(fn) }
+
+func (b *fakeBackend) Dispatch(fn func()) {
+	b.events <- vaxis.SyncFunc(fn)
+}
+
 func (b *fakeBackend) SetMouseShape(shape ui.MouseShape) {
 	b.mouseShapes = append(b.mouseShapes, shape)
 }
-func (b *fakeBackend) Close() error { close(b.events); return nil }
+
+func (b *fakeBackend) Close() error {
+	close(b.events)
+	return nil
+}
 
 func TestRunnerRendersInitialFrame(t *testing.T) {
 	now := time.Unix(10, 0)

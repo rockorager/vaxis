@@ -8,8 +8,13 @@ type lifecycleWidget struct {
 	Log  *[]string
 }
 
-func (w lifecycleWidget) WidgetKey() KeyValue { return w.Key }
-func (w lifecycleWidget) CreateState() State  { return &lifecycleState{log: w.Log} }
+func (w lifecycleWidget) WidgetKey() KeyValue {
+	return w.Key
+}
+
+func (w lifecycleWidget) CreateState() State {
+	return &lifecycleState{log: w.Log}
+}
 
 type lifecycleState struct {
 	StateBase
@@ -19,17 +24,22 @@ type lifecycleState struct {
 func (s *lifecycleState) InitState() {
 	*s.log = append(*s.log, "init:"+s.Widget().(lifecycleWidget).Name)
 }
+
 func (s *lifecycleState) DidUpdateWidget(old Widget) {
 	*wlog(old) = append(*s.log, "update-old:"+old.(lifecycleWidget).Name+":new:"+s.Widget().(lifecycleWidget).Name)
 }
+
 func (s *lifecycleState) Dispose() {
 	*s.log = append(*s.log, "dispose:"+s.Widget().(lifecycleWidget).Name)
 }
+
 func (s *lifecycleState) Build(BuildContext) Widget {
 	return Text{Value: s.Widget().(lifecycleWidget).Name}
 }
 
-func wlog(w Widget) *[]string { return w.(lifecycleWidget).Log }
+func wlog(w Widget) *[]string {
+	return w.(lifecycleWidget).Log
+}
 
 func TestStateLifecycleUpdateReceivesOldWidget(t *testing.T) {
 	var log []string
@@ -57,7 +67,9 @@ func TestStateLifecycleKeyChangeDisposesAndRecreates(t *testing.T) {
 
 type buildCounterWidget struct{ Builds *int }
 
-func (w buildCounterWidget) CreateState() State { return &buildCounterState{builds: w.Builds} }
+func (w buildCounterWidget) CreateState() State {
+	return &buildCounterState{builds: w.Builds}
+}
 
 type buildCounterState struct {
 	StateBase
@@ -142,9 +154,16 @@ type testRenderWidget struct {
 	Kids []Widget
 }
 
-func (w testRenderWidget) CreateRenderObject(BuildContext) RenderObject  { return w.RO }
-func (w testRenderWidget) UpdateRenderObject(BuildContext, RenderObject) {}
-func (w testRenderWidget) Children() []Widget                            { return w.Kids }
+func (w testRenderWidget) CreateRenderObject(BuildContext) RenderObject {
+	return w.RO
+}
+
+func (w testRenderWidget) UpdateRenderObject(BuildContext, RenderObject) {
+}
+
+func (w testRenderWidget) Children() []Widget {
+	return w.Kids
+}
 
 type testRenderObject struct{ MultiChildRenderObject }
 
@@ -154,20 +173,31 @@ func (r *testRenderObject) Layout(_ LayoutContext, c Constraints) {
 		child.Layout(LayoutContext{}, c)
 	}
 }
-func (r *testRenderObject) Paint(*Painter, Offset)             {}
-func (r *testRenderObject) HitTest(*HitTestResult, Point) bool { return true }
+
+func (r *testRenderObject) Paint(*Painter, Offset) {
+}
+
+func (r *testRenderObject) HitTest(*HitTestResult, Point) bool {
+	return true
+}
 
 type testLeafWidget struct{ RO *testLeafRenderObject }
 
-func (w testLeafWidget) CreateRenderObject(BuildContext) RenderObject  { return w.RO }
-func (w testLeafWidget) UpdateRenderObject(BuildContext, RenderObject) {}
+func (w testLeafWidget) CreateRenderObject(BuildContext) RenderObject {
+	return w.RO
+}
+
+func (w testLeafWidget) UpdateRenderObject(BuildContext, RenderObject) {
+}
 
 type testLeafRenderObject struct{ LeafRenderObject }
 
 func (r *testLeafRenderObject) Layout(_ LayoutContext, c Constraints) {
 	r.SetSize(c.Constrain(Size{Width: 1, Height: 1}))
 }
-func (r *testLeafRenderObject) Paint(*Painter, Offset) {}
+
+func (r *testLeafRenderObject) Paint(*Painter, Offset) {
+}
 
 func TestRenderChildrenDetachWhenRemoved(t *testing.T) {
 	parent := &testRenderObject{}

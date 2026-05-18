@@ -5,10 +5,14 @@ type ConstrainedBox struct {
 	Child       Widget
 }
 
-func (w ConstrainedBox) ChildWidget() Widget { return w.Child }
+func (w ConstrainedBox) ChildWidget() Widget {
+	return w.Child
+}
+
 func (w ConstrainedBox) CreateRenderObject(BuildContext) RenderObject {
 	return &RenderConstrainedBox{AdditionalConstraints: w.Constraints}
 }
+
 func (w ConstrainedBox) UpdateRenderObject(_ BuildContext, ro RenderObject) {
 	r := ro.(*RenderConstrainedBox)
 	if r.AdditionalConstraints != w.Constraints {
@@ -39,7 +43,9 @@ func (r *RenderConstrainedBox) Paint(p *Painter, off Offset) {
 	}
 }
 
-func (r *RenderConstrainedBox) HitTest(*HitTestResult, Point) bool { return false }
+func (r *RenderConstrainedBox) HitTest(*HitTestResult, Point) bool {
+	return false
+}
 
 func normalizeAdditionalConstraints(c Constraints) Constraints {
 	if c.MaxWidth == 0 {

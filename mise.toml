@@ -1,5 +1,6 @@
 [tools]
 go = "1.21"
+gofumpt = "latest"
 
 [env]
 GOFLAGS = "-ldflags=-linkmode=external"
@@ -7,15 +8,10 @@ GOFLAGS = "-ldflags=-linkmode=external"
 [tasks.check]
 description = "Run formatting checks and tests"
 run = """
-files=$(gofmt -l $(find . -name '*.go' -not -path './.git/*'))
-if [ -n "$files" ]; then
-  echo "Go files need formatting:"
-  echo "$files"
-  exit 1
-fi
+scripts/check-go-style.sh
 go test ./...
 """
 
 [tasks.fix]
 description = "Format Go files"
-run = "gofmt -w $(find . -name '*.go' -not -path './.git/*')"
+run = "gofumpt -w $(find . -name '*.go' -not -path './.git/*')"

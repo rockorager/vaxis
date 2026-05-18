@@ -127,8 +127,12 @@ func TestFlexMainAxisSizeMinShrinksToChildren(t *testing.T) {
 
 type recordingWidget struct{ RO *recordingRenderObject }
 
-func (w recordingWidget) CreateRenderObject(BuildContext) RenderObject  { return w.RO }
-func (w recordingWidget) UpdateRenderObject(BuildContext, RenderObject) {}
+func (w recordingWidget) CreateRenderObject(BuildContext) RenderObject {
+	return w.RO
+}
+
+func (w recordingWidget) UpdateRenderObject(BuildContext, RenderObject) {
+}
 
 type recordingRenderObject struct {
 	LeafRenderObject
@@ -143,4 +147,5 @@ func (r *recordingRenderObject) Layout(_ LayoutContext, c Constraints) {
 	r.SetSize(c.Constrain(desired))
 }
 
-func (r *recordingRenderObject) Paint(*Painter, Offset) {}
+func (r *recordingRenderObject) Paint(*Painter, Offset) {
+}

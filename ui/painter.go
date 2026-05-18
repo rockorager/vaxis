@@ -9,8 +9,15 @@ type Painter struct {
 func NewPainter(size Size) *Painter {
 	return &Painter{size: size, cells: make([]Cell, size.Width*size.Height), clips: []Rect{{Width: size.Width, Height: size.Height}}}
 }
-func (p *Painter) Size() Size    { return p.size }
-func (p *Painter) Cells() []Cell { return p.cells }
+
+func (p *Painter) Size() Size {
+	return p.size
+}
+
+func (p *Painter) Cells() []Cell {
+	return p.cells
+}
+
 func (p *Painter) Cell(x, y int) Cell {
 	if x < 0 || y < 0 || x >= p.size.Width || y >= p.size.Height {
 		return Cell{}
@@ -45,7 +52,11 @@ func (p *Painter) Fill(r Rect, cell Cell) {
 		}
 	}
 }
-func (p *Painter) PushClip(r Rect) { p.clips = append(p.clips, r) }
+
+func (p *Painter) PushClip(r Rect) {
+	p.clips = append(p.clips, r)
+}
+
 func (p *Painter) PopClip() {
 	if len(p.clips) > 1 {
 		p.clips = p.clips[:len(p.clips)-1]

@@ -13,8 +13,14 @@ type ElementBase struct {
 	dirty  bool
 }
 
-func (e *ElementBase) Base() *ElementBase { return e }
-func (e *ElementBase) Widget() Widget     { return e.widget }
+func (e *ElementBase) Base() *ElementBase {
+	return e
+}
+
+func (e *ElementBase) Widget() Widget {
+	return e.widget
+}
+
 func (e *ElementBase) MarkNeedsBuild() {
 	if e.owner == nil || e.self() == nil || e.dirty {
 		return
@@ -24,7 +30,10 @@ func (e *ElementBase) MarkNeedsBuild() {
 	e.owner.app.RequestFrame()
 }
 
-func (e *ElementBase) Context() BuildContext { return BuildContext{element: e.self()} }
+func (e *ElementBase) Context() BuildContext {
+	return BuildContext{element: e.self()}
+}
+
 func (e *ElementBase) FindRenderObject() RenderObject {
 	var found RenderObject
 	e.self().VisitChildren(func(child Element) {
@@ -39,14 +48,20 @@ func (e *ElementBase) UpdateChild(old Element, next Widget, slot any) Element {
 	return e.owner.UpdateChild(e.self(), old, next, slot)
 }
 
-func (e *ElementBase) self() Element { return e.owner.elements[e] }
+func (e *ElementBase) self() Element {
+	return e.owner.elements[e]
+}
 
 type BuildContext struct{ element Element }
 
-func (c BuildContext) Widget() Widget { return c.element.Base().widget }
+func (c BuildContext) Widget() Widget {
+	return c.element.Base().widget
+}
+
 func (c BuildContext) Runtime() Runtime {
 	return appRuntime{app: c.element.Base().owner.app}
 }
+
 func (c BuildContext) FindRenderObject() RenderObject {
 	return findRenderObject(c.element)
 }
@@ -66,7 +81,9 @@ type BuildOwner struct {
 	building bool
 }
 
-func NewBuildOwner() *BuildOwner { return &BuildOwner{elements: make(map[*ElementBase]Element)} }
+func NewBuildOwner() *BuildOwner {
+	return &BuildOwner{elements: make(map[*ElementBase]Element)}
+}
 
 func (o *BuildOwner) Mount(root Widget) Element {
 	o.root = createElement(root)
@@ -75,7 +92,9 @@ func (o *BuildOwner) Mount(root Widget) Element {
 	return o.root
 }
 
-func (o *BuildOwner) Root() Element { return o.root }
+func (o *BuildOwner) Root() Element {
+	return o.root
+}
 
 func (o *BuildOwner) UpdateRoot(root Widget) {
 	o.root = o.UpdateChild(nil, o.root, root, nil)

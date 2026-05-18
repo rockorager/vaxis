@@ -125,7 +125,9 @@ func TestPaintClearsNeedsPaint(t *testing.T) {
 
 type frameWidget struct{ state *frameState }
 
-func (w frameWidget) CreateState() ui.State { return w.state }
+func (w frameWidget) CreateState() ui.State {
+	return w.state
+}
 
 type frameState struct {
 	ui.StateBase
@@ -141,24 +143,37 @@ func (s *frameState) Build(ctx ui.BuildContext) ui.Widget {
 
 type frameRenderWidget struct{ render *frameRender }
 
-func (w frameRenderWidget) CreateRenderObject(ctx ui.BuildContext) ui.RenderObject     { return w.render }
-func (w frameRenderWidget) UpdateRenderObject(ctx ui.BuildContext, ro ui.RenderObject) {}
+func (w frameRenderWidget) CreateRenderObject(ctx ui.BuildContext) ui.RenderObject {
+	return w.render
+}
+
+func (w frameRenderWidget) UpdateRenderObject(ctx ui.BuildContext, ro ui.RenderObject) {
+}
 
 type frameRender struct{ ui.LeafRenderObject }
 
 func (r *frameRender) Layout(ctx ui.LayoutContext, c ui.Constraints) {
 	r.SetSize(c.Constrain(ui.Size{Width: 1, Height: 1}))
 }
-func (r *frameRender) Paint(p *ui.Painter, off ui.Offset) {}
+
+func (r *frameRender) Paint(p *ui.Painter, off ui.Offset) {
+}
 
 type frameParentWidget struct {
 	parent *frameParentRender
 	child  *frameRender
 }
 
-func (w frameParentWidget) Child() ui.Widget                                           { return frameRenderWidget{render: w.child} }
-func (w frameParentWidget) CreateRenderObject(ctx ui.BuildContext) ui.RenderObject     { return w.parent }
-func (w frameParentWidget) UpdateRenderObject(ctx ui.BuildContext, ro ui.RenderObject) {}
+func (w frameParentWidget) Child() ui.Widget {
+	return frameRenderWidget{render: w.child}
+}
+
+func (w frameParentWidget) CreateRenderObject(ctx ui.BuildContext) ui.RenderObject {
+	return w.parent
+}
+
+func (w frameParentWidget) UpdateRenderObject(ctx ui.BuildContext, ro ui.RenderObject) {
+}
 
 type frameParentRender struct{ ui.SingleChildRenderObject }
 
@@ -168,5 +183,10 @@ func (r *frameParentRender) Layout(ctx ui.LayoutContext, c ui.Constraints) {
 	}
 	r.SetSize(c.Constrain(ui.Size{Width: 1, Height: 1}))
 }
-func (r *frameParentRender) Paint(p *ui.Painter, off ui.Offset)       {}
-func (r *frameParentRender) HitTest(*ui.HitTestResult, ui.Point) bool { return false }
+
+func (r *frameParentRender) Paint(p *ui.Painter, off ui.Offset) {
+}
+
+func (r *frameParentRender) HitTest(*ui.HitTestResult, ui.Point) bool {
+	return false
+}

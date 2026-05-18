@@ -12,7 +12,8 @@ import (
 )
 
 func (vx *Vaxis) setupSignals() {
-	signal.Notify(vx.chSigKill,
+	signal.Notify(
+		vx.chSigKill,
 		// kill signals
 		syscall.SIGABRT,
 		syscall.SIGBUS,

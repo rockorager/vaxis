@@ -21,16 +21,26 @@ func (s *StateBase) MarkNeedsBuild() {
 	}
 	s.element.MarkNeedsBuild()
 }
-func (s *StateBase) Context() BuildContext { return s.element.Context() }
-func (s *StateBase) Widget() Widget        { return s.element.widget }
+
+func (s *StateBase) Context() BuildContext {
+	return s.element.Context()
+}
+
+func (s *StateBase) Widget() Widget {
+	return s.element.widget
+}
 
 type stateBaseSetter interface{ setElement(*statefulElement) }
 
-func (s *StateBase) setElement(e *statefulElement) { s.element = e }
+func (s *StateBase) setElement(e *statefulElement) {
+	s.element = e
+}
 
-type StateInitializer interface{ InitState() }
-type StateDisposer interface{ Dispose() }
-type StateUpdater interface{ DidUpdateWidget(old Widget) }
+type (
+	StateInitializer interface{ InitState() }
+	StateDisposer    interface{ Dispose() }
+	StateUpdater     interface{ DidUpdateWidget(old Widget) }
+)
 
 type statefulElement struct {
 	ElementBase
@@ -38,7 +48,9 @@ type statefulElement struct {
 	child Element
 }
 
-func newStatefulElement(w StatefulWidget) Element { return &statefulElement{} }
+func newStatefulElement(w StatefulWidget) Element {
+	return &statefulElement{}
+}
 
 func (e *statefulElement) update(old Widget) {
 	if u, ok := e.state.(StateUpdater); ok {
@@ -95,7 +107,9 @@ type statelessElement struct {
 	child Element
 }
 
-func newStatelessElement(w StatelessWidget) Element { return &statelessElement{} }
+func newStatelessElement(w StatelessWidget) Element {
+	return &statelessElement{}
+}
 
 func (e *statelessElement) Rebuild() {
 	e.child = e.UpdateChild(e.child, e.widget.(StatelessWidget).Build(e.Context()), nil)

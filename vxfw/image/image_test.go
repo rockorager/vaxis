@@ -20,7 +20,8 @@ func (f *fakeImage) Draw(vaxis.Window) {
 	f.drawn = true
 }
 
-func (f *fakeImage) Destroy() {}
+func (f *fakeImage) Destroy() {
+}
 
 func (f *fakeImage) Resize(w int, h int) {
 	f.resizeW = w

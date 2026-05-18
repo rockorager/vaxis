@@ -5,10 +5,14 @@ type SizedBox struct {
 	Child         Widget
 }
 
-func (w SizedBox) ChildWidget() Widget { return w.Child }
+func (w SizedBox) ChildWidget() Widget {
+	return w.Child
+}
+
 func (w SizedBox) CreateRenderObject(ctx BuildContext) RenderObject {
 	return &RenderSizedBox{Width: w.Width, Height: w.Height}
 }
+
 func (w SizedBox) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
 	r := ro.(*RenderSizedBox)
 	if r.Width != w.Width || r.Height != w.Height {
@@ -38,4 +42,6 @@ func (r *RenderSizedBox) Paint(p *Painter, off Offset) {
 	}
 }
 
-func (r *RenderSizedBox) HitTest(*HitTestResult, Point) bool { return false }
+func (r *RenderSizedBox) HitTest(*HitTestResult, Point) bool {
+	return false
+}

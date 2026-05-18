@@ -48,7 +48,8 @@ func TestWrapSegments(t *testing.T) {
 			name: "CJK characters wrap correctly",
 			segments: []Segment{
 				// Each character is 2 cells wide.
-				{Text: "我是雨果", Style: Style{}}},
+				{Text: "我是雨果", Style: Style{}},
+			},
 			width: 4,
 			expected: [][]Segment{
 				{{Text: "我是", Style: Style{}}},
@@ -173,7 +174,8 @@ func TestWrapSegments(t *testing.T) {
 			name: "combining characters don't add width",
 			segments: []Segment{
 				// Hint: these are five bytes.
-				{Text: "café", Style: Style{}}}, // e + ´ = é
+				{Text: "café", Style: Style{}},
+			}, // e + ´ = é
 			width: 4,
 			expected: [][]Segment{
 				{{Text: "café", Style: Style{}}},
@@ -183,7 +185,8 @@ func TestWrapSegments(t *testing.T) {
 			// Breaking after a hyphen is technically correct 🤷
 			name: "break at hyphen",
 			segments: []Segment{
-				{Text: "foo-bar-baz", Style: Style{}}},
+				{Text: "foo-bar-baz", Style: Style{}},
+			},
 			width: 8,
 			expected: [][]Segment{
 				{{Text: "foo-bar-", Style: Style{}}},

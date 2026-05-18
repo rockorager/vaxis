@@ -5,11 +5,18 @@ type PaddingWidget struct {
 	ChildWidget Widget
 }
 
-func Padding(in Insets, child Widget) Widget { return PaddingWidget{Insets: in, ChildWidget: child} }
-func (w PaddingWidget) Child() Widget        { return w.ChildWidget }
+func Padding(in Insets, child Widget) Widget {
+	return PaddingWidget{Insets: in, ChildWidget: child}
+}
+
+func (w PaddingWidget) Child() Widget {
+	return w.ChildWidget
+}
+
 func (w PaddingWidget) CreateRenderObject(ctx BuildContext) RenderObject {
 	return &RenderPadding{Insets: w.Insets}
 }
+
 func (w PaddingWidget) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
 	ro.(*RenderPadding).Insets = w.Insets
 }
@@ -39,4 +46,6 @@ func (r *RenderPadding) ChildOffset(RenderObject) Offset {
 	return Offset{X: r.Insets.Left, Y: r.Insets.Top}
 }
 
-func (r *RenderPadding) HitTest(*HitTestResult, Point) bool { return false }
+func (r *RenderPadding) HitTest(*HitTestResult, Point) bool {
+	return false
+}

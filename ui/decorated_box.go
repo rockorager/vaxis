@@ -35,10 +35,14 @@ func DecoratedBox(decoration Decoration, child Widget) Widget {
 	return DecoratedBoxWidget{Decoration: decoration, ChildWidget: child}
 }
 
-func (w DecoratedBoxWidget) Child() Widget { return w.ChildWidget }
+func (w DecoratedBoxWidget) Child() Widget {
+	return w.ChildWidget
+}
+
 func (w DecoratedBoxWidget) CreateRenderObject(ctx BuildContext) RenderObject {
 	return &RenderDecoratedBox{Decoration: w.Decoration}
 }
+
 func (w DecoratedBoxWidget) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
 	r := ro.(*RenderDecoratedBox)
 	if r.Decoration != w.Decoration {
@@ -139,4 +143,6 @@ func (c BorderChars) withDefaults() BorderChars {
 	return c
 }
 
-func (r *RenderDecoratedBox) HitTest(*HitTestResult, Point) bool { return false }
+func (r *RenderDecoratedBox) HitTest(*HitTestResult, Point) bool {
+	return false
+}

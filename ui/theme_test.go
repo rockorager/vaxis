@@ -10,8 +10,13 @@ type fakeColorQuerier struct {
 	background Color
 }
 
-func (q *fakeColorQuerier) QueryForeground(context.Context) Color { return q.foreground }
-func (q *fakeColorQuerier) QueryBackground(context.Context) Color { return q.background }
+func (q *fakeColorQuerier) QueryForeground(context.Context) Color {
+	return q.foreground
+}
+
+func (q *fakeColorQuerier) QueryBackground(context.Context) Color {
+	return q.background
+}
 
 func TestThemeFromTerminalDerivesRGBTheme(t *testing.T) {
 	q := &fakeColorQuerier{

@@ -21,14 +21,16 @@ func main() {
 		case vaxis.Resize:
 			win := vx.Window()
 			win.Clear()
-			win.Print(vaxis.Segment{
-				Text: "Hello, World!",
-			},
+			win.Print(
+				vaxis.Segment{
+					Text: "Hello, World!",
+				},
 			)
 			truncWin := win.New(0, 1, 10, -1)
-			truncWin.PrintTruncate(0, vaxis.Segment{
-				Text: "This line should be truncated at 6 characters",
-			},
+			truncWin.PrintTruncate(
+				0, vaxis.Segment{
+					Text: "This line should be truncated at 6 characters",
+				},
 			)
 			vx.Refresh()
 		case vaxis.Key:

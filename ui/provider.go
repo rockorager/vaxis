@@ -8,8 +8,13 @@ type Provider[T any] struct {
 	ShouldNotify func(old, next T) bool
 }
 
-func (p Provider[T]) Child() Widget          { return p.ChildWidget }
-func (p Provider[T]) CreateElement() Element { return &providerElement[T]{} }
+func (p Provider[T]) Child() Widget {
+	return p.ChildWidget
+}
+
+func (p Provider[T]) CreateElement() Element {
+	return &providerElement[T]{}
+}
 
 type providerElement[T any] struct {
 	ElementBase

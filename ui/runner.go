@@ -17,8 +17,13 @@ func NewRunner(app *App, backend Backend, scheduler *FrameScheduler) *Runner {
 	return &Runner{app: app, backend: backend, scheduler: scheduler}
 }
 
-func (r *Runner) Start(now time.Time) { r.RequestFrame(now) }
-func (r *Runner) Done() bool          { return r.done || r.app.ShouldQuit() }
+func (r *Runner) Start(now time.Time) {
+	r.RequestFrame(now)
+}
+
+func (r *Runner) Done() bool {
+	return r.done || r.app.ShouldQuit()
+}
 
 func (r *Runner) NextFrame() (time.Time, bool) {
 	if !r.scheduler.Scheduled() {

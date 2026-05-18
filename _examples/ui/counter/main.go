@@ -14,7 +14,9 @@ func main() {
 
 type Counter struct{}
 
-func (Counter) CreateState() ui.State { return &CounterState{} }
+func (Counter) CreateState() ui.State {
+	return &CounterState{}
+}
 
 type CounterState struct {
 	ui.StateBase
@@ -28,7 +30,8 @@ func (s *CounterState) Build(ctx ui.BuildContext) ui.Widget {
 			"Ctrl+c": func(ctx ui.EventContext) { ctx.Quit() },
 		},
 		Child: ui.Center(
-			ui.Padding(ui.All(1),
+			ui.Padding(
+				ui.All(1),
 				ui.Column(
 					ui.RichText{Spans: []ui.TextSpan{
 						{Text: "count: "},

@@ -19,10 +19,14 @@ type Align struct {
 	Child     Widget
 }
 
-func (w Align) ChildWidget() Widget { return w.Child }
+func (w Align) ChildWidget() Widget {
+	return w.Child
+}
+
 func (w Align) CreateRenderObject(ctx BuildContext) RenderObject {
 	return &RenderAlign{Alignment: w.Alignment}
 }
+
 func (w Align) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
 	r := ro.(*RenderAlign)
 	if r.Alignment != w.Alignment {
@@ -54,9 +58,13 @@ func (r *RenderAlign) Paint(p *Painter, off Offset) {
 	}
 }
 
-func (r *RenderAlign) ChildOffset(RenderObject) Offset { return r.offset }
+func (r *RenderAlign) ChildOffset(RenderObject) Offset {
+	return r.offset
+}
 
-func (r *RenderAlign) HitTest(*HitTestResult, Point) bool { return false }
+func (r *RenderAlign) HitTest(*HitTestResult, Point) bool {
+	return false
+}
 
 func alignOffset(parent, child Size, a Alignment) Offset {
 	dx := max(0, parent.Width-child.Width)

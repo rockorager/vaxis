@@ -34,8 +34,13 @@ func (s *FrameScheduler) Request(now time.Time) time.Time {
 	return due
 }
 
-func (s *FrameScheduler) Scheduled() bool { return s.scheduled }
-func (s *FrameScheduler) Due() time.Time  { return s.due }
+func (s *FrameScheduler) Scheduled() bool {
+	return s.scheduled
+}
+
+func (s *FrameScheduler) Due() time.Time {
+	return s.due
+}
 
 func (s *FrameScheduler) DidFrame(now time.Time) {
 	s.lastFrame = now
