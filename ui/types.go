@@ -11,6 +11,7 @@ type Cell = vaxis.Cell
 type Character = vaxis.Character
 type Style = vaxis.Style
 type Color = vaxis.Color
+type AttributeMask = vaxis.AttributeMask
 type Segment = vaxis.Segment
 
 type Event = vaxis.Event
@@ -32,6 +33,55 @@ const (
 	MouseMiddleButton = vaxis.MouseMiddleButton
 	MouseRightButton  = vaxis.MouseRightButton
 	EventPress        = vaxis.EventPress
+)
+
+const (
+	AttrNone          = vaxis.AttrNone
+	AttrBold          = vaxis.AttrBold
+	AttrDim           = vaxis.AttrDim
+	AttrItalic        = vaxis.AttrItalic
+	AttrBlink         = vaxis.AttrBlink
+	AttrReverse       = vaxis.AttrReverse
+	AttrInvisible     = vaxis.AttrInvisible
+	AttrStrikethrough = vaxis.AttrStrikethrough
+	AttrOverline      = vaxis.AttrOverline
+)
+
+const (
+	MouseShapeDefault          = vaxis.MouseShapeDefault
+	MouseShapeContextMenu      = vaxis.MouseShapeContextMenu
+	MouseShapeTextInput        = vaxis.MouseShapeTextInput
+	MouseShapeVerticalText     = vaxis.MouseShapeVerticalText
+	MouseShapeClickable        = vaxis.MouseShapeClickable
+	MouseShapeHelp             = vaxis.MouseShapeHelp
+	MouseShapeBusyBackground   = vaxis.MouseShapeBusyBackground
+	MouseShapeBusy             = vaxis.MouseShapeBusy
+	MouseShapeAlias            = vaxis.MouseShapeAlias
+	MouseShapeCopy             = vaxis.MouseShapeCopy
+	MouseShapeMove             = vaxis.MouseShapeMove
+	MouseShapeNoDrop           = vaxis.MouseShapeNoDrop
+	MouseShapeNotAllowed       = vaxis.MouseShapeNotAllowed
+	MouseShapeGrab             = vaxis.MouseShapeGrab
+	MouseShapeGrabbing         = vaxis.MouseShapeGrabbing
+	MouseShapeAllScroll        = vaxis.MouseShapeAllScroll
+	MouseShapeCrosshair        = vaxis.MouseShapeCrosshair
+	MouseShapeResizeColumn     = vaxis.MouseShapeResizeColumn
+	MouseShapeResizeRow        = vaxis.MouseShapeResizeRow
+	MouseShapeResizeNorth      = vaxis.MouseShapeResizeNorth
+	MouseShapeResizeEast       = vaxis.MouseShapeResizeEast
+	MouseShapeResizeSouth      = vaxis.MouseShapeResizeSouth
+	MouseShapeResizeWest       = vaxis.MouseShapeResizeWest
+	MouseShapeResizeNorthEast  = vaxis.MouseShapeResizeNorthEast
+	MouseShapeResizeNorthWest  = vaxis.MouseShapeResizeNorthWest
+	MouseShapeResizeSouthEast  = vaxis.MouseShapeResizeSouthEast
+	MouseShapeResizeSouthWest  = vaxis.MouseShapeResizeSouthWest
+	MouseShapeResizeHorizontal = vaxis.MouseShapeResizeHorizontal
+	MouseShapeResizeVertical   = vaxis.MouseShapeResizeVertical
+	MouseShapeResizeNESW       = vaxis.MouseShapeResizeNESW
+	MouseShapeResizeNWSE       = vaxis.MouseShapeResizeNWSE
+	MouseShapeZoomIn           = vaxis.MouseShapeZoomIn
+	MouseShapeZoomOut          = vaxis.MouseShapeZoomOut
+	MouseShapeCell             = vaxis.MouseShapeCell
 )
 
 type Widget = any

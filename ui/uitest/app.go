@@ -3,6 +3,7 @@ package uitest
 import (
 	"strings"
 
+	"git.sr.ht/~rockorager/vaxis"
 	"git.sr.ht/~rockorager/vaxis/ui"
 )
 
@@ -25,7 +26,14 @@ func (a *App) Pump(width, height int) {
 	a.app.Paint(a.painter)
 }
 
-func (a *App) Send(ev ui.Event)      { a.app.Send(ev) }
+func (a *App) Send(ev ui.Event) { a.app.Send(ev) }
+func (a *App) Key(text string)  { a.Send(vaxis.Key{Text: text, Keycode: firstRune(text)}) }
+func (a *App) Enter()           { a.Send(vaxis.Key{Keycode: vaxis.KeyEnter}) }
+func (a *App) Tab()             { a.Send(vaxis.Key{Keycode: vaxis.KeyTab}) }
+func (a *App) ShiftTab()        { a.Send(vaxis.Key{Keycode: vaxis.KeyTab, Modifiers: vaxis.ModShift}) }
+func (a *App) Click(x, y int) {
+	a.Send(vaxis.Mouse{Col: x, Row: y, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress})
+}
 func (a *App) Cell(x, y int) ui.Cell { return a.painter.Cell(x, y) }
 func (a *App) ShouldQuit() bool      { return a.app.ShouldQuit() }
 func (a *App) Contains(text string) bool {
@@ -41,4 +49,11 @@ func (a *App) Text() string {
 		b.WriteString(cell.Character.Grapheme)
 	}
 	return b.String()
+}
+
+func firstRune(s string) rune {
+	for _, r := range s {
+		return r
+	}
+	return 0
 }

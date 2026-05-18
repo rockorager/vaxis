@@ -27,9 +27,15 @@ func (c EventContext) CopyToClipboard(string)    {}
 func (c EventContext) Notify(title, body string) {}
 func (c EventContext) FocusNext()                { c.app.focusNext() }
 func (c EventContext) FocusPrevious()            { c.app.focusPrevious() }
+func (c EventContext) SetMouseShape(shape MouseShape) {
+	c.app.setMouseShape(shape)
+}
 
 type EventHandler interface {
 	HandleEvent(EventContext, Event) EventResult
+}
+type MouseShapeHandler interface {
+	MouseShape(EventContext, Mouse) MouseShape
 }
 type VoidCallback func(EventContext)
 type EventCallback func(EventContext, Event) EventResult

@@ -28,7 +28,12 @@ func (p *Painter) DrawCell(pt Point, cell Cell) {
 func (p *Painter) DrawText(off Offset, s string, style Style) {
 	x := off.X
 	for _, ch := range vaxisCharacters(s) {
-		p.DrawCell(Point{X: x, Y: off.Y}, Cell{Character: ch, Style: style})
+		pt := Point{X: x, Y: off.Y}
+		cell := Cell{Character: ch, Style: style}
+		if p.inBounds(pt) {
+			cell.Style = mergeStyle(p.Cell(pt.X, pt.Y).Style, style)
+		}
+		p.DrawCell(pt, cell)
 		x += ch.Width
 	}
 }
@@ -50,4 +55,33 @@ func (p *Painter) PopClip() {
 func (p *Painter) inClip(pt Point) bool {
 	c := p.clips[len(p.clips)-1]
 	return pt.X >= c.X && pt.X < c.X+c.Width && pt.Y >= c.Y && pt.Y < c.Y+c.Height
+}
+
+func (p *Painter) inBounds(pt Point) bool {
+	return pt.X >= 0 && pt.Y >= 0 && pt.X < p.size.Width && pt.Y < p.size.Height
+}
+
+func mergeStyle(base, over Style) Style {
+	if over.Hyperlink != "" {
+		base.Hyperlink = over.Hyperlink
+	}
+	if over.HyperlinkParams != "" {
+		base.HyperlinkParams = over.HyperlinkParams
+	}
+	if over.Foreground != 0 {
+		base.Foreground = over.Foreground
+	}
+	if over.Background != 0 {
+		base.Background = over.Background
+	}
+	if over.UnderlineColor != 0 {
+		base.UnderlineColor = over.UnderlineColor
+	}
+	if over.UnderlineStyle != 0 {
+		base.UnderlineStyle = over.UnderlineStyle
+	}
+	if over.Attribute != 0 {
+		base.Attribute = over.Attribute
+	}
+	return base
 }

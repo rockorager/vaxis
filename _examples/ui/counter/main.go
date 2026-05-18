@@ -1,20 +1,13 @@
 package main
 
 import (
-	"fmt"
+	"strconv"
 
 	"git.sr.ht/~rockorager/vaxis/ui"
 )
 
 func main() {
-	theme := ui.Theme{
-		Text: ui.Style{Foreground: ui.RGB(238, 238, 238)},
-		Button: ui.ButtonTheme{
-			Normal:  ui.Style{Foreground: ui.RGB(192, 192, 192)},
-			Focused: ui.Style{Foreground: ui.RGB(0, 0, 0), Background: ui.RGB(0, 255, 255)},
-		},
-	}
-	if err := ui.Run(Counter{}, ui.WithTheme(theme)); err != nil {
+	if err := ui.Run(Counter{}); err != nil {
 		panic(err)
 	}
 }
@@ -29,27 +22,28 @@ type CounterState struct {
 }
 
 func (s *CounterState) Build(ctx ui.BuildContext) ui.Widget {
-	return ui.Keymap(map[string]ui.VoidCallback{
-		"q":      func(ctx ui.EventContext) { ctx.Quit() },
-		"Ctrl+c": func(ctx ui.EventContext) { ctx.Quit() },
-	}, ui.Center(
-		ui.Panel(
-			ui.PanelStyle{
-				Background: ui.RGB(0, 0, 128),
-				Border:     ui.BorderLine(ui.RGB(0, 255, 255)),
-				Padding:    ui.All(1),
-			},
-			ui.Column(
-				ui.Text(fmt.Sprintf("count: %d", s.count)),
-				ui.Row(
-					ui.Button("-", func(ctx ui.EventContext) {
-						s.SetState(func() { s.count-- })
-					}),
-					ui.Button("+", func(ctx ui.EventContext) {
-						s.SetState(func() { s.count++ })
-					}),
+	return ui.Keymap{
+		Bindings: map[string]ui.VoidCallback{
+			"q":      func(ctx ui.EventContext) { ctx.Quit() },
+			"Ctrl+c": func(ctx ui.EventContext) { ctx.Quit() },
+		},
+		Child: ui.Center(
+			ui.Padding(ui.All(1),
+				ui.Column(
+					ui.RichText{Spans: []ui.TextSpan{
+						{Text: "count: "},
+						{Text: strconv.Itoa(s.count), Style: ui.Style{Attribute: ui.AttrBold}},
+					}},
+					ui.Row(
+						ui.Button{Label: "-", OnPressed: func(ctx ui.EventContext) {
+							s.SetState(func() { s.count-- })
+						}},
+						ui.Button{Label: "+", OnPressed: func(ctx ui.EventContext) {
+							s.SetState(func() { s.count++ })
+						}},
+					),
 				),
 			),
 		),
-	))
+	}
 }

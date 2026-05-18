@@ -1,45 +1,69 @@
 package ui
 
-type TextWidget struct {
-	Value string
-	Style Style
+type TextAlign int
+
+const (
+	TextAlignStart TextAlign = iota
+	TextAlignEnd
+	TextAlignLeft
+	TextAlignRight
+	TextAlignCenter
+)
+
+type TextOverflow int
+
+const (
+	TextOverflowClip TextOverflow = iota
+	TextOverflowEllipsis
+	TextOverflowVisible
+)
+
+type Text struct {
+	Value    string
+	Style    Style
+	SoftWrap bool
+	Overflow TextOverflow
+	MaxLines int
+	Align    TextAlign
 }
 
-func Text(s string, opts ...TextOption) Widget {
-	w := TextWidget{Value: s}
-	for _, opt := range opts {
-		opt(&w)
-	}
-	return w
-}
-
-type TextOption func(*TextWidget)
-
-func TextStyle(style Style) TextOption { return func(w *TextWidget) { w.Style = style } }
-
-func (w TextWidget) CreateRenderObject(ctx BuildContext) RenderObject {
+func (w Text) CreateRenderObject(ctx BuildContext) RenderObject {
 	if w.Style == (Style{}) {
 		w.Style = MustDepend[Theme](ctx).Text
 	}
-	return &RenderText{Text: w.Value, Style: w.Style}
+	return &RenderText{Text: w.Value, Style: w.Style, Options: w.options()}
 }
 
-func (w TextWidget) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
+func (w Text) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
 	if w.Style == (Style{}) {
 		w.Style = MustDepend[Theme](ctx).Text
 	}
 	r := ro.(*RenderText)
-	r.Text, r.Style = w.Value, w.Style
+	r.Text, r.Style, r.Options = w.Value, w.Style, w.options()
+	r.MarkNeedsLayout()
+}
+
+func (w Text) options() textLayoutOptions {
+	return textLayoutOptions{SoftWrap: w.SoftWrap, Overflow: w.Overflow, MaxLines: w.MaxLines, Align: w.Align}
 }
 
 type RenderText struct {
 	LeafRenderObject
-	Text  string
-	Style Style
+	Text    string
+	Style   Style
+	Options textLayoutOptions
+	layout  laidOutText
 }
 
 func (r *RenderText) Layout(ctx LayoutContext, c Constraints) {
-	r.SetSize(c.Constrain(ctx.MeasureText(r.Text, r.Style)))
+	r.layout = layoutText([]TextSpan{{Text: r.Text, Style: r.Style}}, c, r.Options)
+	r.SetSize(r.layout.Size)
 }
 
-func (r *RenderText) Paint(p *Painter, off Offset) { p.DrawText(off, r.Text, r.Style) }
+func (r *RenderText) Paint(p *Painter, off Offset) {
+	if r.Options.Overflow != TextOverflowVisible {
+		p.PushClip(Rect{X: off.X, Y: off.Y, Width: r.Size().Width, Height: r.Size().Height})
+		defer p.PopClip()
+	}
+	paintLaidOutText(p, off, r.layout, r.Options)
+}

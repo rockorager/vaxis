@@ -3,7 +3,6 @@ package main
 import (
 	"testing"
 
-	"git.sr.ht/~rockorager/vaxis"
 	"git.sr.ht/~rockorager/vaxis/ui/uitest"
 )
 
@@ -13,21 +12,21 @@ func TestCounterExampleKeyboard(t *testing.T) {
 	if !app.Contains("count: 0") {
 		t.Fatalf("initial frame missing count: %q", app.Text())
 	}
-	if got := app.Cell(5, 0).Character.Grapheme; got != "┌" {
-		t.Fatalf("panel border starts at cell (5,0) = %q, want ┌", got)
+	if got := app.Cell(5, 1).Character.Grapheme; got != "c" {
+		t.Fatalf("padded count starts at cell (5,1) = %q, want c", got)
 	}
-	if got := app.Cell(6, 1).Character.Grapheme; got != "c" {
-		t.Fatalf("padded count starts at cell (6,1) = %q, want c", got)
+	if got := app.Cell(12, 2).Character.Grapheme; got != "+" {
+		t.Fatalf("increment button label at cell (12,2) = %q, want +", got)
 	}
 
-	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
+	app.Enter()
 	app.Pump(20, 5)
 	if !app.Contains("count: -1") {
 		t.Fatalf("decremented frame missing count: %q", app.Text())
 	}
 
-	app.Send(vaxis.Key{Keycode: vaxis.KeyTab})
-	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
+	app.Tab()
+	app.Enter()
 	app.Pump(20, 5)
 	if !app.Contains("count: 0") {
 		t.Fatalf("incremented frame missing count: %q", app.Text())
@@ -37,13 +36,13 @@ func TestCounterExampleKeyboard(t *testing.T) {
 func TestCounterExampleMouseAndQuit(t *testing.T) {
 	app := uitest.New(Counter{})
 	app.Pump(20, 5)
-	app.Send(vaxis.Mouse{Col: 10, Row: 2, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress})
+	app.Click(12, 2)
 	app.Pump(20, 5)
 	if !app.Contains("count: 1") {
 		t.Fatalf("mouse increment frame missing count: %q", app.Text())
 	}
 
-	app.Send(vaxis.Key{Text: "q", Keycode: 'q'})
+	app.Key("q")
 	if !app.ShouldQuit() {
 		t.Fatal("expected q shortcut to request quit")
 	}

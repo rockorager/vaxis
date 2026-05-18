@@ -11,7 +11,7 @@ import (
 )
 
 func TestTextPaints(t *testing.T) {
-	app := uitest.New(ui.Text("hello"))
+	app := uitest.New(ui.Text{Value: "hello"})
 	app.Pump(10, 1)
 	if got := app.Text(); !strings.HasPrefix(got, "hello") {
 		t.Fatalf("text = %q, want prefix hello", got)
@@ -19,7 +19,7 @@ func TestTextPaints(t *testing.T) {
 }
 
 func TestCenterPaintsChildCentered(t *testing.T) {
-	app := uitest.New(ui.Center(ui.Text("hi")))
+	app := uitest.New(ui.Center(ui.Text{Value: "hi"}))
 	app.Pump(6, 3)
 	if got := app.Cell(2, 1).Character.Grapheme; got != "h" {
 		t.Fatalf("centered cell = %q, want h", got)
@@ -36,7 +36,7 @@ type counterState struct {
 }
 
 func (s *counterState) Build(ctx ui.BuildContext) ui.Widget {
-	return ui.Text(string(rune('0' + s.count)))
+	return (ui.Text{Value: string(rune('0' + s.count))})
 }
 
 func TestStatePreservedAcrossCompatibleUpdate(t *testing.T) {
@@ -73,7 +73,7 @@ func TestStateRecreatedWhenKeyChanges(t *testing.T) {
 
 type multiKind struct{}
 
-func (multiKind) Build(ctx ui.BuildContext) ui.Widget { return ui.Text("bad") }
+func (multiKind) Build(ctx ui.BuildContext) ui.Widget { return (ui.Text{Value: "bad"}) }
 func (multiKind) CreateState() ui.State               { return &counterState{} }
 
 func TestInvalidWidgetPanics(t *testing.T) {
@@ -99,7 +99,7 @@ func TestInvalidWidgetPanics(t *testing.T) {
 type providerText struct{}
 
 func (providerText) Build(ctx ui.BuildContext) ui.Widget {
-	return ui.Text(ui.MustDepend[string](ctx))
+	return (ui.Text{Value: ui.MustDepend[string](ctx)})
 }
 
 func TestProviderNotifiesDependents(t *testing.T) {
@@ -136,7 +136,7 @@ func TestProviderShouldNotifyCanSuppressDependentRebuild(t *testing.T) {
 }
 
 func TestPaddingOffsetsChild(t *testing.T) {
-	app := uitest.New(ui.Padding(ui.All(1), ui.Text("x")))
+	app := uitest.New(ui.Padding(ui.All(1), ui.Text{Value: "x"}))
 	app.Pump(3, 3)
 	if got := app.Cell(1, 1).Character.Grapheme; got != "x" {
 		t.Fatalf("padded cell = %q, want x", got)
@@ -152,14 +152,14 @@ func TestRowColumnAndExpandedPaintInExpectedPositions(t *testing.T) {
 	}{
 		{
 			name:   "row",
-			root:   ui.Row(ui.Text("a"), ui.Expanded(ui.Text("b")), ui.Text("c")),
+			root:   ui.Row(ui.Text{Value: "a"}, ui.Expanded(ui.Text{Value: "b"}), ui.Text{Value: "c"}),
 			w:      5,
 			h:      1,
 			checks: map[ui.Point]string{{X: 0, Y: 0}: "a", {X: 1, Y: 0}: "b", {X: 4, Y: 0}: "c"},
 		},
 		{
 			name:   "column",
-			root:   ui.Column(ui.Text("a"), ui.Expanded(ui.Text("b")), ui.Text("c")),
+			root:   ui.Column(ui.Text{Value: "a"}, ui.Expanded(ui.Text{Value: "b"}), ui.Text{Value: "c"}),
 			w:      1,
 			h:      5,
 			checks: map[ui.Point]string{{X: 0, Y: 0}: "a", {X: 0, Y: 1}: "b", {X: 0, Y: 4}: "c"},
@@ -189,7 +189,7 @@ type updatingCounterState struct {
 
 func (s *updatingCounterState) DidUpdateWidget(old ui.Widget) { s.updates++ }
 func (s *updatingCounterState) Build(ctx ui.BuildContext) ui.Widget {
-	return ui.Text(fmt.Sprint(s.updates))
+	return (ui.Text{Value: fmt.Sprint(s.updates)})
 }
 
 func TestDidUpdateWidgetCalledOnCompatibleUpdate(t *testing.T) {
@@ -207,8 +207,8 @@ func TestDidUpdateWidgetCalledOnCompatibleUpdate(t *testing.T) {
 func TestButtonActivatesFocusedButton(t *testing.T) {
 	pressed := 0
 	app := ui.NewApp(ui.Row(
-		ui.Button("one", func(ctx ui.EventContext) { pressed += 1 }),
-		ui.Button("two", func(ctx ui.EventContext) { pressed += 10 }),
+		ui.Button{Label: "one", OnPressed: func(ctx ui.EventContext) { pressed += 1 }},
+		ui.Button{Label: "two", OnPressed: func(ctx ui.EventContext) { pressed += 10 }},
 	))
 	app.Pump(ui.Size{Width: 20, Height: 1})
 	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
@@ -225,8 +225,8 @@ func TestButtonActivatesFocusedButton(t *testing.T) {
 func TestFocusNodeRequestFocus(t *testing.T) {
 	var n1, n2 ui.FocusNode
 	app := ui.NewApp(ui.Row(
-		ui.Focus(&n1, ui.Text("one")),
-		ui.Focus(&n2, ui.Text("two")),
+		ui.Focus(&n1, ui.Text{Value: "one"}),
+		ui.Focus(&n2, ui.Text{Value: "two"}),
 	))
 	app.Pump(ui.Size{Width: 20, Height: 1})
 	n2.RequestFocus()
@@ -238,9 +238,9 @@ func TestFocusNodeRequestFocus(t *testing.T) {
 func TestKeymapCaptureHandlesBeforeFocusedButton(t *testing.T) {
 	called := false
 	button := false
-	app := ui.NewApp(ui.Keymap(map[string]ui.VoidCallback{
+	app := ui.NewApp(ui.Keymap{Bindings: map[string]ui.VoidCallback{
 		"Enter": func(ctx ui.EventContext) { called = true },
-	}, ui.Button("button", func(ctx ui.EventContext) { button = true })))
+	}, Child: ui.Button{Label: "button", OnPressed: func(ctx ui.EventContext) { button = true }}})
 	app.Pump(ui.Size{Width: 20, Height: 1})
 	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
 	if !called {
@@ -253,9 +253,9 @@ func TestKeymapCaptureHandlesBeforeFocusedButton(t *testing.T) {
 
 func TestKeymapIgnoredEventContinuesToFocusedButton(t *testing.T) {
 	button := false
-	app := ui.NewApp(ui.Keymap(map[string]ui.VoidCallback{
+	app := ui.NewApp(ui.Keymap{Bindings: map[string]ui.VoidCallback{
 		"Ctrl+x": func(ctx ui.EventContext) {},
-	}, ui.Button("button", func(ctx ui.EventContext) { button = true })))
+	}, Child: ui.Button{Label: "button", OnPressed: func(ctx ui.EventContext) { button = true }}})
 	app.Pump(ui.Size{Width: 20, Height: 1})
 	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
 	if !button {
@@ -266,8 +266,8 @@ func TestKeymapIgnoredEventContinuesToFocusedButton(t *testing.T) {
 func TestShiftTabMovesFocusPrevious(t *testing.T) {
 	pressed := 0
 	app := ui.NewApp(ui.Row(
-		ui.Button("one", func(ctx ui.EventContext) { pressed = 1 }),
-		ui.Button("two", func(ctx ui.EventContext) { pressed = 2 }),
+		ui.Button{Label: "one", OnPressed: func(ctx ui.EventContext) { pressed = 1 }},
+		ui.Button{Label: "two", OnPressed: func(ctx ui.EventContext) { pressed = 2 }},
 	))
 	app.Pump(ui.Size{Width: 20, Height: 1})
 	app.Send(vaxis.Key{Keycode: vaxis.KeyTab, Modifiers: vaxis.ModShift})
@@ -278,13 +278,13 @@ func TestShiftTabMovesFocusPrevious(t *testing.T) {
 }
 
 func TestNilButtonCallbackStillHandlesActivation(t *testing.T) {
-	app := ui.NewApp(ui.Button("noop", nil))
+	app := ui.NewApp(ui.Button{Label: "noop"})
 	app.Pump(ui.Size{Width: 20, Height: 1})
 	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
 }
 
 func TestQuitCallbackDoesNotPanic(t *testing.T) {
-	app := ui.NewApp(ui.Button("quit", func(ctx ui.EventContext) { ctx.Quit() }))
+	app := ui.NewApp(ui.Button{Label: "quit", OnPressed: func(ctx ui.EventContext) { ctx.Quit() }})
 	app.Pump(ui.Size{Width: 20, Height: 1})
 	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
 	if !app.ShouldQuit() {
@@ -295,12 +295,12 @@ func TestQuitCallbackDoesNotPanic(t *testing.T) {
 func TestFocusTraversalSkipsUnmountedFocus(t *testing.T) {
 	pressed := 0
 	app := ui.NewApp(ui.Row(
-		ui.Button("one", func(ctx ui.EventContext) { pressed = 1 }),
-		ui.Button("two", func(ctx ui.EventContext) { pressed = 2 }),
+		ui.Button{Label: "one", OnPressed: func(ctx ui.EventContext) { pressed = 1 }},
+		ui.Button{Label: "two", OnPressed: func(ctx ui.EventContext) { pressed = 2 }},
 	))
 	app.Pump(ui.Size{Width: 20, Height: 1})
 	app.UpdateRoot(ui.Row(
-		ui.Button("two", func(ctx ui.EventContext) { pressed = 2 }),
+		ui.Button{Label: "two", OnPressed: func(ctx ui.EventContext) { pressed = 2 }},
 	))
 	app.Pump(ui.Size{Width: 20, Height: 1})
 	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
@@ -311,7 +311,7 @@ func TestFocusTraversalSkipsUnmountedFocus(t *testing.T) {
 
 func TestButtonActivatesOnMouseClick(t *testing.T) {
 	pressed := false
-	app := ui.NewApp(ui.Button("click", func(ctx ui.EventContext) { pressed = true }))
+	app := ui.NewApp(ui.Button{Label: "click", OnPressed: func(ctx ui.EventContext) { pressed = true }})
 	app.Pump(ui.Size{Width: 20, Height: 1})
 	app.Send(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress})
 	if !pressed {
@@ -321,7 +321,7 @@ func TestButtonActivatesOnMouseClick(t *testing.T) {
 
 func TestMouseHitTestingUsesCustomRenderChildOffset(t *testing.T) {
 	pressed := false
-	app := ui.NewApp(offsetBox{offset: ui.Offset{X: 4, Y: 2}, child: ui.Button("hit", func(ctx ui.EventContext) { pressed = true })})
+	app := ui.NewApp(offsetBox{offset: ui.Offset{X: 4, Y: 2}, child: ui.Button{Label: "hit", OnPressed: func(ctx ui.EventContext) { pressed = true }}})
 	app.Pump(ui.Size{Width: 20, Height: 5})
 	app.Send(vaxis.Mouse{Col: 5, Row: 2, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress})
 	if !pressed {
@@ -331,7 +331,7 @@ func TestMouseHitTestingUsesCustomRenderChildOffset(t *testing.T) {
 
 func TestMouseHitTestingMissesCustomRenderChildOffset(t *testing.T) {
 	pressed := false
-	app := ui.NewApp(offsetBox{offset: ui.Offset{X: 4, Y: 2}, child: ui.Button("hit", func(ctx ui.EventContext) { pressed = true })})
+	app := ui.NewApp(offsetBox{offset: ui.Offset{X: 4, Y: 2}, child: ui.Button{Label: "hit", OnPressed: func(ctx ui.EventContext) { pressed = true }}})
 	app.Pump(ui.Size{Width: 20, Height: 5})
 	app.Send(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress})
 	if pressed {
@@ -341,7 +341,7 @@ func TestMouseHitTestingMissesCustomRenderChildOffset(t *testing.T) {
 
 func TestMouseClickOutsideWidgetIsIgnored(t *testing.T) {
 	pressed := false
-	app := ui.NewApp(ui.Row(ui.Button("click", func(ctx ui.EventContext) { pressed = true })))
+	app := ui.NewApp(ui.Row(ui.Button{Label: "click", OnPressed: func(ctx ui.EventContext) { pressed = true }}))
 	app.Pump(ui.Size{Width: 20, Height: 1})
 	app.Send(vaxis.Mouse{Col: 10, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress})
 	if pressed {
@@ -351,7 +351,7 @@ func TestMouseClickOutsideWidgetIsIgnored(t *testing.T) {
 
 func TestRightMouseClickDoesNotActivateButton(t *testing.T) {
 	pressed := false
-	app := ui.NewApp(ui.Button("click", func(ctx ui.EventContext) { pressed = true }))
+	app := ui.NewApp(ui.Button{Label: "click", OnPressed: func(ctx ui.EventContext) { pressed = true }})
 	app.Pump(ui.Size{Width: 20, Height: 1})
 	app.Send(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseRightButton, EventType: vaxis.EventPress})
 	if pressed {
@@ -359,9 +359,31 @@ func TestRightMouseClickDoesNotActivateButton(t *testing.T) {
 	}
 }
 
+func TestButtonSetsMouseShapeOnHover(t *testing.T) {
+	app := ui.NewApp(ui.Align{Alignment: ui.TopLeft, Child: ui.Button{Label: "click"}})
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	app.Send(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseNoButton, EventType: vaxis.EventMotion})
+	if got := app.MouseShape(); got != ui.MouseShapeClickable {
+		t.Fatalf("mouse shape = %q, want clickable", got)
+	}
+	app.Send(vaxis.Mouse{Col: 10, Row: 0, Button: vaxis.MouseNoButton, EventType: vaxis.EventMotion})
+	if got := app.MouseShape(); got != ui.MouseShapeDefault {
+		t.Fatalf("mouse shape after leaving button = %q, want default", got)
+	}
+}
+
+func TestButtonUsesThemeMouseShape(t *testing.T) {
+	app := ui.NewApp(ui.Align{Alignment: ui.TopLeft, Child: ui.Button{Label: "click"}}, ui.WithTheme(ui.Theme{Button: ui.ButtonTheme{Mouse: ui.MouseShapeHelp}}))
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	app.Send(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseNoButton, EventType: vaxis.EventMotion})
+	if got := app.MouseShape(); got != ui.MouseShapeHelp {
+		t.Fatalf("mouse shape = %q, want help", got)
+	}
+}
+
 func TestTextUsesThemeStyle(t *testing.T) {
 	style := ui.Style{Foreground: vaxis.ColorRed}
-	app := ui.NewApp(ui.Text("x"), ui.WithTheme(ui.Theme{Text: style}))
+	app := ui.NewApp(ui.Text{Value: "x"}, ui.WithTheme(ui.Theme{Text: style}))
 	app.Pump(ui.Size{Width: 1, Height: 1})
 	p := ui.NewPainter(ui.Size{Width: 1, Height: 1})
 	app.Paint(p)
@@ -370,22 +392,136 @@ func TestTextUsesThemeStyle(t *testing.T) {
 	}
 }
 
-func TestButtonUsesFocusedThemeStyle(t *testing.T) {
-	focused := ui.Style{Foreground: vaxis.ColorGreen}
-	app := ui.NewApp(ui.Button("go", nil), ui.WithTheme(ui.Theme{Button: ui.ButtonTheme{Focused: focused}}))
+func TestRichTextPaintsStyledSpans(t *testing.T) {
+	bold := ui.Style{Attribute: ui.AttrBold}
+	app := ui.NewApp(ui.RichText{Spans: []ui.TextSpan{
+		{Text: "hi "},
+		{Text: "there", Style: bold},
+	}})
+	app.Pump(ui.Size{Width: 8, Height: 1})
+	p := ui.NewPainter(ui.Size{Width: 8, Height: 1})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Character.Grapheme; got != "h" {
+		t.Fatalf("first span = %q, want h", got)
+	}
+	if got := p.Cell(3, 0).Character.Grapheme; got != "t" {
+		t.Fatalf("second span = %q, want t", got)
+	}
+	if got := p.Cell(3, 0).Style.Attribute; got != ui.AttrBold {
+		t.Fatalf("second span attr = %#v, want bold", got)
+	}
+}
+
+func TestRichTextMergesSpanStyleWithTheme(t *testing.T) {
+	themeStyle := ui.Style{Foreground: vaxis.ColorGreen, Background: vaxis.ColorBlue}
+	app := ui.NewApp(ui.RichText{Spans: []ui.TextSpan{{Text: "x", Style: ui.Style{Attribute: ui.AttrBold}}}}, ui.WithTheme(ui.Theme{Text: themeStyle}))
+	app.Pump(ui.Size{Width: 1, Height: 1})
+	p := ui.NewPainter(ui.Size{Width: 1, Height: 1})
+	app.Paint(p)
+	style := p.Cell(0, 0).Style
+	if style.Foreground != themeStyle.Foreground || style.Background != themeStyle.Background || style.Attribute != ui.AttrBold {
+		t.Fatalf("style = %#v, want theme colors with bold", style)
+	}
+}
+
+func TestTextSoftWrapsWords(t *testing.T) {
+	app := ui.NewApp(ui.Text{Value: "hello world", SoftWrap: true})
+	app.Pump(ui.Size{Width: 6, Height: 3})
+	p := ui.NewPainter(ui.Size{Width: 6, Height: 3})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Character.Grapheme; got != "h" {
+		t.Fatalf("first line = %q, want h", got)
+	}
+	if got := p.Cell(0, 1).Character.Grapheme; got != "w" {
+		t.Fatalf("second line = %q, want w", got)
+	}
+}
+
+func TestTextSoftWrapBreaksLongWords(t *testing.T) {
+	app := ui.NewApp(ui.Text{Value: "abcdef", SoftWrap: true})
+	app.Pump(ui.Size{Width: 3, Height: 3})
+	p := ui.NewPainter(ui.Size{Width: 3, Height: 3})
+	app.Paint(p)
+	if got := p.Cell(2, 0).Character.Grapheme; got != "c" {
+		t.Fatalf("first line end = %q, want c", got)
+	}
+	if got := p.Cell(0, 1).Character.Grapheme; got != "d" {
+		t.Fatalf("second line start = %q, want d", got)
+	}
+}
+
+func TestTextHardNewlineBreaksWhenSoftWrapFalse(t *testing.T) {
+	app := ui.NewApp(ui.Text{Value: "a\nb"})
+	app.Pump(ui.Size{Width: 3, Height: 3})
+	p := ui.NewPainter(ui.Size{Width: 3, Height: 3})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Character.Grapheme; got != "a" {
+		t.Fatalf("first line = %q, want a", got)
+	}
+	if got := p.Cell(0, 1).Character.Grapheme; got != "b" {
+		t.Fatalf("second line = %q, want b", got)
+	}
+}
+
+func TestTextMaxLinesEllipsis(t *testing.T) {
+	app := ui.NewApp(ui.Text{Value: "abcdef", Overflow: ui.TextOverflowEllipsis, MaxLines: 1})
 	app.Pump(ui.Size{Width: 4, Height: 1})
 	p := ui.NewPainter(ui.Size{Width: 4, Height: 1})
 	app.Paint(p)
+	if got := p.Cell(3, 0).Character.Grapheme; got != "…" {
+		t.Fatalf("ellipsis = %q, want …", got)
+	}
+}
+
+func TestTextAlignCenter(t *testing.T) {
+	app := ui.NewApp(ui.SizedBox{Width: 5, Height: 1, Child: ui.Text{Value: "x", Align: ui.TextAlignCenter}})
+	app.Pump(ui.Size{Width: 5, Height: 1})
+	p := ui.NewPainter(ui.Size{Width: 5, Height: 1})
+	app.Paint(p)
+	if got := p.Cell(2, 0).Character.Grapheme; got != "x" {
+		t.Fatalf("centered text = %q, want x", got)
+	}
+}
+
+func TestRichTextWrapPreservesSpanStyle(t *testing.T) {
+	bold := ui.Style{Attribute: ui.AttrBold}
+	app := ui.NewApp(ui.RichText{SoftWrap: true, Spans: []ui.TextSpan{{Text: "aa "}, {Text: "bb", Style: bold}}})
+	app.Pump(ui.Size{Width: 3, Height: 2})
+	p := ui.NewPainter(ui.Size{Width: 3, Height: 2})
+	app.Paint(p)
+	if got := p.Cell(0, 1).Character.Grapheme; got != "b" {
+		t.Fatalf("wrapped rich text = %q, want b", got)
+	}
+	if got := p.Cell(0, 1).Style.Attribute; got != ui.AttrBold {
+		t.Fatalf("wrapped rich text attr = %#v, want bold", got)
+	}
+}
+
+func TestButtonUsesFocusedThemeStyle(t *testing.T) {
+	focused := ui.Style{Foreground: vaxis.ColorGreen}
+	app := ui.NewApp(ui.Button{Label: "go"}, ui.WithTheme(ui.Theme{Button: ui.ButtonTheme{Focused: focused}}))
+	app.Pump(ui.Size{Width: 5, Height: 1})
+	p := ui.NewPainter(ui.Size{Width: 5, Height: 1})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Style; got != focused {
+		t.Fatalf("leading padding style = %#v, want focused %#v", got, focused)
+	}
+	if got := p.Cell(1, 0).Character.Grapheme; got != "g" {
+		t.Fatalf("centered label starts at cell 1 = %q, want g", got)
+	}
 	if got := p.Cell(1, 0).Style; got != focused {
-		t.Fatalf("style = %#v, want focused %#v", got, focused)
+		t.Fatalf("label style = %#v, want focused %#v", got, focused)
+	}
+	if got := p.Cell(4, 0).Style; got != focused {
+		t.Fatalf("trailing padding style = %#v, want focused %#v", got, focused)
 	}
 }
 
 func TestButtonStyleUpdatesOnFocusChange(t *testing.T) {
 	focused := ui.Style{Foreground: vaxis.ColorGreen}
 	app := ui.NewApp(ui.Row(
-		ui.Button("a", nil),
-		ui.Button("b", nil),
+		ui.Button{Label: "a"},
+		ui.Button{Label: "b"},
 	), ui.WithTheme(ui.Theme{Button: ui.ButtonTheme{Focused: focused}}))
 	app.Pump(ui.Size{Width: 8, Height: 1})
 	app.Send(vaxis.Key{Keycode: vaxis.KeyTab})
@@ -395,14 +531,14 @@ func TestButtonStyleUpdatesOnFocusChange(t *testing.T) {
 	if got := p.Cell(1, 0).Style; got == focused {
 		t.Fatal("first button should no longer have focused style")
 	}
-	if got := p.Cell(4, 0).Style; got != focused {
+	if got := p.Cell(7, 0).Style; got != focused {
 		t.Fatalf("second button style = %#v, want focused %#v", got, focused)
 	}
 }
 
 func TestDecoratedBoxPaintsFillBehindChild(t *testing.T) {
 	style := ui.Style{Background: vaxis.ColorBlue}
-	app := ui.NewApp(ui.DecoratedBox(ui.Decoration{Style: style}, ui.Padding(ui.All(1), ui.Text("x"))))
+	app := ui.NewApp(ui.DecoratedBox(ui.Decoration{Style: style}, ui.Padding(ui.All(1), ui.Text{Value: "x"})))
 	app.Pump(ui.Size{Width: 3, Height: 3})
 	p := ui.NewPainter(ui.Size{Width: 3, Height: 3})
 	app.Paint(p)
@@ -412,11 +548,14 @@ func TestDecoratedBoxPaintsFillBehindChild(t *testing.T) {
 	if got := p.Cell(1, 1).Character.Grapheme; got != "x" {
 		t.Fatalf("child cell = %q, want x", got)
 	}
+	if got := p.Cell(1, 1).Style.Background; got != style.Background {
+		t.Fatalf("child background = %#v, want inherited decoration background %#v", got, style.Background)
+	}
 }
 
 func TestDecoratedBoxPaintsBorder(t *testing.T) {
 	style := ui.Style{Foreground: vaxis.ColorRed}
-	app := ui.NewApp(ui.DecoratedBox(ui.Decoration{Border: ui.BorderAll(style)}, ui.Padding(ui.All(1), ui.Text("x"))))
+	app := ui.NewApp(ui.DecoratedBox(ui.Decoration{Border: ui.BorderAll(style)}, ui.Padding(ui.All(1), ui.Text{Value: "x"})))
 	app.Pump(ui.Size{Width: 3, Height: 3})
 	p := ui.NewPainter(ui.Size{Width: 3, Height: 3})
 	app.Paint(p)
@@ -432,32 +571,48 @@ func TestDecoratedBoxPaintsBorder(t *testing.T) {
 }
 
 func TestDecoratedBoxUpdateRequestsPaintFrame(t *testing.T) {
-	app := ui.NewApp(ui.DecoratedBox(ui.Decoration{Style: ui.Style{Background: vaxis.ColorBlue}}, ui.Text("x")))
+	app := ui.NewApp(ui.DecoratedBox(ui.Decoration{Style: ui.Style{Background: vaxis.ColorBlue}}, ui.Text{Value: "x"}))
 	app.Pump(ui.Size{Width: 1, Height: 1})
-	app.UpdateRoot(ui.DecoratedBox(ui.Decoration{Style: ui.Style{Background: vaxis.ColorRed}}, ui.Text("x")))
+	app.UpdateRoot(ui.DecoratedBox(ui.Decoration{Style: ui.Style{Background: vaxis.ColorRed}}, ui.Text{Value: "x"}))
 	if !app.FrameRequested() {
 		t.Fatal("decoration update should request a paint frame")
 	}
 }
 
-func TestPanelAppliesBackgroundBorderAndPadding(t *testing.T) {
-	background := ui.RGB(0, 0, 128)
-	border := ui.RGB(0, 255, 255)
-	app := ui.NewApp(ui.Panel(ui.PanelStyle{Background: background, Border: ui.BorderLine(border), Padding: ui.All(2)}, ui.Text("x")))
-	app.Pump(ui.Size{Width: 5, Height: 5})
-	p := ui.NewPainter(ui.Size{Width: 5, Height: 5})
+func TestSizedBoxTightensChild(t *testing.T) {
+	app := ui.NewApp(ui.Align{Alignment: ui.TopLeft, Child: ui.SizedBox{Width: 2, Height: 1, Child: ui.Text{Value: "abcd"}}})
+	app.Pump(ui.Size{Width: 10, Height: 3})
+	p := ui.NewPainter(ui.Size{Width: 10, Height: 3})
 	app.Paint(p)
-	if got := p.Cell(0, 0).Character.Grapheme; got != "┌" {
-		t.Fatalf("panel border = %q, want ┌", got)
+	if got := p.Cell(0, 0).Character.Grapheme; got != "a" {
+		t.Fatalf("first cell = %q, want a", got)
 	}
-	if got := p.Cell(0, 0).Style.Foreground; got != border {
-		t.Fatalf("panel border color = %#v, want %#v", got, border)
+	if got := p.Cell(1, 0).Character.Grapheme; got != "b" {
+		t.Fatalf("second cell = %q, want b", got)
 	}
-	if got := p.Cell(2, 2).Character.Grapheme; got != "x" {
-		t.Fatalf("panel padded child = %q, want x", got)
+	if got := p.Cell(2, 0).Character.Grapheme; got != "" {
+		t.Fatalf("third cell = %q, want clipped empty cell", got)
 	}
-	if got := p.Cell(1, 1).Style.Background; got != background {
-		t.Fatalf("panel background = %#v, want %#v", got, background)
+}
+
+func TestAlignPositionsChild(t *testing.T) {
+	app := ui.NewApp(ui.Align{Alignment: ui.BottomRight, Child: ui.Text{Value: "x"}})
+	app.Pump(ui.Size{Width: 4, Height: 3})
+	p := ui.NewPainter(ui.Size{Width: 4, Height: 3})
+	app.Paint(p)
+	if got := p.Cell(3, 2).Character.Grapheme; got != "x" {
+		t.Fatalf("bottom-right aligned cell = %q, want x", got)
+	}
+}
+
+func TestAlignHitTestingUsesRelayoutOffset(t *testing.T) {
+	pressed := false
+	app := ui.NewApp(ui.Align{Alignment: ui.BottomRight, Child: ui.Button{Label: "x", OnPressed: func(ctx ui.EventContext) { pressed = true }}})
+	app.Pump(ui.Size{Width: 4, Height: 3})
+	app.Pump(ui.Size{Width: 8, Height: 3})
+	app.Send(vaxis.Mouse{Col: 7, Row: 2, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress})
+	if !pressed {
+		t.Fatal("expected click at relaid-out alignment offset to activate button")
 	}
 }
 

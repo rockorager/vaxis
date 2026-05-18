@@ -38,6 +38,9 @@ func (r *Runner) HandleEvent(ev Event, now time.Time) {
 		return
 	}
 	r.app.Send(ev)
+	if _, ok := ev.(Mouse); ok {
+		r.backend.SetMouseShape(r.app.MouseShape())
+	}
 	if r.app.ShouldQuit() {
 		r.done = true
 		return
@@ -62,6 +65,7 @@ func (r *Runner) HandleFrame(now time.Time) error {
 	r.app.Pump(size)
 	painter := NewPainter(size)
 	r.app.Paint(painter)
+	r.backend.SetMouseShape(r.app.MouseShape())
 	if err := r.backend.Render(painter); err != nil {
 		return err
 	}

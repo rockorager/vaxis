@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"time"
 
 	"git.sr.ht/~rockorager/vaxis"
@@ -17,6 +18,16 @@ func Run(root Widget, opts ...Option) error {
 }
 
 func runWithBackend(root Widget, backend Backend, opts ...Option) error {
+	options := options{theme: DefaultTheme()}
+	for _, opt := range opts {
+		opt(&options)
+	}
+	if !options.hasTheme {
+		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+		options.theme = themeFromTerminal(ctx, backendColorQuerier{backend: backend})
+		cancel()
+	}
+	opts = append(append([]Option{}, opts...), WithTheme(options.theme))
 	runner := NewRunner(NewApp(root, opts...), backend, NewFrameScheduler(DefaultFrameInterval))
 	frameTimer := time.NewTimer(time.Hour)
 	frameTimer.Stop()

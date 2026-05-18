@@ -9,6 +9,7 @@ type App struct {
 	quit           bool
 	theme          Theme
 	frameRequested bool
+	mouseShape     MouseShape
 }
 
 func NewApp(root Widget, opts ...Option) *App {
@@ -30,6 +31,19 @@ func (a *App) Send(ev Event)        { a.dispatchEvent(ev) }
 func (a *App) ShouldQuit() bool     { return a.quit }
 func (a *App) RequestFrame()        { a.frameRequested = true }
 func (a *App) FrameRequested() bool { return a.frameRequested }
+func (a *App) MouseShape() MouseShape {
+	if a.mouseShape == "" {
+		return MouseShapeDefault
+	}
+	return a.mouseShape
+}
+
+func (a *App) setMouseShape(shape MouseShape) {
+	if shape == "" {
+		shape = MouseShapeDefault
+	}
+	a.mouseShape = shape
+}
 
 func (a *App) Pump(size Size) {
 	a.frameRequested = false
@@ -44,6 +58,7 @@ func (a *App) Pump(size Size) {
 
 func (a *App) dispatchEvent(ev Event) EventResult {
 	if mouse, ok := ev.(Mouse); ok {
+		a.setMouseShape(MouseShapeDefault)
 		path := a.hitPath(Point{X: mouse.Col, Y: mouse.Row})
 		if len(path) > 0 {
 			return a.dispatchPath(path, ev)
@@ -84,11 +99,17 @@ func (a *App) dispatchPath(path []Element, ev Event) EventResult {
 }
 
 func (a *App) handle(e Element, phase EventPhase, ev Event) EventResult {
+	ctx := EventContext{app: a, phase: phase}
+	if mouse, ok := ev.(Mouse); ok {
+		if mh, ok := e.(MouseShapeHandler); ok {
+			ctx.SetMouseShape(mh.MouseShape(ctx, mouse))
+		}
+	}
 	h, ok := e.(EventHandler)
 	if !ok {
 		return EventIgnored
 	}
-	return h.HandleEvent(EventContext{app: a, phase: phase}, ev)
+	return h.HandleEvent(ctx, ev)
 }
 
 func (a *App) pathTo(target Element) []Element {
@@ -249,6 +270,9 @@ func clearNeedsPaint(ro RenderObject) {
 }
 
 type Option func(*options)
-type options struct{ theme Theme }
+type options struct {
+	theme    Theme
+	hasTheme bool
+}
 
-func WithTheme(theme Theme) Option { return func(o *options) { o.theme = theme } }
+func WithTheme(theme Theme) Option { return func(o *options) { o.theme, o.hasTheme = theme, true } }

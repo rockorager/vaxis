@@ -188,6 +188,7 @@ func oldAt(children []Element, i int) Element {
 
 type childProvider interface{ Children() []Widget }
 type singleChildProvider interface{ Child() Widget }
+type childWidgetProvider interface{ ChildWidget() Widget }
 
 func widgetChildren(w Widget) []Widget {
 	if c, ok := w.(childProvider); ok {
@@ -195,6 +196,11 @@ func widgetChildren(w Widget) []Widget {
 	}
 	if c, ok := w.(singleChildProvider); ok {
 		if child := c.Child(); child != nil {
+			return []Widget{child}
+		}
+	}
+	if c, ok := w.(childWidgetProvider); ok {
+		if child := c.ChildWidget(); child != nil {
 			return []Widget{child}
 		}
 	}

@@ -9,9 +9,10 @@ import (
 )
 
 type fakeBackend struct {
-	size   ui.Size
-	events chan ui.Event
-	frames []*ui.Painter
+	size        ui.Size
+	events      chan ui.Event
+	frames      []*ui.Painter
+	mouseShapes []ui.MouseShape
 }
 
 func newFakeBackend(size ui.Size) *fakeBackend {
@@ -24,12 +25,15 @@ func (b *fakeBackend) Render(p *ui.Painter) error {
 	b.frames = append(b.frames, p)
 	return nil
 }
+func (b *fakeBackend) SetMouseShape(shape ui.MouseShape) {
+	b.mouseShapes = append(b.mouseShapes, shape)
+}
 func (b *fakeBackend) Close() error { close(b.events); return nil }
 
 func TestRunnerRendersInitialFrame(t *testing.T) {
 	now := time.Unix(10, 0)
 	backend := newFakeBackend(ui.Size{Width: 5, Height: 1})
-	runner := ui.NewRunner(ui.NewApp(ui.Text("hi")), backend, ui.NewFrameScheduler(time.Second/60))
+	runner := ui.NewRunner(ui.NewApp(ui.Text{Value: "hi"}), backend, ui.NewFrameScheduler(time.Second/60))
 	runner.Start(now)
 	if _, ok := runner.NextFrame(); !ok {
 		t.Fatal("expected initial frame to be scheduled")
@@ -48,7 +52,7 @@ func TestRunnerRendersInitialFrame(t *testing.T) {
 func TestRunnerIgnoredEventDoesNotScheduleFrame(t *testing.T) {
 	now := time.Unix(10, 0)
 	backend := newFakeBackend(ui.Size{Width: 1, Height: 1})
-	runner := ui.NewRunner(ui.NewApp(ui.Text("x")), backend, ui.NewFrameScheduler(time.Second/60))
+	runner := ui.NewRunner(ui.NewApp(ui.Text{Value: "x"}), backend, ui.NewFrameScheduler(time.Second/60))
 	runner.Start(now)
 	if err := runner.HandleFrame(now); err != nil {
 		t.Fatal(err)
@@ -59,12 +63,30 @@ func TestRunnerIgnoredEventDoesNotScheduleFrame(t *testing.T) {
 	}
 }
 
+func TestRunnerAppliesMouseShapeOnMouseEvent(t *testing.T) {
+	now := time.Unix(10, 0)
+	backend := newFakeBackend(ui.Size{Width: 20, Height: 1})
+	runner := ui.NewRunner(ui.NewApp(ui.Align{Alignment: ui.TopLeft, Child: ui.Button{Label: "x"}}), backend, ui.NewFrameScheduler(time.Second/60))
+	runner.Start(now)
+	if err := runner.HandleFrame(now); err != nil {
+		t.Fatal(err)
+	}
+	runner.HandleEvent(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseNoButton, EventType: vaxis.EventMotion}, now.Add(time.Millisecond))
+	if got := backend.mouseShapes[len(backend.mouseShapes)-1]; got != ui.MouseShapeClickable {
+		t.Fatalf("mouse shape = %q, want clickable", got)
+	}
+	runner.HandleEvent(vaxis.Mouse{Col: 10, Row: 0, Button: vaxis.MouseNoButton, EventType: vaxis.EventMotion}, now.Add(2*time.Millisecond))
+	if got := backend.mouseShapes[len(backend.mouseShapes)-1]; got != ui.MouseShapeDefault {
+		t.Fatalf("mouse shape = %q, want default", got)
+	}
+}
+
 func TestRunnerDirtyEventSchedulesCoalescedFrame(t *testing.T) {
 	now := time.Unix(10, 0)
 	backend := newFakeBackend(ui.Size{Width: 20, Height: 1})
 	runner := ui.NewRunner(ui.NewApp(ui.Row(
-		ui.Button("one", func(ctx ui.EventContext) {}),
-		ui.Button("two", func(ctx ui.EventContext) {}),
+		ui.Button{Label: "one", OnPressed: func(ctx ui.EventContext) {}},
+		ui.Button{Label: "two", OnPressed: func(ctx ui.EventContext) {}},
 	)), backend, ui.NewFrameScheduler(16*time.Millisecond))
 	runner.Start(now)
 	if err := runner.HandleFrame(now); err != nil {
@@ -87,7 +109,7 @@ func TestRunnerDirtyEventSchedulesCoalescedFrame(t *testing.T) {
 func TestRunnerResizeSchedulesFrame(t *testing.T) {
 	now := time.Unix(10, 0)
 	backend := newFakeBackend(ui.Size{Width: 1, Height: 1})
-	runner := ui.NewRunner(ui.NewApp(ui.Text("x")), backend, ui.NewFrameScheduler(time.Second/60))
+	runner := ui.NewRunner(ui.NewApp(ui.Text{Value: "x"}), backend, ui.NewFrameScheduler(time.Second/60))
 	runner.Start(now)
 	if err := runner.HandleFrame(now); err != nil {
 		t.Fatal(err)
@@ -101,7 +123,7 @@ func TestRunnerResizeSchedulesFrame(t *testing.T) {
 func TestRunnerRedrawSchedulesFrame(t *testing.T) {
 	now := time.Unix(10, 0)
 	backend := newFakeBackend(ui.Size{Width: 1, Height: 1})
-	runner := ui.NewRunner(ui.NewApp(ui.Text("x")), backend, ui.NewFrameScheduler(time.Second/60))
+	runner := ui.NewRunner(ui.NewApp(ui.Text{Value: "x"}), backend, ui.NewFrameScheduler(time.Second/60))
 	runner.Start(now)
 	if err := runner.HandleFrame(now); err != nil {
 		t.Fatal(err)
@@ -115,7 +137,7 @@ func TestRunnerRedrawSchedulesFrame(t *testing.T) {
 func TestRunnerResizeRelayoutsAtBackendSize(t *testing.T) {
 	now := time.Unix(10, 0)
 	backend := newFakeBackend(ui.Size{Width: 5, Height: 1})
-	runner := ui.NewRunner(ui.NewApp(ui.Center(ui.Text("x"))), backend, ui.NewFrameScheduler(time.Second/60))
+	runner := ui.NewRunner(ui.NewApp(ui.Center(ui.Text{Value: "x"})), backend, ui.NewFrameScheduler(time.Second/60))
 	runner.Start(now)
 	if err := runner.HandleFrame(now); err != nil {
 		t.Fatal(err)
@@ -136,7 +158,7 @@ func TestRunnerResizeRelayoutsAtBackendSize(t *testing.T) {
 func TestRunnerSyncFuncRunsAndSchedulesFrame(t *testing.T) {
 	now := time.Unix(10, 0)
 	backend := newFakeBackend(ui.Size{Width: 1, Height: 1})
-	runner := ui.NewRunner(ui.NewApp(ui.Text("x")), backend, ui.NewFrameScheduler(time.Second/60))
+	runner := ui.NewRunner(ui.NewApp(ui.Text{Value: "x"}), backend, ui.NewFrameScheduler(time.Second/60))
 	runner.Start(now)
 	if err := runner.HandleFrame(now); err != nil {
 		t.Fatal(err)
@@ -154,7 +176,7 @@ func TestRunnerSyncFuncRunsAndSchedulesFrame(t *testing.T) {
 func TestRunnerQuitEventStopsRunner(t *testing.T) {
 	now := time.Unix(10, 0)
 	backend := newFakeBackend(ui.Size{Width: 20, Height: 1})
-	runner := ui.NewRunner(ui.NewApp(ui.Keymap(map[string]ui.VoidCallback{"q": func(ctx ui.EventContext) { ctx.Quit() }}, ui.Button("x", nil))), backend, ui.NewFrameScheduler(time.Second/60))
+	runner := ui.NewRunner(ui.NewApp(ui.Keymap{Bindings: map[string]ui.VoidCallback{"q": func(ctx ui.EventContext) { ctx.Quit() }}, Child: ui.Button{Label: "x"}}), backend, ui.NewFrameScheduler(time.Second/60))
 	runner.Start(now)
 	if err := runner.HandleFrame(now); err != nil {
 		t.Fatal(err)

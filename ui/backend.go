@@ -1,11 +1,16 @@
 package ui
 
-import "git.sr.ht/~rockorager/vaxis"
+import (
+	"context"
+
+	"git.sr.ht/~rockorager/vaxis"
+)
 
 type Backend interface {
 	Events() <-chan Event
 	Size() Size
 	Render(*Painter) error
+	SetMouseShape(MouseShape)
 	Close() error
 }
 
@@ -31,7 +36,49 @@ func (b vaxisBackend) Render(p *Painter) error {
 	return nil
 }
 
+func (b vaxisBackend) SetMouseShape(shape MouseShape) { b.vx.SetMouseShape(shape) }
+
 func (b vaxisBackend) Close() error {
 	b.vx.Close()
 	return nil
+}
+
+func (b vaxisBackend) QueryForeground(ctx context.Context) Color {
+	return b.vx.QueryForegroundContext(ctx)
+}
+
+func (b vaxisBackend) QueryBackground(ctx context.Context) Color {
+	return b.vx.QueryBackgroundContext(ctx)
+}
+
+func (b vaxisBackend) QueryColor(ctx context.Context, index uint8) Color {
+	return b.vx.QueryColorContext(ctx, vaxis.IndexColor(index))
+}
+
+type backendColorQuerier struct{ backend Backend }
+
+func (q backendColorQuerier) QueryForeground(ctx context.Context) Color {
+	b, ok := q.backend.(interface{ QueryForeground(context.Context) Color })
+	if !ok {
+		return 0
+	}
+	return b.QueryForeground(ctx)
+}
+
+func (q backendColorQuerier) QueryBackground(ctx context.Context) Color {
+	b, ok := q.backend.(interface{ QueryBackground(context.Context) Color })
+	if !ok {
+		return 0
+	}
+	return b.QueryBackground(ctx)
+}
+
+func (q backendColorQuerier) QueryColor(ctx context.Context, index uint8) Color {
+	b, ok := q.backend.(interface {
+		QueryColor(context.Context, uint8) Color
+	})
+	if !ok {
+		return 0
+	}
+	return b.QueryColor(ctx, index)
 }

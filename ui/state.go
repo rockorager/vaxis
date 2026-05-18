@@ -65,6 +65,14 @@ func (e *statefulElement) HandleEvent(ctx EventContext, ev Event) EventResult {
 	return h.HandleEvent(ctx, ev)
 }
 
+func (e *statefulElement) MouseShape(ctx EventContext, mouse Mouse) MouseShape {
+	h, ok := e.state.(MouseShapeHandler)
+	if !ok {
+		return MouseShapeDefault
+	}
+	return h.MouseShape(ctx, mouse)
+}
+
 func (e *statefulElement) dispose() {
 	if d, ok := e.state.(StateDisposer); ok {
 		d.Dispose()

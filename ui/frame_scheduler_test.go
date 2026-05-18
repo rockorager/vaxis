@@ -38,7 +38,7 @@ func TestFrameSchedulerCoalescesRequests(t *testing.T) {
 }
 
 func TestIgnoredEventDoesNotRequestFrame(t *testing.T) {
-	app := ui.NewApp(ui.Text("x"))
+	app := ui.NewApp(ui.Text{Value: "x"})
 	app.Pump(ui.Size{Width: 1, Height: 1})
 	app.Send(vaxis.Key{Keycode: 'x'})
 	if app.FrameRequested() {
@@ -136,7 +136,7 @@ func (s *frameState) Build(ctx ui.BuildContext) ui.Widget {
 	if s.value == "" {
 		s.value = "a"
 	}
-	return ui.Text(s.value)
+	return (ui.Text{Value: s.value})
 }
 
 type frameRenderWidget struct{ render *frameRender }

@@ -1,14 +1,11 @@
 package ui
 
-type KeymapWidget struct {
-	Bindings    map[string]VoidCallback
-	ChildWidget Widget
+type Keymap struct {
+	Bindings map[string]VoidCallback
+	Child    Widget
 }
 
-func Keymap(bindings map[string]VoidCallback, child Widget) Widget {
-	return KeymapWidget{Bindings: bindings, ChildWidget: child}
-}
-func (w KeymapWidget) CreateElement() Element { return &keymapElement{} }
+func (w Keymap) CreateElement() Element { return &keymapElement{} }
 
 type keymapElement struct {
 	ElementBase
@@ -16,7 +13,7 @@ type keymapElement struct {
 }
 
 func (e *keymapElement) Rebuild() {
-	e.child = e.UpdateChild(e.child, e.widget.(KeymapWidget).ChildWidget, nil)
+	e.child = e.UpdateChild(e.child, e.widget.(Keymap).Child, nil)
 }
 
 func (e *keymapElement) VisitChildren(fn func(Element)) {
@@ -30,7 +27,7 @@ func (e *keymapElement) HandleEvent(ctx EventContext, ev Event) EventResult {
 	if !ok {
 		return EventIgnored
 	}
-	for binding, cb := range e.widget.(KeymapWidget).Bindings {
+	for binding, cb := range e.widget.(Keymap).Bindings {
 		if key.MatchString(binding) {
 			if cb != nil {
 				cb(ctx)
