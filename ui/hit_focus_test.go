@@ -51,7 +51,7 @@ func TestFocusedNodeDetachesAndReplacementIsNotified(t *testing.T) {
 	if !second.HasFocus() {
 		t.Fatal("remaining node should become focused")
 	}
-	if firstChanges == 0 || secondChanges == 0 {
-		t.Fatalf("focus changes = first:%d second:%d, want both notified", firstChanges, secondChanges)
+	if secondChanges == 0 {
+		t.Fatalf("focus changes = first:%d second:%d, want replacement notified", firstChanges, secondChanges)
 	}
 }

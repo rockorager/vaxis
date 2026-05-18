@@ -12,6 +12,7 @@ type App struct {
 	mouseShape      MouseShape
 	mouseShapeDirty bool
 	dispatch        func(func())
+	pendingFocus    []Element
 }
 
 func NewApp(root Widget, opts ...Option) *App {
@@ -62,6 +63,7 @@ func (a *App) Pump(size Size) {
 	a.frameRequested = false
 	a.size = size
 	a.build.BuildScope()
+	a.flushFocusNotifications()
 	a.rootRO = findRenderObject(a.build.Root())
 	if a.rootRO != nil {
 		a.rootRO.Layout(LayoutContext{}, Tight(size))
@@ -180,9 +182,7 @@ func (a *App) unregisterFocusable(e Element) {
 		}
 	}
 	if a.focused == e {
-		old := a.focused
 		a.focused = nil
-		a.notifyFocusChanged(old)
 		if len(a.focusables) > 0 {
 			a.setFocused(a.focusables[0])
 		}
@@ -220,8 +220,32 @@ func (a *App) notifyFocusChanged(e Element) {
 	if e == nil {
 		return
 	}
+	if a.build.building {
+		a.deferFocusNotification(e)
+		return
+	}
 	if f, ok := e.Base().widget.(FocusWidget); ok && f.Node != nil && f.Node.onChange != nil {
 		f.Node.onChange()
+	}
+}
+
+func (a *App) deferFocusNotification(e Element) {
+	for _, existing := range a.pendingFocus {
+		if existing == e {
+			return
+		}
+	}
+	a.pendingFocus = append(a.pendingFocus, e)
+}
+
+func (a *App) flushFocusNotifications() {
+	pending := a.pendingFocus
+	a.pendingFocus = nil
+	for _, e := range pending {
+		if e.Base().owner == nil {
+			continue
+		}
+		a.notifyFocusChanged(e)
 	}
 }
 

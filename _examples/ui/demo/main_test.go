@@ -35,6 +35,25 @@ func TestDemoExampleNavigationAndControls(t *testing.T) {
 	}
 }
 
+func TestDemoExampleCanNavigateAwayFromFocusedButton(t *testing.T) {
+	app := uitest.New(Demo{})
+	app.Pump(90, 20)
+	app.Key("n")
+	app.Pump(90, 20)
+	app.Key("n")
+	app.Pump(90, 20)
+
+	app.Tab()
+	app.Tab()
+	app.Tab()
+	app.Pump(90, 20)
+	app.Key("p")
+	app.Pump(90, 20)
+	if !app.Contains("Text layout") {
+		t.Fatalf("expected to navigate away from focused controls button: %q", app.Text())
+	}
+}
+
 func TestDemoExampleQuitShortcut(t *testing.T) {
 	app := uitest.New(Demo{})
 	app.Pump(80, 20)

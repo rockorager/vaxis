@@ -76,13 +76,13 @@ func (s *DemoState) header() ui.Widget {
 			{Text: "Vaxis UI demo", Style: ui.Style{Attribute: ui.AttrBold}},
 			{Text: "  —  n/p or ←/→ to switch pages, Tab to move focus, q to quit"},
 		}},
-		ui.Row(
+		ui.Flex{Axis: ui.Horizontal, MainAxisAlignment: ui.MainAxisCenter, ChildrenWidget: []ui.Widget{
 			s.navButton(0, "Home"),
 			ui.SizedBox{Width: 1, Height: 1},
 			s.navButton(1, "Text"),
 			ui.SizedBox{Width: 1, Height: 1},
 			s.navButton(2, "Controls"),
-		),
+		}},
 	)
 }
 
@@ -153,7 +153,7 @@ func (s *DemoState) controlsPage() ui.Widget {
 			{Text: "\nButtons are focusable. Use Tab/Shift+Tab and Enter, or click them with the mouse."},
 		}, SoftWrap: true},
 		ui.SizedBox{Height: 1},
-		ui.Row(
+		ui.Flex{Axis: ui.Horizontal, CrossAxisAlignment: ui.CrossAxisCenter, ChildrenWidget: []ui.Widget{
 			ui.Button{Label: "-", OnPressed: func(ctx ui.EventContext) { s.SetState(func() { s.count-- }) }},
 			ui.SizedBox{Width: 1, Height: 1},
 			ui.RichText{Spans: []ui.TextSpan{
@@ -162,7 +162,7 @@ func (s *DemoState) controlsPage() ui.Widget {
 			}},
 			ui.SizedBox{Width: 1, Height: 1},
 			ui.Button{Label: "+", OnPressed: func(ctx ui.EventContext) { s.SetState(func() { s.count++ }) }},
-		),
+		}},
 		ui.Align{Alignment: ui.CenterRight, Child: ui.Text{Value: "aligned right inside the page"}},
 	)
 }
