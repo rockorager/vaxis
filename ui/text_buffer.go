@@ -1,6 +1,9 @@
 package ui
 
-import "unicode/utf8"
+import (
+	"unicode"
+	"unicode/utf8"
+)
 
 type TextCursor struct {
 	Line   int
@@ -200,6 +203,88 @@ func (b *TextBuffer) ExtendRight() bool {
 		return false
 	}
 	b.setCursorOffset(b.cursor+1, true)
+	b.clearPreferredColumn()
+	return true
+}
+
+func (b *TextBuffer) MoveWordLeft() bool {
+	if b.HasSelection() {
+		start, _ := b.selectionOffsets()
+		b.setCursorOffset(start, false)
+		b.clearPreferredColumn()
+		return true
+	}
+	next := b.previousWordBoundary(b.CursorOffset())
+	if next == b.cursor {
+		return false
+	}
+	b.setCursorOffset(next, false)
+	b.clearPreferredColumn()
+	return true
+}
+
+func (b *TextBuffer) MoveWordRight() bool {
+	if b.HasSelection() {
+		_, end := b.selectionOffsets()
+		b.setCursorOffset(end, false)
+		b.clearPreferredColumn()
+		return true
+	}
+	next := b.nextWordBoundary(b.CursorOffset())
+	if next == b.cursor {
+		return false
+	}
+	b.setCursorOffset(next, false)
+	b.clearPreferredColumn()
+	return true
+}
+
+func (b *TextBuffer) ExtendWordLeft() bool {
+	next := b.previousWordBoundary(b.CursorOffset())
+	if next == b.cursor {
+		return false
+	}
+	b.setCursorOffset(next, true)
+	b.clearPreferredColumn()
+	return true
+}
+
+func (b *TextBuffer) ExtendWordRight() bool {
+	next := b.nextWordBoundary(b.CursorOffset())
+	if next == b.cursor {
+		return false
+	}
+	b.setCursorOffset(next, true)
+	b.clearPreferredColumn()
+	return true
+}
+
+func (b *TextBuffer) DeleteWordBackward() bool {
+	if b.deleteSelection() {
+		return true
+	}
+	cursor := b.CursorOffset()
+	next := b.previousWordBoundary(cursor)
+	if next == cursor {
+		return false
+	}
+	b.chars = append(b.chars[:next], b.chars[cursor:]...)
+	b.setCursorOffset(next, false)
+	b.clearPreferredColumn()
+	return true
+}
+
+func (b *TextBuffer) DeleteWordForward() bool {
+	if b.deleteSelection() {
+		return true
+	}
+	cursor := b.CursorOffset()
+	next := b.nextWordBoundary(cursor)
+	if next == cursor {
+		return false
+	}
+	b.chars = append(b.chars[:cursor], b.chars[next:]...)
+	b.setCursorOffset(cursor, false)
 	b.clearPreferredColumn()
 	return true
 }
@@ -436,6 +521,58 @@ func (b TextBuffer) lineCount() int {
 		}
 	}
 	return lines
+}
+
+func (b TextBuffer) previousWordBoundary(offset int) int {
+	offset = clampInt(offset, 0, len(b.chars))
+	for offset > 0 && textBufferKind(b.chars[offset-1]) == textBufferSpace {
+		offset--
+	}
+	if offset == 0 {
+		return 0
+	}
+	kind := textBufferKind(b.chars[offset-1])
+	for offset > 0 && textBufferKind(b.chars[offset-1]) == kind {
+		offset--
+	}
+	return offset
+}
+
+func (b TextBuffer) nextWordBoundary(offset int) int {
+	offset = clampInt(offset, 0, len(b.chars))
+	for offset < len(b.chars) && textBufferKind(b.chars[offset]) == textBufferSpace {
+		offset++
+	}
+	if offset >= len(b.chars) {
+		return len(b.chars)
+	}
+	kind := textBufferKind(b.chars[offset])
+	for offset < len(b.chars) && textBufferKind(b.chars[offset]) == kind {
+		offset++
+	}
+	return offset
+}
+
+type textBufferCharKind int
+
+const (
+	textBufferSpace textBufferCharKind = iota
+	textBufferWord
+	textBufferPunctuation
+)
+
+func textBufferKind(ch Character) textBufferCharKind {
+	if ch.Grapheme == "" {
+		return textBufferSpace
+	}
+	r, _ := utf8.DecodeRuneInString(ch.Grapheme)
+	if unicode.IsSpace(r) {
+		return textBufferSpace
+	}
+	if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' {
+		return textBufferWord
+	}
+	return textBufferPunctuation
 }
 
 func (b *TextBuffer) verticalColumn(current int) int {

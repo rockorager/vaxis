@@ -217,3 +217,62 @@ func TestTextBufferPlainMovementCollapsesSelection(t *testing.T) {
 		t.Fatalf("cursor after collapsing left = %#v, want line 0 col 1", got)
 	}
 }
+
+func TestTextBufferWordMovementSkipsWhitespaceAndGroupsPunctuation(t *testing.T) {
+	b := NewTextBuffer("one  two, three")
+	if !b.MoveWordRight() {
+		t.Fatal("first word right returned false")
+	}
+	if got := b.Cursor(); got != (TextCursor{Line: 0, Column: 3}) {
+		t.Fatalf("cursor after first word = %#v, want col 3", got)
+	}
+	if !b.MoveWordRight() {
+		t.Fatal("second word right returned false")
+	}
+	if got := b.Cursor(); got != (TextCursor{Line: 0, Column: 8}) {
+		t.Fatalf("cursor after second word = %#v, want col 8", got)
+	}
+	if !b.MoveWordRight() {
+		t.Fatal("punctuation word right returned false")
+	}
+	if got := b.Cursor(); got != (TextCursor{Line: 0, Column: 9}) {
+		t.Fatalf("cursor after punctuation = %#v, want col 9", got)
+	}
+	if !b.MoveWordLeft() {
+		t.Fatal("word left returned false")
+	}
+	if got := b.Cursor(); got != (TextCursor{Line: 0, Column: 8}) {
+		t.Fatalf("cursor after word left = %#v, want col 8", got)
+	}
+}
+
+func TestTextBufferWordSelectionAndDeletion(t *testing.T) {
+	b := NewTextBuffer("alpha beta, gamma")
+	b.SetCursor(TextCursor{Line: 0, Column: 6})
+	if !b.ExtendWordRight() {
+		t.Fatal("extend word right returned false")
+	}
+	if got := b.SelectedText(); got != "beta" {
+		t.Fatalf("selected text = %q, want beta", got)
+	}
+	if !b.DeleteWordForward() {
+		t.Fatal("delete selection returned false")
+	}
+	if got := b.Text(); got != "alpha , gamma" {
+		t.Fatalf("text after deleting selection = %q, want alpha , gamma", got)
+	}
+
+	b.SetCursor(TextCursor{Line: 0, Column: len("alpha , gamma")})
+	if !b.DeleteWordBackward() {
+		t.Fatal("delete word backward returned false")
+	}
+	if got := b.Text(); got != "alpha , " {
+		t.Fatalf("text after deleting word backward = %q, want alpha comma space", got)
+	}
+	if !b.DeleteWordBackward() {
+		t.Fatal("delete trailing punctuation returned false")
+	}
+	if got := b.Text(); got != "alpha " {
+		t.Fatalf("text after deleting punctuation = %q, want alpha space", got)
+	}
+}

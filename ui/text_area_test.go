@@ -179,6 +179,47 @@ func TestTextAreaIgnoresKeyRelease(t *testing.T) {
 	}
 }
 
+func TestTextAreaWordMovementAndDeletionKeys(t *testing.T) {
+	h := &textAreaHarness{value: "alpha beta, gamma"}
+	app := ui.NewApp(h)
+	app.Pump(ui.Size{Width: 30, Height: 3})
+
+	app.Send(vaxis.Key{Keycode: vaxis.KeyRight, Modifiers: vaxis.ModCtrl})
+	app.Pump(ui.Size{Width: 30, Height: 3})
+	p := ui.NewPainter(ui.Size{Width: 30, Height: 3})
+	app.Paint(p)
+	if cursor, ok := p.Cursor(); !ok || cursor.Col != 6 || cursor.Row != 0 {
+		t.Fatalf("cursor after ctrl-right = %#v ok=%v, want 6,0", cursor, ok)
+	}
+
+	app.Send(vaxis.Key{Keycode: vaxis.KeyRight, Modifiers: vaxis.ModCtrl | vaxis.ModShift})
+	app.Pump(ui.Size{Width: 30, Height: 3})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyBackspace, Modifiers: vaxis.ModCtrl})
+	app.UpdateRoot(h)
+	app.Pump(ui.Size{Width: 30, Height: 3})
+	if h.value != "alpha, gamma" {
+		t.Fatalf("value after deleting selected word = %q, want alpha, gamma", h.value)
+	}
+
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnd})
+	app.Pump(ui.Size{Width: 30, Height: 3})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyBackspace, Modifiers: vaxis.ModCtrl})
+	app.UpdateRoot(h)
+	app.Pump(ui.Size{Width: 30, Height: 3})
+	if h.value != "alpha, " {
+		t.Fatalf("value after ctrl-backspace = %q, want alpha comma space", h.value)
+	}
+
+	app.Send(vaxis.Key{Keycode: vaxis.KeyHome})
+	app.Pump(ui.Size{Width: 30, Height: 3})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyDelete, Modifiers: vaxis.ModCtrl})
+	app.UpdateRoot(h)
+	app.Pump(ui.Size{Width: 30, Height: 3})
+	if h.value != ", " {
+		t.Fatalf("value after ctrl-delete = %q, want comma space", h.value)
+	}
+}
+
 func TestTextAreaMouseDragSelectsText(t *testing.T) {
 	app := ui.NewApp(ui.TextArea{Value: "abcd", SoftWrap: true})
 	app.Pump(ui.Size{Width: 10, Height: 3})

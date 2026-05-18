@@ -79,6 +79,14 @@ func (s *textAreaState) HandleEvent(ctx EventContext, ev Event) EventResult {
 		if s.buffer.HasSelection() {
 			ctx.Copy(s.buffer.SelectedText())
 		}
+	case key.MatchString("Ctrl+Shift+Left"):
+		handled = s.buffer.ExtendWordLeft()
+	case key.MatchString("Ctrl+Shift+Right"):
+		handled = s.buffer.ExtendWordRight()
+	case key.MatchString("Ctrl+Left"):
+		handled = s.buffer.MoveWordLeft()
+	case key.MatchString("Ctrl+Right"):
+		handled = s.buffer.MoveWordRight()
 	case key.MatchString("Shift+Left"):
 		handled = s.buffer.ExtendLeft()
 	case key.MatchString("Shift+Right"):
@@ -104,9 +112,17 @@ func (s *textAreaState) HandleEvent(ctx EventContext, ev Event) EventResult {
 	case key.Keycode == KeyEnd:
 		handled = s.buffer.MoveEnd()
 	case key.Keycode == KeyBackspace:
-		changed = s.buffer.DeleteBackward()
+		if key.MatchString("Ctrl+Backspace") {
+			changed = s.buffer.DeleteWordBackward()
+		} else {
+			changed = s.buffer.DeleteBackward()
+		}
 	case key.Keycode == KeyDelete:
-		changed = s.buffer.DeleteForward()
+		if key.MatchString("Ctrl+Delete") {
+			changed = s.buffer.DeleteWordForward()
+		} else {
+			changed = s.buffer.DeleteForward()
+		}
 	case key.MatchString("Enter"):
 		changed = s.buffer.Insert("\n")
 	case key.Text != "":
