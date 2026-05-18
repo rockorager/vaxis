@@ -40,9 +40,13 @@ func (s *textFieldState) Build(ctx BuildContext) Widget {
 	if s.node.HasFocus() {
 		style = theme.Focused
 	}
+	content := s.content(w, displayValue, cursor, s.scroll, contentWidth, style, theme)
+	if col, ok := textFieldCursorCell(cursor, s.scroll, len(chars), contentWidth); ok && s.node.HasFocus() {
+		content = Cursor{Col: col, Shape: CursorBlock, Child: content}
+	}
 	return Focus(&s.node, SizedBox{Width: width, Height: 1 + padding.Top + padding.Bottom, Child: DecoratedBox(
 		Decoration{Style: style},
-		Padding(padding, s.content(w, displayValue, cursor, s.scroll, contentWidth, style, theme)),
+		Padding(padding, content),
 	)})
 }
 
@@ -51,7 +55,7 @@ func (s *textFieldState) content(w TextField, displayValue string, cursor, scrol
 		return Text{Value: w.Placeholder, Style: mergeStyle(style, theme.Placeholder), Overflow: TextOverflowClip}
 	}
 	chars := vaxisCharacters(displayValue)
-	return RichText{Spans: textFieldSpans(chars, cursor, scroll, width, s.node.HasFocus(), style, theme.Cursor), Overflow: TextOverflowClip}
+	return RichText{Spans: textFieldSpans(chars, cursor, scroll, width, style), Overflow: TextOverflowClip}
 }
 
 func (s *textFieldState) HandleEvent(ctx EventContext, ev Event) EventResult {
@@ -165,7 +169,7 @@ func textFieldDisplayValue(value string, obscure bool) string {
 	return out
 }
 
-func textFieldSpans(chars []Character, cursor, scroll, width int, focused bool, style, cursorStyle Style) []TextSpan {
+func textFieldSpans(chars []Character, cursor, scroll, width int, style Style) []TextSpan {
 	if width <= 0 {
 		return nil
 	}
@@ -185,20 +189,8 @@ func textFieldSpans(chars []Character, cursor, scroll, width int, focused bool, 
 		right--
 		cells[right] = TextSpan{Text: "…", Style: style}
 	}
-	if focused && left >= right && cursor >= len(chars) {
-		cells[width-1] = TextSpan{Text: " ", Style: cursorStyle}
-		return coalesceTextSpans(cells)
-	}
 	for i, ch := range chars[scroll:min(len(chars), scroll+max(0, right-left))] {
 		cells[left+i] = TextSpan{Text: ch.Grapheme, Style: style}
-	}
-	localCursor := left + cursor - scroll
-	if focused && localCursor >= left && localCursor < right {
-		text := " "
-		if cursor < len(chars) {
-			text = chars[cursor].Grapheme
-		}
-		cells[localCursor] = TextSpan{Text: text, Style: cursorStyle}
 	}
 	return coalesceTextSpans(cells)
 }
@@ -258,4 +250,23 @@ func textFieldCursorVisible(scroll, cursor, length, width int) bool {
 	}
 	localCursor := left + cursor - scroll
 	return localCursor >= left && localCursor < right
+}
+
+func textFieldCursorCell(cursor, scroll, length, width int) (int, bool) {
+	if width <= 0 {
+		return 0, false
+	}
+	left := 0
+	if scroll > 0 {
+		left = 1
+	}
+	right := width
+	if (length-scroll > width-left || scroll > 0 && cursor < length && length-scroll == width-left) && right > left {
+		right--
+	}
+	if left >= right && cursor >= length {
+		return width - 1, true
+	}
+	localCursor := left + cursor - scroll
+	return localCursor, localCursor >= left && localCursor < right
 }

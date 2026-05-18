@@ -28,6 +28,7 @@ type (
 	SyncFunc    = vaxis.SyncFunc
 	MouseShape  = vaxis.MouseShape
 	Image       = vaxis.Image
+	CursorStyle = vaxis.CursorStyle
 )
 
 func RGB(r, g, b uint8) Color {
@@ -95,6 +96,16 @@ const (
 	MouseShapeZoomIn           = vaxis.MouseShapeZoomIn
 	MouseShapeZoomOut          = vaxis.MouseShapeZoomOut
 	MouseShapeCell             = vaxis.MouseShapeCell
+)
+
+const (
+	CursorDefault           = vaxis.CursorDefault
+	CursorBlockBlinking     = vaxis.CursorBlockBlinking
+	CursorBlock             = vaxis.CursorBlock
+	CursorUnderlineBlinking = vaxis.CursorUnderlineBlinking
+	CursorUnderline         = vaxis.CursorUnderline
+	CursorBeamBlinking      = vaxis.CursorBeamBlinking
+	CursorBeam              = vaxis.CursorBeam
 )
 
 type Widget = any

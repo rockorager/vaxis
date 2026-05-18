@@ -1,9 +1,16 @@
 package ui
 
 type Painter struct {
-	size  Size
-	cells []Cell
-	clips []Rect
+	size   Size
+	cells  []Cell
+	clips  []Rect
+	cursor *CursorState
+}
+
+type CursorState struct {
+	Col   int
+	Row   int
+	Shape CursorStyle
 }
 
 func NewPainter(size Size) *Painter {
@@ -23,6 +30,26 @@ func (p *Painter) Cell(x, y int) Cell {
 		return Cell{}
 	}
 	return p.cells[y*p.size.Width+x]
+}
+
+func (p *Painter) ShowCursor(col, row int, shape CursorStyle) {
+	pt := Point{X: col, Y: row}
+	if !p.inClip(pt) || !p.inBounds(pt) {
+		p.cursor = nil
+		return
+	}
+	p.cursor = &CursorState{Col: col, Row: row, Shape: shape}
+}
+
+func (p *Painter) HideCursor() {
+	p.cursor = nil
+}
+
+func (p *Painter) Cursor() (CursorState, bool) {
+	if p.cursor == nil {
+		return CursorState{}, false
+	}
+	return *p.cursor, true
 }
 
 func (p *Painter) DrawCell(pt Point, cell Cell) {

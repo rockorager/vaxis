@@ -39,6 +39,11 @@ func (b vaxisBackend) Render(p *Painter) error {
 			win.SetCell(x, y, p.Cell(x, y))
 		}
 	}
+	if cursor, ok := p.Cursor(); ok {
+		b.vx.ShowCursor(cursor.Col, cursor.Row, cursor.Shape)
+	} else {
+		b.vx.HideCursor()
+	}
 	b.vx.Render()
 	return nil
 }
