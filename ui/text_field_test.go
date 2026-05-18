@@ -2,6 +2,7 @@ package ui_test
 
 import (
 	"testing"
+	"time"
 
 	"git.sr.ht/~rockorager/vaxis"
 	"git.sr.ht/~rockorager/vaxis/ui"
@@ -39,6 +40,143 @@ func TestTextFieldCursorMovementAndDelete(t *testing.T) {
 	app.Pump(ui.Size{Width: 12, Height: 1})
 	if h.value != "ac" {
 		t.Fatalf("value = %q, want ac", h.value)
+	}
+}
+
+func TestTextFieldWordMovementAndDelete(t *testing.T) {
+	h := &textFieldHarness{value: "alpha beta, gamma"}
+	app := ui.NewApp(ui.TextField{
+		Value:    h.value,
+		MinWidth: 30,
+		OnChanged: func(ctx ui.EventContext, value string) {
+			h.value = value
+		},
+	})
+	app.Pump(ui.Size{Width: 30, Height: 1})
+
+	app.Send(vaxis.Key{Keycode: vaxis.KeyRight, Modifiers: vaxis.ModCtrl})
+	app.Pump(ui.Size{Width: 30, Height: 1})
+	p := ui.NewPainter(ui.Size{Width: 30, Height: 1})
+	app.Paint(p)
+	if cursor, ok := p.Cursor(); !ok || cursor.Col != 6 || cursor.Row != 0 {
+		t.Fatalf("cursor after ctrl-right = %#v ok=%v, want 6,0", cursor, ok)
+	}
+
+	app.Send(vaxis.Key{Keycode: vaxis.KeyRight, Modifiers: vaxis.ModCtrl})
+	app.Pump(ui.Size{Width: 30, Height: 1})
+	p = ui.NewPainter(ui.Size{Width: 30, Height: 1})
+	app.Paint(p)
+	if cursor, ok := p.Cursor(); !ok || cursor.Col != 11 || cursor.Row != 0 {
+		t.Fatalf("cursor after second ctrl-right = %#v ok=%v, want 11,0", cursor, ok)
+	}
+
+	app.Send(vaxis.Key{Keycode: vaxis.KeyBackspace, Modifiers: vaxis.ModCtrl})
+	app.UpdateRoot(ui.TextField{
+		Value:    h.value,
+		MinWidth: 30,
+		OnChanged: func(ctx ui.EventContext, value string) {
+			h.value = value
+		},
+	})
+	app.Pump(ui.Size{Width: 30, Height: 1})
+	if h.value != "alpha , gamma" {
+		t.Fatalf("value after ctrl-backspace = %q, want alpha , gamma", h.value)
+	}
+
+	app.Send(vaxis.Key{Keycode: vaxis.KeyHome})
+	app.Pump(ui.Size{Width: 30, Height: 1})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyDelete, Modifiers: vaxis.ModCtrl})
+	app.UpdateRoot(ui.TextField{
+		Value:    h.value,
+		MinWidth: 30,
+		OnChanged: func(ctx ui.EventContext, value string) {
+			h.value = value
+		},
+	})
+	app.Pump(ui.Size{Width: 30, Height: 1})
+	if h.value != " , gamma" {
+		t.Fatalf("value after ctrl-delete = %q, want space comma space gamma", h.value)
+	}
+}
+
+func TestTextFieldExtendsAndPaintsSelection(t *testing.T) {
+	app := ui.NewApp(ui.TextField{Value: "abcd", MinWidth: 10})
+	app.Pump(ui.Size{Width: 10, Height: 1})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyRight, Modifiers: vaxis.ModShift})
+	app.Pump(ui.Size{Width: 10, Height: 1})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyRight, Modifiers: vaxis.ModShift})
+	app.Pump(ui.Size{Width: 10, Height: 1})
+
+	p := ui.NewPainter(ui.Size{Width: 10, Height: 1})
+	app.Paint(p)
+	want := ui.DefaultTheme().TextField.Selection.Background
+	if got := p.Cell(1, 0).Background; got != want {
+		t.Fatalf("selected first cell background = %#v, want %#v", got, want)
+	}
+	if got := p.Cell(2, 0).Background; got != want {
+		t.Fatalf("selected second cell background = %#v, want %#v", got, want)
+	}
+	if got := p.Cell(3, 0).Background; got == want {
+		t.Fatalf("unselected third cell background = %#v, should not be selection background", got)
+	}
+	if cursor, ok := p.Cursor(); !ok || cursor.Col != 3 || cursor.Row != 0 {
+		t.Fatalf("cursor after extending selection = %#v ok=%v, want 3,0", cursor, ok)
+	}
+}
+
+func TestTextFieldCopiesSelection(t *testing.T) {
+	now := time.Unix(10, 0)
+	backend := newFakeBackend(ui.Size{Width: 10, Height: 1})
+	runner := ui.NewRunner(ui.NewApp(ui.TextField{Value: "abcd", MinWidth: 10}), backend, ui.NewFrameScheduler(time.Second/60))
+	runner.Start(now)
+	if err := runner.HandleFrame(now); err != nil {
+		t.Fatal(err)
+	}
+
+	runner.HandleEvent(vaxis.Key{Keycode: vaxis.KeyRight, Modifiers: vaxis.ModShift}, now)
+	runner.HandleEvent(vaxis.Key{Keycode: vaxis.KeyRight, Modifiers: vaxis.ModShift}, now)
+	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
+	if len(backend.copies) != 1 || backend.copies[0] != "ab" {
+		t.Fatalf("copies = %#v, want ab", backend.copies)
+	}
+}
+
+func TestTextFieldMouseDragSelectsText(t *testing.T) {
+	app := ui.NewApp(ui.TextField{Value: "abcd", MinWidth: 10})
+	app.Pump(ui.Size{Width: 10, Height: 1})
+
+	app.Send(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress})
+	app.Pump(ui.Size{Width: 10, Height: 1})
+	app.Send(vaxis.Mouse{Col: 3, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventMotion})
+	app.Pump(ui.Size{Width: 10, Height: 1})
+	app.Send(vaxis.Mouse{Col: 3, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventRelease})
+	app.Pump(ui.Size{Width: 10, Height: 1})
+
+	p := ui.NewPainter(ui.Size{Width: 10, Height: 1})
+	app.Paint(p)
+	want := ui.DefaultTheme().TextField.Selection.Background
+	if got := p.Cell(1, 0).Background; got != want {
+		t.Fatalf("selected first cell background = %#v, want %#v", got, want)
+	}
+	if got := p.Cell(2, 0).Background; got != want {
+		t.Fatalf("selected second cell background = %#v, want %#v", got, want)
+	}
+	if got := p.Cell(3, 0).Background; got == want {
+		t.Fatalf("unselected third cell background = %#v, should not be selection background", got)
+	}
+}
+
+func TestTextFieldSelectionReplacementAndSingleLineInsert(t *testing.T) {
+	h := &textFieldHarness{value: "abcd"}
+	app := ui.NewApp(h)
+	app.Pump(ui.Size{Width: 12, Height: 1})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyRight, Modifiers: vaxis.ModShift})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyRight, Modifiers: vaxis.ModShift})
+	app.Send(vaxis.Key{Text: "x\ny", Keycode: 'x'})
+	app.UpdateRoot(h)
+	app.Pump(ui.Size{Width: 12, Height: 1})
+	if h.value != "xycd" {
+		t.Fatalf("value after replacing selection = %q, want xycd", h.value)
 	}
 }
 

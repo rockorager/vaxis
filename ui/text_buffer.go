@@ -132,6 +132,32 @@ func (b *TextBuffer) Insert(text string) bool {
 	return true
 }
 
+func (b *TextBuffer) InsertSingleLine(text string) bool {
+	chars := vaxisCharacters(text)
+	if len(chars) == 0 {
+		return false
+	}
+	out := make([]Character, 0, len(chars))
+	for _, ch := range chars {
+		if ch.Grapheme == "\n" || ch.Grapheme == "\r" {
+			continue
+		}
+		out = append(out, ch)
+	}
+	if len(out) == 0 {
+		return false
+	}
+	start, end := b.selectionOffsets()
+	next := make([]Character, 0, len(b.chars)+len(out))
+	next = append(next, b.chars[:start]...)
+	next = append(next, out...)
+	next = append(next, b.chars[end:]...)
+	b.chars = next
+	b.setCursorOffset(start+len(out), false)
+	b.clearPreferredColumn()
+	return true
+}
+
 func (b *TextBuffer) DeleteBackward() bool {
 	if b.deleteSelection() {
 		return true
