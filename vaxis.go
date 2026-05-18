@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/containerd/console"
+
 	"git.sr.ht/~rockorager/vaxis/ansi"
 	"git.sr.ht/~rockorager/vaxis/log"
 )
@@ -78,8 +80,8 @@ type Options struct {
 	// available. This has no effect if DisableKittyKeyboard is true
 	CSIuBitMask CSIuBitMask
 
-	// WithConsole provides the ability to use a custom terminal transport.
-	WithConsole Console
+	// WithConsole provides the ability to use a custom console.
+	WithConsole console.Console
 
 	// EnableSGRPixels provides pixel level precision of mouse movement. This has
 	// no effect if DisableMouse is true
@@ -139,7 +141,7 @@ type Vaxis struct {
 	xtwinops bool
 
 	withTty     string
-	withConsole Console
+	withConsole console.Console
 
 	termID terminalID
 

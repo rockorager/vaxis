@@ -3,6 +3,7 @@ module git.sr.ht/~rockorager/vaxis
 go 1.21
 
 require (
+	github.com/containerd/console v1.0.3
 	github.com/creack/pty v1.1.18
 	github.com/mattn/go-sixel v0.0.5
 	github.com/rockorager/go-uucode v1.1.0
