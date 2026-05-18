@@ -34,6 +34,12 @@ const (
 	MouseRightButton  = vaxis.MouseRightButton
 	EventPress        = vaxis.EventPress
 	EventMotion       = vaxis.EventMotion
+	KeyBackspace      = vaxis.KeyBackspace
+	KeyDelete         = vaxis.KeyDelete
+	KeyLeft           = vaxis.KeyLeft
+	KeyRight          = vaxis.KeyRight
+	KeyHome           = vaxis.KeyHome
+	KeyEnd            = vaxis.KeyEnd
 )
 
 const (

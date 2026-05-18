@@ -470,7 +470,7 @@ func TestTextFillsConstrainedBackground(t *testing.T) {
 	}
 }
 
-func TestRichTextFillsConstrainedBackground(t *testing.T) {
+func TestRichTextDoesNotInferConstrainedBackground(t *testing.T) {
 	style := ui.Style{Background: vaxis.ColorBlue}
 	app := ui.NewApp(ui.ConstrainedBox{
 		Constraints: ui.Constraints{MinWidth: 6, MinHeight: 2},
@@ -483,8 +483,8 @@ func TestRichTextFillsConstrainedBackground(t *testing.T) {
 	p := ui.NewPainter(ui.Size{Width: 6, Height: 2})
 	app.Paint(p)
 	for _, pt := range []ui.Point{{X: 2, Y: 0}, {X: 5, Y: 0}, {X: 0, Y: 1}, {X: 5, Y: 1}} {
-		if got := p.Cell(pt.X, pt.Y).Style.Background; got != style.Background {
-			t.Fatalf("rich text background at %v = %#v, want %#v", pt, got, style.Background)
+		if got := p.Cell(pt.X, pt.Y).Style.Background; got != 0 {
+			t.Fatalf("rich text inferred background at %v = %#v, want default", pt, got)
 		}
 	}
 }

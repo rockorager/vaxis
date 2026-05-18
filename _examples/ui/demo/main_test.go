@@ -28,6 +28,7 @@ func TestDemoExampleNavigationAndControls(t *testing.T) {
 	app.Tab()
 	app.Tab()
 	app.Tab()
+	app.Tab()
 	app.Enter()
 	app.Pump(90, 20)
 	if !app.Contains("count: -1") {

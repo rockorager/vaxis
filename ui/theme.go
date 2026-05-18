@@ -3,8 +3,9 @@ package ui
 import "context"
 
 type Theme struct {
-	Text   Style
-	Button ButtonTheme
+	Text      Style
+	Button    ButtonTheme
+	TextField TextFieldTheme
 }
 
 type ButtonTheme struct {
@@ -17,6 +18,15 @@ type ButtonTheme struct {
 	Mouse      MouseShape
 	FocusLeft  Character
 	FocusRight Character
+}
+
+type TextFieldTheme struct {
+	Normal      Style
+	Focused     Style
+	Placeholder Style
+	Cursor      Style
+	Padding     Insets
+	MinWidth    int
 }
 
 func DefaultTheme() Theme {
@@ -32,6 +42,14 @@ func DefaultTheme() Theme {
 			Mouse:      MouseShapeClickable,
 			FocusLeft:  Character{Grapheme: "[", Width: 1},
 			FocusRight: Character{Grapheme: "]", Width: 1},
+		},
+		TextField: TextFieldTheme{
+			Normal:      Style{Foreground: RGB(238, 238, 238), Background: RGB(32, 32, 32)},
+			Focused:     Style{Foreground: RGB(238, 238, 238), Background: RGB(48, 48, 48)},
+			Placeholder: Style{Foreground: RGB(128, 128, 128), Background: RGB(32, 32, 32)},
+			Cursor:      Style{Foreground: RGB(0, 0, 0), Background: RGB(238, 238, 238)},
+			Padding:     Symmetric(1, 0),
+			MinWidth:    10,
 		},
 	}
 }
@@ -52,6 +70,8 @@ func themeFromTerminal(ctx context.Context, q terminalColorQuerier) Theme {
 		theme.Text.Foreground = fg
 		theme.Button.Normal.Foreground = fg
 		theme.Button.Focused.Foreground = fg
+		theme.TextField.Normal.Foreground = fg
+		theme.TextField.Focused.Foreground = fg
 	}
 	if bg != 0 {
 		theme.Button.Pressed.Foreground = bg
@@ -59,15 +79,25 @@ func themeFromTerminal(ctx context.Context, q terminalColorQuerier) Theme {
 	if surface, ok := blendColor(bg, fg, 12); ok {
 		theme.Button.Normal.Background = surface
 		theme.Button.Focused.Background = surface
+		theme.TextField.Normal.Background = surface
 	}
 	if hovered, ok := blendColor(bg, fg, 18); ok {
 		theme.Button.Hovered.Background = hovered
+		theme.TextField.Focused.Background = hovered
+		theme.TextField.Placeholder.Background = hovered
 	}
 	if fg != 0 {
 		theme.Button.Hovered.Foreground = fg
 	}
 	if pressed, ok := blendColor(bg, fg, 25); ok {
 		theme.Button.Pressed.Background = pressed
+	}
+	if placeholder, ok := blendColor(bg, fg, 50); ok {
+		theme.TextField.Placeholder.Foreground = placeholder
+	}
+	if fg != 0 && bg != 0 {
+		theme.TextField.Cursor.Foreground = bg
+		theme.TextField.Cursor.Background = fg
 	}
 	return theme
 }

@@ -22,6 +22,7 @@ type DemoState struct {
 	page  int
 	count int
 	ticks int
+	name  string
 	stop  chan struct{}
 }
 
@@ -152,6 +153,11 @@ func (s *DemoState) controlsPage() ui.Widget {
 			{Text: "Controls", Style: ui.Style{Attribute: ui.AttrBold}},
 			{Text: "\nButtons are focusable. Use Tab/Shift+Tab and Enter, or click them with the mouse."},
 		}, SoftWrap: true},
+		ui.SizedBox{Height: 1},
+		ui.Text{Value: "Name"},
+		ui.TextField{Value: s.name, Placeholder: "type here", OnChanged: func(ctx ui.EventContext, value string) {
+			s.SetState(func() { s.name = value })
+		}},
 		ui.SizedBox{Height: 1},
 		ui.Flex{Axis: ui.Horizontal, CrossAxisAlignment: ui.CrossAxisCenter, ChildrenWidget: []ui.Widget{
 			ui.Button{Label: "-", OnPressed: func(ctx ui.EventContext) { s.SetState(func() { s.count-- }) }},
