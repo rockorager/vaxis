@@ -29,6 +29,9 @@ func (e *keymapElement) HandleEvent(ctx EventContext, ev Event) EventResult {
 	if !ok {
 		return EventIgnored
 	}
+	if keyIsRelease(key) {
+		return EventIgnored
+	}
 	for binding, cb := range e.widget.(Keymap).Bindings {
 		if key.MatchString(binding) {
 			if cb != nil {

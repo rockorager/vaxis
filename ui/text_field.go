@@ -66,6 +66,9 @@ func (s *textFieldState) HandleEvent(ctx EventContext, ev Event) EventResult {
 	if !ok {
 		return EventIgnored
 	}
+	if keyIsRelease(key) {
+		return EventIgnored
+	}
 	w := s.Widget().(TextField)
 	chars := vaxisCharacters(s.value)
 	if s.cursor > len(chars) {

@@ -273,6 +273,31 @@ func TestTextFieldSubmitsCurrentValue(t *testing.T) {
 	}
 }
 
+func TestTextFieldIgnoresKeyRelease(t *testing.T) {
+	h := &textFieldHarness{}
+	submitted := false
+	app := ui.NewApp(ui.TextField{
+		Value:       h.value,
+		OnChanged:   func(ctx ui.EventContext, value string) { h.value = value },
+		OnSubmitted: func(ctx ui.EventContext, value string) { submitted = true },
+	})
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	app.Send(vaxis.Key{Text: "x", Keycode: 'x', EventType: vaxis.EventRelease})
+	app.UpdateRoot(ui.TextField{
+		Value:       h.value,
+		OnChanged:   func(ctx ui.EventContext, value string) { h.value = value },
+		OnSubmitted: func(ctx ui.EventContext, value string) { submitted = true },
+	})
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter, EventType: vaxis.EventRelease})
+	if h.value != "" {
+		t.Fatalf("value after key release = %q, want empty", h.value)
+	}
+	if submitted {
+		t.Fatal("submit should ignore key release")
+	}
+}
+
 func TestTextFieldObscuresDisplayedValue(t *testing.T) {
 	app := ui.NewApp(ui.TextField{Value: "secret", ObscureText: true})
 	app.Pump(ui.Size{Width: 20, Height: 1})

@@ -167,6 +167,18 @@ func TestTextAreaCopiesSelection(t *testing.T) {
 	}
 }
 
+func TestTextAreaIgnoresKeyRelease(t *testing.T) {
+	h := &textAreaHarness{}
+	app := ui.NewApp(h)
+	app.Pump(ui.Size{Width: 10, Height: 3})
+	app.Send(vaxis.Key{Text: "x", Keycode: 'x', EventType: vaxis.EventRelease})
+	app.UpdateRoot(h)
+	app.Pump(ui.Size{Width: 10, Height: 3})
+	if h.value != "" {
+		t.Fatalf("value after key release = %q, want empty", h.value)
+	}
+}
+
 func TestTextAreaMouseDragSelectsText(t *testing.T) {
 	app := ui.NewApp(ui.TextArea{Value: "abcd", SoftWrap: true})
 	app.Pump(ui.Size{Width: 10, Height: 3})

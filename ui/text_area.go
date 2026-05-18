@@ -67,6 +67,9 @@ func (s *textAreaState) HandleEvent(ctx EventContext, ev Event) EventResult {
 		}
 		return s.handleMouse(mouse)
 	}
+	if keyIsRelease(key) {
+		return EventIgnored
+	}
 	changed := false
 	handled := true
 	switch {

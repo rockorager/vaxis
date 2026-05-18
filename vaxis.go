@@ -76,8 +76,7 @@ type Options struct {
 	// NoSignals causes Vaxis to not install any signal handlers
 	NoSignals bool
 
-	// CSIuBitMask is the bit mask to use for CSIu key encoding, when
-	// available. This has no effect if DisableKittyKeyboard is true
+	// Deprecated: Vaxis now enables all supported Kitty keyboard flags.
 	CSIuBitMask CSIuBitMask
 
 	// WithConsole provides the ability to use a custom console.
@@ -97,6 +96,8 @@ const (
 	CSIuAllKeys
 	CSIuAssociatedText
 )
+
+const kittyKeyboardAllFlags = int(CSIuDisambiguate | CSIuReportEvents | CSIuAlternateKeys | CSIuAllKeys | CSIuAssociatedText)
 
 type Vaxis struct {
 	queue            chan Event
@@ -182,15 +183,7 @@ func New(opts Options) (*Vaxis, error) {
 
 	var err error
 	vx := &Vaxis{
-		kittyFlags: int(CSIuDisambiguate),
-	}
-
-	if opts.CSIuBitMask > CSIuDisambiguate {
-		vx.kittyFlags = int(opts.CSIuBitMask)
-	}
-
-	if opts.ReportKeyboardEvents {
-		vx.kittyFlags |= int(CSIuReportEvents)
+		kittyFlags: kittyKeyboardFlags(opts),
 	}
 
 	if opts.EventQueueSize < 1 {
@@ -380,6 +373,17 @@ outer:
 	vx.cursorNext.style = CursorBlock
 	vx.PostEvent(ws)
 	return vx, nil
+}
+
+func kittyKeyboardFlags(opts Options) int {
+	flags := kittyKeyboardAllFlags
+	if opts.CSIuBitMask != 0 {
+		flags = int(opts.CSIuBitMask)
+	}
+	if opts.ReportKeyboardEvents {
+		flags |= int(CSIuReportEvents)
+	}
+	return flags
 }
 
 // PostEvent inserts an event into the [Vaxis] event loop

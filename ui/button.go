@@ -102,6 +102,9 @@ func (s *buttonState) HandleEvent(ctx EventContext, ev Event) EventResult {
 	}
 	switch ev := ev.(type) {
 	case Key:
+		if keyIsRelease(ev) {
+			return EventIgnored
+		}
 		if !ev.MatchString("Enter") && !ev.MatchString("Space") {
 			return EventIgnored
 		}

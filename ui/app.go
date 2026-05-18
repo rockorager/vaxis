@@ -129,11 +129,11 @@ func (a *App) dispatchEvent(ev Event) EventResult {
 		}
 	}
 	if key, ok := ev.(Key); ok {
-		if key.MatchString("Tab") {
+		if !keyIsRelease(key) && key.MatchString("Tab") {
 			a.focusNext()
 			return EventHandled
 		}
-		if key.MatchString("Shift+Tab") {
+		if !keyIsRelease(key) && key.MatchString("Shift+Tab") {
 			a.focusPrevious()
 			return EventHandled
 		}

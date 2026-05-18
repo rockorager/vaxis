@@ -268,6 +268,18 @@ func TestKeymapCaptureHandlesBeforeFocusedButton(t *testing.T) {
 	}
 }
 
+func TestKeymapIgnoresKeyRelease(t *testing.T) {
+	called := false
+	app := ui.NewApp(ui.Keymap{Bindings: map[string]ui.VoidCallback{
+		"Enter": func(ctx ui.EventContext) { called = true },
+	}, Child: ui.Text{Value: "x"}})
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter, EventType: vaxis.EventRelease})
+	if called {
+		t.Fatal("keymap should ignore key release")
+	}
+}
+
 func TestKeymapIgnoredEventContinuesToFocusedButton(t *testing.T) {
 	button := false
 	app := ui.NewApp(ui.Keymap{Bindings: map[string]ui.VoidCallback{
@@ -277,6 +289,20 @@ func TestKeymapIgnoredEventContinuesToFocusedButton(t *testing.T) {
 	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
 	if !button {
 		t.Fatal("expected button to receive event after keymap ignored it")
+	}
+}
+
+func TestFocusTraversalIgnoresTabRelease(t *testing.T) {
+	pressed := 0
+	app := ui.NewApp(ui.Row(
+		ui.Button{Label: "one", OnPressed: func(ctx ui.EventContext) { pressed = 1 }},
+		ui.Button{Label: "two", OnPressed: func(ctx ui.EventContext) { pressed = 2 }},
+	))
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyTab, EventType: vaxis.EventRelease})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
+	if pressed != 1 {
+		t.Fatalf("pressed = %d, want first button after ignored tab release", pressed)
 	}
 }
 
@@ -298,6 +324,16 @@ func TestNilButtonCallbackStillHandlesActivation(t *testing.T) {
 	app := ui.NewApp(ui.Button{Label: "noop"})
 	app.Pump(ui.Size{Width: 20, Height: 1})
 	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
+}
+
+func TestButtonIgnoresKeyRelease(t *testing.T) {
+	pressed := false
+	app := ui.NewApp(ui.Button{Label: "button", OnPressed: func(ctx ui.EventContext) { pressed = true }})
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter, EventType: vaxis.EventRelease})
+	if pressed {
+		t.Fatal("button should ignore key release")
+	}
 }
 
 func TestQuitCallbackDoesNotPanic(t *testing.T) {

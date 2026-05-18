@@ -54,6 +54,23 @@ func TestKnownOSCColorResponsesDoNotBlockWhenChannelFull(t *testing.T) {
 	}
 }
 
+func TestKittyKeyboardFlagsDefaultToAllFlags(t *testing.T) {
+	if got, want := kittyKeyboardFlags(Options{}), kittyKeyboardAllFlags; got != want {
+		t.Fatalf("kitty keyboard flags = %d, want %d", got, want)
+	}
+}
+
+func TestKittyKeyboardFlagsKeepDeprecatedOverrideOptions(t *testing.T) {
+	opts := Options{
+		CSIuBitMask:          CSIuAlternateKeys,
+		ReportKeyboardEvents: true,
+	}
+	want := int(CSIuAlternateKeys | CSIuReportEvents)
+	if got := kittyKeyboardFlags(opts); got != want {
+		t.Fatalf("kitty keyboard flags = %d, want %d", got, want)
+	}
+}
+
 func TestQueryColorContextUsesFreshResponse(t *testing.T) {
 	vx := &Vaxis{
 		caps: capabilities{
