@@ -13,6 +13,7 @@ type App struct {
 	mouseShapeDirty bool
 	dispatch        func(func())
 	pendingFocus    []Element
+	hoverPath       []Element
 }
 
 func NewApp(root Widget, opts ...Option) *App {
@@ -75,6 +76,7 @@ func (a *App) dispatchEvent(ev Event) EventResult {
 	if mouse, ok := ev.(Mouse); ok {
 		a.setMouseShape(MouseShapeDefault)
 		path := a.hitPath(Point{X: mouse.Col, Y: mouse.Row})
+		a.updateHoverPath(path)
 		if len(path) > 0 {
 			a.applyMouseShape(path, mouse)
 			return a.dispatchPath(path, ev)
@@ -95,6 +97,24 @@ func (a *App) dispatchEvent(ev Event) EventResult {
 		target = a.build.Root()
 	}
 	return a.dispatchPath(a.pathTo(target), ev)
+}
+
+func (a *App) updateHoverPath(next []Element) {
+	for _, old := range a.hoverPath {
+		if !elementInPath(old, next) {
+			a.handle(old, TargetPhase, hoverExit{})
+		}
+	}
+	a.hoverPath = next
+}
+
+func elementInPath(e Element, path []Element) bool {
+	for _, candidate := range path {
+		if candidate == e {
+			return true
+		}
+	}
+	return false
 }
 
 func (a *App) dispatchPath(path []Element, ev Event) EventResult {

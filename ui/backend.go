@@ -75,13 +75,3 @@ func (q backendColorQuerier) QueryBackground(ctx context.Context) Color {
 	}
 	return b.QueryBackground(ctx)
 }
-
-func (q backendColorQuerier) QueryColor(ctx context.Context, index uint8) Color {
-	b, ok := q.backend.(interface {
-		QueryColor(context.Context, uint8) Color
-	})
-	if !ok {
-		return 0
-	}
-	return b.QueryColor(ctx, index)
-}

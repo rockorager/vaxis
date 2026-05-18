@@ -33,6 +33,7 @@ const (
 	MouseMiddleButton = vaxis.MouseMiddleButton
 	MouseRightButton  = vaxis.MouseRightButton
 	EventPress        = vaxis.EventPress
+	EventMotion       = vaxis.EventMotion
 )
 
 const (

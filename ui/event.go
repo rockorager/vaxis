@@ -49,6 +49,7 @@ type EventHandler interface {
 type MouseShapeHandler interface {
 	MouseShape(EventContext, Mouse) MouseShape
 }
+type hoverExit struct{}
 type VoidCallback func(EventContext)
 type EventCallback func(EventContext, Event) EventResult
 type KeyCallback func(EventContext, Key) EventResult

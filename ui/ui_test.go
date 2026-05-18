@@ -381,6 +381,27 @@ func TestButtonUsesThemeMouseShape(t *testing.T) {
 	}
 }
 
+func TestButtonUsesHoveredThemeStyle(t *testing.T) {
+	hovered := ui.Style{Foreground: vaxis.ColorWhite, Background: vaxis.ColorBlue}
+	normal := ui.Style{Foreground: vaxis.ColorWhite, Background: vaxis.ColorBlack}
+	app := ui.NewApp(ui.Align{Alignment: ui.TopLeft, Child: ui.Button{Label: "go"}}, ui.WithTheme(ui.Theme{Button: ui.ButtonTheme{Normal: normal, Focused: normal, Hovered: hovered}}))
+	app.Pump(ui.Size{Width: 10, Height: 1})
+	app.Send(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseNoButton, EventType: vaxis.EventMotion})
+	app.Pump(ui.Size{Width: 10, Height: 1})
+	p := ui.NewPainter(ui.Size{Width: 10, Height: 1})
+	app.Paint(p)
+	if got := p.Cell(2, 0).Style; got != hovered {
+		t.Fatalf("hovered button style = %#v, want %#v", got, hovered)
+	}
+	app.Send(vaxis.Mouse{Col: 9, Row: 0, Button: vaxis.MouseNoButton, EventType: vaxis.EventMotion})
+	app.Pump(ui.Size{Width: 10, Height: 1})
+	p = ui.NewPainter(ui.Size{Width: 10, Height: 1})
+	app.Paint(p)
+	if got := p.Cell(2, 0).Style; got != normal {
+		t.Fatalf("unhovered button style = %#v, want %#v", got, normal)
+	}
+}
+
 func TestTextUsesThemeStyle(t *testing.T) {
 	style := ui.Style{Foreground: vaxis.ColorRed}
 	app := ui.NewApp(ui.Text{Value: "x"}, ui.WithTheme(ui.Theme{Text: style}))
@@ -500,20 +521,20 @@ func TestRichTextWrapPreservesSpanStyle(t *testing.T) {
 func TestButtonUsesFocusedThemeStyle(t *testing.T) {
 	focused := ui.Style{Foreground: vaxis.ColorGreen}
 	app := ui.NewApp(ui.Button{Label: "go"}, ui.WithTheme(ui.Theme{Button: ui.ButtonTheme{Focused: focused}}))
-	app.Pump(ui.Size{Width: 5, Height: 1})
-	p := ui.NewPainter(ui.Size{Width: 5, Height: 1})
+	app.Pump(ui.Size{Width: 6, Height: 1})
+	p := ui.NewPainter(ui.Size{Width: 6, Height: 1})
 	app.Paint(p)
-	if got := p.Cell(0, 0).Style; got != focused {
-		t.Fatalf("leading padding style = %#v, want focused %#v", got, focused)
+	if got := p.Cell(0, 0).Character.Grapheme; got != "[" {
+		t.Fatalf("focused left marker = %q, want [", got)
 	}
-	if got := p.Cell(1, 0).Character.Grapheme; got != "g" {
-		t.Fatalf("centered label starts at cell 1 = %q, want g", got)
+	if got := p.Cell(2, 0).Character.Grapheme; got != "g" {
+		t.Fatalf("centered label starts at cell 2 = %q, want g", got)
 	}
-	if got := p.Cell(1, 0).Style; got != focused {
+	if got := p.Cell(2, 0).Style; got != focused {
 		t.Fatalf("label style = %#v, want focused %#v", got, focused)
 	}
-	if got := p.Cell(4, 0).Style; got != focused {
-		t.Fatalf("trailing padding style = %#v, want focused %#v", got, focused)
+	if got := p.Cell(5, 0).Character.Grapheme; got != "]" {
+		t.Fatalf("focused right marker = %q, want ]", got)
 	}
 }
 
@@ -523,16 +544,22 @@ func TestButtonStyleUpdatesOnFocusChange(t *testing.T) {
 		ui.Button{Label: "a"},
 		ui.Button{Label: "b"},
 	), ui.WithTheme(ui.Theme{Button: ui.ButtonTheme{Focused: focused}}))
-	app.Pump(ui.Size{Width: 8, Height: 1})
+	app.Pump(ui.Size{Width: 10, Height: 1})
 	app.Send(vaxis.Key{Keycode: vaxis.KeyTab})
-	app.Pump(ui.Size{Width: 8, Height: 1})
-	p := ui.NewPainter(ui.Size{Width: 8, Height: 1})
+	app.Pump(ui.Size{Width: 10, Height: 1})
+	p := ui.NewPainter(ui.Size{Width: 10, Height: 1})
 	app.Paint(p)
-	if got := p.Cell(1, 0).Style; got == focused {
-		t.Fatal("first button should no longer have focused style")
+	if got := p.Cell(0, 0).Character.Grapheme; got == "[" {
+		t.Fatal("first button should no longer show focus marker")
+	}
+	if got := p.Cell(5, 0).Character.Grapheme; got != "[" {
+		t.Fatalf("second button left marker = %q, want [", got)
 	}
 	if got := p.Cell(7, 0).Style; got != focused {
-		t.Fatalf("second button style = %#v, want focused %#v", got, focused)
+		t.Fatalf("second button label style = %#v, want focused %#v", got, focused)
+	}
+	if got := p.Cell(2, 0).Style; got == focused {
+		t.Fatal("first button should no longer have focused style")
 	}
 }
 

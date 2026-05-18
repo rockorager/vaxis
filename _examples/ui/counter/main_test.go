@@ -12,11 +12,11 @@ func TestCounterExampleKeyboard(t *testing.T) {
 	if !app.Contains("count: 0") {
 		t.Fatalf("initial frame missing count: %q", app.Text())
 	}
-	if got := app.Cell(5, 1).Character.Grapheme; got != "c" {
-		t.Fatalf("padded count starts at cell (5,1) = %q, want c", got)
+	if got := app.Cell(6, 1).Character.Grapheme; got != "c" {
+		t.Fatalf("padded count starts at cell (6,1) = %q, want c", got)
 	}
-	if got := app.Cell(12, 2).Character.Grapheme; got != "+" {
-		t.Fatalf("increment button label at cell (12,2) = %q, want +", got)
+	if got := app.Cell(8, 2).Character.Grapheme; got != "+" {
+		t.Fatalf("increment button label at cell (8,2) = %q, want +", got)
 	}
 
 	app.Enter()
@@ -36,7 +36,7 @@ func TestCounterExampleKeyboard(t *testing.T) {
 func TestCounterExampleMouseAndQuit(t *testing.T) {
 	app := uitest.New(Counter{})
 	app.Pump(20, 5)
-	app.Click(12, 2)
+	app.Click(8, 2)
 	app.Pump(20, 5)
 	if !app.Contains("count: 1") {
 		t.Fatalf("mouse increment frame missing count: %q", app.Text())

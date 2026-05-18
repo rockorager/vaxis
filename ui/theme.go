@@ -8,20 +8,26 @@ type Theme struct {
 }
 
 type ButtonTheme struct {
-	Normal  Style
-	Focused Style
-	Pressed Style
-	Mouse   MouseShape
+	Normal     Style
+	Focused    Style
+	Hovered    Style
+	Pressed    Style
+	Mouse      MouseShape
+	FocusLeft  Character
+	FocusRight Character
 }
 
 func DefaultTheme() Theme {
 	return Theme{
 		Text: Style{Foreground: RGB(238, 238, 238)},
 		Button: ButtonTheme{
-			Normal:  Style{Foreground: RGB(238, 238, 238), Background: RGB(48, 48, 48)},
-			Focused: Style{Foreground: RGB(0, 0, 0), Background: RGB(0, 255, 255)},
-			Pressed: Style{Foreground: RGB(0, 0, 0), Background: RGB(0, 255, 0)},
-			Mouse:   MouseShapeClickable,
+			Normal:     Style{Foreground: RGB(238, 238, 238), Background: RGB(48, 48, 48)},
+			Focused:    Style{Foreground: RGB(238, 238, 238), Background: RGB(48, 48, 48)},
+			Hovered:    Style{Foreground: RGB(238, 238, 238), Background: RGB(64, 64, 64)},
+			Pressed:    Style{Foreground: RGB(0, 0, 0), Background: RGB(0, 255, 0)},
+			Mouse:      MouseShapeClickable,
+			FocusLeft:  Character{Grapheme: "[", Width: 1},
+			FocusRight: Character{Grapheme: "]", Width: 1},
 		},
 	}
 }
@@ -29,7 +35,6 @@ func DefaultTheme() Theme {
 type terminalColorQuerier interface {
 	QueryForeground(context.Context) Color
 	QueryBackground(context.Context) Color
-	QueryColor(context.Context, uint8) Color
 }
 
 func themeFromTerminal(ctx context.Context, q terminalColorQuerier) Theme {
@@ -39,26 +44,40 @@ func themeFromTerminal(ctx context.Context, q terminalColorQuerier) Theme {
 	}
 	fg := q.QueryForeground(ctx)
 	bg := q.QueryBackground(ctx)
-	colors := [7]Color{}
-	for i := uint8(1); i <= 6; i++ {
-		colors[i] = q.QueryColor(ctx, i)
-	}
 	if fg != 0 {
 		theme.Text.Foreground = fg
 		theme.Button.Normal.Foreground = fg
+		theme.Button.Focused.Foreground = fg
 	}
 	if bg != 0 {
-		theme.Button.Focused.Foreground = bg
 		theme.Button.Pressed.Foreground = bg
 	}
-	if colors[4] != 0 {
-		theme.Button.Normal.Background = colors[4]
+	if surface, ok := blendColor(bg, fg, 12); ok {
+		theme.Button.Normal.Background = surface
+		theme.Button.Focused.Background = surface
 	}
-	if colors[6] != 0 {
-		theme.Button.Focused.Background = colors[6]
+	if hovered, ok := blendColor(bg, fg, 18); ok {
+		theme.Button.Hovered.Background = hovered
 	}
-	if colors[2] != 0 {
-		theme.Button.Pressed.Background = colors[2]
+	if fg != 0 {
+		theme.Button.Hovered.Foreground = fg
+	}
+	if pressed, ok := blendColor(bg, fg, 25); ok {
+		theme.Button.Pressed.Background = pressed
 	}
 	return theme
+}
+
+func blendColor(a, b Color, percentB int) (Color, bool) {
+	ap := a.Params()
+	bp := b.Params()
+	if len(ap) != 3 || len(bp) != 3 {
+		return 0, false
+	}
+	percentA := 100 - percentB
+	return RGB(
+		uint8((int(ap[0])*percentA+int(bp[0])*percentB)/100),
+		uint8((int(ap[1])*percentA+int(bp[1])*percentB)/100),
+		uint8((int(ap[2])*percentA+int(bp[2])*percentB)/100),
+	), true
 }

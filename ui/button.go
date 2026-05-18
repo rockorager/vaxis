@@ -9,23 +9,42 @@ func (w Button) CreateState() State { return &buttonState{} }
 
 type buttonState struct {
 	StateBase
-	node FocusNode
+	node    FocusNode
+	hovered bool
 }
 
 func (s *buttonState) Build(ctx BuildContext) Widget {
 	w := s.Widget().(Button)
 	s.node.onChange = s.MarkNeedsBuild
-	style := MustDepend[Theme](ctx).Button.Normal
+	theme := MustDepend[Theme](ctx).Button
+	style := theme.Normal
+	left, right := " ", " "
 	if s.node.HasFocus() {
-		style = MustDepend[Theme](ctx).Button.Focused
+		style = theme.Focused
+		left = focusMarker(theme.FocusLeft, "[")
+		right = focusMarker(theme.FocusRight, "]")
+	}
+	if s.hovered {
+		style = theme.Hovered
 	}
 	return Focus(&s.node, SizedBox{Width: buttonWidth(w.Label), Height: 1, Child: DecoratedBox(
 		Decoration{Style: style},
-		Align{Alignment: CenterAlign, Child: Text{Value: w.Label, Style: style}},
+		Align{Alignment: CenterAlign, Child: RichText{Spans: []TextSpan{
+			{Text: left, Style: style},
+			{Text: " " + w.Label + " ", Style: style},
+			{Text: right, Style: style},
+		}}},
 	)})
 }
 
-func buttonWidth(label string) int { return max(5, textWidth(label)+2) }
+func buttonWidth(label string) int { return max(5, textWidth(label)+4) }
+
+func focusMarker(ch Character, fallback string) string {
+	if ch == (Character{}) {
+		return fallback
+	}
+	return ch.Grapheme
+}
 
 func textWidth(s string) int {
 	w := 0
@@ -52,7 +71,18 @@ func (s *buttonState) HandleEvent(ctx EventContext, ev Event) EventResult {
 		if !ev.MatchString("Enter") && !ev.MatchString("Space") {
 			return EventIgnored
 		}
+	case hoverExit:
+		if s.hovered {
+			s.SetState(func() { s.hovered = false })
+		}
+		return EventIgnored
 	case Mouse:
+		if ev.EventType == EventMotion {
+			if !s.hovered {
+				s.SetState(func() { s.hovered = true })
+			}
+			return EventIgnored
+		}
 		if ev.EventType != EventPress || ev.Button != MouseLeftButton {
 			return EventIgnored
 		}
