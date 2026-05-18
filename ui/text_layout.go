@@ -167,6 +167,23 @@ func paintLaidOutText(p *Painter, off Offset, layout laidOutText, opts textLayou
 	}
 }
 
+func paintTextBackground(p *Painter, off Offset, size Size, spans []TextSpan) {
+	style, ok := textBackgroundStyle(spans)
+	if !ok || size.Width <= 0 || size.Height <= 0 {
+		return
+	}
+	p.Fill(Rect{X: off.X, Y: off.Y, Width: size.Width, Height: size.Height}, Cell{Character: Character{Grapheme: " ", Width: 1}, Style: style})
+}
+
+func textBackgroundStyle(spans []TextSpan) (Style, bool) {
+	for _, span := range spans {
+		if span.Style.Background != 0 {
+			return span.Style, true
+		}
+	}
+	return Style{}, false
+}
+
 func textAlignOffset(width, lineWidth int, align TextAlign) int {
 	delta := max(0, width-lineWidth)
 	switch align {

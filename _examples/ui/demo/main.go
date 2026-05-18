@@ -138,11 +138,11 @@ func (s *DemoState) textPage() ui.Widget {
 			{Text: " stay attached to their content as lines wrap across the available width."},
 		}, SoftWrap: true},
 		ui.SizedBox{Height: 1},
-		ui.SizedBox{Width: 72, Height: 5, Child: ui.Text{
+		ui.ConstrainedBox{Constraints: ui.Constraints{MaxWidth: 72}, Child: ui.Text{
 			Value:    "This paragraph is constrained to seventy-two cells so resizing the terminal makes the surrounding layout obvious while the paragraph itself wraps inside a predictable measure.",
 			SoftWrap: true,
 		}},
-		ui.SizedBox{Width: 72, Height: 1, Child: ui.Text{Value: "center aligned text", Align: ui.TextAlignCenter}},
+		ui.ConstrainedBox{Constraints: ui.Constraints{MinWidth: 72, MaxWidth: 72}, Child: ui.Text{Value: "center aligned text", Align: ui.TextAlignCenter}},
 	}}
 }
 

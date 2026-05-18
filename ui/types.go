@@ -134,6 +134,15 @@ func (c Constraints) Constrain(size Size) Size {
 	return size
 }
 
+func (c Constraints) Enforce(other Constraints) Constraints {
+	return Constraints{
+		MinWidth:  clamp(c.MinWidth, other.MinWidth, other.MaxWidth),
+		MaxWidth:  clamp(c.MaxWidth, other.MinWidth, other.MaxWidth),
+		MinHeight: clamp(c.MinHeight, other.MinHeight, other.MaxHeight),
+		MaxHeight: clamp(c.MaxHeight, other.MinHeight, other.MaxHeight),
+	}
+}
+
 func (c Constraints) Deflate(in Insets) Constraints {
 	dw, dh := in.Left+in.Right, in.Top+in.Bottom
 	maxW, maxH := c.MaxWidth, c.MaxHeight
@@ -155,4 +164,14 @@ func Symmetric(horizontal, vertical int) Insets {
 
 func (s Size) Inflate(in Insets) Size {
 	return Size{Width: s.Width + in.Left + in.Right, Height: s.Height + in.Top + in.Bottom}
+}
+
+func clamp(v, minValue, maxValue int) int {
+	if v < minValue {
+		return minValue
+	}
+	if maxValue != Unbounded && v > maxValue {
+		return maxValue
+	}
+	return v
 }

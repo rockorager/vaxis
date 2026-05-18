@@ -451,6 +451,44 @@ func TestTextUsesThemeStyle(t *testing.T) {
 	}
 }
 
+func TestTextFillsConstrainedBackground(t *testing.T) {
+	style := ui.Style{Foreground: vaxis.ColorWhite, Background: vaxis.ColorBlue}
+	app := ui.NewApp(ui.ConstrainedBox{
+		Constraints: ui.Constraints{MinWidth: 5, MinHeight: 2},
+		Child:       ui.Text{Value: "hi", Style: style},
+	})
+	app.Pump(ui.Size{Width: 5, Height: 2})
+	p := ui.NewPainter(ui.Size{Width: 5, Height: 2})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Character.Grapheme; got != "h" {
+		t.Fatalf("text glyph = %q, want h", got)
+	}
+	for _, pt := range []ui.Point{{X: 2, Y: 0}, {X: 4, Y: 0}, {X: 0, Y: 1}, {X: 4, Y: 1}} {
+		if got := p.Cell(pt.X, pt.Y).Style.Background; got != style.Background {
+			t.Fatalf("background at %v = %#v, want %#v", pt, got, style.Background)
+		}
+	}
+}
+
+func TestRichTextFillsConstrainedBackground(t *testing.T) {
+	style := ui.Style{Background: vaxis.ColorBlue}
+	app := ui.NewApp(ui.ConstrainedBox{
+		Constraints: ui.Constraints{MinWidth: 6, MinHeight: 2},
+		Child: ui.RichText{Spans: []ui.TextSpan{
+			{Text: "a", Style: style},
+			{Text: "b", Style: ui.Style{Attribute: ui.AttrBold}},
+		}},
+	})
+	app.Pump(ui.Size{Width: 6, Height: 2})
+	p := ui.NewPainter(ui.Size{Width: 6, Height: 2})
+	app.Paint(p)
+	for _, pt := range []ui.Point{{X: 2, Y: 0}, {X: 5, Y: 0}, {X: 0, Y: 1}, {X: 5, Y: 1}} {
+		if got := p.Cell(pt.X, pt.Y).Style.Background; got != style.Background {
+			t.Fatalf("rich text background at %v = %#v, want %#v", pt, got, style.Background)
+		}
+	}
+}
+
 func TestRichTextPaintsStyledSpans(t *testing.T) {
 	bold := ui.Style{Attribute: ui.AttrBold}
 	app := ui.NewApp(ui.RichText{Spans: []ui.TextSpan{

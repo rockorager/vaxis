@@ -44,6 +44,7 @@ func (r *RenderRichText) Paint(p *Painter, off Offset) {
 		p.PushClip(Rect{X: off.X, Y: off.Y, Width: r.Size().Width, Height: r.Size().Height})
 		defer p.PopClip()
 	}
+	paintTextBackground(p, off, r.Size(), r.Spans)
 	paintLaidOutText(p, off, r.layout, r.Options)
 }
 
