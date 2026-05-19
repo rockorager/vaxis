@@ -22,17 +22,18 @@ func (Demo) CreateState() ui.State {
 
 type DemoState struct {
 	ui.StateBase
-	page  int
-	count int
-	ticks int
-	name  string
-	notes string
-	done  bool
-	mode  string
-	chat  string
-	logs  []string
-	anim  *ui.AnimationController
-	stop  chan struct{}
+	page   int
+	count  int
+	ticks  int
+	name   string
+	notes  string
+	done   bool
+	mode   string
+	chat   string
+	logs   []string
+	anim   *ui.AnimationController
+	stop   chan struct{}
+	dialog bool
 }
 
 var demoPages = []string{"home", "text", "controls", "lists", "animation"}
@@ -68,22 +69,47 @@ func (s *DemoState) Dispose() {
 }
 
 func (s *DemoState) Build(ctx ui.BuildContext) ui.Widget {
+	body := ui.Padding(
+		ui.All(1),
+		ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStretch, Children: []ui.Widget{
+			s.header(),
+			ui.SizedBox{Height: 1},
+			s.pageBody(ctx),
+			ui.SizedBox{Height: 1},
+			s.footer(),
+		}},
+	)
+	if s.dialog {
+		body = ui.Stack{Alignment: ui.CenterAlign, Children: []ui.Widget{
+			body,
+			ui.Align{Alignment: ui.CenterAlign, Child: ui.Dialog{
+				Title: "Demo dialog",
+				Child: ui.Text{
+					Value:    "Focus stays inside this dialog. Press Escape or choose Close to dismiss it.",
+					SoftWrap: true,
+				},
+				Width: 48,
+				Actions: []ui.Widget{
+					ui.Button{Label: "Notify", OnPressed: func(ctx ui.EventContext) {
+						ctx.Notify("Dialog", "Action from dialog")
+					}},
+					ui.Button{Label: "Close", OnPressed: func(ctx ui.EventContext) {
+						s.SetState(func() { s.dialog = false })
+					}},
+				},
+				OnDismiss: func(ctx ui.EventContext) {
+					s.SetState(func() { s.dialog = false })
+				},
+			}},
+		}}
+	}
 	return ui.Keymap{
 		Bindings: map[string]ui.VoidCallback{
 			"q": func(ctx ui.EventContext) { ctx.Quit() },
 			"n": func(ctx ui.EventContext) { s.nextPage() },
 			"p": func(ctx ui.EventContext) { s.previousPage() },
 		},
-		Child: ui.Padding(
-			ui.All(1),
-			ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStretch, Children: []ui.Widget{
-				s.header(),
-				ui.SizedBox{Height: 1},
-				s.pageBody(ctx),
-				ui.SizedBox{Height: 1},
-				s.footer(),
-			}},
-		),
+		Child: body,
 	}
 }
 
@@ -239,6 +265,8 @@ func (s *DemoState) controlsPage() ui.Widget {
 			ui.Button{Label: "Copy notes", OnPressed: func(ctx ui.EventContext) { ctx.Copy(s.notes) }},
 			ui.SizedBox{Width: 1, Height: 1},
 			ui.Button{Label: "Notify", OnPressed: func(ctx ui.EventContext) { ctx.Notify("Vaxis UI demo", "Notification from the controls page") }},
+			ui.SizedBox{Width: 1, Height: 1},
+			ui.Button{Label: "Dialog", OnPressed: func(ctx ui.EventContext) { s.SetState(func() { s.dialog = true }) }},
 		}},
 		ui.Flex{Axis: ui.Horizontal, CrossAxisAlignment: ui.CrossAxisCenter, Children: []ui.Widget{
 			ui.Checkbox{Checked: s.done, Label: "Use checkmark style", OnChanged: func(ctx ui.EventContext, checked bool) {

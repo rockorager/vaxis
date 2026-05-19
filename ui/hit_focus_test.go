@@ -38,6 +38,17 @@ func TestMovedWidgetOnlyHitsAtNewLocation(t *testing.T) {
 	}
 }
 
+func TestUnmountedHoveredWidgetDoesNotReceiveHoverExit(t *testing.T) {
+	app := NewApp(Button{Label: "hit"})
+	app.Pump(Size{Width: 10, Height: 1})
+	app.Send(Mouse{Col: 1, Row: 0, Button: MouseNoButton, EventType: EventMotion})
+	app.Pump(Size{Width: 10, Height: 1})
+	app.UpdateRoot(Text{Value: "gone"})
+	app.Pump(Size{Width: 10, Height: 1})
+
+	app.Send(Mouse{Col: 9, Row: 0, Button: MouseNoButton, EventType: EventMotion})
+}
+
 func TestFocusedNodeDetachesAndReplacementIsNotified(t *testing.T) {
 	var firstChanges, secondChanges int
 	first := &FocusNode{onChange: func() { firstChanges++ }}

@@ -11,6 +11,41 @@ type renderFocusHandler interface {
 	SetFocusedIndex(int)
 }
 
+// FocusScope controls traversal for focusable descendants.
+type FocusScope struct {
+	// Trap keeps Tab and Shift+Tab traversal inside Child while focus is inside
+	// this scope.
+	Trap bool
+	// AutoFocus moves focus to the first descendant focus target after build
+	// when focus is outside the scope.
+	AutoFocus bool
+	// Child is the scoped subtree.
+	Child Widget
+}
+
+func (w FocusScope) CreateElement() element {
+	return &focusScopeElement{}
+}
+
+type focusScopeElement struct {
+	elementBase
+	child element
+}
+
+func (e *focusScopeElement) Rebuild() {
+	w := e.widget.(FocusScope)
+	e.child = e.UpdateChild(e.child, w.Child, nil)
+	if w.AutoFocus && !e.owner.app.focusedWithin(e) {
+		e.owner.app.focusFirstWithin(e)
+	}
+}
+
+func (e *focusScopeElement) VisitChildren(fn func(element)) {
+	if e.child != nil {
+		fn(e.child)
+	}
+}
+
 // focusWidget makes its child focusable through a FocusNode.
 type focusWidget struct {
 	// Node controls and observes focus for this widget.

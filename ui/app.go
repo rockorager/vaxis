@@ -210,6 +210,9 @@ func (a *App) releaseMouseCapture(e element) {
 
 func (a *App) updateHoverPath(next []element) {
 	for _, old := range a.hoverPath {
+		if old.Base().owner == nil {
+			continue
+		}
 		if !elementInPath(old, next) {
 			a.handle(old, TargetPhase, hoverExit{})
 		}
@@ -374,10 +377,18 @@ func (a *App) unregisterFocusTarget(target focusTarget) {
 }
 
 func (a *App) focusNext() {
+	if scope := a.focusTrapFor(a.focused.element); scope != nil {
+		a.moveFocusWithin(scope, 1)
+		return
+	}
 	a.moveFocus(1)
 }
 
 func (a *App) focusPrevious() {
+	if scope := a.focusTrapFor(a.focused.element); scope != nil {
+		a.moveFocusWithin(scope, -1)
+		return
+	}
 	a.moveFocus(-1)
 }
 
@@ -394,6 +405,62 @@ func (a *App) moveFocus(delta int) {
 	}
 	idx = (idx + delta + len(a.focusables)) % len(a.focusables)
 	a.setFocused(a.focusables[idx])
+}
+
+func (a *App) moveFocusWithin(scope element, delta int) {
+	focusables := a.focusablesWithin(scope)
+	if len(focusables) == 0 {
+		return
+	}
+	idx := 0
+	for i, target := range focusables {
+		if target == a.focused {
+			idx = i
+			break
+		}
+	}
+	idx = (idx + delta + len(focusables)) % len(focusables)
+	a.setFocused(focusables[idx])
+}
+
+func (a *App) focusFirstWithin(scope element) {
+	focusables := a.focusablesWithin(scope)
+	if len(focusables) > 0 {
+		a.setFocused(focusables[0])
+	}
+}
+
+func (a *App) focusablesWithin(scope element) []focusTarget {
+	var out []focusTarget
+	for _, target := range a.focusables {
+		if elementContains(scope, target.element) {
+			out = append(out, target)
+		}
+	}
+	return out
+}
+
+func (a *App) focusedWithin(scope element) bool {
+	return a.focused.element != nil && elementContains(scope, a.focused.element)
+}
+
+func (a *App) focusTrapFor(e element) element {
+	for cur := e; cur != nil; cur = cur.Base().parent {
+		scope, ok := cur.Base().widget.(FocusScope)
+		if ok && scope.Trap {
+			return cur
+		}
+	}
+	return nil
+}
+
+func elementContains(root, child element) bool {
+	for cur := child; cur != nil; cur = cur.Base().parent {
+		if cur == root {
+			return true
+		}
+	}
+	return false
 }
 
 func (a *App) setFocusedElement(next element) {
