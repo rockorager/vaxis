@@ -396,3 +396,27 @@ func TestSelectionAreaFocusedTextAreaHandlesSelectAllAndCopy(t *testing.T) {
 	h.copy()
 	assertCopies(t, h.backend, "area")
 }
+
+func TestSelectionAreaMousePressInTextAreaSelectsTextArea(t *testing.T) {
+	h := newSelectionAreaHarness(t, ui.Size{Width: 20, Height: 4}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+		ui.Text{Value: "before"},
+		ui.TextArea{Value: "area", MinWidth: 10, MinHeight: 1},
+		ui.Text{Value: "after"},
+	}}))
+
+	h.drag(ui.Point{X: 3, Y: 1}, ui.Point{X: 1, Y: 1})
+	h.copy()
+	assertCopies(t, h.backend, "ar")
+}
+
+func TestSelectionAreaReadOnlyTextStillSelectableAroundTextArea(t *testing.T) {
+	h := newSelectionAreaHarness(t, ui.Size{Width: 20, Height: 4}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+		ui.Text{Value: "before"},
+		ui.TextArea{Value: "area", MinWidth: 10, MinHeight: 1},
+		ui.Text{Value: "after"},
+	}}))
+
+	h.drag(ui.Point{}, ui.Point{X: 5})
+	h.copy()
+	assertCopies(t, h.backend, "befor")
+}
