@@ -124,7 +124,7 @@ func TestScrollViewReportsScrollMetrics(t *testing.T) {
 	r.State = &scrollViewState{scrollRow: 1}
 
 	got := r.ScrollMetrics()
-	want := ScrollMetrics{ScrollOffset: 1, MaxScrollOffset: 1, ViewportHeight: 2, ContentHeight: 3}
+	want := ScrollMetrics{ScrollOffset: 1, MaxScrollOffset: 1, ViewportHeight: 2, ViewportWidth: 5, ContentHeight: 3}
 	if got != want {
 		t.Fatalf("metrics = %#v, want %#v", got, want)
 	}

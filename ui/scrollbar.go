@@ -8,6 +8,8 @@ type ScrollMetrics struct {
 	MaxScrollOffset int
 	// ViewportHeight is the visible row count.
 	ViewportHeight int
+	// ViewportWidth is the visible column count.
+	ViewportWidth int
 	// ContentHeight is the total scrollable row count.
 	ContentHeight int
 }

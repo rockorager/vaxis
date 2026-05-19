@@ -7,6 +7,7 @@ type App struct {
 	build           *buildOwner
 	rootRO          RenderObject
 	size            Size
+	window          Resize
 	focusables      []element
 	focused         element
 	quit            bool
@@ -47,6 +48,9 @@ func (a *App) UpdateRoot(root Widget) {
 
 // Send dispatches ev through the widget tree.
 func (a *App) Send(ev Event) {
+	if resize, ok := ev.(Resize); ok {
+		a.setResize(resize)
+	}
 	a.dispatchEvent(ev)
 }
 
@@ -85,6 +89,24 @@ func (a *App) tickAnimations(now time.Time) {
 	}
 }
 
+func (a *App) tickFrameCallbacks(now time.Time) bool {
+	if a.build.root == nil {
+		return false
+	}
+	active := false
+	walkElements(a.build.root, func(e element) {
+		stateful, ok := e.(*statefulElement)
+		if !ok {
+			return
+		}
+		ticker, ok := stateful.state.(frameTicker)
+		if ok && ticker.TickFrame(now) {
+			active = true
+		}
+	})
+	return active
+}
+
 func (a *App) hasActiveAnimations() bool {
 	return len(a.animations) > 0
 }
@@ -114,10 +136,17 @@ func (a *App) consumeMouseShapeDirty() bool {
 	return dirty
 }
 
+func (a *App) setResize(size Resize) {
+	a.window = size
+}
+
 // Pump rebuilds and lays out the widget tree for size.
 func (a *App) Pump(size Size) {
 	a.frameRequested = false
 	a.size = size
+	if a.window.Cols != size.Width || a.window.Rows != size.Height {
+		a.window = Resize{Cols: size.Width, Rows: size.Height}
+	}
 	a.build.BuildScope()
 	a.flushFocusNotifications()
 	a.rootRO = findRenderObject(a.build.Root())
@@ -170,6 +199,15 @@ func elementInPath(e element, path []element) bool {
 		}
 	}
 	return false
+}
+
+func walkElements(e element, fn func(element)) {
+	fn(e)
+	e.VisitChildren(func(child element) { walkElements(child, fn) })
+}
+
+type frameTicker interface {
+	TickFrame(time.Time) bool
 }
 
 func (a *App) dispatchPath(path []element, ev Event) EventResult {

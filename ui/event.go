@@ -28,6 +28,16 @@ type EventContext struct {
 	phase EventPhase
 }
 
+// FractionalMousePoint is a mouse location in terminal cell coordinates.
+type FractionalMousePoint struct {
+	// Col is the horizontal cell coordinate. Values may include a fractional
+	// offset within the cell when pixel mouse reports are available.
+	Col float64
+	// Row is the vertical cell coordinate. Values may include a fractional
+	// offset within the cell when pixel mouse reports are available.
+	Row float64
+}
+
 // Runtime schedules work back onto the UI event loop.
 type Runtime interface{ Dispatch(func()) }
 
@@ -43,6 +53,22 @@ func (r appRuntime) Dispatch(fn func()) {
 // Phase returns the current dispatch phase.
 func (c EventContext) Phase() EventPhase {
 	return c.phase
+}
+
+// FractionalMousePoint converts mouse to fractional cell coordinates when
+// pixel mouse reports and terminal pixel dimensions are available.
+func (c EventContext) FractionalMousePoint(mouse Mouse) FractionalMousePoint {
+	if c.app == nil {
+		return FractionalMousePoint{Col: float64(mouse.Col), Row: float64(mouse.Row)}
+	}
+	size := c.app.window
+	if mouse.XPixel <= 0 || mouse.YPixel <= 0 || size.XPixel <= 0 || size.YPixel <= 0 || size.Cols <= 0 || size.Rows <= 0 {
+		return FractionalMousePoint{Col: float64(mouse.Col), Row: float64(mouse.Row)}
+	}
+	return FractionalMousePoint{
+		Col: float64(mouse.XPixel) * float64(size.Cols) / float64(size.XPixel),
+		Row: float64(mouse.YPixel) * float64(size.Rows) / float64(size.YPixel),
+	}
 }
 
 // Runtime returns a dispatcher for scheduling work on the UI event loop.

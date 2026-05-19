@@ -1,6 +1,8 @@
 package ui_test
 
 import (
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -57,6 +59,21 @@ func (h selectionAreaHarness) copy() {
 
 func (h selectionAreaHarness) selectAll() {
 	h.send(vaxis.Key{Text: "a", Keycode: 'a', Modifiers: vaxis.ModCtrl})
+}
+
+func (h selectionAreaHarness) frame(t *testing.T) {
+	t.Helper()
+	if err := h.runner.HandleFrame(h.now); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func (h *selectionAreaHarness) frameAfter(t *testing.T, d time.Duration) {
+	t.Helper()
+	h.now = h.now.Add(d)
+	if err := h.runner.HandleFrame(h.now); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func (h selectionAreaHarness) tab() {
@@ -241,6 +258,21 @@ func TestSelectionAreaSoftWrapDoesNotCopySyntheticNewline(t *testing.T) {
 	assertCopies(t, h.backend, "abcdef")
 }
 
+func TestSelectionAreaStaticTextSelectsEndOfLineWhenPointerBelow(t *testing.T) {
+	h := newSelectionAreaHarness(t, ui.Size{Width: 12, Height: 3}, selectionAreaRoot(ui.Flex{
+		Axis:               ui.Vertical,
+		CrossAxisAlignment: ui.CrossAxisStart,
+		ChildrenWidget: []ui.Widget{
+			ui.Text{Value: "line 1"},
+			ui.Text{Value: "line 2"},
+		},
+	}))
+
+	h.drag(ui.Point{Y: 1}, ui.Point{X: 2, Y: 2})
+	h.copy()
+	assertCopies(t, h.backend, "line 2")
+}
+
 func TestSelectionAreaSelectsAcrossTextWidgets(t *testing.T) {
 	app := ui.NewApp(ui.SelectionArea{Child: ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
 		ui.Text{Value: "abcd"},
@@ -300,6 +332,154 @@ func TestSelectionAreaSelectAllCopiesAllTextWidgets(t *testing.T) {
 	h.selectAll()
 	h.copy()
 	assertCopies(t, h.backend, "ab\ncd")
+}
+
+func TestSelectionAreaMouseSelectionAcrossScrollViewIncludesHiddenRows(t *testing.T) {
+	h := newSelectionAreaHarness(t, ui.Size{Width: 10, Height: 4}, selectionAreaRoot(ui.Flex{
+		Axis:               ui.Vertical,
+		CrossAxisAlignment: ui.CrossAxisStart,
+		ChildrenWidget: []ui.Widget{
+			ui.Text{Value: "before"},
+			ui.SizedBox{Width: 10, Height: 2, Child: ui.ScrollView{Child: ui.Flex{
+				Axis:               ui.Vertical,
+				CrossAxisAlignment: ui.CrossAxisStart,
+				ChildrenWidget: []ui.Widget{
+					ui.Text{Value: "one"},
+					ui.Text{Value: "two"},
+					ui.Text{Value: "three"},
+					ui.Text{Value: "four"},
+				},
+			}}},
+			ui.Text{Value: "after"},
+		},
+	}))
+
+	h.send(vaxis.Mouse{Col: 0, Row: 1, Button: vaxis.MouseWheelDown, EventType: vaxis.EventPress})
+	h.frame(t)
+	h.drag(ui.Point{}, ui.Point{X: 5, Y: 3})
+	h.copy()
+	assertCopies(t, h.backend, "before\none\ntwo\nthree\nfour\nafter")
+}
+
+func TestSelectionAreaMouseSelectionFromScrollViewSkipsHiddenRows(t *testing.T) {
+	h := newSelectionAreaHarness(t, ui.Size{Width: 10, Height: 4}, selectionAreaRoot(ui.Flex{
+		Axis:               ui.Vertical,
+		CrossAxisAlignment: ui.CrossAxisStart,
+		ChildrenWidget: []ui.Widget{
+			ui.Text{Value: "before"},
+			ui.SizedBox{Width: 10, Height: 2, Child: ui.ScrollView{Child: ui.Flex{
+				Axis:               ui.Vertical,
+				CrossAxisAlignment: ui.CrossAxisStart,
+				ChildrenWidget: []ui.Widget{
+					ui.Text{Value: "one"},
+					ui.Text{Value: "two"},
+					ui.Text{Value: "three"},
+					ui.Text{Value: "four"},
+				},
+			}}},
+			ui.Text{Value: "after"},
+		},
+	}))
+
+	h.send(vaxis.Mouse{Col: 0, Row: 1, Button: vaxis.MouseWheelDown, EventType: vaxis.EventPress})
+	h.frame(t)
+	h.drag(ui.Point{Y: 1}, ui.Point{X: 5, Y: 3})
+	h.copy()
+	assertCopies(t, h.backend, "two\nthree\nafter")
+}
+
+func TestSelectionAreaAutoScrollsSelectionNearScrollViewEdge(t *testing.T) {
+	h := newSelectionAreaHarness(t, ui.Size{Width: 12, Height: 3}, selectionAreaRoot(ui.SizedBox{Width: 12, Height: 3, Child: ui.ScrollView{Child: scrollSelectionLines(30)}}))
+	h.send(vaxis.Resize{Cols: 12, Rows: 3, XPixel: 120, YPixel: 300})
+
+	h.send(vaxis.Mouse{Col: 0, Row: 2, XPixel: 5, YPixel: 290, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress})
+	h.frameAfter(t, time.Second/60)
+	h.frameAfter(t, time.Second)
+	h.copy()
+
+	if len(h.backend.copies) != 1 || !strings.Contains(h.backend.copies[0], "row 7") {
+		t.Fatalf("autoscroll copy = %#v, want selection extended after scrolling", h.backend.copies)
+	}
+}
+
+func TestSelectionAreaAutoScrollSchedulesNextFrameBeforeWholeLine(t *testing.T) {
+	h := newSelectionAreaHarness(t, ui.Size{Width: 12, Height: 3}, selectionAreaRoot(ui.SizedBox{Width: 12, Height: 3, Child: ui.ScrollView{Child: scrollSelectionLines(30)}}))
+	h.send(vaxis.Resize{Cols: 12, Rows: 3, XPixel: 120, YPixel: 300})
+
+	h.send(vaxis.Mouse{Col: 0, Row: 2, XPixel: 5, YPixel: 260, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress})
+	h.frameAfter(t, time.Second/60)
+	if _, ok := h.runner.NextFrame(); !ok {
+		t.Fatal("expected active autoscroll to schedule another frame")
+	}
+}
+
+func TestSelectionAreaAutoScrollSelectsEndOfLineWhenPointerBelowViewport(t *testing.T) {
+	h := newSelectionAreaHarness(t, ui.Size{Width: 12, Height: 3}, selectionAreaRoot(ui.SizedBox{Width: 12, Height: 3, Child: ui.ScrollView{Child: scrollSelectionLines(30)}}))
+	h.send(vaxis.Resize{Cols: 12, Rows: 3, XPixel: 120, YPixel: 300})
+
+	h.send(vaxis.Mouse{Col: 0, Row: 1, XPixel: 5, YPixel: 150, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress})
+	h.send(vaxis.Mouse{Col: 2, Row: 4, XPixel: 25, YPixel: 450, Button: vaxis.MouseLeftButton, EventType: vaxis.EventMotion})
+	h.frameAfter(t, time.Second/60)
+	h.frameAfter(t, 500*time.Millisecond)
+	h.copy()
+
+	if len(h.backend.copies) != 1 {
+		t.Fatalf("copies = %#v, want one copy", h.backend.copies)
+	}
+	lines := strings.Split(strings.TrimSuffix(h.backend.copies[0], "\n"), "\n")
+	if len(lines) == 0 || !strings.HasPrefix(lines[len(lines)-1], "row ") {
+		t.Fatalf("autoscroll copy = %#v, want row lines", h.backend.copies)
+	}
+	if got := lines[len(lines)-1]; len(got) < len("row 10") {
+		t.Fatalf("last selected line = %q, want full line", got)
+	}
+}
+
+func TestSelectionAreaAutoScrollSelectionContinuesIntoFollowingText(t *testing.T) {
+	h := newSelectionAreaHarness(t, ui.Size{Width: 12, Height: 5}, selectionAreaRoot(ui.Flex{
+		Axis:               ui.Vertical,
+		CrossAxisAlignment: ui.CrossAxisStart,
+		ChildrenWidget: []ui.Widget{
+			ui.SizedBox{Width: 12, Height: 3, Child: ui.ScrollView{Child: scrollSelectionLines(30)}},
+			ui.Text{Value: "after"},
+		},
+	}))
+	h.send(vaxis.Resize{Cols: 12, Rows: 5, XPixel: 120, YPixel: 500})
+
+	h.send(vaxis.Mouse{Col: 0, Row: 1, XPixel: 5, YPixel: 150, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress})
+	h.send(vaxis.Mouse{Col: 2, Row: 4, XPixel: 25, YPixel: 450, Button: vaxis.MouseLeftButton, EventType: vaxis.EventMotion})
+	h.frameAfter(t, time.Second/60)
+	h.frameAfter(t, time.Second)
+	h.send(vaxis.Mouse{Col: 2, Row: 3, XPixel: 25, YPixel: 350, Button: vaxis.MouseLeftButton, EventType: vaxis.EventMotion})
+	h.copy()
+
+	if len(h.backend.copies) != 1 || !strings.Contains(h.backend.copies[0], "\naf") {
+		t.Fatalf("copy after moving into following text = %#v, want following text included", h.backend.copies)
+	}
+}
+
+func TestSelectionAreaSelectAllIncludesHiddenScrollViewRows(t *testing.T) {
+	h := newSelectionAreaHarness(t, ui.Size{Width: 10, Height: 2}, selectionAreaRoot(ui.SizedBox{Width: 10, Height: 2, Child: ui.ScrollView{Child: ui.Flex{
+		Axis:               ui.Vertical,
+		CrossAxisAlignment: ui.CrossAxisStart,
+		ChildrenWidget: []ui.Widget{
+			ui.Text{Value: "one"},
+			ui.Text{Value: "two"},
+			ui.Text{Value: "three"},
+		},
+	}}}))
+
+	h.selectAll()
+	h.copy()
+	assertCopies(t, h.backend, "one\ntwo\nthree")
+}
+
+func scrollSelectionLines(n int) ui.Widget {
+	children := make([]ui.Widget, 0, n)
+	for i := 1; i <= n; i++ {
+		children = append(children, ui.Text{Value: "row " + strconv.Itoa(i)})
+	}
+	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: children}
 }
 
 func TestSelectionContainerDisabledExcludesSubtreeFromCopy(t *testing.T) {

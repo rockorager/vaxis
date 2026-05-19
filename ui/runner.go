@@ -84,8 +84,12 @@ func (r *Runner) HandleEvent(ev Event, now time.Time) {
 // HandleFrame rebuilds, lays out, paints, and renders one frame if needed.
 func (r *Runner) HandleFrame(now time.Time) error {
 	r.app.tickAnimations(now)
+	activeFrameTicks := r.app.tickFrameCallbacks(now)
 	if !r.app.FrameRequested() {
 		r.scheduler.DidFrame(now)
+		if activeFrameTicks {
+			r.scheduler.Request(now)
+		}
 		return nil
 	}
 	size := r.backend.Size()
@@ -97,7 +101,7 @@ func (r *Runner) HandleFrame(now time.Time) error {
 		return err
 	}
 	r.scheduler.DidFrame(now)
-	if r.app.FrameRequested() || r.app.hasActiveAnimations() {
+	if r.app.FrameRequested() || r.app.hasActiveAnimations() || activeFrameTicks {
 		r.scheduler.Request(now)
 	}
 	return nil

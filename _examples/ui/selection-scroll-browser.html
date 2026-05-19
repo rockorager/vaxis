@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scroll Selection Test</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    body {
+      max-width: 720px;
+      margin: 32px auto;
+      padding: 0 20px;
+      line-height: 1.45;
+    }
+
+    .scrollbox {
+      width: 520px;
+      height: 96px;
+      overflow-y: auto;
+      border: 1px solid currentColor;
+      padding: 8px;
+      margin: 16px 0;
+      white-space: pre;
+    }
+
+    .row {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <h1>Scroll Selection Test</h1>
+  <p>
+    Drag from the word <strong>before</strong>, across the scroll box, and end on
+    the word <strong>after</strong>. Then copy and paste somewhere to see whether
+    hidden rows inside the scroll box were included.
+  </p>
+
+  <p>before</p>
+
+  <div class="scrollbox">
+    <div id="rows"></div>
+  </div>
+
+  <p>after</p>
+
+  <p>
+    Also try selecting entirely inside the scroll box, then scroll it and repeat.
+  </p>
+
+  <script>
+    const rows = document.getElementById("rows")
+    for (let i = 1; i <= 2000; i++) {
+      const row = document.createElement("span")
+      row.className = "row"
+      row.textContent = `row ${String(i).padStart(4, " ")}  scrollable content`
+      rows.appendChild(row)
+    }
+  </script>
+</body>
+</html>

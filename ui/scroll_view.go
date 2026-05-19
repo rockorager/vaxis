@@ -167,6 +167,26 @@ func (r *renderScrollView) ChildOffset(RenderObject) Offset {
 	return Offset{Y: -r.scrollRow()}
 }
 
+func (r *renderScrollView) SelectionClip() Rect {
+	return Rect{Width: r.Size().Width, Height: r.Size().Height}
+}
+
+func (r *renderScrollView) SelectionChildOffset(RenderObject) Offset {
+	return Offset{}
+}
+
+func (r *renderScrollView) ScrollByLines(lines int) bool {
+	if r.State == nil {
+		return false
+	}
+	next := clampInt(r.scrollRow()+lines, 0, r.maxScroll())
+	if next == r.scrollRow() {
+		return false
+	}
+	r.State.SetState(func() { r.State.scrollRow = next })
+	return true
+}
+
 func (r *renderScrollView) maxScroll() int {
 	return max(0, r.childSize.Height-r.Size().Height)
 }
@@ -176,6 +196,7 @@ func (r *renderScrollView) ScrollMetrics() ScrollMetrics {
 		ScrollOffset:    r.scrollRow(),
 		MaxScrollOffset: r.maxScroll(),
 		ViewportHeight:  r.Size().Height,
+		ViewportWidth:   r.Size().Width,
 		ContentHeight:   r.childSize.Height,
 	}
 }

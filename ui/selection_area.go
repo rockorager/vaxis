@@ -1,6 +1,9 @@
 package ui
 
-import "time"
+import (
+	"math"
+	"time"
+)
 
 // SelectionArea enables read-only text selection for descendant Text and RichText widgets.
 type SelectionArea struct {
@@ -18,8 +21,10 @@ type selectionAreaState struct {
 	anchor       selectionEndpoint
 	extent       selectionEndpoint
 	hasSelection bool
+	visibleOnly  bool
 	selecting    bool
 	selected     []selectableTextRender
+	autoScroll   selectionAutoScroll
 	now          func() time.Time
 	lastClick    time.Time
 	lastClickRow int
@@ -46,7 +51,7 @@ func (s *selectionAreaState) HandleEvent(ctx EventContext, ev Event) EventResult
 		if ev.MatchString("Ctrl+c") {
 			if s.hasSelection {
 				if area := s.areaRender(); area != nil {
-					ctx.Copy(area.SelectedText(s.anchor, s.extent))
+					ctx.Copy(area.SelectedText(s.anchor, s.extent, s.visibleOnly))
 				}
 			}
 			return EventHandled
@@ -54,18 +59,18 @@ func (s *selectionAreaState) HandleEvent(ctx EventContext, ev Event) EventResult
 		if ev.MatchString("Ctrl+a") {
 			if area := s.areaRender(); area != nil {
 				if anchor, extent, ok := area.selectAllEndpoints(); ok {
-					s.setSelection(anchor, extent)
+					s.setSelection(anchor, extent, false)
 				}
 				return EventHandled
 			}
 		}
 	case Mouse:
-		return s.handleMouse(ev)
+		return s.handleMouse(ctx, ev)
 	}
 	return EventIgnored
 }
 
-func (s *selectionAreaState) handleMouse(mouse Mouse) EventResult {
+func (s *selectionAreaState) handleMouse(ctx EventContext, mouse Mouse) EventResult {
 	switch mouse.EventType {
 	case EventPress:
 		if mouse.Button != MouseLeftButton {
@@ -75,7 +80,7 @@ func (s *selectionAreaState) handleMouse(mouse Mouse) EventResult {
 		if area == nil {
 			return EventIgnored
 		}
-		selectable, off, local, ok := area.selectableAt(Point{X: mouse.Col, Y: mouse.Row})
+		selectable, off, local, clipped, scrollTarget, scrollOff, ok := area.selectableAt(Point{X: mouse.Col, Y: mouse.Row})
 		if !ok {
 			s.clearSelection()
 			return EventIgnored
@@ -89,14 +94,15 @@ func (s *selectionAreaState) handleMouse(mouse Mouse) EventResult {
 		switch {
 		case clickCount >= 3:
 			s.selecting = false
-			s.setTextSelection(selectable, off, selectable.SelectLineAt(pos))
+			s.setTextSelection(selectable, off, selectable.SelectLineAt(pos), true)
 		case clickCount == 2:
 			s.selecting = false
-			s.setTextSelection(selectable, off, selectable.SelectWordAt(pos))
+			s.setTextSelection(selectable, off, selectable.SelectWordAt(pos), true)
 		default:
 			s.selecting = true
-			endpoint := selectionEndpoint{Selectable: selectable, Offset: off, Position: pos}
-			s.setSelection(endpoint, endpoint)
+			endpoint := selectionEndpoint{Selectable: selectable, Offset: off, Position: pos, Clipped: clipped}
+			s.setSelection(endpoint, endpoint, true)
+			s.startAutoScroll(ctx, mouse, scrollTarget, scrollOff)
 		}
 		return EventHandled
 	case EventMotion:
@@ -107,23 +113,57 @@ func (s *selectionAreaState) handleMouse(mouse Mouse) EventResult {
 		if area == nil {
 			return EventIgnored
 		}
-		selectable, off, local, ok := area.selectableAt(Point{X: mouse.Col, Y: mouse.Row})
-		if !ok {
-			return EventIgnored
+		selectable, off, local, clipped, scrollTarget, scrollOff, ok := area.selectableAt(Point{X: mouse.Col, Y: mouse.Row})
+		if ok {
+			pos, ok := selectable.PositionForPoint(local)
+			if !ok {
+				return EventIgnored
+			}
+			extent := selectionEndpoint{Selectable: selectable, Offset: off, Position: pos, Clipped: clipped}
+			s.setSelection(s.anchor, extent, s.visibleOnlyForExtent(extent))
+			if s.autoScroll.Target == nil && s.anchor.Clipped {
+				s.startAutoScroll(ctx, mouse, scrollTarget, scrollOff)
+			}
+		} else if extent, ok := area.selectionBoundaryAt(Point{X: mouse.Col, Y: mouse.Row}); ok {
+			s.setSelection(s.anchor, extent, s.visibleOnlyForExtent(extent))
 		}
-		pos, ok := selectable.PositionForPoint(local)
-		if !ok {
-			return EventIgnored
-		}
-		s.setSelection(s.anchor, selectionEndpoint{Selectable: selectable, Offset: off, Position: pos})
+		s.updateAutoScroll(ctx, mouse)
 		return EventHandled
 	case EventRelease:
 		if mouse.Button == MouseLeftButton && s.selecting {
 			s.selecting = false
+			s.stopAutoScroll()
 			return EventHandled
 		}
 	}
 	return EventIgnored
+}
+
+func (s *selectionAreaState) TickFrame(now time.Time) bool {
+	if !s.selecting || s.autoScroll.Target == nil || s.autoScroll.Velocity == 0 {
+		s.autoScroll.LastTick = time.Time{}
+		return false
+	}
+	if s.autoScroll.LastTick.IsZero() {
+		s.autoScroll.LastTick = now
+		return true
+	}
+	elapsed := now.Sub(s.autoScroll.LastTick).Seconds()
+	s.autoScroll.LastTick = now
+	s.autoScroll.Pending += math.Abs(s.autoScroll.Velocity) * elapsed
+	lines := int(s.autoScroll.Pending)
+	if lines <= 0 {
+		return true
+	}
+	s.autoScroll.Pending -= float64(lines)
+	if s.autoScroll.Velocity < 0 {
+		lines = -lines
+	}
+	if !s.autoScroll.Target.ScrollByLines(lines) {
+		return true
+	}
+	s.extendSelectionToAutoScrollEdge()
+	return true
 }
 
 func (s *selectionAreaState) mouseClickCount(mouse Mouse) int {
@@ -150,21 +190,103 @@ func (s *selectionAreaState) areaRender() *renderSelectionArea {
 	return nil
 }
 
-func (s *selectionAreaState) setSelection(anchor, extent selectionEndpoint) {
+func (s *selectionAreaState) setSelection(anchor, extent selectionEndpoint, visibleOnly bool) {
 	s.anchor = anchor
 	s.extent = extent
 	s.hasSelection = true
+	s.visibleOnly = visibleOnly
 	area := s.areaRender()
 	if area == nil {
 		return
 	}
-	s.selected = area.ApplySelection(anchor, extent, MustDepend[Theme](s.Context()).TextField.Selection, s.selected)
+	s.selected = area.ApplySelection(anchor, extent, MustDepend[Theme](s.Context()).TextField.Selection, s.selected, visibleOnly)
 }
 
-func (s *selectionAreaState) setTextSelection(selectable selectableTextRender, off Offset, selection TextSelection) {
+func (s *selectionAreaState) startAutoScroll(ctx EventContext, mouse Mouse, target selectionAutoScroller, off Offset) {
+	if target == nil {
+		s.stopAutoScroll()
+		return
+	}
+	s.autoScroll = selectionAutoScroll{Target: target, Offset: off, StartedOffset: target.ScrollMetrics().ScrollOffset}
+	s.updateAutoScroll(ctx, mouse)
+}
+
+func (s *selectionAreaState) updateAutoScroll(ctx EventContext, mouse Mouse) {
+	if s.autoScroll.Target == nil {
+		return
+	}
+	fractional := ctx.FractionalMousePoint(mouse)
+	rowFraction := fractional.Row - math.Floor(fractional.Row)
+	colFraction := fractional.Col - math.Floor(fractional.Col)
+	s.autoScroll.Mouse = FractionalMousePoint{
+		Col: float64(mouse.Col) + colFraction,
+		Row: float64(mouse.Row) + rowFraction,
+	}
+	s.autoScroll.Velocity = selectionAutoScrollVelocity(s.autoScroll.Mouse.Row, s.autoScroll.Offset, s.autoScroll.Target.ScrollMetrics())
+	if s.autoScroll.Velocity != 0 && ctx.app != nil {
+		ctx.app.RequestFrame()
+	}
+}
+
+func (s *selectionAreaState) stopAutoScroll() {
+	s.autoScroll = selectionAutoScroll{}
+}
+
+func (s *selectionAreaState) visibleOnlyForExtent(extent selectionEndpoint) bool {
+	visibleOnly := s.anchor.Clipped || extent.Clipped
+	if s.autoScroll.Target != nil && s.autoScroll.Target.ScrollMetrics().ScrollOffset != s.autoScroll.StartedOffset {
+		visibleOnly = false
+	}
+	return visibleOnly
+}
+
+func (s *selectionAreaState) extendSelectionToAutoScrollEdge() {
+	area := s.areaRender()
+	if area == nil || s.autoScroll.Target == nil {
+		return
+	}
+	metrics := s.autoScroll.Target.ScrollMetrics()
+	if metrics.ViewportHeight <= 0 {
+		return
+	}
+	row := s.autoScroll.Offset.Y
+	aboveViewport := s.autoScroll.Mouse.Row < float64(s.autoScroll.Offset.Y)
+	belowViewport := s.autoScroll.Mouse.Row >= float64(s.autoScroll.Offset.Y+metrics.ViewportHeight)
+	if s.autoScroll.Velocity > 0 {
+		row += metrics.ViewportHeight - 1
+	}
+	col := int(math.Floor(s.autoScroll.Mouse.Col))
+	if col < s.autoScroll.Offset.X {
+		col = s.autoScroll.Offset.X
+	}
+	if col >= s.autoScroll.Offset.X+metrics.ViewportWidth {
+		col = s.autoScroll.Offset.X + metrics.ViewportWidth - 1
+	}
+	selectable, off, local, clipped, _, _, ok := area.selectableAt(Point{X: col, Y: row})
+	if !ok {
+		return
+	}
+	var pos TextPosition
+	if belowViewport {
+		pos = selectable.EndPosition()
+	} else if aboveViewport {
+		pos = selectable.StartPosition()
+	} else {
+		var ok bool
+		pos, ok = selectable.PositionForPoint(local)
+		if !ok {
+			return
+		}
+	}
+	extent := selectionEndpoint{Selectable: selectable, Offset: off, Position: pos, Clipped: clipped}
+	s.setSelection(s.anchor, extent, false)
+}
+
+func (s *selectionAreaState) setTextSelection(selectable selectableTextRender, off Offset, selection TextSelection, visibleOnly bool) {
 	s.setSelection(
-		selectionEndpoint{Selectable: selectable, Offset: off, Position: selection.Base},
-		selectionEndpoint{Selectable: selectable, Offset: off, Position: selection.Extent},
+		selectionEndpoint{Selectable: selectable, Offset: off, Position: selection.Base, Clipped: visibleOnly},
+		selectionEndpoint{Selectable: selectable, Offset: off, Position: selection.Extent, Clipped: visibleOnly},
+		visibleOnly,
 	)
 }
 
@@ -174,7 +296,9 @@ func (s *selectionAreaState) clearSelection() {
 	}
 	s.selected = nil
 	s.hasSelection = false
+	s.visibleOnly = false
 	s.selecting = false
+	s.stopAutoScroll()
 }
 
 type selectionAreaView struct {
@@ -224,19 +348,56 @@ func (r *renderSelectionArea) HitTest(*HitTestResult, Point) bool {
 	return false
 }
 
-func (r *renderSelectionArea) selectableAt(pt Point) (selectableTextRender, Offset, Point, bool) {
+func (r *renderSelectionArea) selectableAt(pt Point) (selectableTextRender, Offset, Point, bool, selectionAutoScroller, Offset, bool) {
 	child := r.Child()
 	if child == nil {
-		return nil, Offset{}, Point{}, false
+		return nil, Offset{}, Point{}, false, nil, Offset{}, false
 	}
-	return selectableInRender(child, pt, Offset{})
+	return selectableInRender(child, pt, Offset{}, false, nil, Offset{})
 }
 
-func (r *renderSelectionArea) ApplySelection(anchor, extent selectionEndpoint, style Style, previous []selectableTextRender) []selectableTextRender {
+func (r *renderSelectionArea) selectionBoundaryAt(pt Point) (selectionEndpoint, bool) {
+	items := r.selectablesForSelection(true)
+	if len(items) == 0 {
+		return selectionEndpoint{}, false
+	}
+	for _, item := range items {
+		rect := selectableRect(item.Selectable, item.Offset)
+		if pt.Y < rect.Y {
+			return selectionEndpoint{
+				Selectable: item.Selectable,
+				Offset:     item.Offset,
+				Position:   item.Selectable.StartPosition(),
+				Clipped:    item.Clipped,
+			}, true
+		}
+		if pt.Y < rect.Y+rect.Height {
+			position := item.Selectable.EndPosition()
+			if pt.X < rect.X {
+				position = item.Selectable.StartPosition()
+			}
+			return selectionEndpoint{
+				Selectable: item.Selectable,
+				Offset:     item.Offset,
+				Position:   position,
+				Clipped:    item.Clipped,
+			}, true
+		}
+	}
+	item := items[len(items)-1]
+	return selectionEndpoint{
+		Selectable: item.Selectable,
+		Offset:     item.Offset,
+		Position:   item.Selectable.EndPosition(),
+		Clipped:    item.Clipped,
+	}, true
+}
+
+func (r *renderSelectionArea) ApplySelection(anchor, extent selectionEndpoint, style Style, previous []selectableTextRender, visibleOnly bool) []selectableTextRender {
 	for _, selected := range previous {
 		selected.SetSelection(TextSelection{}, Style{})
 	}
-	items := r.selectables()
+	items := r.selectablesForSelection(visibleOnly)
 	start, end, forward, ok := selectionEndpointRange(items, anchor, extent)
 	if !ok {
 		return nil
@@ -272,8 +433,8 @@ func (r *renderSelectionArea) ApplySelection(anchor, extent selectionEndpoint, s
 	return selected
 }
 
-func (r *renderSelectionArea) SelectedText(anchor, extent selectionEndpoint) string {
-	items := r.selectables()
+func (r *renderSelectionArea) SelectedText(anchor, extent selectionEndpoint, visibleOnly bool) string {
+	items := r.selectablesForSelection(visibleOnly)
 	start, end, forward, ok := selectionEndpointRange(items, anchor, extent)
 	if !ok {
 		return ""
@@ -303,7 +464,7 @@ func (r *renderSelectionArea) SelectedText(anchor, extent selectionEndpoint) str
 		default:
 			selection = items[i].Selectable.SelectAll()
 		}
-		if i > start && items[i].Offset.Y > items[i-1].Offset.Y {
+		if i > start && items[i].Offset.Y != items[i-1].Offset.Y {
 			out += "\n"
 		}
 		out += items[i].Selectable.SelectedText(selection)
@@ -328,12 +489,16 @@ func (r *renderSelectionArea) selectAllEndpoints() (selectionEndpoint, selection
 }
 
 func (r *renderSelectionArea) selectables() []selectionItem {
+	return r.selectablesForSelection(false)
+}
+
+func (r *renderSelectionArea) selectablesForSelection(visibleOnly bool) []selectionItem {
 	child := r.Child()
 	if child == nil {
 		return nil
 	}
 	var out []selectionItem
-	collectSelectables(child, Offset{}, &out)
+	collectSelectables(child, Offset{}, Rect{}, false, visibleOnly, &out)
 	return out
 }
 
@@ -341,11 +506,23 @@ type selectionEndpoint struct {
 	Selectable selectableTextRender
 	Offset     Offset
 	Position   TextPosition
+	Clipped    bool
 }
 
 type selectionItem struct {
 	Selectable selectableTextRender
 	Offset     Offset
+	Clipped    bool
+}
+
+type selectionAutoScroll struct {
+	Target        selectionAutoScroller
+	Offset        Offset
+	StartedOffset int
+	Mouse         FractionalMousePoint
+	Velocity      float64
+	Pending       float64
+	LastTick      time.Time
 }
 
 type selectableTextRender interface {
@@ -360,20 +537,44 @@ type selectableTextRender interface {
 	SetSelection(TextSelection, Style)
 }
 
-func collectSelectables(ro RenderObject, off Offset, out *[]selectionItem) {
+type selectionAutoScroller interface {
+	ScrollMetrics() ScrollMetrics
+	ScrollByLines(int) bool
+}
+
+func collectSelectables(ro RenderObject, off Offset, clip Rect, hasClip bool, visibleOnly bool, out *[]selectionItem) {
 	if selectionDisabled(ro) {
 		return
 	}
+	if visibleOnly {
+		if provider, ok := ro.(selectionClipProvider); ok {
+			nextClip := rectAtOffset(provider.SelectionClip(), off)
+			if hasClip {
+				nextClip = intersectRect(clip, nextClip)
+			}
+			clip = nextClip
+			hasClip = true
+		}
+	}
 	if selectable, ok := ro.(selectableTextRender); ok {
-		*out = append(*out, selectionItem{Selectable: selectable, Offset: off})
+		if visibleOnly && hasClip && !rectsIntersect(selectableRect(selectable, off), clip) {
+			return
+		}
+		*out = append(*out, selectionItem{Selectable: selectable, Offset: off, Clipped: hasClip})
 		return
 	}
 	ro.VisitChildren(func(child RenderObject) {
 		childOff := Offset{}
-		if provider, ok := ro.(ChildOffsetProvider); ok {
+		if !visibleOnly {
+			if provider, ok := ro.(selectionChildOffsetProvider); ok {
+				childOff = provider.SelectionChildOffset(child)
+			} else if provider, ok := ro.(ChildOffsetProvider); ok {
+				childOff = provider.ChildOffset(child)
+			}
+		} else if provider, ok := ro.(ChildOffsetProvider); ok {
 			childOff = provider.ChildOffset(child)
 		}
-		collectSelectables(child, off.Add(childOff), out)
+		collectSelectables(child, off.Add(childOff), clip, hasClip, visibleOnly, out)
 	})
 }
 
@@ -397,23 +598,33 @@ func selectionEndpointRange(items []selectionItem, anchor, extent selectionEndpo
 	return extentIndex, anchorIndex, false, true
 }
 
-func selectableInRender(ro RenderObject, pt Point, off Offset) (selectableTextRender, Offset, Point, bool) {
+func selectableInRender(ro RenderObject, pt Point, off Offset, clipped bool, scroller selectionAutoScroller, scrollerOff Offset) (selectableTextRender, Offset, Point, bool, selectionAutoScroller, Offset, bool) {
 	if selectionDisabled(ro) {
-		return nil, Offset{}, Point{}, false
+		return nil, Offset{}, Point{}, false, nil, Offset{}, false
+	}
+	if _, ok := ro.(selectionClipProvider); ok {
+		clipped = true
+	}
+	if target, ok := ro.(selectionAutoScroller); ok {
+		scroller = target
+		scrollerOff = off
 	}
 	if selectable, ok := ro.(selectableTextRender); ok {
 		size := ro.Base().Size()
 		if pt.X < 0 || pt.Y < 0 || pt.X > size.Width || pt.Y >= size.Height {
-			return nil, Offset{}, Point{}, false
+			return nil, Offset{}, Point{}, false, nil, Offset{}, false
 		}
-		return selectable, off, pt, true
+		return selectable, off, pt, clipped, scroller, scrollerOff, true
 	}
 	if pt.X < 0 || pt.Y < 0 || pt.X >= ro.Base().Size().Width || pt.Y >= ro.Base().Size().Height {
-		return nil, Offset{}, Point{}, false
+		return nil, Offset{}, Point{}, false, nil, Offset{}, false
 	}
 	var found selectableTextRender
 	var foundOff Offset
 	var foundPt Point
+	var foundClipped bool
+	var foundScroller selectionAutoScroller
+	var foundScrollerOff Offset
 	ro.VisitChildren(func(child RenderObject) {
 		if found != nil {
 			return
@@ -424,16 +635,70 @@ func selectableInRender(ro RenderObject, pt Point, off Offset) (selectableTextRe
 		}
 		local := Point{X: pt.X - childOff.X, Y: pt.Y - childOff.Y}
 		nextOff := off.Add(childOff)
-		found, foundOff, foundPt, _ = selectableInRender(child, local, nextOff)
+		found, foundOff, foundPt, foundClipped, foundScroller, foundScrollerOff, _ = selectableInRender(child, local, nextOff, clipped, scroller, scrollerOff)
 	})
-	return found, foundOff, foundPt, found != nil
+	return found, foundOff, foundPt, foundClipped, foundScroller, foundScrollerOff, found != nil
 }
 
 type selectionDisabler interface {
 	SelectionDisabled() bool
 }
 
+type selectionClipProvider interface {
+	SelectionClip() Rect
+}
+
+type selectionChildOffsetProvider interface {
+	SelectionChildOffset(RenderObject) Offset
+}
+
 func selectionDisabled(ro RenderObject) bool {
 	d, ok := ro.(selectionDisabler)
 	return ok && d.SelectionDisabled()
+}
+
+func rectAtOffset(r Rect, off Offset) Rect {
+	return Rect{X: off.X + r.X, Y: off.Y + r.Y, Width: r.Width, Height: r.Height}
+}
+
+func selectableRect(ro selectableTextRender, off Offset) Rect {
+	size := ro.Base().Size()
+	return Rect{X: off.X, Y: off.Y, Width: max(1, size.Width), Height: max(1, size.Height)}
+}
+
+func rectsIntersect(a, b Rect) bool {
+	intersection := intersectRect(a, b)
+	return intersection.Width > 0 && intersection.Height > 0
+}
+
+func selectionAutoScrollVelocity(row float64, off Offset, metrics ScrollMetrics) float64 {
+	if metrics.ViewportHeight <= 0 {
+		return 0
+	}
+	relative := row - float64(off.Y)
+	var depth float64
+	var sign float64
+	switch {
+	case relative < 0.5:
+		depth = 0.5 - relative
+		sign = -1
+	case relative >= float64(metrics.ViewportHeight)-0.5:
+		depth = relative - (float64(metrics.ViewportHeight) - 0.5)
+		sign = 1
+	default:
+		return 0
+	}
+	if depth <= 0 {
+		return 0
+	}
+	const maxLinesPerSecond = 80.0
+	scaled := math.Pow(minFloat(depth/2.5, 1), 1.5)
+	return sign * maxLinesPerSecond * scaled
+}
+
+func minFloat(a, b float64) float64 {
+	if a < b {
+		return a
+	}
+	return b
 }
