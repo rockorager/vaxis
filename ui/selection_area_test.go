@@ -8,6 +8,73 @@ import (
 	"git.sr.ht/~rockorager/vaxis/ui"
 )
 
+type selectionAreaHarness struct {
+	now     time.Time
+	backend *fakeBackend
+	runner  *ui.Runner
+}
+
+func newSelectionAreaHarness(t *testing.T, size ui.Size, root ui.Widget) selectionAreaHarness {
+	t.Helper()
+	now := time.Unix(10, 0)
+	backend := newFakeBackend(size)
+	runner := ui.NewRunner(ui.NewApp(root), backend, ui.NewFrameScheduler(time.Second/60))
+	runner.Start(now)
+	if err := runner.HandleFrame(now); err != nil {
+		t.Fatal(err)
+	}
+	return selectionAreaHarness{now: now, backend: backend, runner: runner}
+}
+
+func selectionAreaRoot(child ui.Widget) ui.Widget {
+	return ui.SelectionArea{Child: child}
+}
+
+func (h selectionAreaHarness) send(ev ui.Event) {
+	h.runner.HandleEvent(ev, h.now)
+}
+
+func (h selectionAreaHarness) drag(from, to ui.Point) {
+	h.send(vaxis.Mouse{Col: from.X, Row: from.Y, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress})
+	h.send(vaxis.Mouse{Col: to.X, Row: to.Y, Button: vaxis.MouseLeftButton, EventType: vaxis.EventMotion})
+	h.send(vaxis.Mouse{Col: to.X, Row: to.Y, Button: vaxis.MouseLeftButton, EventType: vaxis.EventRelease})
+}
+
+func (h selectionAreaHarness) click(pt ui.Point) {
+	h.send(vaxis.Mouse{Col: pt.X, Row: pt.Y, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress})
+	h.send(vaxis.Mouse{Col: pt.X, Row: pt.Y, Button: vaxis.MouseLeftButton, EventType: vaxis.EventRelease})
+}
+
+func (h selectionAreaHarness) clickN(pt ui.Point, count int) {
+	for i := 0; i < count; i++ {
+		h.click(pt)
+	}
+}
+
+func (h selectionAreaHarness) copy() {
+	h.send(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl})
+}
+
+func (h selectionAreaHarness) selectAll() {
+	h.send(vaxis.Key{Text: "a", Keycode: 'a', Modifiers: vaxis.ModCtrl})
+}
+
+func (h selectionAreaHarness) tab() {
+	h.send(vaxis.Key{Keycode: vaxis.KeyTab})
+}
+
+func assertCopies(t *testing.T, backend *fakeBackend, want ...string) {
+	t.Helper()
+	if len(backend.copies) != len(want) {
+		t.Fatalf("copies = %#v, want %#v", backend.copies, want)
+	}
+	for i := range want {
+		if backend.copies[i] != want[i] {
+			t.Fatalf("copies = %#v, want %#v", backend.copies, want)
+		}
+	}
+}
+
 func TestSelectionAreaSelectsTextWithMouse(t *testing.T) {
 	app := ui.NewApp(ui.SelectionArea{Child: ui.Text{Value: "abcd"}})
 	app.Pump(ui.Size{Width: 10, Height: 1})
@@ -34,214 +101,102 @@ func TestSelectionAreaSelectsTextWithMouse(t *testing.T) {
 }
 
 func TestSelectionAreaCopiesSelectedText(t *testing.T) {
-	now := time.Unix(10, 0)
-	backend := newFakeBackend(ui.Size{Width: 10, Height: 1})
-	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.Text{Value: "abcd"}}), backend, ui.NewFrameScheduler(time.Second/60))
-	runner.Start(now)
-	if err := runner.HandleFrame(now); err != nil {
-		t.Fatal(err)
-	}
+	h := newSelectionAreaHarness(t, ui.Size{Width: 10, Height: 1}, selectionAreaRoot(ui.Text{Value: "abcd"}))
 
-	runner.HandleEvent(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}, now)
-	runner.HandleEvent(vaxis.Mouse{Col: 3, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventMotion}, now)
-	runner.HandleEvent(vaxis.Mouse{Col: 3, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventRelease}, now)
-	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
-	if len(backend.copies) != 1 || backend.copies[0] != "bc" {
-		t.Fatalf("copies = %#v, want bc", backend.copies)
-	}
+	h.drag(ui.Point{X: 1}, ui.Point{X: 3})
+	h.copy()
+	assertCopies(t, h.backend, "bc")
 }
 
 func TestSelectionAreaDoubleClickCopiesWord(t *testing.T) {
-	now := time.Unix(10, 0)
-	backend := newFakeBackend(ui.Size{Width: 12, Height: 1})
-	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.Text{Value: "alpha beta"}}), backend, ui.NewFrameScheduler(time.Second/60))
-	runner.Start(now)
-	if err := runner.HandleFrame(now); err != nil {
-		t.Fatal(err)
-	}
+	h := newSelectionAreaHarness(t, ui.Size{Width: 12, Height: 1}, selectionAreaRoot(ui.Text{Value: "alpha beta"}))
 
-	mouse := vaxis.Mouse{Col: 7, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}
-	runner.HandleEvent(mouse, now)
-	mouse.EventType = vaxis.EventRelease
-	runner.HandleEvent(mouse, now)
-	mouse.EventType = vaxis.EventPress
-	runner.HandleEvent(mouse, now)
-	mouse.EventType = vaxis.EventRelease
-	runner.HandleEvent(mouse, now)
-	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
-	if len(backend.copies) != 1 || backend.copies[0] != "beta" {
-		t.Fatalf("copies = %#v, want beta", backend.copies)
-	}
+	h.clickN(ui.Point{X: 7}, 2)
+	h.copy()
+	assertCopies(t, h.backend, "beta")
 }
 
 func TestSelectionAreaTripleClickCopiesLine(t *testing.T) {
-	now := time.Unix(10, 0)
-	backend := newFakeBackend(ui.Size{Width: 12, Height: 2})
-	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.Text{Value: "alpha beta\ngamma"}}), backend, ui.NewFrameScheduler(time.Second/60))
-	runner.Start(now)
-	if err := runner.HandleFrame(now); err != nil {
-		t.Fatal(err)
-	}
+	h := newSelectionAreaHarness(t, ui.Size{Width: 12, Height: 2}, selectionAreaRoot(ui.Text{Value: "alpha beta\ngamma"}))
 
-	mouse := vaxis.Mouse{Col: 2, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}
-	for i := 0; i < 3; i++ {
-		mouse.EventType = vaxis.EventPress
-		runner.HandleEvent(mouse, now)
-		mouse.EventType = vaxis.EventRelease
-		runner.HandleEvent(mouse, now)
-	}
-	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
-	if len(backend.copies) != 1 || backend.copies[0] != "alpha beta\n" {
-		t.Fatalf("copies = %#v, want alpha beta\\n", backend.copies)
-	}
+	h.clickN(ui.Point{X: 2}, 3)
+	h.copy()
+	assertCopies(t, h.backend, "alpha beta\n")
 }
 
 func TestSelectionAreaSelectsRichTextAcrossSpans(t *testing.T) {
-	now := time.Unix(10, 0)
-	backend := newFakeBackend(ui.Size{Width: 10, Height: 1})
-	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.RichText{Spans: []ui.TextSpan{
+	h := newSelectionAreaHarness(t, ui.Size{Width: 10, Height: 1}, selectionAreaRoot(ui.RichText{Spans: []ui.TextSpan{
 		{Text: "ab"},
 		{Text: "cd"},
-	}}}), backend, ui.NewFrameScheduler(time.Second/60))
-	runner.Start(now)
-	if err := runner.HandleFrame(now); err != nil {
-		t.Fatal(err)
-	}
+	}}))
 
-	runner.HandleEvent(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}, now)
-	runner.HandleEvent(vaxis.Mouse{Col: 3, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventMotion}, now)
-	runner.HandleEvent(vaxis.Mouse{Col: 3, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventRelease}, now)
-	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
-	if len(backend.copies) != 1 || backend.copies[0] != "bc" {
-		t.Fatalf("copies = %#v, want bc", backend.copies)
-	}
+	h.drag(ui.Point{X: 1}, ui.Point{X: 3})
+	h.copy()
+	assertCopies(t, h.backend, "bc")
 }
 
 func TestSelectionAreaDoubleClickSelectsRichTextWordAcrossSpans(t *testing.T) {
-	now := time.Unix(10, 0)
-	backend := newFakeBackend(ui.Size{Width: 12, Height: 1})
-	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.RichText{Spans: []ui.TextSpan{
+	h := newSelectionAreaHarness(t, ui.Size{Width: 12, Height: 1}, selectionAreaRoot(ui.RichText{Spans: []ui.TextSpan{
 		{Text: "al"},
 		{Text: "pha beta"},
-	}}}), backend, ui.NewFrameScheduler(time.Second/60))
-	runner.Start(now)
-	if err := runner.HandleFrame(now); err != nil {
-		t.Fatal(err)
-	}
+	}}))
 
-	mouse := vaxis.Mouse{Col: 3, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}
-	runner.HandleEvent(mouse, now)
-	mouse.EventType = vaxis.EventRelease
-	runner.HandleEvent(mouse, now)
-	mouse.EventType = vaxis.EventPress
-	runner.HandleEvent(mouse, now)
-	mouse.EventType = vaxis.EventRelease
-	runner.HandleEvent(mouse, now)
-	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
-	if len(backend.copies) != 1 || backend.copies[0] != "alpha" {
-		t.Fatalf("copies = %#v, want alpha", backend.copies)
-	}
+	h.clickN(ui.Point{X: 3}, 2)
+	h.copy()
+	assertCopies(t, h.backend, "alpha")
 }
 
 func TestSelectionAreaUsesLocalTextCoordinates(t *testing.T) {
-	now := time.Unix(10, 0)
-	backend := newFakeBackend(ui.Size{Width: 12, Height: 1})
-	runner := ui.NewRunner(ui.NewApp(ui.Padding(ui.Symmetric(2, 0), ui.SelectionArea{Child: ui.Text{Value: "abcd"}})), backend, ui.NewFrameScheduler(time.Second/60))
-	runner.Start(now)
-	if err := runner.HandleFrame(now); err != nil {
-		t.Fatal(err)
-	}
+	h := newSelectionAreaHarness(t, ui.Size{Width: 12, Height: 1}, ui.Padding(ui.Symmetric(2, 0), selectionAreaRoot(ui.Text{Value: "abcd"})))
 
-	runner.HandleEvent(vaxis.Mouse{Col: 3, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}, now)
-	runner.HandleEvent(vaxis.Mouse{Col: 5, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventMotion}, now)
-	runner.HandleEvent(vaxis.Mouse{Col: 5, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventRelease}, now)
-	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
-	if len(backend.copies) != 1 || backend.copies[0] != "bc" {
-		t.Fatalf("copies = %#v, want bc", backend.copies)
-	}
+	h.drag(ui.Point{X: 3}, ui.Point{X: 5})
+	h.copy()
+	assertCopies(t, h.backend, "bc")
 }
 
 func TestSelectionAreaSelectAllCopiesText(t *testing.T) {
-	now := time.Unix(10, 0)
-	backend := newFakeBackend(ui.Size{Width: 10, Height: 1})
-	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.Text{Value: "abcd"}}), backend, ui.NewFrameScheduler(time.Second/60))
-	runner.Start(now)
-	if err := runner.HandleFrame(now); err != nil {
-		t.Fatal(err)
-	}
+	h := newSelectionAreaHarness(t, ui.Size{Width: 10, Height: 1}, selectionAreaRoot(ui.Text{Value: "abcd"}))
 
-	runner.HandleEvent(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}, now)
-	runner.HandleEvent(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventRelease}, now)
-	runner.HandleEvent(vaxis.Key{Text: "a", Keycode: 'a', Modifiers: vaxis.ModCtrl}, now)
-	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
-	if len(backend.copies) != 1 || backend.copies[0] != "abcd" {
-		t.Fatalf("copies = %#v, want abcd", backend.copies)
-	}
+	h.click(ui.Point{X: 1})
+	h.selectAll()
+	h.copy()
+	assertCopies(t, h.backend, "abcd")
 }
 
 func TestSelectionAreaMouseSelectionCopiesClippedVisibleText(t *testing.T) {
-	now := time.Unix(10, 0)
-	backend := newFakeBackend(ui.Size{Width: 3, Height: 1})
-	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.Text{
+	h := newSelectionAreaHarness(t, ui.Size{Width: 3, Height: 1}, selectionAreaRoot(ui.Text{
 		Value:    "abcdef",
 		Overflow: ui.TextOverflowClip,
-	}}), backend, ui.NewFrameScheduler(time.Second/60))
-	runner.Start(now)
-	if err := runner.HandleFrame(now); err != nil {
-		t.Fatal(err)
-	}
+	}))
 
-	runner.HandleEvent(vaxis.Mouse{Col: 0, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}, now)
-	runner.HandleEvent(vaxis.Mouse{Col: 3, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventMotion}, now)
-	runner.HandleEvent(vaxis.Mouse{Col: 3, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventRelease}, now)
-	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
-	if len(backend.copies) != 1 || backend.copies[0] != "abc" {
-		t.Fatalf("copies = %#v, want abc", backend.copies)
-	}
+	h.drag(ui.Point{}, ui.Point{X: 3})
+	h.copy()
+	assertCopies(t, h.backend, "abc")
 }
 
 func TestSelectionAreaMouseSelectionCopiesEllipsisVisibleText(t *testing.T) {
-	now := time.Unix(10, 0)
-	backend := newFakeBackend(ui.Size{Width: 3, Height: 1})
-	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.Text{
+	h := newSelectionAreaHarness(t, ui.Size{Width: 3, Height: 1}, selectionAreaRoot(ui.Text{
 		Value:    "abcdef",
 		Overflow: ui.TextOverflowEllipsis,
 		MaxLines: 1,
-	}}), backend, ui.NewFrameScheduler(time.Second/60))
-	runner.Start(now)
-	if err := runner.HandleFrame(now); err != nil {
-		t.Fatal(err)
-	}
+	}))
 
-	runner.HandleEvent(vaxis.Mouse{Col: 0, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}, now)
-	runner.HandleEvent(vaxis.Mouse{Col: 3, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventMotion}, now)
-	runner.HandleEvent(vaxis.Mouse{Col: 3, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventRelease}, now)
-	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
-	if len(backend.copies) != 1 || backend.copies[0] != "ab" {
-		t.Fatalf("copies = %#v, want ab", backend.copies)
-	}
+	h.drag(ui.Point{}, ui.Point{X: 3})
+	h.copy()
+	assertCopies(t, h.backend, "ab")
 }
 
 func TestSelectionAreaSelectAllCopiesHiddenText(t *testing.T) {
-	now := time.Unix(10, 0)
-	backend := newFakeBackend(ui.Size{Width: 3, Height: 1})
-	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.Text{
+	h := newSelectionAreaHarness(t, ui.Size{Width: 3, Height: 1}, selectionAreaRoot(ui.Text{
 		Value:    "abcdef",
 		Overflow: ui.TextOverflowEllipsis,
 		MaxLines: 1,
-	}}), backend, ui.NewFrameScheduler(time.Second/60))
-	runner.Start(now)
-	if err := runner.HandleFrame(now); err != nil {
-		t.Fatal(err)
-	}
+	}))
 
-	runner.HandleEvent(vaxis.Mouse{Col: 0, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}, now)
-	runner.HandleEvent(vaxis.Mouse{Col: 0, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventRelease}, now)
-	runner.HandleEvent(vaxis.Key{Text: "a", Keycode: 'a', Modifiers: vaxis.ModCtrl}, now)
-	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
-	if len(backend.copies) != 1 || backend.copies[0] != "abcdef" {
-		t.Fatalf("copies = %#v, want abcdef", backend.copies)
-	}
+	h.click(ui.Point{})
+	h.selectAll()
+	h.copy()
+	assertCopies(t, h.backend, "abcdef")
 }
 
 func TestSelectionAreaSelectAllPaintsOverflowVisibleText(t *testing.T) {
@@ -265,45 +220,25 @@ func TestSelectionAreaSelectAllPaintsOverflowVisibleText(t *testing.T) {
 }
 
 func TestSelectionAreaMouseSelectionCopiesVisibleMaxLines(t *testing.T) {
-	now := time.Unix(10, 0)
-	backend := newFakeBackend(ui.Size{Width: 8, Height: 1})
-	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.Text{
+	h := newSelectionAreaHarness(t, ui.Size{Width: 8, Height: 1}, selectionAreaRoot(ui.Text{
 		Value:    "ab\ncd",
 		MaxLines: 1,
-	}}), backend, ui.NewFrameScheduler(time.Second/60))
-	runner.Start(now)
-	if err := runner.HandleFrame(now); err != nil {
-		t.Fatal(err)
-	}
+	}))
 
-	runner.HandleEvent(vaxis.Mouse{Col: 0, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}, now)
-	runner.HandleEvent(vaxis.Mouse{Col: 2, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventMotion}, now)
-	runner.HandleEvent(vaxis.Mouse{Col: 2, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventRelease}, now)
-	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
-	if len(backend.copies) != 1 || backend.copies[0] != "ab" {
-		t.Fatalf("copies = %#v, want ab", backend.copies)
-	}
+	h.drag(ui.Point{}, ui.Point{X: 2})
+	h.copy()
+	assertCopies(t, h.backend, "ab")
 }
 
 func TestSelectionAreaSoftWrapDoesNotCopySyntheticNewline(t *testing.T) {
-	now := time.Unix(10, 0)
-	backend := newFakeBackend(ui.Size{Width: 3, Height: 2})
-	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.Text{
+	h := newSelectionAreaHarness(t, ui.Size{Width: 3, Height: 2}, selectionAreaRoot(ui.Text{
 		Value:    "abcdef",
 		SoftWrap: true,
-	}}), backend, ui.NewFrameScheduler(time.Second/60))
-	runner.Start(now)
-	if err := runner.HandleFrame(now); err != nil {
-		t.Fatal(err)
-	}
+	}))
 
-	runner.HandleEvent(vaxis.Mouse{Col: 0, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}, now)
-	runner.HandleEvent(vaxis.Mouse{Col: 3, Row: 1, Button: vaxis.MouseLeftButton, EventType: vaxis.EventMotion}, now)
-	runner.HandleEvent(vaxis.Mouse{Col: 3, Row: 1, Button: vaxis.MouseLeftButton, EventType: vaxis.EventRelease}, now)
-	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
-	if len(backend.copies) != 1 || backend.copies[0] != "abcdef" {
-		t.Fatalf("copies = %#v, want abcdef", backend.copies)
-	}
+	h.drag(ui.Point{}, ui.Point{X: 3, Y: 1})
+	h.copy()
+	assertCopies(t, h.backend, "abcdef")
 }
 
 func TestSelectionAreaSelectsAcrossTextWidgets(t *testing.T) {
@@ -334,231 +269,130 @@ func TestSelectionAreaSelectsAcrossTextWidgets(t *testing.T) {
 }
 
 func TestSelectionAreaCopiesAcrossTextWidgets(t *testing.T) {
-	now := time.Unix(10, 0)
-	backend := newFakeBackend(ui.Size{Width: 10, Height: 2})
-	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+	h := newSelectionAreaHarness(t, ui.Size{Width: 10, Height: 2}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
 		ui.Text{Value: "abcd"},
 		ui.Text{Value: "efgh"},
-	}}}), backend, ui.NewFrameScheduler(time.Second/60))
-	runner.Start(now)
-	if err := runner.HandleFrame(now); err != nil {
-		t.Fatal(err)
-	}
+	}}))
 
-	runner.HandleEvent(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}, now)
-	runner.HandleEvent(vaxis.Mouse{Col: 2, Row: 1, Button: vaxis.MouseLeftButton, EventType: vaxis.EventMotion}, now)
-	runner.HandleEvent(vaxis.Mouse{Col: 2, Row: 1, Button: vaxis.MouseLeftButton, EventType: vaxis.EventRelease}, now)
-	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
-	if len(backend.copies) != 1 || backend.copies[0] != "bcd\nef" {
-		t.Fatalf("copies = %#v, want bcd\\nef", backend.copies)
-	}
+	h.drag(ui.Point{X: 1}, ui.Point{X: 2, Y: 1})
+	h.copy()
+	assertCopies(t, h.backend, "bcd\nef")
 }
 
 func TestSelectionAreaSelectsAcrossTextWidgetsInReverse(t *testing.T) {
-	now := time.Unix(10, 0)
-	backend := newFakeBackend(ui.Size{Width: 10, Height: 2})
-	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+	h := newSelectionAreaHarness(t, ui.Size{Width: 10, Height: 2}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
 		ui.Text{Value: "abcd"},
 		ui.Text{Value: "efgh"},
-	}}}), backend, ui.NewFrameScheduler(time.Second/60))
-	runner.Start(now)
-	if err := runner.HandleFrame(now); err != nil {
-		t.Fatal(err)
-	}
+	}}))
 
-	runner.HandleEvent(vaxis.Mouse{Col: 2, Row: 1, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}, now)
-	runner.HandleEvent(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventMotion}, now)
-	runner.HandleEvent(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventRelease}, now)
-	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
-	if len(backend.copies) != 1 || backend.copies[0] != "bcd\nef" {
-		t.Fatalf("copies = %#v, want bcd\\nef", backend.copies)
-	}
+	h.drag(ui.Point{X: 2, Y: 1}, ui.Point{X: 1})
+	h.copy()
+	assertCopies(t, h.backend, "bcd\nef")
 }
 
 func TestSelectionAreaSelectAllCopiesAllTextWidgets(t *testing.T) {
-	now := time.Unix(10, 0)
-	backend := newFakeBackend(ui.Size{Width: 10, Height: 2})
-	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+	h := newSelectionAreaHarness(t, ui.Size{Width: 10, Height: 2}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
 		ui.Text{Value: "ab"},
 		ui.Text{Value: "cd"},
-	}}}), backend, ui.NewFrameScheduler(time.Second/60))
-	runner.Start(now)
-	if err := runner.HandleFrame(now); err != nil {
-		t.Fatal(err)
-	}
+	}}))
 
-	runner.HandleEvent(vaxis.Mouse{Col: 0, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}, now)
-	runner.HandleEvent(vaxis.Mouse{Col: 0, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventRelease}, now)
-	runner.HandleEvent(vaxis.Key{Text: "a", Keycode: 'a', Modifiers: vaxis.ModCtrl}, now)
-	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
-	if len(backend.copies) != 1 || backend.copies[0] != "ab\ncd" {
-		t.Fatalf("copies = %#v, want ab\\ncd", backend.copies)
-	}
+	h.click(ui.Point{})
+	h.selectAll()
+	h.copy()
+	assertCopies(t, h.backend, "ab\ncd")
 }
 
 func TestSelectionContainerDisabledExcludesSubtreeFromCopy(t *testing.T) {
-	now := time.Unix(10, 0)
-	backend := newFakeBackend(ui.Size{Width: 16, Height: 3})
-	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+	h := newSelectionAreaHarness(t, ui.Size{Width: 16, Height: 3}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
 		ui.Text{Value: "aa"},
 		ui.SelectionContainer{Disabled: true, Child: ui.Text{Value: "bb"}},
 		ui.Text{Value: "cc"},
-	}}}), backend, ui.NewFrameScheduler(time.Second/60))
-	runner.Start(now)
-	if err := runner.HandleFrame(now); err != nil {
-		t.Fatal(err)
-	}
+	}}))
 
-	runner.HandleEvent(vaxis.Mouse{Col: 0, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}, now)
-	runner.HandleEvent(vaxis.Mouse{Col: 2, Row: 2, Button: vaxis.MouseLeftButton, EventType: vaxis.EventMotion}, now)
-	runner.HandleEvent(vaxis.Mouse{Col: 2, Row: 2, Button: vaxis.MouseLeftButton, EventType: vaxis.EventRelease}, now)
-	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
-	if len(backend.copies) != 1 || backend.copies[0] != "aa\ncc" {
-		t.Fatalf("copies = %#v, want aa\\ncc", backend.copies)
-	}
+	h.drag(ui.Point{}, ui.Point{X: 2, Y: 2})
+	h.copy()
+	assertCopies(t, h.backend, "aa\ncc")
 }
 
 func TestSelectionContainerDisabledDoesNotStartSelection(t *testing.T) {
-	now := time.Unix(10, 0)
-	backend := newFakeBackend(ui.Size{Width: 10, Height: 1})
-	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.SelectionContainer{
+	h := newSelectionAreaHarness(t, ui.Size{Width: 10, Height: 1}, selectionAreaRoot(ui.SelectionContainer{
 		Disabled: true,
 		Child:    ui.Text{Value: "abcd"},
-	}}), backend, ui.NewFrameScheduler(time.Second/60))
-	runner.Start(now)
-	if err := runner.HandleFrame(now); err != nil {
-		t.Fatal(err)
-	}
+	}))
 
-	runner.HandleEvent(vaxis.Mouse{Col: 0, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}, now)
-	runner.HandleEvent(vaxis.Mouse{Col: 4, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventMotion}, now)
-	runner.HandleEvent(vaxis.Mouse{Col: 4, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventRelease}, now)
-	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
-	if len(backend.copies) != 0 {
-		t.Fatalf("copies = %#v, want none", backend.copies)
-	}
+	h.drag(ui.Point{}, ui.Point{X: 4})
+	h.copy()
+	assertCopies(t, h.backend)
 }
 
 func TestSelectionContainerEnabledIsTransparent(t *testing.T) {
-	now := time.Unix(10, 0)
-	backend := newFakeBackend(ui.Size{Width: 10, Height: 1})
-	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.SelectionContainer{
+	h := newSelectionAreaHarness(t, ui.Size{Width: 10, Height: 1}, selectionAreaRoot(ui.SelectionContainer{
 		Child: ui.Text{Value: "abcd"},
-	}}), backend, ui.NewFrameScheduler(time.Second/60))
-	runner.Start(now)
-	if err := runner.HandleFrame(now); err != nil {
-		t.Fatal(err)
-	}
+	}))
 
-	runner.HandleEvent(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}, now)
-	runner.HandleEvent(vaxis.Mouse{Col: 3, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventMotion}, now)
-	runner.HandleEvent(vaxis.Mouse{Col: 3, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventRelease}, now)
-	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
-	if len(backend.copies) != 1 || backend.copies[0] != "bc" {
-		t.Fatalf("copies = %#v, want bc", backend.copies)
-	}
+	h.drag(ui.Point{X: 1}, ui.Point{X: 3})
+	h.copy()
+	assertCopies(t, h.backend, "bc")
 }
 
 func TestSelectionAreaSelectAllSkipsTextFieldContents(t *testing.T) {
-	now := time.Unix(10, 0)
-	backend := newFakeBackend(ui.Size{Width: 20, Height: 3})
-	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+	h := newSelectionAreaHarness(t, ui.Size{Width: 20, Height: 3}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
 		ui.Text{Value: "before"},
 		ui.TextField{Value: "field", MinWidth: 10},
 		ui.Text{Value: "after"},
-	}}}), backend, ui.NewFrameScheduler(time.Second/60))
-	runner.Start(now)
-	if err := runner.HandleFrame(now); err != nil {
-		t.Fatal(err)
-	}
+	}}))
 
-	runner.HandleEvent(vaxis.Key{Text: "a", Keycode: 'a', Modifiers: vaxis.ModCtrl}, now)
-	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
-	if len(backend.copies) != 1 || backend.copies[0] != "before\nafter" {
-		t.Fatalf("copies = %#v, want before\\nafter", backend.copies)
-	}
+	h.selectAll()
+	h.copy()
+	assertCopies(t, h.backend, "before\nafter")
 }
 
 func TestSelectionAreaFocusedTextFieldHandlesSelectAllAndCopy(t *testing.T) {
-	now := time.Unix(10, 0)
-	backend := newFakeBackend(ui.Size{Width: 20, Height: 3})
-	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+	h := newSelectionAreaHarness(t, ui.Size{Width: 20, Height: 3}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
 		ui.Text{Value: "before"},
 		ui.TextField{Value: "field", MinWidth: 10},
 		ui.Text{Value: "after"},
-	}}}), backend, ui.NewFrameScheduler(time.Second/60))
-	runner.Start(now)
-	if err := runner.HandleFrame(now); err != nil {
-		t.Fatal(err)
-	}
+	}}))
 
-	runner.HandleEvent(vaxis.Key{Keycode: vaxis.KeyTab}, now)
-	runner.HandleEvent(vaxis.Key{Text: "a", Keycode: 'a', Modifiers: vaxis.ModCtrl}, now)
-	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
-	if len(backend.copies) != 1 || backend.copies[0] != "field" {
-		t.Fatalf("copies = %#v, want field", backend.copies)
-	}
+	h.tab()
+	h.selectAll()
+	h.copy()
+	assertCopies(t, h.backend, "field")
 }
 
 func TestSelectionAreaMousePressInTextFieldDoesNotStartOuterSelection(t *testing.T) {
-	now := time.Unix(10, 0)
-	backend := newFakeBackend(ui.Size{Width: 20, Height: 3})
-	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+	h := newSelectionAreaHarness(t, ui.Size{Width: 20, Height: 3}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
 		ui.Text{Value: "before"},
 		ui.TextField{Value: "field", MinWidth: 10},
 		ui.Text{Value: "after"},
-	}}}), backend, ui.NewFrameScheduler(time.Second/60))
-	runner.Start(now)
-	if err := runner.HandleFrame(now); err != nil {
-		t.Fatal(err)
-	}
+	}}))
 
-	runner.HandleEvent(vaxis.Mouse{Col: 2, Row: 1, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}, now)
-	runner.HandleEvent(vaxis.Mouse{Col: 5, Row: 2, Button: vaxis.MouseLeftButton, EventType: vaxis.EventMotion}, now)
-	runner.HandleEvent(vaxis.Mouse{Col: 5, Row: 2, Button: vaxis.MouseLeftButton, EventType: vaxis.EventRelease}, now)
-	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
-	if len(backend.copies) != 0 {
-		t.Fatalf("copies = %#v, want none", backend.copies)
-	}
+	h.drag(ui.Point{X: 2, Y: 1}, ui.Point{X: 5, Y: 2})
+	h.copy()
+	assertCopies(t, h.backend)
 }
 
 func TestSelectionAreaSelectAllSkipsTextAreaContents(t *testing.T) {
-	now := time.Unix(10, 0)
-	backend := newFakeBackend(ui.Size{Width: 20, Height: 4})
-	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+	h := newSelectionAreaHarness(t, ui.Size{Width: 20, Height: 4}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
 		ui.Text{Value: "before"},
 		ui.TextArea{Value: "area", MinWidth: 10, MinHeight: 1},
 		ui.Text{Value: "after"},
-	}}}), backend, ui.NewFrameScheduler(time.Second/60))
-	runner.Start(now)
-	if err := runner.HandleFrame(now); err != nil {
-		t.Fatal(err)
-	}
+	}}))
 
-	runner.HandleEvent(vaxis.Key{Text: "a", Keycode: 'a', Modifiers: vaxis.ModCtrl}, now)
-	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
-	if len(backend.copies) != 1 || backend.copies[0] != "before\nafter" {
-		t.Fatalf("copies = %#v, want before\\nafter", backend.copies)
-	}
+	h.selectAll()
+	h.copy()
+	assertCopies(t, h.backend, "before\nafter")
 }
 
 func TestSelectionAreaFocusedTextAreaHandlesSelectAllAndCopy(t *testing.T) {
-	now := time.Unix(10, 0)
-	backend := newFakeBackend(ui.Size{Width: 20, Height: 4})
-	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+	h := newSelectionAreaHarness(t, ui.Size{Width: 20, Height: 4}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
 		ui.Text{Value: "before"},
 		ui.TextArea{Value: "area", MinWidth: 10, MinHeight: 1},
 		ui.Text{Value: "after"},
-	}}}), backend, ui.NewFrameScheduler(time.Second/60))
-	runner.Start(now)
-	if err := runner.HandleFrame(now); err != nil {
-		t.Fatal(err)
-	}
+	}}))
 
-	runner.HandleEvent(vaxis.Key{Keycode: vaxis.KeyTab}, now)
-	runner.HandleEvent(vaxis.Key{Text: "a", Keycode: 'a', Modifiers: vaxis.ModCtrl}, now)
-	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
-	if len(backend.copies) != 1 || backend.copies[0] != "area" {
-		t.Fatalf("copies = %#v, want area", backend.copies)
-	}
+	h.tab()
+	h.selectAll()
+	h.copy()
+	assertCopies(t, h.backend, "area")
 }
