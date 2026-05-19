@@ -238,6 +238,8 @@ func (s *DemoState) controlsPage() ui.Widget {
 				{Text: "checkbox: "},
 				{Text: checkboxStatus(s.done), Style: ui.Style{Attribute: ui.AttrBold}},
 			}},
+			ui.SizedBox{Width: 2, Height: 1},
+			ui.Checkbox{Disabled: true, Label: "Disabled"},
 		}},
 		ui.Flex{Axis: ui.Horizontal, CrossAxisAlignment: ui.CrossAxisCenter, Children: []ui.Widget{
 			ui.Radio[string]{Value: "compact", GroupValue: s.mode, Label: "Compact", OnChanged: func(ctx ui.EventContext, value string) {
@@ -251,6 +253,8 @@ func (s *DemoState) controlsPage() ui.Widget {
 			ui.Radio[string]{Value: "spacious", GroupValue: s.mode, Label: "Spacious", OnChanged: func(ctx ui.EventContext, value string) {
 				s.SetState(func() { s.mode = value })
 			}},
+			ui.SizedBox{Width: 1, Height: 1},
+			ui.Radio[string]{Value: "disabled", GroupValue: s.mode, Disabled: true, Label: "Disabled"},
 			ui.SizedBox{Width: 2, Height: 1},
 			ui.RichText{Spans: []ui.TextSpan{
 				{Text: "radio: "},

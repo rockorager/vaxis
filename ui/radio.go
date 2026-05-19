@@ -13,6 +13,8 @@ type Radio[T comparable] struct {
 	Value T
 	// GroupValue is the currently selected value for the radio group.
 	GroupValue T
+	// Disabled prevents focus, hover, and activation when true.
+	Disabled bool
 	// Label is painted after the radio when non-empty.
 	Label string
 	// OnChanged is called with Value when the radio is activated.
@@ -29,7 +31,7 @@ type radioState[T comparable] struct {
 
 func (s *radioState[T]) Build(ctx BuildContext) Widget {
 	w := s.Widget().(Radio[T])
-	return Focus(&s.node, RichText{Spans: radioSpans(w, s.styles(ctx))})
+	return s.build(ctx, w.Disabled, radioSpans(w, s.styles(ctx, w.Disabled)))
 }
 
 func radioSpans[T comparable](w Radio[T], styles selectControlStyles) []TextSpan {
@@ -41,14 +43,14 @@ func radioSpans[T comparable](w Radio[T], styles selectControlStyles) []TextSpan
 }
 
 func (s *radioState[T]) MouseShape(ctx EventContext, mouse Mouse) MouseShape {
-	return s.mouseShape()
+	return s.mouseShape(s.Widget().(Radio[T]).Disabled)
 }
 
 func (s *radioState[T]) HandleEvent(ctx EventContext, ev Event) EventResult {
-	if s.handleEvent(ctx, ev) == EventIgnored {
+	w := s.Widget().(Radio[T])
+	if s.handleEvent(ctx, ev, w.Disabled) == EventIgnored {
 		return EventIgnored
 	}
-	w := s.Widget().(Radio[T])
 	if w.OnChanged != nil {
 		w.OnChanged(ctx, w.Value)
 	}

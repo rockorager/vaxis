@@ -10,6 +10,8 @@ type BoolChangedCallback func(EventContext, bool)
 type Checkbox struct {
 	// Checked controls whether the checkbox is painted as selected.
 	Checked bool
+	// Disabled prevents focus, hover, and activation when true.
+	Disabled bool
 	// Label is painted after the checkbox when non-empty.
 	Label string
 	// OnChanged is called with the next checked value when the checkbox is activated.
@@ -26,7 +28,7 @@ type checkboxState struct {
 
 func (s *checkboxState) Build(ctx BuildContext) Widget {
 	w := s.Widget().(Checkbox)
-	return Focus(&s.node, RichText{Spans: checkboxSpans(w, s.styles(ctx))})
+	return s.build(ctx, w.Disabled, checkboxSpans(w, s.styles(ctx, w.Disabled)))
 }
 
 func checkboxSpans(w Checkbox, styles selectControlStyles) []TextSpan {
@@ -38,14 +40,14 @@ func checkboxSpans(w Checkbox, styles selectControlStyles) []TextSpan {
 }
 
 func (s *checkboxState) MouseShape(ctx EventContext, mouse Mouse) MouseShape {
-	return s.mouseShape()
+	return s.mouseShape(s.Widget().(Checkbox).Disabled)
 }
 
 func (s *checkboxState) HandleEvent(ctx EventContext, ev Event) EventResult {
-	if s.handleEvent(ctx, ev) == EventIgnored {
+	w := s.Widget().(Checkbox)
+	if s.handleEvent(ctx, ev, w.Disabled) == EventIgnored {
 		return EventIgnored
 	}
-	w := s.Widget().(Checkbox)
 	if w.OnChanged != nil {
 		w.OnChanged(ctx, !w.Checked)
 	}

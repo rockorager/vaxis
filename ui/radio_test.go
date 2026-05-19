@@ -120,3 +120,51 @@ func TestRadioHoverStyleOnlyAppliesToBox(t *testing.T) {
 		t.Fatalf("hovered radio label style = %#v, want %#v", got, normal)
 	}
 }
+
+func TestDisabledRadioIsDimmed(t *testing.T) {
+	app := uitest.New(ui.Radio[string]{Value: "a", GroupValue: "a", Disabled: true, Label: "Disabled"})
+	app.Pump(20, 1)
+	if got := app.Cell(1, 0).Attribute; got&ui.AttrDim == 0 {
+		t.Fatalf("disabled radio mark attribute = %#v, want dim", got)
+	}
+	if got := app.Cell(4, 0).Attribute; got&ui.AttrDim == 0 {
+		t.Fatalf("disabled radio label attribute = %#v, want dim", got)
+	}
+}
+
+func TestDisabledRadioDoesNotActivate(t *testing.T) {
+	called := false
+	app := ui.NewApp(ui.Radio[string]{Value: "a", Disabled: true, OnChanged: func(ctx ui.EventContext, value string) {
+		called = true
+	}})
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	app.Send(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
+	if called {
+		t.Fatal("disabled radio should not activate")
+	}
+}
+
+func TestDisabledRadioDoesNotTakeFocus(t *testing.T) {
+	pressed := false
+	app := ui.NewApp(ui.Row(
+		ui.Radio[string]{Value: "a", Disabled: true, Label: "Disabled", OnChanged: func(ctx ui.EventContext, value string) {
+			t.Fatal("disabled radio should not be focused")
+		}},
+		ui.Button{Label: "next", OnPressed: func(ctx ui.EventContext) { pressed = true }},
+	))
+	app.Pump(ui.Size{Width: 30, Height: 1})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
+	if !pressed {
+		t.Fatal("expected focus to skip disabled radio")
+	}
+}
+
+func TestDisabledRadioDoesNotSetMouseShape(t *testing.T) {
+	app := ui.NewApp(ui.Align{Alignment: ui.TopLeft, Child: ui.Radio[string]{Value: "a", Disabled: true, Label: "Disabled"}})
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	app.Send(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseNoButton, EventType: vaxis.EventMotion})
+	if got := app.MouseShape(); got != ui.MouseShapeDefault {
+		t.Fatalf("disabled radio mouse shape = %q, want default", got)
+	}
+}

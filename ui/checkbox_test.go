@@ -120,3 +120,51 @@ func TestCheckboxHoverStyleOnlyAppliesToBox(t *testing.T) {
 		t.Fatalf("hovered checkbox label style = %#v, want %#v", got, normal)
 	}
 }
+
+func TestDisabledCheckboxIsDimmed(t *testing.T) {
+	app := uitest.New(ui.Checkbox{Disabled: true, Label: "Disabled"})
+	app.Pump(20, 1)
+	if got := app.Cell(1, 0).Attribute; got&ui.AttrDim == 0 {
+		t.Fatalf("disabled checkbox mark attribute = %#v, want dim", got)
+	}
+	if got := app.Cell(4, 0).Attribute; got&ui.AttrDim == 0 {
+		t.Fatalf("disabled checkbox label attribute = %#v, want dim", got)
+	}
+}
+
+func TestDisabledCheckboxDoesNotActivate(t *testing.T) {
+	called := false
+	app := ui.NewApp(ui.Checkbox{Disabled: true, OnChanged: func(ctx ui.EventContext, checked bool) {
+		called = true
+	}})
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	app.Send(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
+	if called {
+		t.Fatal("disabled checkbox should not activate")
+	}
+}
+
+func TestDisabledCheckboxDoesNotTakeFocus(t *testing.T) {
+	pressed := false
+	app := ui.NewApp(ui.Row(
+		ui.Checkbox{Disabled: true, Label: "Disabled", OnChanged: func(ctx ui.EventContext, checked bool) {
+			t.Fatal("disabled checkbox should not be focused")
+		}},
+		ui.Button{Label: "next", OnPressed: func(ctx ui.EventContext) { pressed = true }},
+	))
+	app.Pump(ui.Size{Width: 30, Height: 1})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
+	if !pressed {
+		t.Fatal("expected focus to skip disabled checkbox")
+	}
+}
+
+func TestDisabledCheckboxDoesNotSetMouseShape(t *testing.T) {
+	app := ui.NewApp(ui.Align{Alignment: ui.TopLeft, Child: ui.Checkbox{Disabled: true, Label: "Disabled"}})
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	app.Send(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseNoButton, EventType: vaxis.EventMotion})
+	if got := app.MouseShape(); got != ui.MouseShapeDefault {
+		t.Fatalf("disabled checkbox mouse shape = %q, want default", got)
+	}
+}

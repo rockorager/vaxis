@@ -12,19 +12,23 @@ type selectControlStyles struct {
 	focused bool
 }
 
-func (s *selectControlState) styles(ctx BuildContext) selectControlStyles {
+func (s *selectControlState) styles(ctx BuildContext, disabled bool) selectControlStyles {
 	s.node.onChange = s.MarkNeedsBuild
 	theme := MustDepend[Theme](ctx).Button
 	styles := selectControlStyles{
 		box:     theme.Normal,
 		label:   theme.Normal,
-		focused: s.node.HasFocus(),
+		focused: !disabled && s.node.HasFocus(),
 	}
 	if styles.focused {
 		styles.box = theme.Focused
 	}
-	if s.hovered {
+	if !disabled && s.hovered {
 		styles.box = theme.Hovered
+	}
+	if disabled {
+		styles.box.Attribute |= AttrDim
+		styles.label.Attribute |= AttrDim
 	}
 	return styles
 }
@@ -45,7 +49,18 @@ func selectControlSpans(left, mark, right, label string, styles selectControlSty
 	return append(spans, TextSpan{Text: " " + label, Style: styles.label})
 }
 
-func (s *selectControlState) mouseShape() MouseShape {
+func (s *selectControlState) build(ctx BuildContext, disabled bool, spans []TextSpan) Widget {
+	child := RichText{Spans: spans}
+	if disabled {
+		return child
+	}
+	return Focus(&s.node, child)
+}
+
+func (s *selectControlState) mouseShape(disabled bool) MouseShape {
+	if disabled {
+		return MouseShapeDefault
+	}
 	shape := MustDepend[Theme](s.Context()).Button.Mouse
 	if shape == "" {
 		return MouseShapeClickable
@@ -53,7 +68,10 @@ func (s *selectControlState) mouseShape() MouseShape {
 	return shape
 }
 
-func (s *selectControlState) handleEvent(ctx EventContext, ev Event) EventResult {
+func (s *selectControlState) handleEvent(ctx EventContext, ev Event, disabled bool) EventResult {
+	if disabled {
+		return EventIgnored
+	}
 	if ctx.Phase() != TargetPhase && ctx.Phase() != BubblePhase {
 		return EventIgnored
 	}
