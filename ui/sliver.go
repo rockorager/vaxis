@@ -52,6 +52,9 @@ const defaultSliverListBuilderInitialCount = 32
 // viewport applies the correction and lays out again so the current anchor row
 // stays visually stable.
 type CustomScrollView struct {
+	// Controller can be used to inspect and change scroll position
+	// programmatically after this view is mounted.
+	Controller *ScrollController
 	// Slivers are laid out vertically in order.
 	Slivers []Widget
 }
@@ -67,10 +70,33 @@ type customScrollViewState struct {
 }
 
 func (s *customScrollViewState) Build(BuildContext) Widget {
+	w := s.Widget().(CustomScrollView)
+	s.attachController(w.Controller)
 	return Focus(&s.node, customScrollViewport{
 		State:   s,
-		Slivers: s.Widget().(CustomScrollView).Slivers,
+		Slivers: w.Slivers,
 	})
+}
+
+func (s *customScrollViewState) DidUpdateWidget(old Widget) {
+	next := s.Widget().(CustomScrollView).Controller
+	prev := old.(CustomScrollView).Controller
+	if prev != nil && prev != next {
+		prev.detach(s)
+	}
+	s.attachController(next)
+}
+
+func (s *customScrollViewState) Dispose() {
+	if c := s.Widget().(CustomScrollView).Controller; c != nil {
+		c.detach(s)
+	}
+}
+
+func (s *customScrollViewState) attachController(c *ScrollController) {
+	if c != nil {
+		c.attach(s)
+	}
 }
 
 func (s *customScrollViewState) HandleEvent(ctx EventContext, ev Event) EventResult {
@@ -144,6 +170,48 @@ func (s *customScrollViewState) renderObject() *renderCustomScrollView {
 		return r
 	}
 	return nil
+}
+
+func (s *customScrollViewState) ScrollByLines(lines int) bool {
+	if r := s.renderObject(); r != nil {
+		return r.ScrollByLines(lines)
+	}
+	return false
+}
+
+func (s *customScrollViewState) ScrollByPages(pages int) bool {
+	if r := s.renderObject(); r != nil {
+		return r.ScrollByPages(pages)
+	}
+	return false
+}
+
+func (s *customScrollViewState) ScrollToOffset(row int) bool {
+	if r := s.renderObject(); r != nil {
+		return r.ScrollToOffset(row)
+	}
+	return false
+}
+
+func (s *customScrollViewState) ScrollToStart() bool {
+	if r := s.renderObject(); r != nil {
+		return r.ScrollToStart()
+	}
+	return false
+}
+
+func (s *customScrollViewState) ScrollToEnd() bool {
+	if r := s.renderObject(); r != nil {
+		return r.ScrollToEnd()
+	}
+	return false
+}
+
+func (s *customScrollViewState) ScrollMetrics() ScrollMetrics {
+	if r := s.renderObject(); r != nil {
+		return r.ScrollMetrics()
+	}
+	return ScrollMetrics{}
 }
 
 type customScrollViewport struct {

@@ -102,6 +102,110 @@ func TestCustomScrollViewReportsScrollMetrics(t *testing.T) {
 	}
 }
 
+func TestScrollControllerControlsCustomScrollView(t *testing.T) {
+	controller := &ScrollController{}
+	if controller.Attached() {
+		t.Fatal("controller attached before mount")
+	}
+	if controller.ScrollToEnd() {
+		t.Fatal("unattached controller scrolled")
+	}
+	app := NewApp(CustomScrollView{
+		Controller: controller,
+		Slivers: []Widget{
+			SliverList{ChildrenWidget: []Widget{
+				Text{Value: "one"},
+				Text{Value: "two"},
+				Text{Value: "three"},
+				Text{Value: "four"},
+			}},
+		},
+	})
+	app.Pump(Size{Width: 10, Height: 2})
+	if !controller.Attached() {
+		t.Fatal("controller not attached after mount")
+	}
+	if !controller.ScrollToOffset(2) {
+		t.Fatal("controller did not scroll to offset")
+	}
+	app.Pump(Size{Width: 10, Height: 2})
+	p := NewPainter(Size{Width: 10, Height: 2})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Grapheme; got != "t" {
+		t.Fatalf("first visible row = %q, want three", got)
+	}
+	if got := controller.Metrics().ScrollOffset; got != 2 {
+		t.Fatalf("controller offset = %d, want 2", got)
+	}
+	if controller.ScrollToOffset(2) {
+		t.Fatal("controller reported a change when offset was unchanged")
+	}
+}
+
+func TestScrollControllerDetachesFromCustomScrollView(t *testing.T) {
+	controller := &ScrollController{}
+	app := NewApp(CustomScrollView{
+		Controller: controller,
+		Slivers: []Widget{
+			SliverList{ChildrenWidget: []Widget{Text{Value: "one"}, Text{Value: "two"}}},
+		},
+	})
+	app.Pump(Size{Width: 10, Height: 1})
+	if !controller.Attached() {
+		t.Fatal("controller not attached after mount")
+	}
+
+	app.UpdateRoot(Text{Value: "gone"})
+	app.Pump(Size{Width: 10, Height: 1})
+	if controller.Attached() {
+		t.Fatal("controller still attached after view unmounted")
+	}
+	if got := controller.Metrics(); got != (ScrollMetrics{}) {
+		t.Fatalf("detached metrics = %#v, want zero", got)
+	}
+}
+
+func TestScrollControllerCanMoveBetweenCustomScrollViews(t *testing.T) {
+	controller := &ScrollController{}
+	app := NewApp(CustomScrollView{
+		Controller: controller,
+		Slivers: []Widget{
+			SliverList{ChildrenWidget: []Widget{Text{Value: "one"}, Text{Value: "two"}, Text{Value: "three"}}},
+		},
+	})
+	app.Pump(Size{Width: 10, Height: 1})
+	if !controller.ScrollToEnd() {
+		t.Fatal("controller did not scroll first view")
+	}
+	app.Pump(Size{Width: 10, Height: 1})
+
+	app.UpdateRoot(CustomScrollView{
+		Controller: controller,
+		Slivers: []Widget{
+			SliverList{ChildrenWidget: []Widget{
+				Text{Value: "alpha"},
+				Text{Value: "beta"},
+				Text{Value: "gamma"},
+				Text{Value: "delta"},
+			}},
+		},
+	})
+	app.Pump(Size{Width: 10, Height: 2})
+	if !controller.ScrollToStart() {
+		t.Fatal("controller did not scroll updated view to start")
+	}
+	app.Pump(Size{Width: 10, Height: 2})
+	if !controller.ScrollToEnd() {
+		t.Fatal("controller did not scroll updated view")
+	}
+	app.Pump(Size{Width: 10, Height: 2})
+	p := NewPainter(Size{Width: 10, Height: 2})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Grapheme; got != "g" {
+		t.Fatalf("first visible row after controller reuse = %q, want gamma", got)
+	}
+}
+
 func TestCustomScrollViewWorksWithScrollbar(t *testing.T) {
 	app := NewApp(Scrollbar{Child: CustomScrollView{Slivers: []Widget{
 		SliverList{ChildrenWidget: []Widget{
