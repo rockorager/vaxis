@@ -112,6 +112,165 @@ func TestMarkNeedsBuildAfterDisposePanics(t *testing.T) {
 	state.MarkNeedsBuild()
 }
 
+type dirtyParentWidget struct {
+	childName string
+	childLog  *[]string
+}
+
+func (w dirtyParentWidget) CreateState() State {
+	return &dirtyParentState{}
+}
+
+type dirtyParentState struct {
+	StateBase
+	childName string
+}
+
+func (s *dirtyParentState) InitState() {
+	s.childName = s.Widget().(dirtyParentWidget).childName
+}
+
+func (s *dirtyParentState) SetChildName(name string) {
+	s.SetState(func() { s.childName = name })
+}
+
+func (s *dirtyParentState) Build(BuildContext) Widget {
+	w := s.Widget().(dirtyParentWidget)
+	if s.childName == "" {
+		return Text{Value: "empty"}
+	}
+	return lifecycleWidget{Name: s.childName, Log: w.childLog}
+}
+
+func TestDirtyParentUpdatesDirtyChildOnce(t *testing.T) {
+	var log []string
+	app := NewApp(dirtyParentWidget{childName: "one", childLog: &log})
+	app.Pump(Size{Width: 10, Height: 1})
+	parent := findState[*dirtyParentState](app.build.Root())
+	child := findState[*lifecycleState](app.build.Root())
+
+	child.MarkNeedsBuild()
+	parent.SetChildName("two")
+	app.Pump(Size{Width: 10, Height: 1})
+
+	want := []string{"init:one", "update-old:one:new:two"}
+	if !sameStrings(log, want) {
+		t.Fatalf("log = %#v, want %#v", log, want)
+	}
+}
+
+func TestDirtyParentRemovesDirtyChild(t *testing.T) {
+	var log []string
+	app := NewApp(dirtyParentWidget{childName: "one", childLog: &log})
+	app.Pump(Size{Width: 10, Height: 1})
+	parent := findState[*dirtyParentState](app.build.Root())
+	child := findState[*lifecycleState](app.build.Root())
+
+	child.MarkNeedsBuild()
+	parent.SetChildName("")
+	app.Pump(Size{Width: 10, Height: 1})
+
+	want := []string{"init:one", "dispose:one"}
+	if !sameStrings(log, want) {
+		t.Fatalf("log = %#v, want %#v", log, want)
+	}
+}
+
+type dirtyChildStats struct {
+	builds  int
+	updates int
+	dispose int
+}
+
+type dirtyCountingParentWidget struct {
+	childName string
+	stats     *dirtyChildStats
+}
+
+func (w dirtyCountingParentWidget) CreateState() State {
+	return &dirtyCountingParentState{}
+}
+
+type dirtyCountingParentState struct {
+	StateBase
+	childName string
+}
+
+func (s *dirtyCountingParentState) InitState() {
+	s.childName = s.Widget().(dirtyCountingParentWidget).childName
+}
+
+func (s *dirtyCountingParentState) SetChildName(name string) {
+	s.SetState(func() { s.childName = name })
+}
+
+func (s *dirtyCountingParentState) Build(BuildContext) Widget {
+	w := s.Widget().(dirtyCountingParentWidget)
+	if s.childName == "" {
+		return Text{Value: "empty"}
+	}
+	return dirtyCountingChildWidget{Name: s.childName, Stats: w.stats}
+}
+
+type dirtyCountingChildWidget struct {
+	Name  string
+	Stats *dirtyChildStats
+}
+
+func (w dirtyCountingChildWidget) CreateState() State {
+	return &dirtyCountingChildState{}
+}
+
+type dirtyCountingChildState struct {
+	StateBase
+}
+
+func (s *dirtyCountingChildState) DidUpdateWidget(Widget) {
+	s.Widget().(dirtyCountingChildWidget).Stats.updates++
+}
+
+func (s *dirtyCountingChildState) Dispose() {
+	s.Widget().(dirtyCountingChildWidget).Stats.dispose++
+}
+
+func (s *dirtyCountingChildState) Build(BuildContext) Widget {
+	w := s.Widget().(dirtyCountingChildWidget)
+	w.Stats.builds++
+	return Text{Value: w.Name}
+}
+
+func TestDirtyParentRebuildsDirtyChildOnce(t *testing.T) {
+	stats := &dirtyChildStats{}
+	app := NewApp(dirtyCountingParentWidget{childName: "one", stats: stats})
+	app.Pump(Size{Width: 10, Height: 1})
+	parent := findState[*dirtyCountingParentState](app.build.Root())
+	child := findState[*dirtyCountingChildState](app.build.Root())
+
+	child.MarkNeedsBuild()
+	parent.SetChildName("two")
+	app.Pump(Size{Width: 10, Height: 1})
+
+	if stats.builds != 2 || stats.updates != 1 || stats.dispose != 0 {
+		t.Fatalf("stats = %#v, want 2 builds, 1 update, 0 dispose", stats)
+	}
+}
+
+func TestDirtyParentDoesNotRebuildRemovedDirtyChild(t *testing.T) {
+	stats := &dirtyChildStats{}
+	app := NewApp(dirtyCountingParentWidget{childName: "one", stats: stats})
+	app.Pump(Size{Width: 10, Height: 1})
+	parent := findState[*dirtyCountingParentState](app.build.Root())
+	child := findState[*dirtyCountingChildState](app.build.Root())
+
+	child.MarkNeedsBuild()
+	parent.SetChildName("")
+	app.Pump(Size{Width: 10, Height: 1})
+
+	if stats.builds != 1 || stats.updates != 0 || stats.dispose != 1 {
+		t.Fatalf("stats = %#v, want 1 build, 0 updates, 1 dispose", stats)
+	}
+}
+
 func findState[T any](root element) T {
 	var zero T
 	var found T
