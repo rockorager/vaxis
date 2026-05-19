@@ -60,10 +60,9 @@ func (s *DemoState) Dispose() {
 func (s *DemoState) Build(ctx ui.BuildContext) ui.Widget {
 	return ui.Keymap{
 		Bindings: map[string]ui.VoidCallback{
-			"q":      func(ctx ui.EventContext) { ctx.Quit() },
-			"Ctrl+c": func(ctx ui.EventContext) { ctx.Quit() },
-			"n":      func(ctx ui.EventContext) { s.nextPage() },
-			"p":      func(ctx ui.EventContext) { s.previousPage() },
+			"q": func(ctx ui.EventContext) { ctx.Quit() },
+			"n": func(ctx ui.EventContext) { s.nextPage() },
+			"p": func(ctx ui.EventContext) { s.previousPage() },
 		},
 		Child: ui.Padding(
 			ui.All(1),
@@ -142,9 +141,10 @@ func (s *DemoState) homePage() ui.Widget {
 }
 
 func (s *DemoState) textPage() ui.Widget {
-	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+	return ui.SelectionArea{Child: ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
 		ui.RichText{Spans: []ui.TextSpan{
 			{Text: "Text layout", Style: ui.Style{Attribute: ui.AttrBold}},
+			{Text: "\nDrag across this page to select text, then press Ctrl+C to copy it."},
 			{Text: "\nRichText spans can mix emphasis while sharing the same wrapping engine as Text. "},
 			{Text: "Bold spans", Style: ui.Style{Attribute: ui.AttrBold}},
 			{Text: " stay attached to their content as lines wrap across the available width."},
@@ -155,7 +155,7 @@ func (s *DemoState) textPage() ui.Widget {
 			SoftWrap: true,
 		}},
 		ui.ConstrainedBox{Constraints: ui.Constraints{MinWidth: 72, MaxWidth: 72}, Child: ui.Text{Value: "center aligned text", Align: ui.TextAlignCenter}},
-	}}
+	}}}
 }
 
 func (s *DemoState) controlsPage() ui.Widget {

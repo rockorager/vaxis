@@ -66,10 +66,12 @@ func (w Text) options() TextLayoutOptions {
 // renderText lays out and paints a Text widget.
 type renderText struct {
 	LeafRenderObject
-	Text    string
-	Style   Style
-	Options TextLayoutOptions
-	layout  TextLayout
+	Text           string
+	Style          Style
+	Options        TextLayoutOptions
+	layout         TextLayout
+	selection      TextSelection
+	selectionStyle Style
 }
 
 func (r *renderText) Layout(ctx LayoutContext, c Constraints) {
@@ -87,5 +89,34 @@ func (r *renderText) Paint(p *Painter, off Offset) {
 		defer p.PopClip()
 	}
 	paintTextBackground(p, off, r.Size(), []TextSpan{{Text: r.Text, Style: r.Style}})
+	if !r.selection.IsCollapsed() {
+		paintVisibleTextLayout(p, off, r.layout, textLayoutPaintOptions{
+			Size:           r.Size(),
+			Selection:      r.selection,
+			SelectionStyle: r.selectionStyle,
+		})
+		return
+	}
 	paintLaidOutText(p, off, r.layout, r.Options)
+}
+
+func (r *renderText) PositionForPoint(pt Point) (TextPosition, bool) {
+	return textLayoutPositionForPoint(r.layout, pt)
+}
+
+func (r *renderText) SelectAll() TextSelection {
+	return textSelectionForSpans([]TextSpan{{Text: r.Text}})
+}
+
+func (r *renderText) SelectedText(selection TextSelection) string {
+	return selectedTextForSpans([]TextSpan{{Text: r.Text}}, selection)
+}
+
+func (r *renderText) SetSelection(selection TextSelection, style Style) {
+	if r.selection == selection && r.selectionStyle == style {
+		return
+	}
+	r.selection = selection
+	r.selectionStyle = style
+	r.MarkNeedsPaint()
 }

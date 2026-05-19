@@ -451,3 +451,57 @@ func textAlignOffset(width, lineWidth int, align TextAlign) int {
 		return 0
 	}
 }
+
+func textLayoutPositionForPoint(layout TextLayout, pt Point) (TextPosition, bool) {
+	if len(layout.Lines) == 0 {
+		return TextPosition{}, true
+	}
+	row := clampInt(pt.Y, 0, len(layout.Lines)-1)
+	if pt.Y < 0 {
+		return layout.Lines[0].Start, true
+	}
+	if pt.Y >= len(layout.Lines) {
+		return layout.Lines[len(layout.Lines)-1].End, true
+	}
+	pos, ok := layout.PositionForCell(row, pt.X)
+	if ok {
+		return pos, true
+	}
+	if pt.X < layout.Lines[row].Offset {
+		return layout.Lines[row].Start, true
+	}
+	return layout.Lines[row].End, true
+}
+
+func textSelectionForSpans(spans []TextSpan) TextSelection {
+	end := TextPosition{}
+	for spanIndex, span := range spans {
+		end.Span = spanIndex
+		end.ByteOffset = 0
+		end.RuneOffset = 0
+		end.GraphemeOffset = 0
+		for _, ch := range vaxisCharacters(span.Text) {
+			end = advanceTextPosition(end, ch.Grapheme)
+		}
+	}
+	return TextSelection{Extent: end}
+}
+
+func selectedTextForSpans(spans []TextSpan, selection TextSelection) string {
+	if selection.IsCollapsed() {
+		return ""
+	}
+	selection = selection.Normalized()
+	out := ""
+	for spanIndex, span := range spans {
+		pos := TextPosition{Span: spanIndex}
+		for _, ch := range vaxisCharacters(span.Text) {
+			end := advanceTextPosition(pos, ch.Grapheme)
+			if compareTextPosition(selection.Base, pos) <= 0 && compareTextPosition(pos, selection.Extent) < 0 {
+				out += ch.Grapheme
+			}
+			pos = end
+		}
+	}
+	return out
+}

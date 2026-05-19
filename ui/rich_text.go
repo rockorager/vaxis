@@ -39,9 +39,11 @@ func (w RichText) options() TextLayoutOptions {
 // renderRichText lays out and paints a RichText widget.
 type renderRichText struct {
 	LeafRenderObject
-	Spans   []TextSpan
-	Options TextLayoutOptions
-	layout  TextLayout
+	Spans          []TextSpan
+	Options        TextLayoutOptions
+	layout         TextLayout
+	selection      TextSelection
+	selectionStyle Style
 }
 
 func (r *renderRichText) Layout(ctx LayoutContext, c Constraints) {
@@ -58,7 +60,36 @@ func (r *renderRichText) Paint(p *Painter, off Offset) {
 		p.PushClip(Rect{X: off.X, Y: off.Y, Width: r.Size().Width, Height: r.Size().Height})
 		defer p.PopClip()
 	}
+	if !r.selection.IsCollapsed() {
+		paintVisibleTextLayout(p, off, r.layout, textLayoutPaintOptions{
+			Size:           r.Size(),
+			Selection:      r.selection,
+			SelectionStyle: r.selectionStyle,
+		})
+		return
+	}
 	paintLaidOutText(p, off, r.layout, r.Options)
+}
+
+func (r *renderRichText) PositionForPoint(pt Point) (TextPosition, bool) {
+	return textLayoutPositionForPoint(r.layout, pt)
+}
+
+func (r *renderRichText) SelectAll() TextSelection {
+	return textSelectionForSpans(r.Spans)
+}
+
+func (r *renderRichText) SelectedText(selection TextSelection) string {
+	return selectedTextForSpans(r.Spans, selection)
+}
+
+func (r *renderRichText) SetSelection(selection TextSelection, style Style) {
+	if r.selection == selection && r.selectionStyle == style {
+		return
+	}
+	r.selection = selection
+	r.selectionStyle = style
+	r.MarkNeedsPaint()
 }
 
 func themedSpans(ctx BuildContext, spans []TextSpan) []TextSpan {
