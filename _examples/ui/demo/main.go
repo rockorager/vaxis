@@ -28,6 +28,7 @@ type DemoState struct {
 	name  string
 	notes string
 	done  bool
+	mode  string
 	chat  string
 	logs  []string
 	anim  *ui.AnimationController
@@ -44,6 +45,7 @@ func (s *DemoState) InitState() {
 		"Linus: submit a message below",
 		"Grace: the viewport follows while you are at the end",
 	}
+	s.mode = "compact"
 	s.stop = make(chan struct{})
 	go func() {
 		ticker := time.NewTicker(time.Second)
@@ -207,7 +209,7 @@ func (s *DemoState) controlsPage() ui.Widget {
 		}},
 		ui.SizedBox{Height: 1},
 		ui.Text{Value: "Notes"},
-		ui.TextArea{Value: s.notes, Placeholder: "write a note", MinHeight: 3, SoftWrap: true, OnChanged: func(ctx ui.EventContext, value string) {
+		ui.TextArea{Value: s.notes, Placeholder: "write a note", MinHeight: 2, SoftWrap: true, OnChanged: func(ctx ui.EventContext, value string) {
 			s.SetState(func() { s.notes = value })
 		}},
 		ui.SizedBox{Height: 1},
@@ -235,6 +237,24 @@ func (s *DemoState) controlsPage() ui.Widget {
 			ui.RichText{Spans: []ui.TextSpan{
 				{Text: "checkbox: "},
 				{Text: checkboxStatus(s.done), Style: ui.Style{Attribute: ui.AttrBold}},
+			}},
+		}},
+		ui.Flex{Axis: ui.Horizontal, CrossAxisAlignment: ui.CrossAxisCenter, Children: []ui.Widget{
+			ui.Radio[string]{Value: "compact", GroupValue: s.mode, Label: "Compact", OnChanged: func(ctx ui.EventContext, value string) {
+				s.SetState(func() { s.mode = value })
+			}},
+			ui.SizedBox{Width: 1, Height: 1},
+			ui.Radio[string]{Value: "cozy", GroupValue: s.mode, Label: "Cozy", OnChanged: func(ctx ui.EventContext, value string) {
+				s.SetState(func() { s.mode = value })
+			}},
+			ui.SizedBox{Width: 1, Height: 1},
+			ui.Radio[string]{Value: "spacious", GroupValue: s.mode, Label: "Spacious", OnChanged: func(ctx ui.EventContext, value string) {
+				s.SetState(func() { s.mode = value })
+			}},
+			ui.SizedBox{Width: 2, Height: 1},
+			ui.RichText{Spans: []ui.TextSpan{
+				{Text: "radio: "},
+				{Text: s.mode, Style: ui.Style{Attribute: ui.AttrBold}},
 			}},
 		}},
 		ui.Align{Alignment: ui.CenterRight, Child: ui.Text{Value: "aligned right inside the page"}},

@@ -23,7 +23,7 @@ func TestDemoExampleNavigationAndControls(t *testing.T) {
 
 	app.Key("n")
 	app.Pump(90, 20)
-	if !app.Contains("Controls") || !app.Contains("count: 0") || !app.Contains("Stack base") || !app.Contains("checkbox: unchecked") {
+	if !app.Contains("Controls") || !app.Contains("count: 0") || !app.Contains("Stack base") || !app.Contains("checkbox: unchecked") || !app.Contains("radio: compact") {
 		t.Fatalf("controls page missing content: %q", app.Text())
 	}
 	app.Key("n")
