@@ -206,6 +206,130 @@ func TestScrollControllerCanMoveBetweenCustomScrollViews(t *testing.T) {
 	}
 }
 
+func TestSliverListControllerScrollsToIndex(t *testing.T) {
+	controller := &SliverListController{}
+	if controller.Attached() {
+		t.Fatal("list controller attached before mount")
+	}
+	app := NewApp(CustomScrollView{Slivers: []Widget{
+		SliverToBox{Child: Text{Value: "header"}},
+		SliverListBuilder{
+			Controller: controller,
+			Count:      20,
+			ItemExtent: 1,
+			Builder: func(ctx BuildContext, i int) Widget {
+				return Text{Value: "row " + padTestInt(i, 2)}
+			},
+		},
+	}})
+	app.Pump(Size{Width: 10, Height: 3})
+	app.Pump(Size{Width: 10, Height: 3})
+	if !controller.Attached() {
+		t.Fatal("list controller not attached after mount")
+	}
+	if !controller.ScrollToIndex(6, ScrollAlignStart) {
+		t.Fatal("list controller did not scroll to index")
+	}
+	app.Pump(Size{Width: 10, Height: 3})
+	app.Pump(Size{Width: 10, Height: 3})
+
+	p := NewPainter(Size{Width: 10, Height: 3})
+	app.Paint(p)
+	if got := p.Cell(4, 0).Grapheme + p.Cell(5, 0).Grapheme; got != "06" {
+		t.Fatalf("first visible list row suffix = %q, want row 06", got)
+	}
+	first, last, ok := controller.VisibleRange()
+	if !ok || first != 6 || last != 9 {
+		t.Fatalf("visible range = %d,%d,%v, want 6,9,true", first, last, ok)
+	}
+}
+
+func TestSliverListControllerScrollAlignEnd(t *testing.T) {
+	controller := &SliverListController{}
+	app := NewApp(CustomScrollView{Slivers: []Widget{
+		SliverListBuilder{
+			Controller: controller,
+			Count:      20,
+			ItemExtent: 1,
+			Builder: func(ctx BuildContext, i int) Widget {
+				return Text{Value: "row " + padTestInt(i, 2)}
+			},
+		},
+	}})
+	app.Pump(Size{Width: 10, Height: 3})
+	app.Pump(Size{Width: 10, Height: 3})
+	if !controller.ScrollToIndex(6, ScrollAlignEnd) {
+		t.Fatal("list controller did not scroll to index")
+	}
+	app.Pump(Size{Width: 10, Height: 3})
+	app.Pump(Size{Width: 10, Height: 3})
+
+	p := NewPainter(Size{Width: 10, Height: 3})
+	app.Paint(p)
+	if got := p.Cell(4, 2).Grapheme + p.Cell(5, 2).Grapheme; got != "06" {
+		t.Fatalf("bottom visible list row suffix = %q, want row 06", got)
+	}
+}
+
+func TestSliverListControllerUsesMeasuredOffsets(t *testing.T) {
+	controller := &SliverListController{}
+	heights := []int{1, 3, 2, 1}
+	app := NewApp(CustomScrollView{Slivers: []Widget{
+		SliverListBuilder{
+			Controller:          controller,
+			Count:               len(heights),
+			EstimatedItemExtent: 1,
+			Builder: func(ctx BuildContext, i int) Widget {
+				return SizedBox{Width: 10, Height: heights[i], Child: Text{Value: "row " + strconv.Itoa(i)}}
+			},
+		},
+	}})
+	app.Pump(Size{Width: 10, Height: 3})
+	app.Pump(Size{Width: 10, Height: 3})
+
+	offset, ok := controller.OffsetForIndex(2)
+	if !ok || offset != 4 {
+		t.Fatalf("offset for index 2 = %d,%v, want 4,true", offset, ok)
+	}
+	if !controller.ScrollToIndex(2, ScrollAlignStart) {
+		t.Fatal("list controller did not scroll measured row")
+	}
+	app.Pump(Size{Width: 10, Height: 3})
+	app.Pump(Size{Width: 10, Height: 3})
+	p := NewPainter(Size{Width: 10, Height: 3})
+	app.Paint(p)
+	if got := p.Cell(4, 0).Grapheme; got != "2" {
+		t.Fatalf("first visible row suffix = %q, want row 2", got)
+	}
+}
+
+func TestSliverListControllerDetaches(t *testing.T) {
+	controller := &SliverListController{}
+	app := NewApp(CustomScrollView{Slivers: []Widget{
+		SliverListBuilder{
+			Controller: controller,
+			Count:      2,
+			ItemExtent: 1,
+			Builder: func(ctx BuildContext, i int) Widget {
+				return Text{Value: strconv.Itoa(i)}
+			},
+		},
+	}})
+	app.Pump(Size{Width: 10, Height: 1})
+	if !controller.Attached() {
+		t.Fatal("list controller not attached after mount")
+	}
+
+	app.UpdateRoot(Text{Value: "gone"})
+	app.Pump(Size{Width: 10, Height: 1})
+	if controller.Attached() {
+		t.Fatal("list controller still attached after unmount")
+	}
+	if _, _, ok := controller.VisibleRange(); ok {
+		t.Fatal("detached list controller returned visible range")
+	}
+}
+
 func TestCustomScrollViewWorksWithScrollbar(t *testing.T) {
 	app := NewApp(Scrollbar{Child: CustomScrollView{Slivers: []Widget{
 		SliverList{ChildrenWidget: []Widget{

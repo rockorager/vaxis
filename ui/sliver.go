@@ -771,6 +771,9 @@ func (r *renderSliverList) SelectionSize() Size {
 // the measurements for the old width, anchors the currently visible row, and
 // corrects the viewport scroll offset after rows are measured at the new width.
 type SliverListBuilder struct {
+	// Controller can be used to inspect and scroll this list by item index
+	// after it is mounted in a CustomScrollView.
+	Controller *SliverListController
 	// Count is the number of logical rows available from Builder.
 	Count int
 	// ItemExtent is the fixed height of each item in cells when greater than
@@ -800,6 +803,7 @@ type sliverListBuilderState struct {
 
 func (s *sliverListBuilderState) Build(ctx BuildContext) Widget {
 	w := s.Widget().(SliverListBuilder)
+	s.attachController(w.Controller)
 	count := max(0, w.Count)
 	first := clampInt(s.first, 0, count)
 	last := clampInt(s.last, first, count)
@@ -826,6 +830,56 @@ func (s *sliverListBuilderState) Build(ctx BuildContext) Widget {
 		Extents:     s.extentsForWidth(),
 		ChildWidget: children,
 	}
+}
+
+func (s *sliverListBuilderState) DidUpdateWidget(old Widget) {
+	next := s.Widget().(SliverListBuilder).Controller
+	prev := old.(SliverListBuilder).Controller
+	if prev != nil && prev != next {
+		prev.detach(s)
+	}
+	s.attachController(next)
+}
+
+func (s *sliverListBuilderState) Dispose() {
+	if c := s.Widget().(SliverListBuilder).Controller; c != nil {
+		c.detach(s)
+	}
+}
+
+func (s *sliverListBuilderState) attachController(c *SliverListController) {
+	if c != nil {
+		c.attach(s)
+	}
+}
+
+func (s *sliverListBuilderState) renderObject() *renderSliverListBuilder {
+	ro := s.Context().FindRenderObject()
+	if r, ok := ro.(*renderSliverListBuilder); ok {
+		return r
+	}
+	return nil
+}
+
+func (s *sliverListBuilderState) ScrollToIndex(index int, align ScrollAlign) bool {
+	if r := s.renderObject(); r != nil {
+		return r.ScrollToIndex(index, align)
+	}
+	return false
+}
+
+func (s *sliverListBuilderState) OffsetForIndex(index int) (int, bool) {
+	if r := s.renderObject(); r != nil {
+		return r.OffsetForIndex(index)
+	}
+	return 0, false
+}
+
+func (s *sliverListBuilderState) VisibleRange() (int, int, bool) {
+	if r := s.renderObject(); r != nil {
+		return r.VisibleRange()
+	}
+	return 0, 0, false
 }
 
 func (s *sliverListBuilderState) extentsForWidth() map[int]int {
@@ -925,6 +979,7 @@ type renderSliverListBuilder struct {
 	Extents      map[int]int
 	geometry     SliverGeometry
 	childOffsets []Offset
+	constraints  SliverConstraints
 }
 
 func (r *renderSliverListBuilder) Layout(ctx LayoutContext, c Constraints) {
@@ -936,6 +991,7 @@ func (r *renderSliverListBuilder) Layout(ctx LayoutContext, c Constraints) {
 }
 
 func (r *renderSliverListBuilder) LayoutSliver(ctx LayoutContext, c SliverConstraints) SliverGeometry {
+	r.constraints = c
 	if r.ItemExtent > 0 {
 		return r.layoutFixed(ctx, c)
 	}
@@ -1062,6 +1118,63 @@ func (r *renderSliverListBuilder) SelectionSize() Size {
 	return r.Size()
 }
 
+func (r *renderSliverListBuilder) ScrollToIndex(index int, align ScrollAlign) bool {
+	parent, ok := r.Base().parent.(*renderCustomScrollView)
+	if !ok {
+		return false
+	}
+	offset, ok := r.OffsetForIndex(index)
+	if !ok {
+		return false
+	}
+	extent := r.extentForIndex(index)
+	childOffset := parent.SelectionChildOffset(r).Y
+	target := childOffset + offset
+	metrics := parent.ScrollMetrics()
+	switch align {
+	case ScrollAlignCenter:
+		target += extent/2 - metrics.ViewportHeight/2
+	case ScrollAlignEnd:
+		target += extent - metrics.ViewportHeight
+	case ScrollAlignNearest:
+		current := metrics.ScrollOffset
+		if target >= current && target+extent <= current+metrics.ViewportHeight {
+			return false
+		}
+		if target < current {
+			break
+		}
+		target += extent - metrics.ViewportHeight
+	}
+	return parent.ScrollToOffset(target)
+}
+
+func (r *renderSliverListBuilder) OffsetForIndex(index int) (int, bool) {
+	if index < 0 || index >= max(0, r.Count) {
+		return 0, false
+	}
+	return r.extentModel().OffsetForIndex(index), true
+}
+
+func (r *renderSliverListBuilder) VisibleRange() (int, int, bool) {
+	if max(0, r.Count) == 0 {
+		return 0, 0, true
+	}
+	first, last := r.extentModel().VisibleRange(0, r.constraints)
+	return first, last, true
+}
+
+func (r *renderSliverListBuilder) extentForIndex(index int) int {
+	return r.extentModel().ExtentForIndex(index)
+}
+
+func (r *renderSliverListBuilder) extentModel() sliverExtentModel {
+	if r.ItemExtent > 0 {
+		return fixedSliverExtentModel{Count: r.Count, Extent: r.ItemExtent}
+	}
+	return measuredSliverExtentModel{Count: r.Count, Estimate: r.Estimate, Extents: r.Extents}
+}
+
 func normalizeSliverItemExtent(v int) int {
 	if v <= 0 {
 		return 1
@@ -1083,6 +1196,14 @@ func normalizeSliverBuilderEstimate(w SliverListBuilder) int {
 	return normalizeSliverEstimatedItemExtent(w.EstimatedItemExtent)
 }
 
+type sliverExtentModel interface {
+	ScrollExtent() int
+	OffsetForIndex(int) int
+	IndexForOffset(int) int
+	ExtentForIndex(int) int
+	VisibleRange(int, SliverConstraints) (int, int)
+}
+
 type fixedSliverExtentModel struct {
 	Count  int
 	Extent int
@@ -1094,6 +1215,10 @@ func (m fixedSliverExtentModel) ItemCount() int {
 
 func (m fixedSliverExtentModel) ItemExtent() int {
 	return normalizeSliverItemExtent(m.Extent)
+}
+
+func (m fixedSliverExtentModel) ExtentForIndex(int) int {
+	return m.ItemExtent()
 }
 
 func (m fixedSliverExtentModel) ScrollExtent() int {
