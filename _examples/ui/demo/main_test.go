@@ -28,7 +28,7 @@ func TestDemoExampleNavigationAndControls(t *testing.T) {
 	}
 	app.Key("n")
 	app.Pump(90, 20)
-	if !app.Contains("Lists") || !app.Contains("target             status") || !app.Contains("deploy target 101") {
+	if !app.Contains("Lists") || !app.Contains("target             status") || !app.Contains("deploy target 101") || !app.Contains("Variable-height messages") {
 		t.Fatalf("lists page missing content: %q", app.Text())
 	}
 	app.Key("n")

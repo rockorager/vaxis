@@ -1,5 +1,7 @@
 package ui
 
+import "strconv"
+
 // SliverConstraints describes the portion of a sliver visible in a
 // CustomScrollView.
 type SliverConstraints struct {
@@ -20,6 +22,9 @@ type SliverGeometry struct {
 	ScrollExtent int
 	// PaintExtent is the number of rows this sliver can paint in the viewport.
 	PaintExtent int
+	// ScrollOffsetCorrection adjusts the viewport offset after newly measured
+	// content changes the logical position of the current anchor row.
+	ScrollOffsetCorrection int
 }
 
 type renderSliver interface {
@@ -31,6 +36,8 @@ type renderSliver interface {
 type pinnedSliver interface {
 	PinnedOffset(logical Offset, scrollOffset int) Offset
 }
+
+const defaultSliverListBuilderInitialCount = 32
 
 // CustomScrollView composes row-based slivers in one vertical scroll viewport.
 //
@@ -162,6 +169,15 @@ type renderCustomScrollView struct {
 }
 
 func (r *renderCustomScrollView) Layout(ctx LayoutContext, c Constraints) {
+	for i := 0; i < 4; i++ {
+		if r.layoutOnce(ctx, c) == 0 {
+			return
+		}
+	}
+	r.layoutOnce(ctx, c)
+}
+
+func (r *renderCustomScrollView) layoutOnce(ctx LayoutContext, c Constraints) int {
 	width := 0
 	if c.HasBoundedWidth() {
 		width = c.MaxWidth
@@ -189,6 +205,10 @@ func (r *renderCustomScrollView) Layout(ctx LayoutContext, c Constraints) {
 		contentHeight += geometry.ScrollExtent
 		width = max(width, sliver.Base().Size().Width)
 		scrollBefore += geometry.ScrollExtent
+		if geometry.ScrollOffsetCorrection != 0 && r.State != nil {
+			r.State.scrollRow = max(0, r.State.scrollRow+geometry.ScrollOffsetCorrection)
+			return geometry.ScrollOffsetCorrection
+		}
 	}
 	r.contentHeight = contentHeight
 	size := Size{Width: width, Height: contentHeight}
@@ -200,6 +220,7 @@ func (r *renderCustomScrollView) Layout(ctx LayoutContext, c Constraints) {
 	}
 	r.SetSize(c.Constrain(size))
 	r.clampScroll()
+	return 0
 }
 
 func (r *renderCustomScrollView) DryLayout(ctx LayoutContext, c Constraints) Size {
@@ -641,6 +662,395 @@ func (r *renderSliverList) SelectionChildOffset(child RenderObject) Offset {
 
 func (r *renderSliverList) SelectionSize() Size {
 	return r.Size()
+}
+
+// SliverListBuilder lazily builds rows for a CustomScrollView.
+//
+// When ItemExtent is greater than zero, every row uses that fixed height and
+// scroll offsets are exact. When ItemExtent is zero, rows are measured as they
+// are laid out and EstimatedItemExtent is used for rows that have not been
+// built yet. Overscan adds rows before and after the visible range so small
+// scroll deltas can paint without waiting for another build.
+type SliverListBuilder struct {
+	// Count is the number of logical rows available from Builder.
+	Count int
+	// ItemExtent is the fixed height of each item in cells when greater than
+	// zero.
+	ItemExtent int
+	// EstimatedItemExtent is the height used for unmeasured rows when
+	// ItemExtent is zero. A zero or negative value is treated as one row.
+	EstimatedItemExtent int
+	// Overscan builds this many extra items before and after the viewport.
+	Overscan int
+	// Builder returns the widget for index. It is only called for the active
+	// visible range plus Overscan.
+	Builder func(BuildContext, int) Widget
+}
+
+func (w SliverListBuilder) CreateState() State {
+	return &sliverListBuilderState{last: defaultSliverListBuilderInitialCount}
+}
+
+type sliverListBuilderState struct {
+	StateBase
+	first   int
+	last    int
+	width   int
+	extents map[int]int
+}
+
+func (s *sliverListBuilderState) Build(ctx BuildContext) Widget {
+	w := s.Widget().(SliverListBuilder)
+	count := max(0, w.Count)
+	first := clampInt(s.first, 0, count)
+	last := clampInt(s.last, first, count)
+	children := make([]Widget, 0, max(0, last-first))
+	if w.Builder != nil {
+		for i := first; i < last; i++ {
+			child := w.Builder(ctx, i)
+			if child == nil {
+				child = SizedBox{Height: normalizeSliverBuilderEstimate(w)}
+			}
+			children = append(children, sliverListBuilderChild{
+				Key:         KeyValue(strconv.Itoa(i)),
+				ChildWidget: child,
+			})
+		}
+	}
+	return sliverListBuilderView{
+		State:       s,
+		Count:       count,
+		ItemExtent:  w.ItemExtent,
+		Estimate:    normalizeSliverBuilderEstimate(w),
+		Overscan:    max(0, w.Overscan),
+		First:       first,
+		Extents:     s.extentsForWidth(),
+		ChildWidget: children,
+	}
+}
+
+func (s *sliverListBuilderState) extentsForWidth() map[int]int {
+	if s.extents == nil {
+		return nil
+	}
+	return s.extents
+}
+
+func (s *sliverListBuilderState) updateLayout(width, first, last int, measured map[int]int) {
+	reset := s.width != width
+	changed := reset || first != s.first || last != s.last
+	if !changed {
+		for index, extent := range measured {
+			if s.extents == nil || s.extents[index] != extent {
+				changed = true
+				break
+			}
+		}
+	}
+	if !changed {
+		return
+	}
+	s.SetState(func() {
+		if reset || s.extents == nil {
+			s.width = width
+			s.extents = make(map[int]int)
+		}
+		for index, extent := range measured {
+			s.extents[index] = extent
+		}
+		s.first = first
+		s.last = last
+	})
+}
+
+type sliverListBuilderChild struct {
+	Key         KeyValue
+	ChildWidget Widget
+}
+
+func (w sliverListBuilderChild) WidgetKey() KeyValue {
+	return w.Key
+}
+
+func (w sliverListBuilderChild) Build(BuildContext) Widget {
+	return w.ChildWidget
+}
+
+type sliverListBuilderView struct {
+	State       *sliverListBuilderState
+	Count       int
+	ItemExtent  int
+	Estimate    int
+	Overscan    int
+	First       int
+	Extents     map[int]int
+	ChildWidget []Widget
+}
+
+func (w sliverListBuilderView) Children() []Widget {
+	return w.ChildWidget
+}
+
+func (w sliverListBuilderView) CreateRenderObject(BuildContext) RenderObject {
+	return &renderSliverListBuilder{
+		State:      w.State,
+		Count:      w.Count,
+		ItemExtent: w.ItemExtent,
+		Estimate:   w.Estimate,
+		Overscan:   w.Overscan,
+		First:      w.First,
+		Extents:    w.Extents,
+	}
+}
+
+func (w sliverListBuilderView) UpdateRenderObject(_ BuildContext, ro RenderObject) {
+	r := ro.(*renderSliverListBuilder)
+	r.State = w.State
+	r.Count = w.Count
+	r.ItemExtent = w.ItemExtent
+	r.Estimate = w.Estimate
+	r.Overscan = w.Overscan
+	r.First = w.First
+	r.Extents = w.Extents
+	r.MarkNeedsLayout()
+}
+
+type renderSliverListBuilder struct {
+	MultiChildRenderObject
+	State        *sliverListBuilderState
+	Count        int
+	ItemExtent   int
+	Estimate     int
+	Overscan     int
+	First        int
+	Extents      map[int]int
+	geometry     SliverGeometry
+	childOffsets []Offset
+}
+
+func (r *renderSliverListBuilder) Layout(ctx LayoutContext, c Constraints) {
+	r.LayoutSliver(ctx, SliverConstraints{
+		ViewportWidth:        c.MaxWidth,
+		ViewportHeight:       c.MaxHeight,
+		RemainingPaintExtent: c.MaxHeight,
+	})
+}
+
+func (r *renderSliverListBuilder) LayoutSliver(ctx LayoutContext, c SliverConstraints) SliverGeometry {
+	if r.ItemExtent > 0 {
+		return r.layoutFixed(ctx, c)
+	}
+	return r.layoutVariable(ctx, c)
+}
+
+func (r *renderSliverListBuilder) layoutFixed(ctx LayoutContext, c SliverConstraints) SliverGeometry {
+	itemExtent := normalizeSliverItemExtent(r.ItemExtent)
+	scrollExtent := max(0, r.Count) * itemExtent
+	first, last := sliverListBuilderFixedVisibleRange(r.Count, itemExtent, r.Overscan, c)
+	width := c.ViewportWidth
+	children := r.Children()
+	r.childOffsets = make([]Offset, len(children))
+	for i, child := range children {
+		index := r.First + i
+		child.Layout(ctx, Constraints{
+			MinWidth:  c.ViewportWidth,
+			MaxWidth:  c.ViewportWidth,
+			MinHeight: itemExtent,
+			MaxHeight: itemExtent,
+		})
+		r.childOffsets[i] = Offset{Y: index * itemExtent}
+		width = max(width, child.Base().Size().Width)
+	}
+	if r.State != nil {
+		r.State.updateLayout(c.ViewportWidth, first, last, nil)
+	}
+	r.SetSize(Size{Width: width, Height: scrollExtent})
+	r.geometry = SliverGeometry{
+		ScrollExtent: scrollExtent,
+		PaintExtent:  visibleSliverExtent(c, scrollExtent),
+	}
+	return r.geometry
+}
+
+func (r *renderSliverListBuilder) layoutVariable(ctx LayoutContext, c SliverConstraints) SliverGeometry {
+	estimate := normalizeSliverEstimatedItemExtent(r.Estimate)
+	cachedExtents := cloneSliverExtentCache(r.Extents)
+	resized := r.State != nil && r.State.width != 0 && r.State.width != c.ViewportWidth
+	anchorExtents := cachedExtents
+	if resized {
+		anchorExtents = cloneSliverExtentCache(r.Extents)
+		cachedExtents = nil
+	}
+	extents := cloneSliverExtentCache(cachedExtents)
+	first, last := sliverListBuilderVariableVisibleRange(r.Count, estimate, r.Overscan, extents, c)
+	anchorIndex := sliverListBuilderIndexForOffset(c.ScrollOffset, r.Count, estimate, anchorExtents)
+	anchorOffset := sliverListBuilderOffsetForIndex(anchorIndex, estimate, anchorExtents)
+	anchorDelta := c.ScrollOffset - anchorOffset
+	if resized {
+		paintExtent := max(0, min(c.ViewportHeight, c.RemainingPaintExtent))
+		first = clampInt(anchorIndex-r.Overscan, 0, max(0, r.Count))
+		last = clampInt(anchorIndex+(paintExtent+estimate-1)/estimate+r.Overscan+1, first, max(0, r.Count))
+	}
+	width := c.ViewportWidth
+	children := r.Children()
+	measured := make(map[int]int, len(children))
+	r.childOffsets = make([]Offset, len(children))
+	for i, child := range children {
+		index := r.First + i
+		r.childOffsets[i] = Offset{Y: sliverListBuilderOffsetForIndex(index, estimate, extents)}
+		child.Layout(ctx, Constraints{
+			MinWidth:  c.ViewportWidth,
+			MaxWidth:  c.ViewportWidth,
+			MaxHeight: Unbounded,
+		})
+		size := child.Base().Size()
+		extent := max(0, size.Height)
+		measured[index] = extent
+		extents[index] = extent
+		width = max(width, size.Width)
+	}
+	scrollExtent := sliverListBuilderScrollExtent(r.Count, estimate, extents)
+	correction := 0
+	if c.ScrollOffset > 0 && anchorIndex < max(0, r.Count) {
+		correction = sliverListBuilderOffsetForIndex(anchorIndex, estimate, extents) + anchorDelta - c.ScrollOffset
+	}
+	r.Extents = extents
+	if r.State != nil {
+		r.State.updateLayout(c.ViewportWidth, first, last, measured)
+	}
+	r.SetSize(Size{Width: width, Height: scrollExtent})
+	r.geometry = SliverGeometry{
+		ScrollExtent:           scrollExtent,
+		PaintExtent:            visibleSliverExtent(c, scrollExtent),
+		ScrollOffsetCorrection: correction,
+	}
+	return r.geometry
+}
+
+func (r *renderSliverListBuilder) Paint(p *Painter, off Offset) {
+	r.PaintSliver(p, off)
+}
+
+func (r *renderSliverListBuilder) PaintSliver(p *Painter, off Offset) {
+	for i, child := range r.Children() {
+		if i >= len(r.childOffsets) {
+			continue
+		}
+		child.Paint(p, off.Add(r.childOffsets[i]))
+	}
+}
+
+func (r *renderSliverListBuilder) HitTest(*HitTestResult, Point) bool {
+	return false
+}
+
+func (r *renderSliverListBuilder) ChildOffset(child RenderObject) Offset {
+	for i, candidate := range r.Children() {
+		if candidate == child && i < len(r.childOffsets) {
+			return r.childOffsets[i]
+		}
+	}
+	return Offset{}
+}
+
+func (r *renderSliverListBuilder) SelectionChildOffset(child RenderObject) Offset {
+	return r.ChildOffset(child)
+}
+
+func (r *renderSliverListBuilder) SelectionSize() Size {
+	return r.Size()
+}
+
+func normalizeSliverItemExtent(v int) int {
+	if v <= 0 {
+		return 1
+	}
+	return v
+}
+
+func normalizeSliverEstimatedItemExtent(v int) int {
+	if v <= 0 {
+		return 1
+	}
+	return v
+}
+
+func normalizeSliverBuilderEstimate(w SliverListBuilder) int {
+	if w.ItemExtent > 0 {
+		return normalizeSliverItemExtent(w.ItemExtent)
+	}
+	return normalizeSliverEstimatedItemExtent(w.EstimatedItemExtent)
+}
+
+func sliverListBuilderFixedVisibleRange(count, itemExtent, overscan int, c SliverConstraints) (int, int) {
+	count = max(0, count)
+	if count == 0 {
+		return 0, 0
+	}
+	itemExtent = normalizeSliverItemExtent(itemExtent)
+	overscan = max(0, overscan)
+	paintExtent := max(0, min(c.ViewportHeight, c.RemainingPaintExtent))
+	first := clampInt(c.ScrollOffset/itemExtent-overscan, 0, count)
+	last := clampInt((c.ScrollOffset+paintExtent+itemExtent-1)/itemExtent+overscan, first, count)
+	return first, last
+}
+
+func sliverListBuilderVariableVisibleRange(count, estimate, overscan int, extents map[int]int, c SliverConstraints) (int, int) {
+	count = max(0, count)
+	if count == 0 {
+		return 0, 0
+	}
+	estimate = normalizeSliverEstimatedItemExtent(estimate)
+	overscan = max(0, overscan)
+	paintExtent := max(0, min(c.ViewportHeight, c.RemainingPaintExtent))
+	first := clampInt(sliverListBuilderIndexForOffset(c.ScrollOffset, count, estimate, extents)-overscan, 0, count)
+	last := clampInt(sliverListBuilderIndexForOffset(c.ScrollOffset+paintExtent, count, estimate, extents)+overscan+1, first, count)
+	return first, last
+}
+
+func sliverListBuilderIndexForOffset(offset, count, estimate int, extents map[int]int) int {
+	offset = max(0, offset)
+	y := 0
+	for i := 0; i < count; i++ {
+		y += sliverListBuilderExtentForIndex(i, estimate, extents)
+		if y > offset {
+			return i
+		}
+	}
+	return count
+}
+
+func sliverListBuilderOffsetForIndex(index, estimate int, extents map[int]int) int {
+	index = max(0, index)
+	y := 0
+	for i := 0; i < index; i++ {
+		y += sliverListBuilderExtentForIndex(i, estimate, extents)
+	}
+	return y
+}
+
+func sliverListBuilderScrollExtent(count, estimate int, extents map[int]int) int {
+	count = max(0, count)
+	y := 0
+	for i := 0; i < count; i++ {
+		y += sliverListBuilderExtentForIndex(i, estimate, extents)
+	}
+	return y
+}
+
+func sliverListBuilderExtentForIndex(index, estimate int, extents map[int]int) int {
+	if extent, ok := extents[index]; ok {
+		return extent
+	}
+	return normalizeSliverEstimatedItemExtent(estimate)
+}
+
+func cloneSliverExtentCache(extents map[int]int) map[int]int {
+	next := make(map[int]int, len(extents))
+	for index, extent := range extents {
+		next[index] = extent
+	}
+	return next
 }
 
 func visibleSliverExtent(c SliverConstraints, scrollExtent int) int {

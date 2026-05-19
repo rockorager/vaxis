@@ -1,6 +1,9 @@
 package ui
 
-import "testing"
+import (
+	"strconv"
+	"testing"
+)
 
 func TestCustomScrollViewComposesSlivers(t *testing.T) {
 	app := NewApp(CustomScrollView{Slivers: []Widget{
@@ -166,6 +169,276 @@ func TestSliverListReportsChildOffsetsForHitTesting(t *testing.T) {
 	app.Send(Mouse{Col: 1, Row: 1, Button: MouseLeftButton, EventType: EventPress})
 	if !clicked {
 		t.Fatal("expected hit testing to reach scrolled sliver list child")
+	}
+}
+
+func TestSliverListBuilderBuildsBoundedInitialRange(t *testing.T) {
+	built := map[int]bool{}
+	app := NewApp(CustomScrollView{Slivers: []Widget{
+		SliverListBuilder{
+			Count:      1000,
+			ItemExtent: 1,
+			Builder: func(ctx BuildContext, i int) Widget {
+				built[i] = true
+				return Text{Value: "row"}
+			},
+		},
+	}})
+	app.Pump(Size{Width: 10, Height: 4})
+
+	if len(built) == 0 || len(built) > defaultSliverListBuilderInitialCount {
+		t.Fatalf("built %d rows, want a bounded initial range", len(built))
+	}
+	if built[999] {
+		t.Fatal("builder eagerly built the last row")
+	}
+}
+
+func TestSliverListBuilderScrollsToVisibleRange(t *testing.T) {
+	app := NewApp(CustomScrollView{Slivers: []Widget{
+		SliverListBuilder{
+			Count:      100,
+			ItemExtent: 1,
+			Builder: func(ctx BuildContext, i int) Widget {
+				return Text{Value: "row " + strconv.Itoa(i)}
+			},
+		},
+	}})
+	app.Pump(Size{Width: 10, Height: 3})
+	app.Pump(Size{Width: 10, Height: 3})
+
+	app.Send(Key{Keycode: KeyEnd})
+	app.Pump(Size{Width: 10, Height: 3})
+	app.Pump(Size{Width: 10, Height: 3})
+	p := NewPainter(Size{Width: 10, Height: 3})
+	app.Paint(p)
+	if got := p.Cell(4, 0).Grapheme + p.Cell(5, 0).Grapheme; got != "97" {
+		t.Fatalf("first visible row = %q, want row 97", got)
+	}
+}
+
+func TestSliverListBuilderReportsScrollbarMetrics(t *testing.T) {
+	app := NewApp(CustomScrollView{Slivers: []Widget{
+		SliverListBuilder{
+			Count:      100,
+			ItemExtent: 2,
+			Builder: func(ctx BuildContext, i int) Widget {
+				return Text{Value: strconv.Itoa(i)}
+			},
+		},
+	}})
+	app.Pump(Size{Width: 10, Height: 5})
+
+	r, ok := app.rootRO.(*renderCustomScrollView)
+	if !ok {
+		t.Fatalf("root render object = %T, want *renderCustomScrollView", app.rootRO)
+	}
+	got := r.ScrollMetrics()
+	want := ScrollMetrics{MaxScrollOffset: 195, ViewportHeight: 5, ViewportWidth: 10, ContentHeight: 200}
+	if got != want {
+		t.Fatalf("metrics = %#v, want %#v", got, want)
+	}
+}
+
+func TestSliverListBuilderHitTestsVisibleRows(t *testing.T) {
+	clicked := false
+	app := NewApp(CustomScrollView{Slivers: []Widget{
+		SliverListBuilder{
+			Count:      10,
+			ItemExtent: 1,
+			Builder: func(ctx BuildContext, i int) Widget {
+				if i == 9 {
+					return Button{Label: "nine", OnPressed: func(EventContext) { clicked = true }}
+				}
+				return Text{Value: strconv.Itoa(i)}
+			},
+		},
+	}})
+	app.Pump(Size{Width: 10, Height: 2})
+	app.Pump(Size{Width: 10, Height: 2})
+	app.Send(Key{Keycode: KeyEnd})
+	app.Pump(Size{Width: 10, Height: 2})
+	app.Pump(Size{Width: 10, Height: 2})
+
+	app.Send(Mouse{Col: 1, Row: 1, Button: MouseLeftButton, EventType: EventPress})
+	if !clicked {
+		t.Fatal("expected hit testing to reach visible lazy list row")
+	}
+}
+
+func TestSliverListBuilderVariableHeightsUpdateMetrics(t *testing.T) {
+	heights := []int{1, 3, 2, 1}
+	app := NewApp(CustomScrollView{Slivers: []Widget{
+		SliverListBuilder{
+			Count:               len(heights),
+			EstimatedItemExtent: 1,
+			Builder: func(ctx BuildContext, i int) Widget {
+				return SizedBox{Width: 10, Height: heights[i], Child: Text{Value: strconv.Itoa(i)}}
+			},
+		},
+	}})
+	app.Pump(Size{Width: 10, Height: 3})
+
+	r, ok := app.rootRO.(*renderCustomScrollView)
+	if !ok {
+		t.Fatalf("root render object = %T, want *renderCustomScrollView", app.rootRO)
+	}
+	got := r.ScrollMetrics()
+	want := ScrollMetrics{MaxScrollOffset: 4, ViewportHeight: 3, ViewportWidth: 10, ContentHeight: 7}
+	if got != want {
+		t.Fatalf("metrics = %#v, want %#v", got, want)
+	}
+}
+
+func TestSliverListBuilderVariableHeightsScrollToMeasuredOffset(t *testing.T) {
+	heights := []int{1, 3, 1, 1, 1}
+	app := NewApp(CustomScrollView{Slivers: []Widget{
+		SliverListBuilder{
+			Count:               len(heights),
+			EstimatedItemExtent: 1,
+			Builder: func(ctx BuildContext, i int) Widget {
+				return SizedBox{Width: 10, Height: heights[i], Child: Text{Value: "row " + strconv.Itoa(i)}}
+			},
+		},
+	}})
+	app.Pump(Size{Width: 10, Height: 2})
+	app.Pump(Size{Width: 10, Height: 2})
+	r, ok := app.rootRO.(*renderCustomScrollView)
+	if !ok {
+		t.Fatalf("root render object = %T, want *renderCustomScrollView", app.rootRO)
+	}
+	r.ScrollToOffset(4)
+	app.Pump(Size{Width: 10, Height: 2})
+	app.Pump(Size{Width: 10, Height: 2})
+
+	p := NewPainter(Size{Width: 10, Height: 2})
+	app.Paint(p)
+	if got := p.Cell(4, 0).Grapheme; got != "2" {
+		t.Fatalf("first visible row suffix = %q, want row 2", got)
+	}
+}
+
+func TestSliverListBuilderVariableHeightsCorrectsMeasuredRowsAboveViewport(t *testing.T) {
+	app := NewApp(CustomScrollView{Slivers: []Widget{
+		SliverListBuilder{
+			Count:               100,
+			EstimatedItemExtent: 1,
+			Overscan:            2,
+			Builder: func(ctx BuildContext, i int) Widget {
+				height := 1
+				if i == 40 {
+					height = 4
+				}
+				return SizedBox{Width: 10, Height: height, Child: Text{Value: "row " + strconv.Itoa(i)}}
+			},
+		},
+	}})
+	app.Pump(Size{Width: 10, Height: 2})
+	app.Pump(Size{Width: 10, Height: 2})
+	r, ok := app.rootRO.(*renderCustomScrollView)
+	if !ok {
+		t.Fatalf("root render object = %T, want *renderCustomScrollView", app.rootRO)
+	}
+	r.ScrollToOffset(42)
+	app.Pump(Size{Width: 10, Height: 2})
+	app.Pump(Size{Width: 10, Height: 2})
+
+	if got := r.ScrollMetrics().ScrollOffset; got != 45 {
+		t.Fatalf("scroll offset after measuring row above viewport = %d, want 45", got)
+	}
+	p := NewPainter(Size{Width: 10, Height: 2})
+	app.Paint(p)
+	if got := p.Cell(4, 0).Grapheme + p.Cell(5, 0).Grapheme; got != "42" {
+		t.Fatalf("first visible row suffix = %q, want row 42", got)
+	}
+}
+
+func TestSliverListBuilderVariableHeightsAnchorsVisibleRowOnResize(t *testing.T) {
+	app := NewApp(CustomScrollView{Slivers: []Widget{
+		SliverListBuilder{
+			Count:               20,
+			EstimatedItemExtent: 1,
+			Overscan:            3,
+			Builder: func(ctx BuildContext, i int) Widget {
+				return Text{Value: "row " + padTestInt(i, 2) + " abcdefghij", SoftWrap: true}
+			},
+		},
+	}})
+	app.Pump(Size{Width: 20, Height: 3})
+	app.Pump(Size{Width: 20, Height: 3})
+	r, ok := app.rootRO.(*renderCustomScrollView)
+	if !ok {
+		t.Fatalf("root render object = %T, want *renderCustomScrollView", app.rootRO)
+	}
+	r.ScrollToOffset(6)
+	app.Pump(Size{Width: 20, Height: 3})
+	app.Pump(Size{Width: 20, Height: 3})
+
+	app.Pump(Size{Width: 10, Height: 3})
+	app.Pump(Size{Width: 10, Height: 3})
+	p := NewPainter(Size{Width: 10, Height: 3})
+	app.Paint(p)
+	if got := p.Cell(4, 0).Grapheme + p.Cell(5, 0).Grapheme; got != "06" {
+		t.Fatalf("first visible row suffix after resize = %q, want row 06", got)
+	}
+}
+
+func TestCustomScrollViewResizeToFitContentClearsBottomOffset(t *testing.T) {
+	app := NewApp(CustomScrollView{Slivers: []Widget{
+		SliverList{ChildrenWidget: []Widget{
+			Text{Value: "one"},
+			Text{Value: "two"},
+			Text{Value: "three"},
+		}},
+	}})
+	app.Pump(Size{Width: 10, Height: 1})
+	app.Send(Key{Keycode: KeyEnd})
+	app.Pump(Size{Width: 10, Height: 1})
+	r, ok := app.rootRO.(*renderCustomScrollView)
+	if !ok {
+		t.Fatalf("root render object = %T, want *renderCustomScrollView", app.rootRO)
+	}
+	if got := r.ScrollMetrics().ScrollOffset; got != 2 {
+		t.Fatalf("scroll offset before resize = %d, want bottom offset 2", got)
+	}
+
+	app.Pump(Size{Width: 10, Height: 3})
+	if got := r.ScrollMetrics().ScrollOffset; got != 0 {
+		t.Fatalf("scroll offset after content fits = %d, want 0", got)
+	}
+	p := NewPainter(Size{Width: 10, Height: 3})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Grapheme; got != "o" {
+		t.Fatalf("first visible row after content fits = %q, want one", got)
+	}
+}
+
+func TestSliverListBuilderVariableHeightsResetOnWidthChange(t *testing.T) {
+	app := NewApp(CustomScrollView{Slivers: []Widget{
+		SliverListBuilder{
+			Count:               1,
+			EstimatedItemExtent: 1,
+			Builder: func(ctx BuildContext, i int) Widget {
+				return Text{Value: "abcdefghij", SoftWrap: true}
+			},
+		},
+	}})
+	app.Pump(Size{Width: 10, Height: 3})
+	r, ok := app.rootRO.(*renderCustomScrollView)
+	if !ok {
+		t.Fatalf("root render object = %T, want *renderCustomScrollView", app.rootRO)
+	}
+	if got := r.ScrollMetrics().ContentHeight; got != 1 {
+		t.Fatalf("wide content height = %d, want 1", got)
+	}
+
+	app.Pump(Size{Width: 5, Height: 3})
+	r, ok = app.rootRO.(*renderCustomScrollView)
+	if !ok {
+		t.Fatalf("root render object = %T, want *renderCustomScrollView", app.rootRO)
+	}
+	if got := r.ScrollMetrics().ContentHeight; got != 2 {
+		t.Fatalf("narrow content height = %d, want 2", got)
 	}
 }
 
@@ -351,4 +624,12 @@ func TestSliverPinnedHeaderHitTestsAtPinnedOffset(t *testing.T) {
 	if !clicked {
 		t.Fatal("expected pinned header button to receive click at pinned row")
 	}
+}
+
+func padTestInt(v, width int) string {
+	s := strconv.Itoa(v)
+	for len(s) < width {
+		s = "0" + s
+	}
+	return s
 }

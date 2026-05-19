@@ -78,6 +78,24 @@ func TestStateRecreatedWhenKeyChanges(t *testing.T) {
 	}
 }
 
+func TestKeyedChildrenMoveWithState(t *testing.T) {
+	app := ui.NewApp(ui.Row(
+		keyedCounter{key: "a", initial: 1},
+		keyedCounter{key: "b", initial: 2},
+	))
+	app.Pump(ui.Size{Width: 2, Height: 1})
+	app.UpdateRoot(ui.Row(
+		keyedCounter{key: "b", initial: 9},
+		keyedCounter{key: "a", initial: 8},
+	))
+	app.Pump(ui.Size{Width: 2, Height: 1})
+	p := ui.NewPainter(ui.Size{Width: 2, Height: 1})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Grapheme + p.Cell(1, 0).Grapheme; got != "21" {
+		t.Fatalf("state text = %q, want moved keyed state 21", got)
+	}
+}
+
 type multiKind struct{}
 
 func (multiKind) Build(ctx ui.BuildContext) ui.Widget {

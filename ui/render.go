@@ -239,14 +239,41 @@ func (e *renderObjectElement) Rebuild() {
 	}
 	children := widgetChildren(e.widget)
 	next := make([]element, len(children))
+	used := make([]bool, len(e.children))
 	for i, child := range children {
-		next[i] = e.UpdateChild(oldAt(e.children, i), child, i)
+		oldIndex := e.matchChild(i, child, used)
+		if oldIndex >= 0 {
+			used[oldIndex] = true
+			next[i] = e.UpdateChild(e.children[oldIndex], child, i)
+			continue
+		}
+		next[i] = e.UpdateChild(nil, child, i)
 	}
-	for i := len(children); i < len(e.children); i++ {
-		e.UpdateChild(e.children[i], nil, i)
+	for i, child := range e.children {
+		if !used[i] {
+			e.UpdateChild(child, nil, i)
+		}
 	}
 	e.children = next
 	e.syncRenderChildren()
+}
+
+func (e *renderObjectElement) matchChild(i int, next Widget, used []bool) int {
+	if i < len(e.children) && !used[i] && canUpdate(e.children[i].Base().widget, next) {
+		return i
+	}
+	if _, ok := widgetKey(next); !ok {
+		return -1
+	}
+	for j, child := range e.children {
+		if used[j] || j == i {
+			continue
+		}
+		if canUpdate(child.Base().widget, next) {
+			return j
+		}
+	}
+	return -1
 }
 
 func (e *renderObjectElement) VisitChildren(fn func(element)) {
@@ -301,13 +328,6 @@ func detachRenderTree(ro RenderObject) {
 	ro.Base().owner = nil
 	ro.Base().parent = nil
 	ro.VisitChildren(detachRenderTree)
-}
-
-func oldAt(children []element, i int) element {
-	if i >= 0 && i < len(children) {
-		return children[i]
-	}
-	return nil
 }
 
 type (

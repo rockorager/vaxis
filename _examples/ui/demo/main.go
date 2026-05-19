@@ -225,17 +225,36 @@ func (s *DemoState) listsPage() ui.Widget {
 			{Text: "\nThis page uses CustomScrollView with mixed slivers. The section header pins while the list and footer scroll under one scrollbar."},
 		}, SoftWrap: true},
 		ui.SizedBox{Height: 1},
-		ui.SizedBox{Width: 72, Height: 12, Child: ui.Scrollbar{Child: ui.CustomScrollView{Slivers: []ui.Widget{
+		ui.SizedBox{Width: 72, Height: 8, Child: ui.Scrollbar{Child: ui.CustomScrollView{Slivers: []ui.Widget{
 			ui.SliverToBox{Child: ui.Text{Value: "The intro sliver scrolls away before the pinned header takes over.", SoftWrap: true}},
 			ui.SliverPinnedHeader{Child: ui.Text{
 				Value: " #  target             status",
 				Style: ui.Style{Attribute: ui.AttrBold, Background: ui.RGB(48, 48, 48)},
 			}},
-			ui.SliverList{ChildrenWidget: listDemoRows()},
+			ui.SliverListBuilder{
+				Count:      2000,
+				ItemExtent: 1,
+				Overscan:   12,
+				Builder: func(ctx ui.BuildContext, i int) ui.Widget {
+					return listDemoRow(i + 1)
+				},
+			},
 			ui.SliverToBox{Child: ui.RichText{Spans: []ui.TextSpan{
 				{Text: "Footer sliver", Style: ui.Style{Attribute: ui.AttrBold}},
 				{Text: "\nTrack clicks page the same viewport as Page Up and Page Down. Drag the thumb for proportional scrolling."},
 			}, SoftWrap: true}},
+		}}}},
+		ui.SizedBox{Height: 1},
+		ui.Text{Value: "Variable-height messages", Style: ui.Style{Attribute: ui.AttrBold}},
+		ui.SizedBox{Width: 72, Height: 7, Child: ui.Scrollbar{Child: ui.CustomScrollView{Slivers: []ui.Widget{
+			ui.SliverListBuilder{
+				Count:               200,
+				EstimatedItemExtent: 2,
+				Overscan:            8,
+				Builder: func(ctx ui.BuildContext, i int) ui.Widget {
+					return chatDemoMessage(i)
+				},
+			},
 		}}}},
 	}}
 }
@@ -350,31 +369,48 @@ func scrollDemoLines() ui.Widget {
 	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: children}
 }
 
-func listDemoRows() []ui.Widget {
-	rows := make([]ui.Widget, 0, 36)
-	for i := 1; i <= 36; i++ {
-		status := "ready"
-		style := ui.Style{Attribute: ui.AttrDim}
-		switch {
-		case i%9 == 0:
-			status = "blocked"
-			style = ui.Style{Foreground: ui.RGB(255, 160, 120)}
-		case i%5 == 0:
-			status = "running"
-			style = ui.Style{Foreground: ui.RGB(78, 201, 176)}
-		case i%4 == 0:
-			status = "queued"
-			style = ui.Style{Foreground: ui.RGB(120, 180, 255)}
-		}
-		rows = append(rows, ui.RichText{Spans: []ui.TextSpan{
-			{Text: padLeft(strconv.Itoa(i), 2), Style: ui.Style{Attribute: ui.AttrBold}},
-			{Text: "  "},
-			{Text: "deploy target " + padLeft(strconv.Itoa(100+i), 3)},
-			{Text: "  "},
-			{Text: status, Style: style},
-		}})
+func listDemoRow(i int) ui.Widget {
+	status := "ready"
+	style := ui.Style{Attribute: ui.AttrDim}
+	switch {
+	case i%9 == 0:
+		status = "blocked"
+		style = ui.Style{Foreground: ui.RGB(255, 160, 120)}
+	case i%5 == 0:
+		status = "running"
+		style = ui.Style{Foreground: ui.RGB(78, 201, 176)}
+	case i%4 == 0:
+		status = "queued"
+		style = ui.Style{Foreground: ui.RGB(120, 180, 255)}
 	}
-	return rows
+	return ui.RichText{Spans: []ui.TextSpan{
+		{Text: padLeft(strconv.Itoa(i), 4), Style: ui.Style{Attribute: ui.AttrBold}},
+		{Text: "  "},
+		{Text: "deploy target " + strconv.Itoa(100+i)},
+		{Text: "  "},
+		{Text: status, Style: style},
+	}}
+}
+
+func chatDemoMessage(i int) ui.Widget {
+	names := []string{"Ada", "Linus", "Grace", "Ken", "Margaret"}
+	body := "short update"
+	switch i % 5 {
+	case 1:
+		body = "wrapped message with enough text to occupy multiple terminal rows in the measured sliver list"
+	case 2:
+		body = "follow-up\nsecond line from the same sender"
+	case 3:
+		body = "status: investigating scroll extent estimates and measured row heights"
+	case 4:
+		body = "ok"
+	}
+	return ui.RichText{Spans: []ui.TextSpan{
+		{Text: padLeft(strconv.Itoa(i+1), 3), Style: ui.Style{Attribute: ui.AttrDim}},
+		{Text: " "},
+		{Text: names[i%len(names)] + ": ", Style: ui.Style{Attribute: ui.AttrBold}},
+		{Text: body},
+	}, SoftWrap: true}
 }
 
 func padLeft(s string, width int) string {
