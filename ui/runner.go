@@ -2,6 +2,7 @@ package ui
 
 import "time"
 
+// Runner connects an App to a Backend and frame scheduler.
 type Runner struct {
 	app       *App
 	backend   Backend
@@ -9,6 +10,7 @@ type Runner struct {
 	done      bool
 }
 
+// NewRunner creates a runner for app and backend.
 func NewRunner(app *App, backend Backend, scheduler *FrameScheduler) *Runner {
 	if scheduler == nil {
 		scheduler = NewFrameScheduler(DefaultFrameInterval)
@@ -26,14 +28,17 @@ func NewRunner(app *App, backend Backend, scheduler *FrameScheduler) *Runner {
 	return &Runner{app: app, backend: backend, scheduler: scheduler}
 }
 
+// Start schedules the initial frame.
 func (r *Runner) Start(now time.Time) {
 	r.RequestFrame(now)
 }
 
+// Done reports whether the runner should stop.
 func (r *Runner) Done() bool {
 	return r.done || r.app.ShouldQuit()
 }
 
+// NextFrame returns the next scheduled frame time.
 func (r *Runner) NextFrame() (time.Time, bool) {
 	if !r.scheduler.Scheduled() {
 		return time.Time{}, false
@@ -41,11 +46,13 @@ func (r *Runner) NextFrame() (time.Time, bool) {
 	return r.scheduler.Due(), true
 }
 
+// RequestFrame asks the scheduler for another frame.
 func (r *Runner) RequestFrame(now time.Time) {
 	r.app.RequestFrame()
 	r.scheduler.Request(now)
 }
 
+// HandleEvent dispatches one backend event to the app.
 func (r *Runner) HandleEvent(ev Event, now time.Time) {
 	if fn, ok := ev.(SyncFunc); ok {
 		fn()
@@ -74,6 +81,7 @@ func (r *Runner) HandleEvent(ev Event, now time.Time) {
 	}
 }
 
+// HandleFrame rebuilds, lays out, paints, and renders one frame if needed.
 func (r *Runner) HandleFrame(now time.Time) error {
 	r.app.tickAnimations(now)
 	if !r.app.FrameRequested() {

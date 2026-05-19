@@ -3,28 +3,44 @@ package ui
 type TextAlign int
 
 const (
+	// TextAlignStart aligns text to the start edge.
 	TextAlignStart TextAlign = iota
+	// TextAlignEnd aligns text to the end edge.
 	TextAlignEnd
+	// TextAlignLeft aligns text to the left edge.
 	TextAlignLeft
+	// TextAlignRight aligns text to the right edge.
 	TextAlignRight
+	// TextAlignCenter centers text.
 	TextAlignCenter
 )
 
+// TextOverflow controls how text behaves when it exceeds its layout bounds.
 type TextOverflow int
 
 const (
+	// TextOverflowClip clips overflowing text.
 	TextOverflowClip TextOverflow = iota
+	// TextOverflowEllipsis replaces clipped text with an ellipsis where possible.
 	TextOverflowEllipsis
+	// TextOverflowVisible paints text outside its layout bounds.
 	TextOverflowVisible
 )
 
+// Text displays a single styled string.
 type Text struct {
-	Value    string
-	Style    Style
+	// Value is the string to display.
+	Value string
+	// Style overrides Theme.Text when non-zero fields are set.
+	Style Style
+	// SoftWrap wraps text to the available width.
 	SoftWrap bool
+	// Overflow controls painting when text exceeds its layout bounds.
 	Overflow TextOverflow
+	// MaxLines limits the number of laid-out display lines when greater than zero.
 	MaxLines int
-	Align    TextAlign
+	// Align controls horizontal placement within the laid-out width.
+	Align TextAlign
 }
 
 func (w Text) CreateRenderObject(ctx BuildContext) RenderObject {
@@ -47,6 +63,7 @@ func (w Text) options() TextLayoutOptions {
 	return TextLayoutOptions{SoftWrap: w.SoftWrap, Overflow: w.Overflow, MaxLines: w.MaxLines, Align: w.Align}
 }
 
+// RenderText lays out and paints a Text widget.
 type RenderText struct {
 	LeafRenderObject
 	Text    string

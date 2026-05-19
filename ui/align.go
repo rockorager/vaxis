@@ -1,22 +1,35 @@
 package ui
 
+// Alignment describes child placement within extra horizontal and vertical space.
 type Alignment struct{ X, Y int }
 
 var (
-	TopLeft      = Alignment{X: -1, Y: -1}
-	TopCenter    = Alignment{X: 0, Y: -1}
-	TopRight     = Alignment{X: 1, Y: -1}
-	CenterLeft   = Alignment{X: -1, Y: 0}
-	CenterAlign  = Alignment{X: 0, Y: 0}
-	CenterRight  = Alignment{X: 1, Y: 0}
-	BottomLeft   = Alignment{X: -1, Y: 1}
+	// TopLeft aligns a child to the top-left corner.
+	TopLeft = Alignment{X: -1, Y: -1}
+	// TopCenter aligns a child to the top edge.
+	TopCenter = Alignment{X: 0, Y: -1}
+	// TopRight aligns a child to the top-right corner.
+	TopRight = Alignment{X: 1, Y: -1}
+	// CenterLeft aligns a child to the left edge.
+	CenterLeft = Alignment{X: -1, Y: 0}
+	// CenterAlign centers a child on both axes.
+	CenterAlign = Alignment{X: 0, Y: 0}
+	// CenterRight aligns a child to the right edge.
+	CenterRight = Alignment{X: 1, Y: 0}
+	// BottomLeft aligns a child to the bottom-left corner.
+	BottomLeft = Alignment{X: -1, Y: 1}
+	// BottomCenter aligns a child to the bottom edge.
 	BottomCenter = Alignment{X: 0, Y: 1}
-	BottomRight  = Alignment{X: 1, Y: 1}
+	// BottomRight aligns a child to the bottom-right corner.
+	BottomRight = Alignment{X: 1, Y: 1}
 )
 
+// Align positions its child within the space allowed by its parent.
 type Align struct {
+	// Alignment controls where the child is placed.
 	Alignment Alignment
-	Child     Widget
+	// Child is laid out loosely within the available space.
+	Child Widget
 }
 
 func (w Align) ChildWidget() Widget {
@@ -35,6 +48,7 @@ func (w Align) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
 	}
 }
 
+// RenderAlign lays out one child and paints it at an aligned offset.
 type RenderAlign struct {
 	SingleChildRenderObject
 	Alignment Alignment

@@ -1,10 +1,15 @@
 package ui
 
+// Cursor requests a terminal cursor at a child-relative cell position.
 type Cursor struct {
+	// Col and Row locate the cursor relative to the child origin.
 	Col, Row int
-	Shape    CursorStyle
-	Hidden   bool
-	Child    Widget
+	// Shape is the terminal cursor style to request.
+	Shape CursorStyle
+	// Hidden suppresses the cursor while still painting the child.
+	Hidden bool
+	// Child is painted before the cursor is requested.
+	Child Widget
 }
 
 func (w Cursor) ChildWidget() Widget {
@@ -26,6 +31,7 @@ func (w Cursor) UpdateRenderObject(_ BuildContext, ro RenderObject) {
 	}
 }
 
+// RenderCursor paints its child and records cursor state.
 type RenderCursor struct {
 	SingleChildRenderObject
 	Col, Row int

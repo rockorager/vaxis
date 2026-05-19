@@ -1,36 +1,54 @@
 package ui
 
+// Decoration describes the fill, style, and border painted behind a child.
 type Decoration struct {
-	Style  Style
-	Fill   Character
+	// Style is used for the background fill.
+	Style Style
+	// Fill is the character used to fill the box; a space is used when zero.
+	Fill Character
+	// Border describes the optional border drawn over the fill.
 	Border Border
 }
 
+// Border describes which edges of a box should be drawn.
 type Border struct {
-	Style                    Style
+	// Style is used to draw border cells.
+	Style Style
+	// Top, Right, Bottom, and Left enable individual border edges.
 	Top, Right, Bottom, Left bool
-	Chars                    BorderChars
+	// Chars customizes the border drawing characters.
+	Chars BorderChars
 }
 
+// BorderAll creates a border on every edge using style.
 func BorderAll(style Style) Border {
 	return Border{Style: style, Top: true, Right: true, Bottom: true, Left: true}
 }
 
+// BorderLine creates a one-cell border using color as the foreground.
 func BorderLine(color Color) Border {
 	return BorderAll(Style{Foreground: color})
 }
 
+// BorderChars customizes the characters used to draw a border.
 type BorderChars struct {
-	Horizontal, Vertical    Character
-	TopLeft, TopRight       Character
+	// Horizontal and Vertical draw straight border edges.
+	Horizontal, Vertical Character
+	// TopLeft and TopRight draw the top corners.
+	TopLeft, TopRight Character
+	// BottomLeft and BottomRight draw the bottom corners.
 	BottomLeft, BottomRight Character
 }
 
+// DecoratedBoxWidget paints a decoration behind its child.
 type DecoratedBoxWidget struct {
-	Decoration  Decoration
+	// Decoration is painted before the child.
+	Decoration Decoration
+	// ChildWidget is painted over the decoration.
 	ChildWidget Widget
 }
 
+// DecoratedBox returns a widget that paints decoration behind child.
 func DecoratedBox(decoration Decoration, child Widget) Widget {
 	return DecoratedBoxWidget{Decoration: decoration, ChildWidget: child}
 }
@@ -51,6 +69,7 @@ func (w DecoratedBoxWidget) UpdateRenderObject(ctx BuildContext, ro RenderObject
 	}
 }
 
+// RenderDecoratedBox paints a decoration and then its child.
 type RenderDecoratedBox struct {
 	SingleChildRenderObject
 	Decoration Decoration

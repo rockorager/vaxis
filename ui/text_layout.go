@@ -2,6 +2,7 @@ package ui
 
 import "unicode/utf8"
 
+// TextLayoutOptions controls wrapping, overflow, line limits, and alignment.
 type TextLayoutOptions struct {
 	SoftWrap bool
 	Overflow TextOverflow
@@ -9,22 +10,26 @@ type TextLayoutOptions struct {
 	Align    TextAlign
 }
 
+// TextLayout is the measured line and cell representation of styled text.
 type TextLayout struct {
 	Lines []TextLine
 	Size  Size
 }
 
+// TextSelectionRange describes a contiguous selected cell range on one row.
 type TextSelectionRange struct {
 	Row   int
 	Col   int
 	Width int
 }
 
+// TextCursorCellOptions controls cursor mapping at soft-wrap boundaries.
 type TextCursorCellOptions struct {
 	SoftWrap  bool
 	WrapWidth int
 }
 
+// TextLine describes one laid-out display line.
 type TextLine struct {
 	Runs   []TextSpan
 	Width  int
@@ -34,6 +39,7 @@ type TextLine struct {
 	End    TextPosition
 }
 
+// TextCell describes one grapheme cell in a text layout.
 type TextCell struct {
 	Text      string
 	Width     int
@@ -42,10 +48,12 @@ type TextCell struct {
 	Synthetic bool
 }
 
+// End returns the text position immediately after this cell.
 func (c TextCell) End() TextPosition {
 	return advanceTextPosition(c.Position, c.Text)
 }
 
+// TextPosition identifies a location in styled text.
 type TextPosition struct {
 	Span           int
 	ByteOffset     int
@@ -73,6 +81,7 @@ type textLayoutPaintOptions struct {
 	SelectionStyle Style
 }
 
+// LayoutText lays out styled text spans into terminal display lines.
 func LayoutText(spans []TextSpan, c Constraints, opts TextLayoutOptions) TextLayout {
 	maxWidth := c.MaxWidth
 	if !opts.SoftWrap || maxWidth == Unbounded {
@@ -175,6 +184,7 @@ func layoutText(spans []TextSpan, c Constraints, opts textLayoutOptions) TextLay
 	return LayoutText(spans, c, opts)
 }
 
+// PositionForCell maps a layout row and column to a text position.
 func (l TextLayout) PositionForCell(row, col int) (TextPosition, bool) {
 	if row < 0 || row >= len(l.Lines) {
 		return TextPosition{}, false
@@ -197,6 +207,7 @@ func (l TextLayout) PositionForCell(row, col int) (TextPosition, bool) {
 	return TextPosition{}, false
 }
 
+// CellForPosition maps a text position to a layout row and column.
 func (l TextLayout) CellForPosition(pos TextPosition) (row, col int, ok bool) {
 	for y, line := range l.Lines {
 		x := 0
@@ -213,6 +224,7 @@ func (l TextLayout) CellForPosition(pos TextPosition) (row, col int, ok bool) {
 	return 0, 0, false
 }
 
+// CursorCell maps a text position to the cell where a cursor should be shown.
 func (l TextLayout) CursorCell(pos TextPosition, opts TextCursorCellOptions) (row, col int, ok bool) {
 	row, col, ok = l.CellForPosition(pos)
 	if !ok {
@@ -224,6 +236,7 @@ func (l TextLayout) CursorCell(pos TextPosition, opts TextCursorCellOptions) (ro
 	return row, col, true
 }
 
+// SelectionRanges maps a text selection to visible layout cell ranges.
 func (l TextLayout) SelectionRanges(selection TextSelection) []TextSelectionRange {
 	if selection.IsCollapsed() {
 		return nil

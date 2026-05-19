@@ -1,25 +1,34 @@
 package ui
 
+// EventPhase identifies where an event is in capture, target, and bubble dispatch.
 type EventPhase int
 
 const (
+	// CapturePhase is delivered from the root toward the target.
 	CapturePhase EventPhase = iota
+	// TargetPhase is delivered to the target element.
 	TargetPhase
+	// BubblePhase is delivered from the target's parent back toward the root.
 	BubblePhase
 )
 
+// EventResult controls whether event propagation continues.
 type EventResult int
 
 const (
+	// EventIgnored allows event propagation to continue.
 	EventIgnored EventResult = iota
+	// EventHandled stops event propagation.
 	EventHandled
 )
 
+// EventContext exposes the current event phase and runtime side effects.
 type EventContext struct {
 	app   *App
 	phase EventPhase
 }
 
+// Runtime schedules work back onto the UI event loop.
 type Runtime interface{ Dispatch(func()) }
 
 type appRuntime struct{ app *App }
@@ -31,71 +40,90 @@ func (r appRuntime) Dispatch(fn func()) {
 	r.app.dispatch(fn)
 }
 
+// Phase returns the current dispatch phase.
 func (c EventContext) Phase() EventPhase {
 	return c.phase
 }
 
+// Runtime returns a dispatcher for scheduling work on the UI event loop.
 func (c EventContext) Runtime() Runtime {
 	return appRuntime{app: c.app}
 }
 
+// Quit requests that the current runner stop.
 func (c EventContext) Quit() {
 	c.app.quit = true
 }
 
+// SetTitle asks the backend to set the terminal title.
 func (c EventContext) SetTitle(title string) {
 	c.app.setTitle(title)
 }
 
+// Copy asks the backend to place text on the clipboard.
 func (c EventContext) Copy(text string) {
 	c.app.copyToClipboard(text)
 }
 
+// Notify asks the backend to display a notification.
 func (c EventContext) Notify(title, body string) {
 	c.app.notify(title, body)
 }
 
+// CopyToClipboard asks the backend to place text on the clipboard.
 func (c EventContext) CopyToClipboard(text string) {
 	c.Copy(text)
 }
 
+// FocusNext moves focus to the next focusable widget.
 func (c EventContext) FocusNext() {
 	c.app.focusNext()
 }
 
+// FocusPrevious moves focus to the previous focusable widget.
 func (c EventContext) FocusPrevious() {
 	c.app.focusPrevious()
 }
 
+// SetMouseShape requests a mouse cursor shape for the current pointer location.
 func (c EventContext) SetMouseShape(shape MouseShape) {
 	c.app.setMouseShape(shape)
 }
 
+// EventHandler receives events during capture, target, or bubble dispatch.
 type EventHandler interface {
 	HandleEvent(EventContext, Event) EventResult
 }
+
+// MouseShapeHandler chooses the mouse cursor shape for a hovered element.
 type MouseShapeHandler interface {
 	MouseShape(EventContext, Mouse) MouseShape
 }
 type (
-	hoverExit     struct{}
-	VoidCallback  func(EventContext)
+	hoverExit struct{}
+	// VoidCallback handles an action with event context.
+	VoidCallback func(EventContext)
+	// EventCallback handles an event and controls propagation.
 	EventCallback func(EventContext, Event) EventResult
-	KeyCallback   func(EventContext, Key) EventResult
+	// KeyCallback handles a key event and controls propagation.
+	KeyCallback func(EventContext, Key) EventResult
 )
 
+// FocusNode controls and observes focus for a Focus widget.
 type FocusNode struct {
 	app      *App
 	element  Element
 	onChange func()
 }
 
+// RequestFocus moves focus to this node if it is attached.
 func (n *FocusNode) RequestFocus() {
 	if n != nil && n.app != nil && n.element != nil {
 		n.app.setFocused(n.element)
 	}
 }
 
+// HasFocus reports whether this node is currently focused.
 func (n *FocusNode) HasFocus() bool {
 	return n != nil && n.app != nil && n.app.focused == n.element
 }

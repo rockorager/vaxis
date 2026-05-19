@@ -1,8 +1,11 @@
 package ui
 
+// ConstrainedBox applies additional constraints to its child.
 type ConstrainedBox struct {
+	// Constraints are enforced inside the parent constraints.
 	Constraints Constraints
-	Child       Widget
+	// Child is laid out with the combined constraints.
+	Child Widget
 }
 
 func (w ConstrainedBox) ChildWidget() Widget {
@@ -21,6 +24,7 @@ func (w ConstrainedBox) UpdateRenderObject(_ BuildContext, ro RenderObject) {
 	}
 }
 
+// RenderConstrainedBox enforces additional constraints during layout.
 type RenderConstrainedBox struct {
 	SingleChildRenderObject
 	AdditionalConstraints Constraints

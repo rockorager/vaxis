@@ -1,5 +1,6 @@
 package ui
 
+// Painter records terminal cells and cursor state for a frame.
 type Painter struct {
 	size   Size
 	cells  []Cell
@@ -7,24 +8,29 @@ type Painter struct {
 	cursor *CursorState
 }
 
+// CursorState describes the terminal cursor requested during paint.
 type CursorState struct {
 	Col   int
 	Row   int
 	Shape CursorStyle
 }
 
+// NewPainter creates a painter with a blank cell buffer of size.
 func NewPainter(size Size) *Painter {
 	return &Painter{size: size, cells: make([]Cell, size.Width*size.Height), clips: []Rect{{Width: size.Width, Height: size.Height}}}
 }
 
+// Size returns the painter's cell buffer size.
 func (p *Painter) Size() Size {
 	return p.size
 }
 
+// Cells returns the painter's backing cell buffer.
 func (p *Painter) Cells() []Cell {
 	return p.cells
 }
 
+// Cell returns the cell at x,y or an empty cell when out of bounds.
 func (p *Painter) Cell(x, y int) Cell {
 	if x < 0 || y < 0 || x >= p.size.Width || y >= p.size.Height {
 		return Cell{}
@@ -32,6 +38,7 @@ func (p *Painter) Cell(x, y int) Cell {
 	return p.cells[y*p.size.Width+x]
 }
 
+// ShowCursor records a visible cursor if the position is in bounds and unclipped.
 func (p *Painter) ShowCursor(col, row int, shape CursorStyle) {
 	pt := Point{X: col, Y: row}
 	if !p.inClip(pt) || !p.inBounds(pt) {
@@ -41,10 +48,12 @@ func (p *Painter) ShowCursor(col, row int, shape CursorStyle) {
 	p.cursor = &CursorState{Col: col, Row: row, Shape: shape}
 }
 
+// HideCursor clears any requested cursor.
 func (p *Painter) HideCursor() {
 	p.cursor = nil
 }
 
+// Cursor returns the requested cursor state.
 func (p *Painter) Cursor() (CursorState, bool) {
 	if p.cursor == nil {
 		return CursorState{}, false
@@ -52,6 +61,7 @@ func (p *Painter) Cursor() (CursorState, bool) {
 	return *p.cursor, true
 }
 
+// DrawCell writes a single cell when pt is in bounds and unclipped.
 func (p *Painter) DrawCell(pt Point, cell Cell) {
 	if !p.inClip(pt) || pt.X < 0 || pt.Y < 0 || pt.X >= p.size.Width || pt.Y >= p.size.Height {
 		return
@@ -59,6 +69,7 @@ func (p *Painter) DrawCell(pt Point, cell Cell) {
 	p.cells[pt.Y*p.size.Width+pt.X] = cell
 }
 
+// DrawText writes s at off using style.
 func (p *Painter) DrawText(off Offset, s string, style Style) {
 	x := off.X
 	for _, ch := range vaxisCharacters(s) {
@@ -72,6 +83,7 @@ func (p *Painter) DrawText(off Offset, s string, style Style) {
 	}
 }
 
+// Fill writes cell into every visible cell of r.
 func (p *Painter) Fill(r Rect, cell Cell) {
 	for y := r.Y; y < r.Y+r.Height; y++ {
 		for x := r.X; x < r.X+r.Width; x++ {
@@ -80,10 +92,12 @@ func (p *Painter) Fill(r Rect, cell Cell) {
 	}
 }
 
+// PushClip restricts subsequent drawing to r.
 func (p *Painter) PushClip(r Rect) {
 	p.clips = append(p.clips, r)
 }
 
+// PopClip restores the previous clip rectangle.
 func (p *Painter) PopClip() {
 	if len(p.clips) > 1 {
 		p.clips = p.clips[:len(p.clips)-1]

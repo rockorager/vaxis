@@ -1,10 +1,14 @@
 package ui
 
+// PaddingWidget insets its child by a fixed number of cells.
 type PaddingWidget struct {
-	Insets      Insets
+	// Insets is the empty space around the child.
+	Insets Insets
+	// ChildWidget is laid out inside the inset space.
 	ChildWidget Widget
 }
 
+// Padding returns a widget that insets child.
 func Padding(in Insets, child Widget) Widget {
 	return PaddingWidget{Insets: in, ChildWidget: child}
 }
@@ -21,6 +25,7 @@ func (w PaddingWidget) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
 	ro.(*RenderPadding).Insets = w.Insets
 }
 
+// RenderPadding lays out and paints one inset child.
 type RenderPadding struct {
 	SingleChildRenderObject
 	Insets Insets

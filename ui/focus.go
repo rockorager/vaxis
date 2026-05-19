@@ -1,10 +1,14 @@
 package ui
 
+// FocusWidget makes its child focusable through a FocusNode.
 type FocusWidget struct {
-	Node        *FocusNode
+	// Node controls and observes focus for this widget.
+	Node *FocusNode
+	// ChildWidget is the focusable subtree.
 	ChildWidget Widget
 }
 
+// Focus returns a focusable wrapper around child.
 func Focus(node *FocusNode, child Widget) Widget {
 	return FocusWidget{Node: node, ChildWidget: child}
 }

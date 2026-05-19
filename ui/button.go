@@ -1,10 +1,15 @@
 package ui
 
+// Button is a focusable control that invokes OnPressed on click, Enter, or Space.
 type Button struct {
-	Label     string
+	// Label is the text shown inside the button.
+	Label string
+	// OnPressed is called when the button is activated.
 	OnPressed VoidCallback
-	Padding   Insets
-	MinWidth  int
+	// Padding overrides Theme.Button.Padding when non-zero.
+	Padding Insets
+	// MinWidth overrides Theme.Button.MinWidth when greater than zero.
+	MinWidth int
 }
 
 func (w Button) CreateState() State {

@@ -6,6 +6,7 @@ import (
 	"git.sr.ht/~rockorager/vaxis"
 )
 
+// Backend is the runtime boundary between ui and a terminal implementation.
 type Backend interface {
 	Events() <-chan Event
 	Size() Size

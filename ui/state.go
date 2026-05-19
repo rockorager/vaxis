@@ -1,12 +1,15 @@
 package ui
 
+// State stores mutable widget state and builds a widget subtree.
 type State interface{ Build(BuildContext) Widget }
 
+// StateBase provides lifecycle helpers for State implementations.
 type StateBase struct {
 	element    *statefulElement
 	animations []*AnimationController
 }
 
+// SetState applies fn and schedules this state to rebuild.
 func (s *StateBase) SetState(fn func()) {
 	if fn == nil {
 		panic("ui: SetState called with nil function")
@@ -15,6 +18,7 @@ func (s *StateBase) SetState(fn func()) {
 	s.MarkNeedsBuild()
 }
 
+// MarkNeedsBuild schedules this state to rebuild.
 func (s *StateBase) MarkNeedsBuild() {
 	if s.element == nil || s.element.owner == nil {
 		panic("ui: MarkNeedsBuild called after Dispose")
@@ -25,14 +29,17 @@ func (s *StateBase) MarkNeedsBuild() {
 	s.element.MarkNeedsBuild()
 }
 
+// Context returns the build context for this state.
 func (s *StateBase) Context() BuildContext {
 	return s.element.Context()
 }
 
+// Widget returns the current widget configuration for this state.
 func (s *StateBase) Widget() Widget {
 	return s.element.widget
 }
 
+// NewAnimation creates an animation controller owned by this state.
 func (s *StateBase) NewAnimation(opts AnimationOptions) *AnimationController {
 	if s.element == nil || s.element.owner == nil {
 		panic("ui: NewAnimation called after Dispose")
@@ -66,9 +73,12 @@ func (s *StateBase) disposeAnimations() {
 }
 
 type (
+	// StateInitializer is implemented by State values that need mount-time initialization.
 	StateInitializer interface{ InitState() }
-	StateDisposer    interface{ Dispose() }
-	StateUpdater     interface{ DidUpdateWidget(old Widget) }
+	// StateDisposer is implemented by State values that need unmount cleanup.
+	StateDisposer interface{ Dispose() }
+	// StateUpdater is implemented by State values that observe compatible widget updates.
+	StateUpdater interface{ DidUpdateWidget(old Widget) }
 )
 
 type statefulElement struct {

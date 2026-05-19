@@ -1,8 +1,11 @@
 package ui
 
+// SizedBox forces its child to a fixed cell size.
 type SizedBox struct {
+	// Width and Height are the fixed size requested for the child.
 	Width, Height int
-	Child         Widget
+	// Child is laid out with tight constraints for Width and Height.
+	Child Widget
 }
 
 func (w SizedBox) ChildWidget() Widget {
@@ -21,6 +24,7 @@ func (w SizedBox) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
 	}
 }
 
+// RenderSizedBox lays out one child with a tight fixed size.
 type RenderSizedBox struct {
 	SingleChildRenderObject
 	Width, Height int

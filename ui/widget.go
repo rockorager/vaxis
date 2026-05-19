@@ -6,18 +6,24 @@ import (
 )
 
 type (
-	StatelessWidget    interface{ Build(BuildContext) Widget }
-	StatefulWidget     interface{ CreateState() State }
+	// StatelessWidget builds child widgets from configuration and context.
+	StatelessWidget interface{ Build(BuildContext) Widget }
+	// StatefulWidget creates persistent State for a widget location.
+	StatefulWidget interface{ CreateState() State }
+	// RenderObjectWidget creates and updates a render object.
 	RenderObjectWidget interface {
 		CreateRenderObject(BuildContext) RenderObject
 		UpdateRenderObject(BuildContext, RenderObject)
 	}
 )
 
+// ParentDataWidget writes layout data onto its child's render object.
 type ParentDataWidget interface {
 	Child() Widget
 	ApplyParentData(RenderObject)
 }
+
+// ElementWidget creates a custom element implementation.
 type ElementWidget interface{ CreateElement() Element }
 
 func createElement(w Widget) Element {

@@ -1,15 +1,24 @@
 package ui
 
+// RichText displays multiple styled spans as one text layout.
 type RichText struct {
-	Spans    []TextSpan
+	// Spans are the styled text runs to display.
+	Spans []TextSpan
+	// SoftWrap wraps text to the available width.
 	SoftWrap bool
+	// Overflow controls painting when text exceeds its layout bounds.
 	Overflow TextOverflow
+	// MaxLines limits the number of laid-out display lines when greater than zero.
 	MaxLines int
-	Align    TextAlign
+	// Align controls horizontal placement within the laid-out width.
+	Align TextAlign
 }
 
+// TextSpan is a styled run of text.
 type TextSpan struct {
-	Text  string
+	// Text is the span contents.
+	Text string
+	// Style is merged over Theme.Text for this span.
 	Style Style
 }
 
@@ -27,6 +36,7 @@ func (w RichText) options() TextLayoutOptions {
 	return TextLayoutOptions{SoftWrap: w.SoftWrap, Overflow: w.Overflow, MaxLines: w.MaxLines, Align: w.Align}
 }
 
+// RenderRichText lays out and paints a RichText widget.
 type RenderRichText struct {
 	LeafRenderObject
 	Spans   []TextSpan

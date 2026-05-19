@@ -1,58 +1,87 @@
 package ui
 
+// Axis identifies the main direction for a Flex.
 type Axis int
 
 const (
+	// Horizontal lays out children from left to right.
 	Horizontal Axis = iota
+	// Vertical lays out children from top to bottom.
 	Vertical
 )
 
+// MainAxisSize controls how much space a Flex occupies on its main axis.
 type MainAxisSize int
 
 const (
+	// MainAxisSizeMax expands the Flex to the incoming maximum main-axis size.
 	MainAxisSizeMax MainAxisSize = iota
+	// MainAxisSizeMin sizes the Flex to its children on the main axis.
 	MainAxisSizeMin
 )
 
+// MainAxisAlignment controls how free space is distributed on a Flex main axis.
 type MainAxisAlignment int
 
 const (
+	// MainAxisStart places children at the start of the main axis.
 	MainAxisStart MainAxisAlignment = iota
+	// MainAxisEnd places children at the end of the main axis.
 	MainAxisEnd
+	// MainAxisCenter centers children on the main axis.
 	MainAxisCenter
+	// MainAxisSpaceBetween distributes free space between children.
 	MainAxisSpaceBetween
+	// MainAxisSpaceAround distributes free space around children.
 	MainAxisSpaceAround
+	// MainAxisSpaceEvenly distributes free space evenly before, between, and after children.
 	MainAxisSpaceEvenly
 )
 
+// CrossAxisAlignment controls how children are placed on a Flex cross axis.
 type CrossAxisAlignment int
 
 const (
+	// CrossAxisCenter centers children on the cross axis.
 	CrossAxisCenter CrossAxisAlignment = iota
+	// CrossAxisStart places children at the start of the cross axis.
 	CrossAxisStart
+	// CrossAxisEnd places children at the end of the cross axis.
 	CrossAxisEnd
+	// CrossAxisStretch tightens children to the maximum cross-axis size.
 	CrossAxisStretch
 )
 
+// FlexFit controls how a flexible child uses its allocated main-axis space.
 type FlexFit int
 
 const (
+	// FlexFitTight forces the child to fill its allocated flex space.
 	FlexFitTight FlexFit = iota
+	// FlexFitLoose allows the child to be smaller than its allocated flex space.
 	FlexFitLoose
 )
 
+// Flex lays out children in a horizontal or vertical run.
 type Flex struct {
-	Axis               Axis
-	MainAxisSize       MainAxisSize
-	MainAxisAlignment  MainAxisAlignment
+	// Axis is the direction children are placed.
+	Axis Axis
+	// MainAxisSize controls whether the flex expands or shrinks on its main axis.
+	MainAxisSize MainAxisSize
+	// MainAxisAlignment controls how extra main-axis space is distributed.
+	MainAxisAlignment MainAxisAlignment
+	// CrossAxisAlignment controls child placement on the cross axis.
 	CrossAxisAlignment CrossAxisAlignment
-	ChildrenWidget     []Widget
+	// ChildrenWidget is the ordered list of children.
+	ChildrenWidget []Widget
 }
 
+// Row creates a horizontal Flex.
 func Row(children ...Widget) Widget {
 	return Flex{Axis: Horizontal, ChildrenWidget: children}
 }
 
+// Column creates a vertical Flex.
 func Column(children ...Widget) Widget {
 	return Flex{Axis: Vertical, ChildrenWidget: children}
 }
@@ -76,16 +105,22 @@ func (w Flex) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
 	}
 }
 
+// FlexParentData stores layout data for children of RenderFlex.
 type FlexParentData struct {
-	Flex   int
-	Fit    FlexFit
+	// Flex is the child's flex factor.
+	Flex int
+	// Fit controls whether the child must fill its flex allocation.
+	Fit FlexFit
+	// Offset is the child paint offset computed by RenderFlex.
 	Offset Offset
 }
 
+// RenderOffset returns the child's paint offset.
 func (d FlexParentData) RenderOffset() Offset {
 	return d.Offset
 }
 
+// RenderFlex lays out render children along a main axis.
 type RenderFlex struct {
 	MultiChildRenderObject
 	Axis               Axis
@@ -222,11 +257,15 @@ func (r *RenderFlex) HitTest(*HitTestResult, Point) bool {
 	return false
 }
 
+// ExpandedWidget gives a Flex child a tight share of remaining space.
 type ExpandedWidget struct {
-	Flex        int
+	// Flex is the share of remaining space assigned to the child.
+	Flex int
+	// ChildWidget is the wrapped child.
 	ChildWidget Widget
 }
 
+// Expanded wraps child with a tight flex factor of 1.
 func Expanded(child Widget) Widget {
 	return ExpandedWidget{Flex: 1, ChildWidget: child}
 }
@@ -243,12 +282,17 @@ func (w ExpandedWidget) ApplyParentData(ro RenderObject) {
 	applyFlexParentData(ro, flex, FlexFitTight)
 }
 
+// FlexibleWidget gives a Flex child a configurable share of remaining space.
 type FlexibleWidget struct {
-	Flex        int
-	Fit         FlexFit
+	// Flex is the share of remaining space assigned to the child.
+	Flex int
+	// Fit controls whether the child must fill its flex allocation.
+	Fit FlexFit
+	// ChildWidget is the wrapped child.
 	ChildWidget Widget
 }
 
+// Flexible wraps child with a loose flex factor of 1.
 func Flexible(child Widget) Widget {
 	return FlexibleWidget{Flex: 1, Fit: FlexFitLoose, ChildWidget: child}
 }

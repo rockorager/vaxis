@@ -2,6 +2,7 @@ package ui
 
 import "time"
 
+// App owns a widget tree and dispatches events, layout, painting, and focus.
 type App struct {
 	build           *BuildOwner
 	rootRO          RenderObject
@@ -22,6 +23,7 @@ type App struct {
 	animations      map[*AnimationController]struct{}
 }
 
+// NewApp creates an app mounted with root.
 func NewApp(root Widget, opts ...Option) *App {
 	owner := NewBuildOwner()
 	options := options{theme: DefaultTheme()}
@@ -38,22 +40,27 @@ func NewApp(root Widget, opts ...Option) *App {
 	return app
 }
 
+// UpdateRoot replaces the root widget while preserving compatible elements.
 func (a *App) UpdateRoot(root Widget) {
 	a.build.UpdateRoot(Provider[Theme]{Value: a.theme, ChildWidget: root})
 }
 
+// Send dispatches ev through the widget tree.
 func (a *App) Send(ev Event) {
 	a.dispatchEvent(ev)
 }
 
+// ShouldQuit reports whether a quit request has been made.
 func (a *App) ShouldQuit() bool {
 	return a.quit
 }
 
+// RequestFrame marks the app as needing another frame.
 func (a *App) RequestFrame() {
 	a.frameRequested = true
 }
 
+// FrameRequested reports whether the app needs another frame.
 func (a *App) FrameRequested() bool {
 	return a.frameRequested
 }
@@ -82,6 +89,7 @@ func (a *App) hasActiveAnimations() bool {
 	return len(a.animations) > 0
 }
 
+// MouseShape returns the current requested pointer shape.
 func (a *App) MouseShape() MouseShape {
 	if a.mouseShape == "" {
 		return MouseShapeDefault
@@ -106,6 +114,7 @@ func (a *App) consumeMouseShapeDirty() bool {
 	return dirty
 }
 
+// Pump rebuilds and lays out the widget tree for size.
 func (a *App) Pump(size Size) {
 	a.frameRequested = false
 	a.size = size
@@ -412,6 +421,7 @@ func ownRenderObject(e Element) RenderObject {
 	return nil
 }
 
+// Paint paints the current render tree into p.
 func (a *App) Paint(p *Painter) {
 	if a.rootRO != nil {
 		a.rootRO.Paint(p, Offset{})
@@ -430,6 +440,7 @@ func clearNeedsPaint(ro RenderObject) {
 }
 
 type (
+	// Option configures an App or Run invocation.
 	Option  func(*options)
 	options struct {
 		theme    Theme
@@ -437,6 +448,7 @@ type (
 	}
 )
 
+// WithTheme sets the theme used by built-in widgets.
 func WithTheme(theme Theme) Option {
 	return func(o *options) { o.theme, o.hasTheme = theme, true }
 }

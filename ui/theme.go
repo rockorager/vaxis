@@ -2,34 +2,57 @@ package ui
 
 import "context"
 
+// Theme contains the default styles used by built-in widgets.
 type Theme struct {
-	Text      Style
-	Button    ButtonTheme
+	// Text is the default style for Text and RichText.
+	Text Style
+	// Button contains defaults used by Button.
+	Button ButtonTheme
+	// TextField contains defaults used by TextField and TextArea.
 	TextField TextFieldTheme
 }
 
+// ButtonTheme contains styling and sizing defaults for Button.
 type ButtonTheme struct {
-	Normal     Style
-	Focused    Style
-	Hovered    Style
-	Pressed    Style
-	Padding    Insets
-	MinWidth   int
-	Mouse      MouseShape
-	FocusLeft  Character
+	// Normal is the default button style.
+	Normal Style
+	// Focused is used while the button has keyboard focus.
+	Focused Style
+	// Hovered is used while the mouse is over the button.
+	Hovered Style
+	// Pressed is reserved for pressed button states.
+	Pressed Style
+	// Padding is the default interior spacing.
+	Padding Insets
+	// MinWidth is the default minimum button width.
+	MinWidth int
+	// Mouse is the pointer shape used while hovering the button.
+	Mouse MouseShape
+	// FocusLeft is painted before the label while focused.
+	FocusLeft Character
+	// FocusRight is painted after the label while focused.
 	FocusRight Character
 }
 
+// TextFieldTheme contains styling and sizing defaults for TextField and TextArea.
 type TextFieldTheme struct {
-	Normal      Style
-	Focused     Style
+	// Normal is the default text input style.
+	Normal Style
+	// Focused is used while the input has keyboard focus.
+	Focused Style
+	// Placeholder is merged over the current input style for placeholder text.
 	Placeholder Style
-	Cursor      Style
-	Selection   Style
-	Padding     Insets
-	MinWidth    int
+	// Cursor is reserved for software cursor painting.
+	Cursor Style
+	// Selection is merged over selected text.
+	Selection Style
+	// Padding is the default interior spacing.
+	Padding Insets
+	// MinWidth is the default minimum input width.
+	MinWidth int
 }
 
+// DefaultTheme returns the built-in fallback theme.
 func DefaultTheme() Theme {
 	return Theme{
 		Text: Style{Foreground: RGB(238, 238, 238)},

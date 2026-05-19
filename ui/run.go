@@ -7,6 +7,7 @@ import (
 	"git.sr.ht/~rockorager/vaxis"
 )
 
+// Run creates a vaxis-backed app for root and blocks until it exits.
 func Run(root Widget, opts ...Option) error {
 	vx, err := vaxis.New(vaxis.Options{})
 	if err != nil {

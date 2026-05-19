@@ -2,9 +2,13 @@ package ui
 
 import "reflect"
 
+// Provider makes a typed value available to descendant widgets.
 type Provider[T any] struct {
-	Value        T
-	ChildWidget  Widget
+	// Value is the value exposed to descendants.
+	Value T
+	// ChildWidget is the subtree that can depend on Value.
+	ChildWidget Widget
+	// ShouldNotify controls whether dependents rebuild after Value changes.
 	ShouldNotify func(old, next T) bool
 }
 
@@ -56,6 +60,7 @@ func (e *providerElement[T]) VisitChildren(fn func(Element)) {
 	}
 }
 
+// Depend returns the nearest provided value of type T and subscribes ctx to updates.
 func Depend[T any](ctx BuildContext) (T, bool) {
 	for e := ctx.element; e != nil; e = e.Base().parent {
 		if p, ok := e.(*providerElement[T]); ok {
@@ -67,6 +72,7 @@ func Depend[T any](ctx BuildContext) (T, bool) {
 	return zero, false
 }
 
+// MustDepend returns the nearest provided value of type T or panics.
 func MustDepend[T any](ctx BuildContext) T {
 	v, ok := Depend[T](ctx)
 	if !ok {

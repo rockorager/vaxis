@@ -1,14 +1,23 @@
 package ui
 
+// TextChangedCallback receives a text editing value change.
 type TextChangedCallback func(EventContext, string)
 
+// TextField is a controlled single-line text input.
 type TextField struct {
-	Value       string
+	// Value is the current text. The widget does not mutate this field directly.
+	Value string
+	// Placeholder is shown when Value is empty and the field is not focused.
 	Placeholder string
-	OnChanged   TextChangedCallback
+	// OnChanged is called with the next value after an edit.
+	OnChanged TextChangedCallback
+	// OnSubmitted is called with the current value when Enter is pressed.
 	OnSubmitted TextChangedCallback
-	Padding     Insets
-	MinWidth    int
+	// Padding overrides Theme.TextField.Padding when non-zero.
+	Padding Insets
+	// MinWidth overrides Theme.TextField.MinWidth when greater than zero.
+	MinWidth int
+	// ObscureText hides the displayed value, useful for password-style fields.
 	ObscureText bool
 }
 

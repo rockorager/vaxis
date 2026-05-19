@@ -1,8 +1,11 @@
 package ui
 
+// Keymap handles matching key bindings before events reach its focused descendants.
 type Keymap struct {
+	// Bindings maps Key.MatchString patterns to callbacks.
 	Bindings map[string]VoidCallback
-	Child    Widget
+	// Child is the subtree that receives events after unhandled bindings.
+	Child Widget
 }
 
 func (w Keymap) CreateElement() Element {

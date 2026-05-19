@@ -1,13 +1,21 @@
 package ui
 
+// TextArea is a controlled multiline text input.
 type TextArea struct {
-	Value       string
+	// Value is the current text. The widget does not mutate this field directly.
+	Value string
+	// Placeholder is shown when Value is empty and the area is not focused.
 	Placeholder string
-	OnChanged   TextChangedCallback
-	Padding     Insets
-	MinWidth    int
-	MinHeight   int
-	SoftWrap    bool
+	// OnChanged is called with the next value after an edit.
+	OnChanged TextChangedCallback
+	// Padding overrides Theme.TextField.Padding when non-zero.
+	Padding Insets
+	// MinWidth overrides Theme.TextField.MinWidth when greater than zero.
+	MinWidth int
+	// MinHeight is the minimum content height, before padding.
+	MinHeight int
+	// SoftWrap wraps long logical lines to the available width.
+	SoftWrap bool
 }
 
 func (w TextArea) CreateState() State {
