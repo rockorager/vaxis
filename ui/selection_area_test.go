@@ -107,3 +107,156 @@ func TestSelectionAreaSelectAllCopiesText(t *testing.T) {
 		t.Fatalf("copies = %#v, want abcd", backend.copies)
 	}
 }
+
+func TestSelectionAreaSelectsAcrossTextWidgets(t *testing.T) {
+	app := ui.NewApp(ui.SelectionArea{Child: ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+		ui.Text{Value: "abcd"},
+		ui.Text{Value: "efgh"},
+	}}})
+	app.Pump(ui.Size{Width: 10, Height: 2})
+	app.Send(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress})
+	app.Pump(ui.Size{Width: 10, Height: 2})
+	app.Send(vaxis.Mouse{Col: 2, Row: 1, Button: vaxis.MouseLeftButton, EventType: vaxis.EventMotion})
+	app.Pump(ui.Size{Width: 10, Height: 2})
+	app.Send(vaxis.Mouse{Col: 2, Row: 1, Button: vaxis.MouseLeftButton, EventType: vaxis.EventRelease})
+	app.Pump(ui.Size{Width: 10, Height: 2})
+
+	p := ui.NewPainter(ui.Size{Width: 10, Height: 2})
+	app.Paint(p)
+	want := ui.DefaultTheme().TextField.Selection.Background
+	if got := p.Cell(1, 0).Background; got != want {
+		t.Fatalf("selected first line background = %#v, want %#v", got, want)
+	}
+	if got := p.Cell(1, 1).Background; got != want {
+		t.Fatalf("selected second line background = %#v, want %#v", got, want)
+	}
+	if got := p.Cell(2, 1).Background; got == want {
+		t.Fatalf("unselected second line cell background = %#v, should not be selection background", got)
+	}
+}
+
+func TestSelectionAreaCopiesAcrossTextWidgets(t *testing.T) {
+	now := time.Unix(10, 0)
+	backend := newFakeBackend(ui.Size{Width: 10, Height: 2})
+	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+		ui.Text{Value: "abcd"},
+		ui.Text{Value: "efgh"},
+	}}}), backend, ui.NewFrameScheduler(time.Second/60))
+	runner.Start(now)
+	if err := runner.HandleFrame(now); err != nil {
+		t.Fatal(err)
+	}
+
+	runner.HandleEvent(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}, now)
+	runner.HandleEvent(vaxis.Mouse{Col: 2, Row: 1, Button: vaxis.MouseLeftButton, EventType: vaxis.EventMotion}, now)
+	runner.HandleEvent(vaxis.Mouse{Col: 2, Row: 1, Button: vaxis.MouseLeftButton, EventType: vaxis.EventRelease}, now)
+	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
+	if len(backend.copies) != 1 || backend.copies[0] != "bcd\nef" {
+		t.Fatalf("copies = %#v, want bcd\\nef", backend.copies)
+	}
+}
+
+func TestSelectionAreaSelectsAcrossTextWidgetsInReverse(t *testing.T) {
+	now := time.Unix(10, 0)
+	backend := newFakeBackend(ui.Size{Width: 10, Height: 2})
+	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+		ui.Text{Value: "abcd"},
+		ui.Text{Value: "efgh"},
+	}}}), backend, ui.NewFrameScheduler(time.Second/60))
+	runner.Start(now)
+	if err := runner.HandleFrame(now); err != nil {
+		t.Fatal(err)
+	}
+
+	runner.HandleEvent(vaxis.Mouse{Col: 2, Row: 1, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}, now)
+	runner.HandleEvent(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventMotion}, now)
+	runner.HandleEvent(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventRelease}, now)
+	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
+	if len(backend.copies) != 1 || backend.copies[0] != "bcd\nef" {
+		t.Fatalf("copies = %#v, want bcd\\nef", backend.copies)
+	}
+}
+
+func TestSelectionAreaSelectAllCopiesAllTextWidgets(t *testing.T) {
+	now := time.Unix(10, 0)
+	backend := newFakeBackend(ui.Size{Width: 10, Height: 2})
+	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+		ui.Text{Value: "ab"},
+		ui.Text{Value: "cd"},
+	}}}), backend, ui.NewFrameScheduler(time.Second/60))
+	runner.Start(now)
+	if err := runner.HandleFrame(now); err != nil {
+		t.Fatal(err)
+	}
+
+	runner.HandleEvent(vaxis.Mouse{Col: 0, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}, now)
+	runner.HandleEvent(vaxis.Mouse{Col: 0, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventRelease}, now)
+	runner.HandleEvent(vaxis.Key{Text: "a", Keycode: 'a', Modifiers: vaxis.ModCtrl}, now)
+	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
+	if len(backend.copies) != 1 || backend.copies[0] != "ab\ncd" {
+		t.Fatalf("copies = %#v, want ab\\ncd", backend.copies)
+	}
+}
+
+func TestSelectionContainerDisabledExcludesSubtreeFromCopy(t *testing.T) {
+	now := time.Unix(10, 0)
+	backend := newFakeBackend(ui.Size{Width: 16, Height: 3})
+	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+		ui.Text{Value: "aa"},
+		ui.SelectionContainer{Disabled: true, Child: ui.Text{Value: "bb"}},
+		ui.Text{Value: "cc"},
+	}}}), backend, ui.NewFrameScheduler(time.Second/60))
+	runner.Start(now)
+	if err := runner.HandleFrame(now); err != nil {
+		t.Fatal(err)
+	}
+
+	runner.HandleEvent(vaxis.Mouse{Col: 0, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}, now)
+	runner.HandleEvent(vaxis.Mouse{Col: 2, Row: 2, Button: vaxis.MouseLeftButton, EventType: vaxis.EventMotion}, now)
+	runner.HandleEvent(vaxis.Mouse{Col: 2, Row: 2, Button: vaxis.MouseLeftButton, EventType: vaxis.EventRelease}, now)
+	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
+	if len(backend.copies) != 1 || backend.copies[0] != "aa\ncc" {
+		t.Fatalf("copies = %#v, want aa\\ncc", backend.copies)
+	}
+}
+
+func TestSelectionContainerDisabledDoesNotStartSelection(t *testing.T) {
+	now := time.Unix(10, 0)
+	backend := newFakeBackend(ui.Size{Width: 10, Height: 1})
+	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.SelectionContainer{
+		Disabled: true,
+		Child:    ui.Text{Value: "abcd"},
+	}}), backend, ui.NewFrameScheduler(time.Second/60))
+	runner.Start(now)
+	if err := runner.HandleFrame(now); err != nil {
+		t.Fatal(err)
+	}
+
+	runner.HandleEvent(vaxis.Mouse{Col: 0, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}, now)
+	runner.HandleEvent(vaxis.Mouse{Col: 4, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventMotion}, now)
+	runner.HandleEvent(vaxis.Mouse{Col: 4, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventRelease}, now)
+	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
+	if len(backend.copies) != 0 {
+		t.Fatalf("copies = %#v, want none", backend.copies)
+	}
+}
+
+func TestSelectionContainerEnabledIsTransparent(t *testing.T) {
+	now := time.Unix(10, 0)
+	backend := newFakeBackend(ui.Size{Width: 10, Height: 1})
+	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.SelectionContainer{
+		Child: ui.Text{Value: "abcd"},
+	}}), backend, ui.NewFrameScheduler(time.Second/60))
+	runner.Start(now)
+	if err := runner.HandleFrame(now); err != nil {
+		t.Fatal(err)
+	}
+
+	runner.HandleEvent(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}, now)
+	runner.HandleEvent(vaxis.Mouse{Col: 3, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventMotion}, now)
+	runner.HandleEvent(vaxis.Mouse{Col: 3, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventRelease}, now)
+	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
+	if len(backend.copies) != 1 || backend.copies[0] != "bc" {
+		t.Fatalf("copies = %#v, want bc", backend.copies)
+	}
+}

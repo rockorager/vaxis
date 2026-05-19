@@ -104,6 +104,14 @@ func (r *renderText) PositionForPoint(pt Point) (TextPosition, bool) {
 	return textLayoutPositionForPoint(r.layout, pt)
 }
 
+func (r *renderText) StartPosition() TextPosition {
+	return TextPosition{}
+}
+
+func (r *renderText) EndPosition() TextPosition {
+	return textEndPositionForSpans([]TextSpan{{Text: r.Text}})
+}
+
 func (r *renderText) SelectAll() TextSelection {
 	return textSelectionForSpans([]TextSpan{{Text: r.Text}})
 }

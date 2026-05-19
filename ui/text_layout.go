@@ -474,6 +474,10 @@ func textLayoutPositionForPoint(layout TextLayout, pt Point) (TextPosition, bool
 }
 
 func textSelectionForSpans(spans []TextSpan) TextSelection {
+	return TextSelection{Extent: textEndPositionForSpans(spans)}
+}
+
+func textEndPositionForSpans(spans []TextSpan) TextPosition {
 	end := TextPosition{}
 	for spanIndex, span := range spans {
 		end.Span = spanIndex
@@ -484,7 +488,7 @@ func textSelectionForSpans(spans []TextSpan) TextSelection {
 			end = advanceTextPosition(end, ch.Grapheme)
 		}
 	}
-	return TextSelection{Extent: end}
+	return end
 }
 
 func selectedTextForSpans(spans []TextSpan, selection TextSelection) string {

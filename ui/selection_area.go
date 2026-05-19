@@ -13,10 +13,11 @@ func (w SelectionArea) CreateState() State {
 type selectionAreaState struct {
 	StateBase
 	node         FocusNode
-	active       selectableTextRender
-	activeOffset Offset
-	selection    TextSelection
+	anchor       selectionEndpoint
+	extent       selectionEndpoint
+	hasSelection bool
 	selecting    bool
+	selected     []selectableTextRender
 }
 
 func (s *selectionAreaState) Build(BuildContext) Widget {
@@ -36,14 +37,18 @@ func (s *selectionAreaState) HandleEvent(ctx EventContext, ev Event) EventResult
 			return EventIgnored
 		}
 		if ev.MatchString("Ctrl+c") {
-			if s.active != nil && !s.selection.IsCollapsed() {
-				ctx.Copy(s.active.SelectedText(s.selection))
+			if s.hasSelection {
+				if area := s.areaRender(); area != nil {
+					ctx.Copy(area.SelectedText(s.anchor, s.extent))
+				}
 			}
 			return EventHandled
 		}
 		if ev.MatchString("Ctrl+a") {
-			if s.active != nil {
-				s.setSelection(s.active, s.activeOffset, s.active.SelectAll())
+			if area := s.areaRender(); area != nil {
+				if anchor, extent, ok := area.selectAllEndpoints(); ok {
+					s.setSelection(anchor, extent)
+				}
 				return EventHandled
 			}
 		}
@@ -74,17 +79,26 @@ func (s *selectionAreaState) handleMouse(mouse Mouse) EventResult {
 		}
 		s.node.RequestFocus()
 		s.selecting = true
-		s.setSelection(selectable, off, TextSelection{Base: pos, Extent: pos})
+		endpoint := selectionEndpoint{Selectable: selectable, Offset: off, Position: pos}
+		s.setSelection(endpoint, endpoint)
 		return EventHandled
 	case EventMotion:
-		if !s.selecting || s.active == nil {
+		if !s.selecting || !s.hasSelection {
 			return EventIgnored
 		}
-		pos, ok := s.active.PositionForPoint(Point{X: mouse.Col - s.activeOffset.X, Y: mouse.Row - s.activeOffset.Y})
+		area := s.areaRender()
+		if area == nil {
+			return EventIgnored
+		}
+		selectable, off, local, ok := area.selectableAt(Point{X: mouse.Col, Y: mouse.Row})
 		if !ok {
 			return EventIgnored
 		}
-		s.setSelection(s.active, s.activeOffset, TextSelection{Base: s.selection.Base, Extent: pos})
+		pos, ok := selectable.PositionForPoint(local)
+		if !ok {
+			return EventIgnored
+		}
+		s.setSelection(s.anchor, selectionEndpoint{Selectable: selectable, Offset: off, Position: pos})
 		return EventHandled
 	case EventRelease:
 		if mouse.Button == MouseLeftButton && s.selecting {
@@ -103,22 +117,23 @@ func (s *selectionAreaState) areaRender() *renderSelectionArea {
 	return nil
 }
 
-func (s *selectionAreaState) setSelection(active selectableTextRender, off Offset, selection TextSelection) {
-	if s.active != nil && s.active != active {
-		s.active.SetSelection(TextSelection{}, Style{})
+func (s *selectionAreaState) setSelection(anchor, extent selectionEndpoint) {
+	s.anchor = anchor
+	s.extent = extent
+	s.hasSelection = true
+	area := s.areaRender()
+	if area == nil {
+		return
 	}
-	s.active = active
-	s.activeOffset = off
-	s.selection = selection
-	active.SetSelection(selection, MustDepend[Theme](s.Context()).TextField.Selection)
+	s.selected = area.ApplySelection(anchor, extent, MustDepend[Theme](s.Context()).TextField.Selection, s.selected)
 }
 
 func (s *selectionAreaState) clearSelection() {
-	if s.active != nil {
-		s.active.SetSelection(TextSelection{}, Style{})
+	for _, selected := range s.selected {
+		selected.SetSelection(TextSelection{}, Style{})
 	}
-	s.active = nil
-	s.selection = TextSelection{}
+	s.selected = nil
+	s.hasSelection = false
 	s.selecting = false
 }
 
@@ -177,20 +192,182 @@ func (r *renderSelectionArea) selectableAt(pt Point) (selectableTextRender, Offs
 	return selectableInRender(child, pt, Offset{})
 }
 
+func (r *renderSelectionArea) ApplySelection(anchor, extent selectionEndpoint, style Style, previous []selectableTextRender) []selectableTextRender {
+	for _, selected := range previous {
+		selected.SetSelection(TextSelection{}, Style{})
+	}
+	items := r.selectables()
+	start, end, forward, ok := selectionEndpointRange(items, anchor, extent)
+	if !ok {
+		return nil
+	}
+	selected := make([]selectableTextRender, 0, end-start+1)
+	for i := start; i <= end; i++ {
+		var selection TextSelection
+		switch {
+		case start == end:
+			if forward {
+				selection = TextSelection{Base: anchor.Position, Extent: extent.Position}
+			} else {
+				selection = TextSelection{Base: extent.Position, Extent: anchor.Position}
+			}
+		case i == start:
+			if forward {
+				selection = TextSelection{Base: anchor.Position, Extent: items[i].Selectable.EndPosition()}
+			} else {
+				selection = TextSelection{Base: extent.Position, Extent: items[i].Selectable.EndPosition()}
+			}
+		case i == end:
+			if forward {
+				selection = TextSelection{Base: items[i].Selectable.StartPosition(), Extent: extent.Position}
+			} else {
+				selection = TextSelection{Base: items[i].Selectable.StartPosition(), Extent: anchor.Position}
+			}
+		default:
+			selection = items[i].Selectable.SelectAll()
+		}
+		items[i].Selectable.SetSelection(selection, style)
+		selected = append(selected, items[i].Selectable)
+	}
+	return selected
+}
+
+func (r *renderSelectionArea) SelectedText(anchor, extent selectionEndpoint) string {
+	items := r.selectables()
+	start, end, forward, ok := selectionEndpointRange(items, anchor, extent)
+	if !ok {
+		return ""
+	}
+	out := ""
+	for i := start; i <= end; i++ {
+		var selection TextSelection
+		switch {
+		case start == end:
+			if forward {
+				selection = TextSelection{Base: anchor.Position, Extent: extent.Position}
+			} else {
+				selection = TextSelection{Base: extent.Position, Extent: anchor.Position}
+			}
+		case i == start:
+			if forward {
+				selection = TextSelection{Base: anchor.Position, Extent: items[i].Selectable.EndPosition()}
+			} else {
+				selection = TextSelection{Base: extent.Position, Extent: items[i].Selectable.EndPosition()}
+			}
+		case i == end:
+			if forward {
+				selection = TextSelection{Base: items[i].Selectable.StartPosition(), Extent: extent.Position}
+			} else {
+				selection = TextSelection{Base: items[i].Selectable.StartPosition(), Extent: anchor.Position}
+			}
+		default:
+			selection = items[i].Selectable.SelectAll()
+		}
+		if i > start && items[i].Offset.Y > items[i-1].Offset.Y {
+			out += "\n"
+		}
+		out += items[i].Selectable.SelectedText(selection)
+	}
+	return out
+}
+
+func (r *renderSelectionArea) selectAllEndpoints() (selectionEndpoint, selectionEndpoint, bool) {
+	items := r.selectables()
+	if len(items) == 0 {
+		return selectionEndpoint{}, selectionEndpoint{}, false
+	}
+	return selectionEndpoint{
+			Selectable: items[0].Selectable,
+			Offset:     items[0].Offset,
+			Position:   items[0].Selectable.StartPosition(),
+		}, selectionEndpoint{
+			Selectable: items[len(items)-1].Selectable,
+			Offset:     items[len(items)-1].Offset,
+			Position:   items[len(items)-1].Selectable.EndPosition(),
+		}, true
+}
+
+func (r *renderSelectionArea) selectables() []selectionItem {
+	child := r.Child()
+	if child == nil {
+		return nil
+	}
+	var out []selectionItem
+	collectSelectables(child, Offset{}, &out)
+	return out
+}
+
+type selectionEndpoint struct {
+	Selectable selectableTextRender
+	Offset     Offset
+	Position   TextPosition
+}
+
+type selectionItem struct {
+	Selectable selectableTextRender
+	Offset     Offset
+}
+
 type selectableTextRender interface {
 	RenderObject
 	PositionForPoint(Point) (TextPosition, bool)
+	StartPosition() TextPosition
+	EndPosition() TextPosition
 	SelectAll() TextSelection
 	SelectedText(TextSelection) string
 	SetSelection(TextSelection, Style)
 }
 
+func collectSelectables(ro RenderObject, off Offset, out *[]selectionItem) {
+	if selectionDisabled(ro) {
+		return
+	}
+	if selectable, ok := ro.(selectableTextRender); ok {
+		*out = append(*out, selectionItem{Selectable: selectable, Offset: off})
+		return
+	}
+	ro.VisitChildren(func(child RenderObject) {
+		childOff := Offset{}
+		if provider, ok := ro.(ChildOffsetProvider); ok {
+			childOff = provider.ChildOffset(child)
+		}
+		collectSelectables(child, off.Add(childOff), out)
+	})
+}
+
+func selectionEndpointRange(items []selectionItem, anchor, extent selectionEndpoint) (start, end int, forward bool, ok bool) {
+	anchorIndex, extentIndex := -1, -1
+	for i, item := range items {
+		if item.Selectable == anchor.Selectable {
+			anchorIndex = i
+		}
+		if item.Selectable == extent.Selectable {
+			extentIndex = i
+		}
+	}
+	if anchorIndex < 0 || extentIndex < 0 {
+		return 0, 0, true, false
+	}
+	forward = anchorIndex < extentIndex || anchorIndex == extentIndex && compareTextPosition(anchor.Position, extent.Position) <= 0
+	if forward {
+		return anchorIndex, extentIndex, true, true
+	}
+	return extentIndex, anchorIndex, false, true
+}
+
 func selectableInRender(ro RenderObject, pt Point, off Offset) (selectableTextRender, Offset, Point, bool) {
-	if pt.X < 0 || pt.Y < 0 || pt.X >= ro.Base().Size().Width || pt.Y >= ro.Base().Size().Height {
+	if selectionDisabled(ro) {
 		return nil, Offset{}, Point{}, false
 	}
 	if selectable, ok := ro.(selectableTextRender); ok {
+		size := ro.Base().Size()
+		if pt.X < 0 || pt.Y < 0 || pt.X > size.Width || pt.Y >= size.Height {
+			return nil, Offset{}, Point{}, false
+		}
 		return selectable, off, pt, true
+	}
+	if pt.X < 0 || pt.Y < 0 || pt.X >= ro.Base().Size().Width || pt.Y >= ro.Base().Size().Height {
+		return nil, Offset{}, Point{}, false
 	}
 	var found selectableTextRender
 	var foundOff Offset
@@ -208,4 +385,13 @@ func selectableInRender(ro RenderObject, pt Point, off Offset) (selectableTextRe
 		found, foundOff, foundPt, _ = selectableInRender(child, local, nextOff)
 	})
 	return found, foundOff, foundPt, found != nil
+}
+
+type selectionDisabler interface {
+	SelectionDisabled() bool
+}
+
+func selectionDisabled(ro RenderObject) bool {
+	d, ok := ro.(selectionDisabler)
+	return ok && d.SelectionDisabled()
 }

@@ -75,6 +75,14 @@ func (r *renderRichText) PositionForPoint(pt Point) (TextPosition, bool) {
 	return textLayoutPositionForPoint(r.layout, pt)
 }
 
+func (r *renderRichText) StartPosition() TextPosition {
+	return TextPosition{}
+}
+
+func (r *renderRichText) EndPosition() TextPosition {
+	return textEndPositionForSpans(r.Spans)
+}
+
 func (r *renderRichText) SelectAll() TextSelection {
 	return textSelectionForSpans(r.Spans)
 }
