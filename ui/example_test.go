@@ -2,8 +2,10 @@ package ui_test
 
 import (
 	"fmt"
+	"time"
 
 	"git.sr.ht/~rockorager/vaxis/ui"
+	"git.sr.ht/~rockorager/vaxis/ui/uitest"
 )
 
 func ExampleRun() {
@@ -48,4 +50,73 @@ func ExampleFloatTween() {
 
 	fmt.Println(tween.At(ui.EaseInOut(0.5)))
 	// Output: 15
+}
+
+type nameForm struct{}
+
+func (nameForm) CreateState() ui.State {
+	return &nameFormState{}
+}
+
+type nameFormState struct {
+	ui.StateBase
+	name string
+}
+
+func (s *nameFormState) Build(ui.BuildContext) ui.Widget {
+	return ui.Column(
+		ui.TextField{
+			Value:       s.name,
+			Placeholder: "Name",
+			OnChanged: func(ctx ui.EventContext, next string) {
+				s.SetState(func() { s.name = next })
+			},
+		},
+		ui.Text{Value: "Hello, " + s.name},
+	)
+}
+
+func ExampleStatefulWidget() {
+	app := uitest.New(nameForm{})
+	app.Pump(20, 2)
+	app.Key("A")
+	app.Pump(20, 2)
+
+	fmt.Println(app.Contains("Hello, A"))
+	// Output: true
+}
+
+type animatedLabel struct {
+	Controller **ui.AnimationController
+}
+
+func (w animatedLabel) CreateState() ui.State {
+	return &animatedLabelState{controller: w.Controller}
+}
+
+type animatedLabelState struct {
+	ui.StateBase
+	controller **ui.AnimationController
+}
+
+func (s *animatedLabelState) InitState() {
+	controller := s.NewAnimation(ui.AnimationOptions{
+		Duration: time.Second,
+		Curve:    ui.EaseInOut,
+	})
+	controller.ForwardAt(time.Unix(0, 0))
+	*s.controller = controller
+}
+
+func (s *animatedLabelState) Build(ui.BuildContext) ui.Widget {
+	return ui.Text{Value: fmt.Sprintf("%.2f", (*s.controller).Value())}
+}
+
+func ExampleStateBase_NewAnimation() {
+	var controller *ui.AnimationController
+	app := ui.NewApp(animatedLabel{Controller: &controller})
+	app.Pump(ui.Size{Width: 4, Height: 1})
+
+	fmt.Println(controller.Running())
+	// Output: true
 }
