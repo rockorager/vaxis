@@ -27,6 +27,7 @@ type DemoState struct {
 	ticks int
 	name  string
 	notes string
+	done  bool
 	chat  string
 	logs  []string
 	anim  *ui.AnimationController
@@ -226,6 +227,16 @@ func (s *DemoState) controlsPage() ui.Widget {
 			ui.SizedBox{Width: 1, Height: 1},
 			ui.Button{Label: "Notify", OnPressed: func(ctx ui.EventContext) { ctx.Notify("Vaxis UI demo", "Notification from the controls page") }},
 		}},
+		ui.Flex{Axis: ui.Horizontal, CrossAxisAlignment: ui.CrossAxisCenter, Children: []ui.Widget{
+			ui.Checkbox{Checked: s.done, Label: "Use checkmark style", OnChanged: func(ctx ui.EventContext, checked bool) {
+				s.SetState(func() { s.done = checked })
+			}},
+			ui.SizedBox{Width: 2, Height: 1},
+			ui.RichText{Spans: []ui.TextSpan{
+				{Text: "checkbox: "},
+				{Text: checkboxStatus(s.done), Style: ui.Style{Attribute: ui.AttrBold}},
+			}},
+		}},
 		ui.Align{Alignment: ui.CenterRight, Child: ui.Text{Value: "aligned right inside the page"}},
 	}}
 }
@@ -387,6 +398,13 @@ func animationBar(value float64, width int) []ui.TextSpan {
 
 func formatFloat(value float64) string {
 	return strconv.FormatFloat(value, 'f', 2, 64)
+}
+
+func checkboxStatus(checked bool) string {
+	if checked {
+		return "checked"
+	}
+	return "unchecked"
 }
 
 func scrollDemoLines() ui.Widget {

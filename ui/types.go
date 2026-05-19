@@ -17,6 +17,8 @@ type (
 	Color = vaxis.Color
 	// AttributeMask aliases vaxis.AttributeMask for convenience in ui code.
 	AttributeMask = vaxis.AttributeMask
+	// UnderlineStyle aliases vaxis.UnderlineStyle for convenience in ui code.
+	UnderlineStyle = vaxis.UnderlineStyle
 	// Segment aliases vaxis.Segment for convenience in ui code.
 	Segment = vaxis.Segment
 )
@@ -89,6 +91,16 @@ const (
 	AttrInvisible     = vaxis.AttrInvisible
 	AttrStrikethrough = vaxis.AttrStrikethrough
 	AttrOverline      = vaxis.AttrOverline
+)
+
+const (
+	// UnderlineOff aliases vaxis.UnderlineOff.
+	UnderlineOff    = vaxis.UnderlineOff
+	UnderlineSingle = vaxis.UnderlineSingle
+	UnderlineDouble = vaxis.UnderlineDouble
+	UnderlineCurly  = vaxis.UnderlineCurly
+	UnderlineDotted = vaxis.UnderlineDotted
+	UnderlineDashed = vaxis.UnderlineDashed
 )
 
 const (
