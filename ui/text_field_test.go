@@ -166,6 +166,51 @@ func TestTextFieldMouseDragSelectsText(t *testing.T) {
 	}
 }
 
+func TestTextFieldDoubleClickSelectsWord(t *testing.T) {
+	now := time.Unix(10, 0)
+	backend := newFakeBackend(ui.Size{Width: 20, Height: 1})
+	runner := ui.NewRunner(ui.NewApp(ui.TextField{Value: "alpha beta", MinWidth: 20}), backend, ui.NewFrameScheduler(time.Second/60))
+	runner.Start(now)
+	if err := runner.HandleFrame(now); err != nil {
+		t.Fatal(err)
+	}
+
+	mouse := vaxis.Mouse{Col: 7, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}
+	runner.HandleEvent(mouse, now)
+	mouse.EventType = vaxis.EventRelease
+	runner.HandleEvent(mouse, now)
+	mouse.EventType = vaxis.EventPress
+	runner.HandleEvent(mouse, now)
+	mouse.EventType = vaxis.EventRelease
+	runner.HandleEvent(mouse, now)
+	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
+	if len(backend.copies) != 1 || backend.copies[0] != "beta" {
+		t.Fatalf("copies = %#v, want beta", backend.copies)
+	}
+}
+
+func TestTextFieldTripleClickSelectsLine(t *testing.T) {
+	now := time.Unix(10, 0)
+	backend := newFakeBackend(ui.Size{Width: 20, Height: 1})
+	runner := ui.NewRunner(ui.NewApp(ui.TextField{Value: "alpha beta", MinWidth: 20}), backend, ui.NewFrameScheduler(time.Second/60))
+	runner.Start(now)
+	if err := runner.HandleFrame(now); err != nil {
+		t.Fatal(err)
+	}
+
+	mouse := vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}
+	for i := 0; i < 3; i++ {
+		mouse.EventType = vaxis.EventPress
+		runner.HandleEvent(mouse, now)
+		mouse.EventType = vaxis.EventRelease
+		runner.HandleEvent(mouse, now)
+	}
+	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
+	if len(backend.copies) != 1 || backend.copies[0] != "alpha beta" {
+		t.Fatalf("copies = %#v, want alpha beta", backend.copies)
+	}
+}
+
 func TestTextFieldSelectionReplacementAndSingleLineInsert(t *testing.T) {
 	h := &textFieldHarness{value: "abcd"}
 	app := ui.NewApp(h)

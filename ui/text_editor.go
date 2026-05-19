@@ -1,5 +1,7 @@
 package ui
 
+import "time"
+
 type textEditorInsertMode int
 
 const (
@@ -7,10 +9,17 @@ const (
 	textEditorMultiline
 )
 
+const textEditorMultiClickInterval = 500 * time.Millisecond
+
 type textEditorState struct {
-	node      FocusNode
-	buffer    TextBuffer
-	selecting bool
+	node         FocusNode
+	buffer       TextBuffer
+	selecting    bool
+	now          func() time.Time
+	lastClick    time.Time
+	lastClickRow int
+	lastClickCol int
+	clickCount   int
 }
 
 type textEditorHandleOptions struct {
@@ -95,6 +104,7 @@ func (s *textEditorState) HandleEvent(ctx EventContext, ev Event, opts textEdito
 	return textEditorEventHandler{
 		buffer:           &s.buffer,
 		selecting:        &s.selecting,
+		clickCount:       s.mouseClickCount,
 		insertMode:       opts.insertMode,
 		requestFocus:     s.node.RequestFocus,
 		markNeedsBuild:   opts.markNeedsBuild,
@@ -118,9 +128,26 @@ func (s *textEditorState) change(onChanged TextChangedCallback, markNeedsBuild f
 	}
 }
 
+func (s *textEditorState) mouseClickCount(mouse Mouse) int {
+	now := time.Now()
+	if s.now != nil {
+		now = s.now()
+	}
+	if s.clickCount == 0 || mouse.Row != s.lastClickRow || mouse.Col != s.lastClickCol || now.Sub(s.lastClick) > textEditorMultiClickInterval {
+		s.clickCount = 1
+	} else {
+		s.clickCount++
+	}
+	s.lastClick = now
+	s.lastClickRow = mouse.Row
+	s.lastClickCol = mouse.Col
+	return s.clickCount
+}
+
 type textEditorEventHandler struct {
 	buffer           *TextBuffer
 	selecting        *bool
+	clickCount       func(Mouse) int
 	insertMode       textEditorInsertMode
 	requestFocus     func()
 	markNeedsBuild   func()
@@ -263,8 +290,21 @@ func (h textEditorEventHandler) handleMouse(mouse Mouse) EventResult {
 	switch mouse.EventType {
 	case EventPress:
 		h.requestFocus()
-		*h.selecting = true
-		h.buffer.CollapseSelection(pos)
+		clickCount := 1
+		if h.clickCount != nil {
+			clickCount = h.clickCount(mouse)
+		}
+		switch {
+		case clickCount >= 3:
+			*h.selecting = false
+			h.buffer.SelectLineAt(pos)
+		case clickCount == 2:
+			*h.selecting = false
+			h.buffer.SelectWordAt(pos)
+		default:
+			*h.selecting = true
+			h.buffer.CollapseSelection(pos)
+		}
 		h.markNeedsBuild()
 		return EventHandled
 	case EventMotion:

@@ -403,6 +403,62 @@ func (b *TextBuffer) SelectAll() bool {
 	return true
 }
 
+func (b *TextBuffer) SelectWordAt(pos TextPosition) bool {
+	if len(b.chars) == 0 {
+		return false
+	}
+	offset, ok := b.offsetForPosition(pos)
+	if !ok {
+		return false
+	}
+	offset = clampInt(offset, 0, len(b.chars))
+	if offset == len(b.chars) {
+		offset--
+	}
+	kind := textBufferKind(b.chars[offset])
+	start := offset
+	for start > 0 && textBufferKind(b.chars[start-1]) == kind {
+		start--
+	}
+	end := offset + 1
+	for end < len(b.chars) && textBufferKind(b.chars[end]) == kind {
+		end++
+	}
+	if start == end {
+		return false
+	}
+	b.anchor = start
+	b.cursor = end
+	b.clearPreferredColumn()
+	return true
+}
+
+func (b *TextBuffer) SelectLineAt(pos TextPosition) bool {
+	if len(b.chars) == 0 {
+		return false
+	}
+	offset, ok := b.offsetForPosition(pos)
+	if !ok {
+		return false
+	}
+	offset = clampInt(offset, 0, len(b.chars))
+	if offset == len(b.chars) && offset > 0 && b.chars[offset-1].Grapheme != "\n" {
+		offset--
+	}
+	start := b.lineStart(offset)
+	end := b.lineEnd(offset)
+	if end < len(b.chars) && b.chars[end].Grapheme == "\n" {
+		end++
+	}
+	if start == end {
+		return false
+	}
+	b.anchor = start
+	b.cursor = end
+	b.clearPreferredColumn()
+	return true
+}
+
 func (b TextBuffer) Position() TextPosition {
 	pos := TextPosition{}
 	for _, ch := range b.chars[:b.CursorOffset()] {

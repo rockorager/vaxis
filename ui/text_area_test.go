@@ -263,6 +263,51 @@ func TestTextAreaMouseReverseDragCopiesSelection(t *testing.T) {
 	}
 }
 
+func TestTextAreaDoubleClickSelectsWord(t *testing.T) {
+	now := time.Unix(10, 0)
+	backend := newFakeBackend(ui.Size{Width: 20, Height: 3})
+	runner := ui.NewRunner(ui.NewApp(ui.TextArea{Value: "alpha beta", SoftWrap: true}), backend, ui.NewFrameScheduler(time.Second/60))
+	runner.Start(now)
+	if err := runner.HandleFrame(now); err != nil {
+		t.Fatal(err)
+	}
+
+	mouse := vaxis.Mouse{Col: 7, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}
+	runner.HandleEvent(mouse, now)
+	mouse.EventType = vaxis.EventRelease
+	runner.HandleEvent(mouse, now)
+	mouse.EventType = vaxis.EventPress
+	runner.HandleEvent(mouse, now)
+	mouse.EventType = vaxis.EventRelease
+	runner.HandleEvent(mouse, now)
+	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
+	if len(backend.copies) != 1 || backend.copies[0] != "beta" {
+		t.Fatalf("copies = %#v, want beta", backend.copies)
+	}
+}
+
+func TestTextAreaTripleClickSelectsLine(t *testing.T) {
+	now := time.Unix(10, 0)
+	backend := newFakeBackend(ui.Size{Width: 20, Height: 3})
+	runner := ui.NewRunner(ui.NewApp(ui.TextArea{Value: "alpha\nbeta", SoftWrap: true}), backend, ui.NewFrameScheduler(time.Second/60))
+	runner.Start(now)
+	if err := runner.HandleFrame(now); err != nil {
+		t.Fatal(err)
+	}
+
+	mouse := vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}
+	for i := 0; i < 3; i++ {
+		mouse.EventType = vaxis.EventPress
+		runner.HandleEvent(mouse, now)
+		mouse.EventType = vaxis.EventRelease
+		runner.HandleEvent(mouse, now)
+	}
+	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
+	if len(backend.copies) != 1 || backend.copies[0] != "alpha\n" {
+		t.Fatalf("copies = %#v, want alpha newline", backend.copies)
+	}
+}
+
 func TestTextAreaPaintsSelectedEmptyLine(t *testing.T) {
 	app := ui.NewApp(ui.TextArea{Value: "a\n\nb", SoftWrap: true})
 	app.Pump(ui.Size{Width: 10, Height: 5})

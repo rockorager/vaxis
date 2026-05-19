@@ -276,3 +276,52 @@ func TestTextBufferWordSelectionAndDeletion(t *testing.T) {
 		t.Fatalf("text after deleting punctuation = %q, want alpha space", got)
 	}
 }
+
+func TestTextBufferSelectWordAt(t *testing.T) {
+	tests := []struct {
+		name string
+		text string
+		pos  TextPosition
+		want string
+	}{
+		{name: "word", text: "alpha beta", pos: TextPosition{ByteOffset: len("alpha b")}, want: "beta"},
+		{name: "punctuation", text: "alpha, beta", pos: TextPosition{ByteOffset: len("alpha")}, want: ","},
+		{name: "space", text: "alpha  beta", pos: TextPosition{ByteOffset: len("alpha")}, want: "  "},
+		{name: "end", text: "alpha", pos: TextPosition{ByteOffset: len("alpha")}, want: "alpha"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := NewTextBuffer(tt.text)
+			if !b.SelectWordAt(tt.pos) {
+				t.Fatal("select word returned false")
+			}
+			if got := b.SelectedText(); got != tt.want {
+				t.Fatalf("selected text = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTextBufferSelectLineAt(t *testing.T) {
+	tests := []struct {
+		name string
+		text string
+		pos  TextPosition
+		want string
+	}{
+		{name: "first line includes newline", text: "alpha\nbeta", pos: TextPosition{ByteOffset: len("al")}, want: "alpha\n"},
+		{name: "last line", text: "alpha\nbeta", pos: TextPosition{ByteOffset: len("alpha\nbe")}, want: "beta"},
+		{name: "empty middle line", text: "alpha\n\nbeta", pos: TextPosition{ByteOffset: len("alpha\n")}, want: "\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := NewTextBuffer(tt.text)
+			if !b.SelectLineAt(tt.pos) {
+				t.Fatal("select line returned false")
+			}
+			if got := b.SelectedText(); got != tt.want {
+				t.Fatalf("selected text = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
