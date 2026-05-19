@@ -144,15 +144,32 @@ func (s *DemoState) textPage() ui.Widget {
 	return ui.SelectionArea{Child: ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
 		ui.RichText{Spans: []ui.TextSpan{
 			{Text: "Text layout", Style: ui.Style{Attribute: ui.AttrBold}},
-			{Text: "\nDrag across this page to select text, then press Ctrl+C to copy it."},
-			{Text: "\nRichText spans can mix emphasis while sharing the same wrapping engine as Text. "},
-			{Text: "Bold spans", Style: ui.Style{Attribute: ui.AttrBold}},
-			{Text: " stay attached to their content as lines wrap across the available width."},
+			{Text: "\nDrag to select, double-click words, triple-click lines, then press Ctrl+C to copy."},
+			{Text: "\nRichText spans can mix "},
+			{Text: "bold", Style: ui.Style{Attribute: ui.AttrBold}},
+			{Text: ", "},
+			{Text: "italic", Style: ui.Style{Attribute: ui.AttrItalic}},
+			{Text: ", and normal text while sharing the same selection area."},
 		}, SoftWrap: true},
 		ui.SizedBox{Height: 1},
 		ui.ConstrainedBox{Constraints: ui.Constraints{MaxWidth: 72}, Child: ui.Text{
 			Value:    "This paragraph is constrained to seventy-two cells so resizing the terminal makes the surrounding layout obvious while the paragraph itself wraps inside a predictable measure.",
 			SoftWrap: true,
+		}},
+		ui.RichText{Spans: []ui.TextSpan{
+			{Text: "Multiple selectable widgets: ", Style: ui.Style{Attribute: ui.AttrBold}},
+			{Text: "drag from this phrase "},
+			{Text: "through the next line", Style: ui.Style{Attribute: ui.AttrBold}},
+			{Text: " to test cross-widget copy."},
+		}, SoftWrap: true},
+		ui.Text{Value: "Second selectable line follows the first in copied text."},
+		ui.SelectionContainer{Disabled: true, Child: ui.RichText{Spans: []ui.TextSpan{
+			{Text: "This line opts out of SelectionArea.", Style: ui.Style{Attribute: ui.AttrDim}},
+		}}},
+		ui.ConstrainedBox{Constraints: ui.Constraints{MaxWidth: 48}, Child: ui.Text{
+			Value:    "Ellipsis keeps hidden source text out of mouse selection.",
+			Overflow: ui.TextOverflowEllipsis,
+			MaxLines: 1,
 		}},
 		ui.ConstrainedBox{Constraints: ui.Constraints{MinWidth: 72, MaxWidth: 72}, Child: ui.Text{Value: "center aligned text", Align: ui.TextAlignCenter}},
 	}}}
