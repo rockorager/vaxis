@@ -1,6 +1,10 @@
 package ui
 
-import "testing"
+import (
+	"testing"
+
+	"git.sr.ht/~rockorager/vaxis"
+)
 
 func TestRemovedWidgetNoLongerReceivesMouseEvents(t *testing.T) {
 	clicks := 0
@@ -53,5 +57,23 @@ func TestFocusedNodeDetachesAndReplacementIsNotified(t *testing.T) {
 	}
 	if secondChanges == 0 {
 		t.Fatalf("focus changes = first:%d second:%d, want replacement notified", firstChanges, secondChanges)
+	}
+}
+
+func TestFocusWithOptionsSkipTraversal(t *testing.T) {
+	var skipped FocusNode
+	pressed := false
+	app := NewApp(Row(
+		FocusWithOptions(&skipped, FocusOptions{SkipTraversal: true}, Text{Value: "skip"}),
+		Button{Label: "next", OnPressed: func(EventContext) { pressed = true }},
+	))
+	app.Pump(Size{Width: 20, Height: 1})
+	app.Send(Key{Keycode: vaxis.KeyEnter})
+	if !pressed {
+		t.Fatal("expected Tab traversal to skip focus target")
+	}
+	skipped.RequestFocus()
+	if !skipped.HasFocus() {
+		t.Fatal("skip traversal focus should still allow request focus")
 	}
 }

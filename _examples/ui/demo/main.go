@@ -178,6 +178,17 @@ func (s *DemoState) textPage() ui.Widget {
 			{Text: "through the next line", Style: ui.Style{Attribute: ui.AttrBold}},
 			{Text: " to test cross-widget copy."},
 		}, SoftWrap: true},
+		ui.RichText{Spans: []ui.TextSpan{
+			{Text: "Inline links can carry OSC 8 metadata and mouse callbacks: "},
+			{Text: "rockorager.dev", Style: ui.Style{
+				Foreground:      ui.RGB(120, 180, 255),
+				UnderlineStyle:  ui.UnderlineSingle,
+				Hyperlink:       "https://rockorager.dev",
+				HyperlinkParams: "id=rockorager-demo-link",
+			}, OnPressed: func(ctx ui.EventContext) {
+				ctx.Notify("Link clicked", "rockorager.dev")
+			}},
+		}, SoftWrap: true},
 		ui.Text{Value: "Second selectable line follows the first in copied text."},
 		ui.SelectionContainer{Disabled: true, Child: ui.RichText{Spans: []ui.TextSpan{
 			{Text: "This line opts out of SelectionArea.", Style: ui.Style{Attribute: ui.AttrDim}},

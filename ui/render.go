@@ -219,6 +219,7 @@ type renderObjectElement struct {
 	elementBase
 	renderObject RenderObject
 	children     []element
+	focusCount   int
 }
 
 func newRenderObjectElement(w RenderObjectWidget) element {
@@ -256,6 +257,14 @@ func (e *renderObjectElement) Rebuild() {
 	}
 	e.children = next
 	e.syncRenderChildren()
+	e.syncRenderFocusables()
+}
+
+func (e *renderObjectElement) unmounted() {
+	for i := 0; i < e.focusCount; i++ {
+		e.owner.app.unregisterFocusTarget(focusTarget{element: e, index: i})
+	}
+	e.focusCount = 0
 }
 
 func (e *renderObjectElement) matchChild(i int, next Widget, used []bool) int {
@@ -290,6 +299,37 @@ func (e *renderObjectElement) Base() *elementBase {
 
 func (e *renderObjectElement) FindRenderObject() RenderObject {
 	return e.renderObject
+}
+
+func (e *renderObjectElement) HandleEvent(ctx EventContext, ev Event) EventResult {
+	h, ok := e.renderObject.(EventHandler)
+	if !ok {
+		return EventIgnored
+	}
+	return h.HandleEvent(ctx, ev)
+}
+
+func (e *renderObjectElement) MouseShape(ctx EventContext, mouse Mouse) MouseShape {
+	h, ok := e.renderObject.(MouseShapeHandler)
+	if !ok {
+		return MouseShapeDefault
+	}
+	return h.MouseShape(ctx, mouse)
+}
+
+func (e *renderObjectElement) syncRenderFocusables() {
+	focusable, ok := e.renderObject.(interface{ FocusableCount() int })
+	next := 0
+	if ok {
+		next = focusable.FocusableCount()
+	}
+	for i := next; i < e.focusCount; i++ {
+		e.owner.app.unregisterFocusTarget(focusTarget{element: e, index: i})
+	}
+	for i := e.focusCount; i < next; i++ {
+		e.owner.app.registerFocusTarget(focusTarget{element: e, index: i})
+	}
+	e.focusCount = next
 }
 
 func (e *renderObjectElement) syncRenderChildren() {

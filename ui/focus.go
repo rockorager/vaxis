@@ -1,16 +1,41 @@
 package ui
 
+const elementFocusIndex = -1
+
+type focusTarget struct {
+	element element
+	index   int
+}
+
+type renderFocusHandler interface {
+	SetFocusedIndex(int)
+}
+
 // focusWidget makes its child focusable through a FocusNode.
 type focusWidget struct {
 	// Node controls and observes focus for this widget.
 	Node *FocusNode
+	// Options controls how this focus target participates in traversal.
+	Options FocusOptions
 	// Child is the focusable subtree.
 	Child Widget
+}
+
+// FocusOptions controls focus behavior.
+type FocusOptions struct {
+	// SkipTraversal removes this target from Tab and Shift+Tab traversal while
+	// still allowing it to request focus directly.
+	SkipTraversal bool
 }
 
 // Focus returns a focusable wrapper around child.
 func Focus(node *FocusNode, child Widget) Widget {
 	return focusWidget{Node: node, Child: child}
+}
+
+// FocusWithOptions returns a focusable wrapper around child with options.
+func FocusWithOptions(node *FocusNode, options FocusOptions, child Widget) Widget {
+	return focusWidget{Node: node, Options: options, Child: child}
 }
 
 func (w focusWidget) CreateElement() element {
@@ -27,7 +52,9 @@ func (e *focusElement) mounted() {
 	if w.Node != nil {
 		w.Node.attach(e.owner.app, e)
 	}
-	e.owner.app.registerFocusable(e)
+	if !w.Options.SkipTraversal {
+		e.owner.app.registerFocusable(e)
+	}
 }
 
 func (e *focusElement) unmounted() {
@@ -35,25 +62,33 @@ func (e *focusElement) unmounted() {
 	if w.Node != nil {
 		w.Node.detach(e)
 	}
-	e.owner.app.unregisterFocusable(e)
+	if !w.Options.SkipTraversal {
+		e.owner.app.unregisterFocusable(e)
+	}
 }
 
 func (e *focusElement) update(old Widget) {
-	oldNode := old.(focusWidget).Node
-	nextNode := e.widget.(focusWidget).Node
-	if oldNode == nextNode {
-		return
-	}
-	if oldNode != nil {
+	oldWidget := old.(focusWidget)
+	nextWidget := e.widget.(focusWidget)
+	oldNode := oldWidget.Node
+	nextNode := nextWidget.Node
+	if oldNode != nextNode && oldNode != nil {
 		oldNode.detach(e)
-		if e.owner.app.focused == e && oldNode.onChange != nil {
+		if e.owner.app.focused == (focusTarget{element: e, index: elementFocusIndex}) && oldNode.onChange != nil {
 			oldNode.onChange()
 		}
 	}
-	if nextNode != nil {
+	if oldNode != nextNode && nextNode != nil {
 		nextNode.attach(e.owner.app, e)
-		if e.owner.app.focused == e && nextNode.onChange != nil {
+		if e.owner.app.focused == (focusTarget{element: e, index: elementFocusIndex}) && nextNode.onChange != nil {
 			nextNode.onChange()
+		}
+	}
+	if oldWidget.Options.SkipTraversal != nextWidget.Options.SkipTraversal {
+		if oldWidget.Options.SkipTraversal {
+			e.owner.app.registerFocusable(e)
+		} else {
+			e.owner.app.unregisterFocusable(e)
 		}
 	}
 }

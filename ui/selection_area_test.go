@@ -627,6 +627,7 @@ func TestSelectionAreaSelectAllSkipsTextFieldContents(t *testing.T) {
 		ui.Text{Value: "after"},
 	}}))
 
+	h.click(ui.Point{X: 0, Y: 0})
 	h.selectAll()
 	h.copy()
 	assertCopies(t, h.backend, "before\nafter")
@@ -664,6 +665,7 @@ func TestSelectionAreaSelectAllSkipsTextAreaContents(t *testing.T) {
 		ui.Text{Value: "after"},
 	}}))
 
+	h.click(ui.Point{X: 0, Y: 0})
 	h.selectAll()
 	h.copy()
 	assertCopies(t, h.backend, "before\nafter")

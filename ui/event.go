@@ -145,13 +145,13 @@ type FocusNode struct {
 // RequestFocus moves focus to this node if it is attached.
 func (n *FocusNode) RequestFocus() {
 	if n != nil && n.app != nil && n.element != nil {
-		n.app.setFocused(n.element)
+		n.app.setFocusedElement(n.element)
 	}
 }
 
 // HasFocus reports whether this node is currently focused.
 func (n *FocusNode) HasFocus() bool {
-	return n != nil && n.app != nil && n.app.focused == n.element
+	return n != nil && n.app != nil && n.app.focused == (focusTarget{element: n.element, index: elementFocusIndex})
 }
 
 func (n *FocusNode) attach(app *App, element element) {

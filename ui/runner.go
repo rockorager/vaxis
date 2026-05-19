@@ -8,6 +8,7 @@ type Runner struct {
 	backend   Backend
 	scheduler *FrameScheduler
 	done      bool
+	lastFrame *Painter
 }
 
 // NewRunner creates a runner for app and backend.
@@ -100,9 +101,17 @@ func (r *Runner) HandleFrame(now time.Time) error {
 	if err := r.backend.Render(painter); err != nil {
 		return err
 	}
+	r.lastFrame = painter.clone()
 	r.scheduler.DidFrame(now)
 	if r.app.FrameRequested() || r.app.hasActiveAnimations() || activeFrameTicks {
 		r.scheduler.Request(now)
 	}
 	return nil
+}
+
+func (r *Runner) debugRenderedSnapshot() (DebugRenderedSnapshot, bool) {
+	if r.lastFrame == nil {
+		return DebugRenderedSnapshot{}, false
+	}
+	return debugRenderedSnapshot(r.lastFrame), true
 }

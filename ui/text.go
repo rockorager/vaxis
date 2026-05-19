@@ -45,26 +45,37 @@ type Text struct {
 	MaxLines int
 	// Align controls horizontal placement within the laid-out width.
 	Align TextAlign
+	// OnPressed is called when the visible text is clicked or activated while focused.
+	OnPressed VoidCallback
 }
 
 func (w Text) CreateRenderObject(ctx BuildContext) RenderObject {
 	if w.Style == (Style{}) {
 		w.Style = MustDepend[Theme](ctx).Text
 	}
-	return &renderText{Text: w.Value, Style: w.Style, Options: w.options()}
+	w.Style = textInteractiveStyle(w.Style, w.OnPressed)
+	return &renderText{Text: w.Value, Style: w.Style, Options: w.options(), OnPressed: w.OnPressed, focusedIndex: elementFocusIndex}
 }
 
 func (w Text) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
 	if w.Style == (Style{}) {
 		w.Style = MustDepend[Theme](ctx).Text
 	}
+	w.Style = textInteractiveStyle(w.Style, w.OnPressed)
 	r := ro.(*renderText)
-	r.Text, r.Style, r.Options = w.Value, w.Style, w.options()
+	r.Text, r.Style, r.Options, r.OnPressed = w.Value, w.Style, w.options(), w.OnPressed
 	r.MarkNeedsLayout()
 }
 
 func (w Text) options() TextLayoutOptions {
 	return TextLayoutOptions{SoftWrap: w.SoftWrap, Overflow: w.Overflow, MaxLines: w.MaxLines, Align: w.Align}
+}
+
+func textInteractiveStyle(style Style, cb VoidCallback) Style {
+	if cb != nil && style.UnderlineStyle == UnderlineOff {
+		style.UnderlineStyle = UnderlineSingle
+	}
+	return style
 }
 
 // renderText lays out and paints a Text widget.
@@ -73,9 +84,11 @@ type renderText struct {
 	Text           string
 	Style          Style
 	Options        TextLayoutOptions
+	OnPressed      VoidCallback
 	layout         TextLayout
 	selection      TextSelection
 	selectionStyle Style
+	focusedIndex   int
 }
 
 func (r *renderText) Layout(ctx LayoutContext, c Constraints) {
@@ -101,7 +114,75 @@ func (r *renderText) Paint(p *Painter, off Offset) {
 		})
 		return
 	}
+	if r.focusedIndex >= 0 {
+		paintTextLayoutFocusedSpan(p, off, r.layout, 0)
+		return
+	}
 	paintLaidOutText(p, off, r.layout, r.Options)
+}
+
+func (r *renderText) MouseShape(ctx EventContext, mouse Mouse) MouseShape {
+	if r.OnPressed != nil && r.hasPaintedCellAt(Point{X: mouse.Col, Y: mouse.Row}) {
+		return MouseShapeClickable
+	}
+	return MouseShapeDefault
+}
+
+func (r *renderText) HandleEvent(ctx EventContext, ev Event) EventResult {
+	if ctx.Phase() != TargetPhase && ctx.Phase() != BubblePhase || r.OnPressed == nil {
+		return EventIgnored
+	}
+	mouse, ok := ev.(Mouse)
+	if !ok {
+		key, ok := ev.(Key)
+		if !ok || keyIsRelease(key) || !key.MatchString("Enter") && !key.MatchString("Space") || r.focusedIndex < 0 {
+			return EventIgnored
+		}
+		r.OnPressed(ctx)
+		return EventHandled
+	}
+	if mouse.EventType != EventPress || mouse.Button != MouseLeftButton || !r.hasPaintedCellAt(Point{X: mouse.Col, Y: mouse.Row}) {
+		return EventIgnored
+	}
+	r.OnPressed(ctx)
+	return EventHandled
+}
+
+func (r *renderText) FocusableCount() int {
+	if r.OnPressed == nil {
+		return 0
+	}
+	return 1
+}
+
+func (r *renderText) DebugFocusTargets() []DebugFocusTarget {
+	if r.OnPressed == nil {
+		return nil
+	}
+	return []DebugFocusTarget{{Index: 0, Label: r.Text}}
+}
+
+func (r *renderText) SetFocusedIndex(index int) {
+	if r.focusedIndex == index {
+		return
+	}
+	r.focusedIndex = index
+	r.MarkNeedsPaint()
+}
+
+func (r *renderText) hasPaintedCellAt(pt Point) bool {
+	if pt.Y < 0 || pt.Y >= len(r.layout.Lines) {
+		return false
+	}
+	line := r.layout.Lines[pt.Y]
+	x := line.Offset
+	for _, cell := range line.Cells {
+		if pt.X >= x && pt.X < x+cell.Width {
+			return true
+		}
+		x += cell.Width
+	}
+	return false
 }
 
 func (r *renderText) PositionForPoint(pt Point) (TextPosition, bool) {

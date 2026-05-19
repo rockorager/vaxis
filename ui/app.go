@@ -8,8 +8,8 @@ type App struct {
 	rootRO          RenderObject
 	size            Size
 	window          Resize
-	focusables      []element
-	focused         element
+	focusables      []focusTarget
+	focused         focusTarget
 	quit            bool
 	theme           Theme
 	frameRequested  bool
@@ -20,7 +20,7 @@ type App struct {
 	setTitle        func(string)
 	copyToClipboard func(string)
 	notify          func(string, string)
-	pendingFocus    []element
+	pendingFocus    []focusTarget
 	hoverPath       []element
 	animations      map[*AnimationController]struct{}
 }
@@ -191,7 +191,7 @@ func (a *App) dispatchEvent(ev Event) EventResult {
 			return EventHandled
 		}
 	}
-	target := a.focused
+	target := a.focused.element
 	if target == nil {
 		target = a.build.Root()
 	}
@@ -337,26 +337,36 @@ func (a *App) pathTo(target element) []element {
 }
 
 func (a *App) registerFocusable(e element) {
+	a.registerFocusTarget(focusTarget{element: e, index: elementFocusIndex})
+}
+
+func (a *App) registerFocusTarget(target focusTarget) {
 	for _, existing := range a.focusables {
-		if existing == e {
+		if existing == target {
 			return
 		}
 	}
-	a.focusables = append(a.focusables, e)
-	if a.focused == nil {
-		a.setFocused(e)
+	a.focusables = append(a.focusables, target)
+	if a.focused.element == nil {
+		a.setFocused(target)
 	}
 }
 
 func (a *App) unregisterFocusable(e element) {
+	a.unregisterFocusTarget(focusTarget{element: e, index: elementFocusIndex})
+}
+
+func (a *App) unregisterFocusTarget(target focusTarget) {
 	for i, existing := range a.focusables {
-		if existing == e {
+		if existing == target {
 			a.focusables = append(a.focusables[:i], a.focusables[i+1:]...)
 			break
 		}
 	}
-	if a.focused == e {
-		a.focused = nil
+	if a.focused == target {
+		old := a.focused
+		a.focused = focusTarget{}
+		a.notifyFocusChanged(old)
 		if len(a.focusables) > 0 {
 			a.setFocused(a.focusables[0])
 		}
@@ -376,8 +386,8 @@ func (a *App) moveFocus(delta int) {
 		return
 	}
 	idx := 0
-	for i, e := range a.focusables {
-		if e == a.focused {
+	for i, target := range a.focusables {
+		if target == a.focused {
 			idx = i
 			break
 		}
@@ -386,7 +396,11 @@ func (a *App) moveFocus(delta int) {
 	a.setFocused(a.focusables[idx])
 }
 
-func (a *App) setFocused(next element) {
+func (a *App) setFocusedElement(next element) {
+	a.setFocused(focusTarget{element: next, index: elementFocusIndex})
+}
+
+func (a *App) setFocused(next focusTarget) {
 	if a.focused == next {
 		return
 	}
@@ -396,36 +410,39 @@ func (a *App) setFocused(next element) {
 	a.notifyFocusChanged(next)
 }
 
-func (a *App) notifyFocusChanged(e element) {
-	if e == nil {
+func (a *App) notifyFocusChanged(target focusTarget) {
+	if target.element == nil {
 		return
 	}
 	if a.build.building {
-		a.deferFocusNotification(e)
+		a.deferFocusNotification(target)
 		return
 	}
-	if f, ok := e.Base().widget.(focusWidget); ok && f.Node != nil && f.Node.onChange != nil {
+	if f, ok := target.element.Base().widget.(focusWidget); ok && target.index == elementFocusIndex && f.Node != nil && f.Node.onChange != nil {
 		f.Node.onChange()
+	}
+	if ro, ok := ownRenderObject(target.element).(renderFocusHandler); ok {
+		ro.SetFocusedIndex(target.index)
 	}
 }
 
-func (a *App) deferFocusNotification(e element) {
+func (a *App) deferFocusNotification(target focusTarget) {
 	for _, existing := range a.pendingFocus {
-		if existing == e {
+		if existing == target {
 			return
 		}
 	}
-	a.pendingFocus = append(a.pendingFocus, e)
+	a.pendingFocus = append(a.pendingFocus, target)
 }
 
 func (a *App) flushFocusNotifications() {
 	pending := a.pendingFocus
 	a.pendingFocus = nil
-	for _, e := range pending {
-		if e.Base().owner == nil {
+	for _, target := range pending {
+		if target.element.Base().owner == nil {
 			continue
 		}
-		a.notifyFocusChanged(e)
+		a.notifyFocusChanged(target)
 	}
 }
 

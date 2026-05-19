@@ -44,7 +44,7 @@ type selectionAreaState struct {
 }
 
 func (s *selectionAreaState) Build(BuildContext) Widget {
-	return Focus(&s.node, selectionAreaView{
+	return FocusWithOptions(&s.node, FocusOptions{SkipTraversal: true}, selectionAreaView{
 		State: s,
 		Child: s.Widget().(SelectionArea).Child,
 	})

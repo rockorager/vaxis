@@ -29,7 +29,26 @@ func runWithBackend(root Widget, backend Backend, opts ...Option) error {
 		cancel()
 	}
 	opts = append(append([]Option{}, opts...), WithTheme(options.theme))
-	runner := NewRunner(NewApp(root, opts...), backend, NewFrameScheduler(DefaultFrameInterval))
+	app := NewApp(root, opts...)
+	runner := NewRunner(app, backend, NewFrameScheduler(DefaultFrameInterval))
+	submitDebugEvent := func(ev Event) {
+		if resize, ok := ev.(Resize); ok {
+			if backend, ok := backend.(interface{ Resize(Resize) }); ok {
+				backend.Resize(resize)
+			}
+		}
+		runner.HandleEvent(ev, time.Now())
+	}
+	stopDebug, err := startDebugServer(app, app.dispatch, submitDebugEvent, runner.debugRenderedSnapshot, func() (string, bool) {
+		if runner.lastFrame == nil {
+			return "", false
+		}
+		return debugRenderedText(runner.lastFrame), true
+	})
+	if err != nil {
+		return err
+	}
+	defer stopDebug()
 	frameTimer := time.NewTimer(time.Hour)
 	frameTimer.Stop()
 	schedule := func() {

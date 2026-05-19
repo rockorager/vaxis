@@ -21,17 +21,20 @@ type RichText struct {
 type TextSpan struct {
 	// Text is the span contents.
 	Text string
-	// Style is merged over Theme.Text for this span.
+	// Style is merged over Theme.Text for this span. Set Style.Hyperlink for OSC
+	// 8 terminal links.
 	Style Style
+	// OnPressed is called when the span is clicked.
+	OnPressed VoidCallback
 }
 
 func (w RichText) CreateRenderObject(ctx BuildContext) RenderObject {
-	return &renderRichText{Spans: themedSpans(ctx, w.Spans), Options: w.options()}
+	return &renderRichText{Spans: themedSpans(ctx, w.Spans), RawSpans: w.Spans, Options: w.options(), focusedIndex: elementFocusIndex}
 }
 
 func (w RichText) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
 	r := ro.(*renderRichText)
-	r.Spans, r.Options = themedSpans(ctx, w.Spans), w.options()
+	r.Spans, r.RawSpans, r.Options = themedSpans(ctx, w.Spans), w.Spans, w.options()
 	r.MarkNeedsLayout()
 }
 
@@ -43,10 +46,12 @@ func (w RichText) options() TextLayoutOptions {
 type renderRichText struct {
 	LeafRenderObject
 	Spans          []TextSpan
+	RawSpans       []TextSpan
 	Options        TextLayoutOptions
 	layout         TextLayout
 	selection      TextSelection
 	selectionStyle Style
+	focusedIndex   int
 }
 
 func (r *renderRichText) Layout(ctx LayoutContext, c Constraints) {
@@ -71,7 +76,137 @@ func (r *renderRichText) Paint(p *Painter, off Offset) {
 		})
 		return
 	}
+	if r.focusedIndex >= 0 {
+		paintTextLayoutFocusedSpan(p, off, r.layout, r.focusedSpanIndex())
+		return
+	}
 	paintLaidOutText(p, off, r.layout, r.Options)
+}
+
+func (r *renderRichText) MouseShape(ctx EventContext, mouse Mouse) MouseShape {
+	if span, ok := r.spanAtPoint(Point{X: mouse.Col, Y: mouse.Row}); ok && span.OnPressed != nil {
+		return MouseShapeClickable
+	}
+	return MouseShapeDefault
+}
+
+func (r *renderRichText) HandleEvent(ctx EventContext, ev Event) EventResult {
+	if ctx.Phase() != TargetPhase && ctx.Phase() != BubblePhase {
+		return EventIgnored
+	}
+	mouse, ok := ev.(Mouse)
+	if !ok {
+		key, ok := ev.(Key)
+		if !ok || keyIsRelease(key) || !key.MatchString("Enter") && !key.MatchString("Space") {
+			return EventIgnored
+		}
+		span, ok := r.focusedSpan()
+		if !ok || span.OnPressed == nil {
+			return EventIgnored
+		}
+		span.OnPressed(ctx)
+		return EventHandled
+	}
+	if mouse.EventType != EventPress || mouse.Button != MouseLeftButton {
+		return EventIgnored
+	}
+	span, ok := r.spanAtPoint(Point{X: mouse.Col, Y: mouse.Row})
+	if !ok || span.OnPressed == nil {
+		return EventIgnored
+	}
+	span.OnPressed(ctx)
+	return EventHandled
+}
+
+func (r *renderRichText) FocusableCount() int {
+	count := 0
+	for _, span := range r.RawSpans {
+		if span.OnPressed != nil {
+			count++
+		}
+	}
+	return count
+}
+
+func (r *renderRichText) DebugFocusTargets() []DebugFocusTarget {
+	var out []DebugFocusTarget
+	for _, span := range r.RawSpans {
+		if span.OnPressed == nil {
+			continue
+		}
+		out = append(out, DebugFocusTarget{Index: len(out), Label: span.Text})
+	}
+	return out
+}
+
+func (r *renderRichText) SetFocusedIndex(index int) {
+	if r.focusedIndex == index {
+		return
+	}
+	r.focusedIndex = index
+	r.MarkNeedsPaint()
+}
+
+func (r *renderRichText) focusedSpan() (TextSpan, bool) {
+	idx := r.focusedSpanIndex()
+	if idx < 0 || idx >= len(r.RawSpans) {
+		return TextSpan{}, false
+	}
+	return r.RawSpans[idx], true
+}
+
+func (r *renderRichText) focusedSpanIndex() int {
+	if r.focusedIndex < 0 {
+		return -1
+	}
+	focusable := 0
+	for i, span := range r.RawSpans {
+		if span.OnPressed == nil {
+			continue
+		}
+		if focusable == r.focusedIndex {
+			return i
+		}
+		focusable++
+	}
+	return -1
+}
+
+func (r *renderRichText) spanAtPoint(pt Point) (TextSpan, bool) {
+	pos, ok := r.positionAtPaintedCell(pt)
+	if !ok || pos.Span < 0 || pos.Span >= len(r.RawSpans) {
+		return TextSpan{}, false
+	}
+	return r.RawSpans[pos.Span], true
+}
+
+func paintTextLayoutFocusedSpan(p *Painter, off Offset, layout TextLayout, spanIndex int) {
+	for y, line := range layout.Lines {
+		x := off.X + line.Offset
+		for _, cell := range line.Cells {
+			style := cell.Style
+			if cell.Position.Span == spanIndex {
+				style.UnderlineStyle = UnderlineDouble
+			}
+			p.DrawText(Offset{X: x, Y: off.Y + y}, cell.Text, style)
+			x += cell.Width
+		}
+	}
+}
+
+func (r *renderRichText) positionAtPaintedCell(pt Point) (TextPosition, bool) {
+	if pt.Y < 0 || pt.Y >= len(r.layout.Lines) {
+		return TextPosition{}, false
+	}
+	line := r.layout.Lines[pt.Y]
+	x := line.Offset
+	for _, cell := range line.Cells {
+		if pt.X >= x && pt.X < x+cell.Width {
+			return cell.Position, true
+		}
+		x += cell.Width
+	}
+	return TextPosition{}, false
 }
 
 func (r *renderRichText) PositionForPoint(pt Point) (TextPosition, bool) {
@@ -115,7 +250,11 @@ func themedSpans(ctx BuildContext, spans []TextSpan) []TextSpan {
 	base := MustDepend[Theme](ctx).Text
 	out := make([]TextSpan, len(spans))
 	for i, span := range spans {
-		out[i] = TextSpan{Text: span.Text, Style: mergeStyle(base, span.Style)}
+		style := mergeStyle(base, span.Style)
+		if span.OnPressed != nil && style.UnderlineStyle == UnderlineOff {
+			style.UnderlineStyle = UnderlineSingle
+		}
+		out[i] = TextSpan{Text: span.Text, Style: style, OnPressed: span.OnPressed}
 	}
 	return out
 }

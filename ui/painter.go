@@ -30,6 +30,22 @@ func (p *Painter) Cells() []Cell {
 	return p.cells
 }
 
+func (p *Painter) clone() *Painter {
+	if p == nil {
+		return nil
+	}
+	clone := &Painter{
+		size:  p.size,
+		cells: append([]Cell(nil), p.cells...),
+		clips: append([]Rect(nil), p.clips...),
+	}
+	if p.cursor != nil {
+		cursor := *p.cursor
+		clone.cursor = &cursor
+	}
+	return clone
+}
+
 // Cell returns the cell at x,y or an empty cell when out of bounds.
 func (p *Painter) Cell(x, y int) Cell {
 	if x < 0 || y < 0 || x >= p.size.Width || y >= p.size.Height {
