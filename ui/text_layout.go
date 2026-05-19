@@ -21,8 +21,8 @@ type TextSelectionRange struct {
 }
 
 type TextCursorCellOptions struct {
-	SoftWrap bool
-	Width    int
+	SoftWrap  bool
+	WrapWidth int
 }
 
 type TextLine struct {
@@ -218,7 +218,7 @@ func (l TextLayout) CursorCell(pos TextPosition, opts TextCursorCellOptions) (ro
 	if !ok {
 		return 0, 0, false
 	}
-	if opts.SoftWrap && opts.Width > 0 && col >= opts.Width {
+	if opts.SoftWrap && opts.WrapWidth > 0 && col >= opts.WrapWidth {
 		return row + 1, 0, true
 	}
 	return row, col, true

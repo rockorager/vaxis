@@ -326,6 +326,41 @@ func TestTextAreaScrollsVerticallyToCursor(t *testing.T) {
 	}
 }
 
+func TestTextAreaControlledValueShrinkClampsCursor(t *testing.T) {
+	app := ui.NewApp(ui.TextArea{Value: "a\nb\nc", MinHeight: 3})
+	app.Pump(ui.Size{Width: 10, Height: 3})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyDown})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyDown})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnd})
+	app.UpdateRoot(ui.TextArea{Value: "x", MinHeight: 3})
+	app.Pump(ui.Size{Width: 10, Height: 3})
+
+	p := ui.NewPainter(ui.Size{Width: 10, Height: 3})
+	app.Paint(p)
+	if cursor, ok := p.Cursor(); !ok || cursor.Col != 2 || cursor.Row != 0 {
+		t.Fatalf("cursor after shrink = %#v ok=%v, want 2,0", cursor, ok)
+	}
+}
+
+func TestTextAreaControlledValueShrinkClampsSelection(t *testing.T) {
+	app := ui.NewApp(ui.TextArea{Value: "a\nb\nc", MinHeight: 3})
+	app.Pump(ui.Size{Width: 10, Height: 3})
+	app.Send(vaxis.Key{Text: "a", Keycode: 'a', Modifiers: vaxis.ModCtrl})
+	app.Pump(ui.Size{Width: 10, Height: 3})
+	app.UpdateRoot(ui.TextArea{Value: "x", MinHeight: 3})
+	app.Pump(ui.Size{Width: 10, Height: 3})
+
+	p := ui.NewPainter(ui.Size{Width: 10, Height: 3})
+	app.Paint(p)
+	want := ui.DefaultTheme().TextField.Selection.Background
+	if got := p.Cell(1, 0).Background; got != want {
+		t.Fatalf("clamped selected cell background = %#v, want %#v", got, want)
+	}
+	if got := p.Cell(2, 0).Background; got == want {
+		t.Fatalf("cell after clamped selection background = %#v, should not be selected", got)
+	}
+}
+
 func TestTextAreaSelectionPaintsVisibleRowsWhenStartIsOffscreen(t *testing.T) {
 	app := ui.NewApp(ui.TextArea{Value: "a\nb\nc", MinHeight: 2})
 	app.Pump(ui.Size{Width: 10, Height: 2})

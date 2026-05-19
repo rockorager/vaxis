@@ -238,7 +238,7 @@ func (r *renderTextArea) Paint(p *Painter, off Offset) {
 		SelectionStyle: selectionStyle,
 	})
 	if r.Focused && r.Value != "" {
-		if row, col, ok := r.layout.CursorCell(r.cursorPosition(), TextCursorCellOptions{SoftWrap: r.SoftWrap, Width: size.Width}); ok {
+		if row, col, ok := r.layout.CursorCell(r.cursorPosition(), TextCursorCellOptions{SoftWrap: r.SoftWrap, WrapWidth: size.Width}); ok {
 			p.ShowCursor(off.X+col-r.scrollCol(), off.Y+row-r.scrollRow(), CursorBlock)
 		}
 	} else if r.Focused && r.Value == "" {
@@ -277,7 +277,7 @@ func (r *renderTextArea) keepCursorVisible(size Size) {
 	if r.State == nil || size.Width <= 0 || size.Height <= 0 {
 		return
 	}
-	row, col, ok := r.layout.CursorCell(r.cursorPosition(), TextCursorCellOptions{SoftWrap: r.SoftWrap, Width: size.Width})
+	row, col, ok := r.layout.CursorCell(r.cursorPosition(), TextCursorCellOptions{SoftWrap: r.SoftWrap, WrapWidth: size.Width})
 	if !ok {
 		row, col = 0, 0
 	}
