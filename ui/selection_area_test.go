@@ -51,6 +51,51 @@ func TestSelectionAreaCopiesSelectedText(t *testing.T) {
 	}
 }
 
+func TestSelectionAreaDoubleClickCopiesWord(t *testing.T) {
+	now := time.Unix(10, 0)
+	backend := newFakeBackend(ui.Size{Width: 12, Height: 1})
+	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.Text{Value: "alpha beta"}}), backend, ui.NewFrameScheduler(time.Second/60))
+	runner.Start(now)
+	if err := runner.HandleFrame(now); err != nil {
+		t.Fatal(err)
+	}
+
+	mouse := vaxis.Mouse{Col: 7, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}
+	runner.HandleEvent(mouse, now)
+	mouse.EventType = vaxis.EventRelease
+	runner.HandleEvent(mouse, now)
+	mouse.EventType = vaxis.EventPress
+	runner.HandleEvent(mouse, now)
+	mouse.EventType = vaxis.EventRelease
+	runner.HandleEvent(mouse, now)
+	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
+	if len(backend.copies) != 1 || backend.copies[0] != "beta" {
+		t.Fatalf("copies = %#v, want beta", backend.copies)
+	}
+}
+
+func TestSelectionAreaTripleClickCopiesLine(t *testing.T) {
+	now := time.Unix(10, 0)
+	backend := newFakeBackend(ui.Size{Width: 12, Height: 2})
+	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.Text{Value: "alpha beta\ngamma"}}), backend, ui.NewFrameScheduler(time.Second/60))
+	runner.Start(now)
+	if err := runner.HandleFrame(now); err != nil {
+		t.Fatal(err)
+	}
+
+	mouse := vaxis.Mouse{Col: 2, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}
+	for i := 0; i < 3; i++ {
+		mouse.EventType = vaxis.EventPress
+		runner.HandleEvent(mouse, now)
+		mouse.EventType = vaxis.EventRelease
+		runner.HandleEvent(mouse, now)
+	}
+	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
+	if len(backend.copies) != 1 || backend.copies[0] != "alpha beta\n" {
+		t.Fatalf("copies = %#v, want alpha beta\\n", backend.copies)
+	}
+}
+
 func TestSelectionAreaSelectsRichTextAcrossSpans(t *testing.T) {
 	now := time.Unix(10, 0)
 	backend := newFakeBackend(ui.Size{Width: 10, Height: 1})
@@ -69,6 +114,32 @@ func TestSelectionAreaSelectsRichTextAcrossSpans(t *testing.T) {
 	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
 	if len(backend.copies) != 1 || backend.copies[0] != "bc" {
 		t.Fatalf("copies = %#v, want bc", backend.copies)
+	}
+}
+
+func TestSelectionAreaDoubleClickSelectsRichTextWordAcrossSpans(t *testing.T) {
+	now := time.Unix(10, 0)
+	backend := newFakeBackend(ui.Size{Width: 12, Height: 1})
+	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.RichText{Spans: []ui.TextSpan{
+		{Text: "al"},
+		{Text: "pha beta"},
+	}}}), backend, ui.NewFrameScheduler(time.Second/60))
+	runner.Start(now)
+	if err := runner.HandleFrame(now); err != nil {
+		t.Fatal(err)
+	}
+
+	mouse := vaxis.Mouse{Col: 3, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}
+	runner.HandleEvent(mouse, now)
+	mouse.EventType = vaxis.EventRelease
+	runner.HandleEvent(mouse, now)
+	mouse.EventType = vaxis.EventPress
+	runner.HandleEvent(mouse, now)
+	mouse.EventType = vaxis.EventRelease
+	runner.HandleEvent(mouse, now)
+	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
+	if len(backend.copies) != 1 || backend.copies[0] != "alpha" {
+		t.Fatalf("copies = %#v, want alpha", backend.copies)
 	}
 }
 

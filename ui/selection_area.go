@@ -1,5 +1,7 @@
 package ui
 
+import "time"
+
 // SelectionArea enables read-only text selection for descendant Text and RichText widgets.
 type SelectionArea struct {
 	// Child is the subtree that can contain selectable text.
@@ -18,6 +20,11 @@ type selectionAreaState struct {
 	hasSelection bool
 	selecting    bool
 	selected     []selectableTextRender
+	now          func() time.Time
+	lastClick    time.Time
+	lastClickRow int
+	lastClickCol int
+	clickCount   int
 }
 
 func (s *selectionAreaState) Build(BuildContext) Widget {
@@ -78,9 +85,19 @@ func (s *selectionAreaState) handleMouse(mouse Mouse) EventResult {
 			return EventIgnored
 		}
 		s.node.RequestFocus()
-		s.selecting = true
-		endpoint := selectionEndpoint{Selectable: selectable, Offset: off, Position: pos}
-		s.setSelection(endpoint, endpoint)
+		clickCount := s.mouseClickCount(mouse)
+		switch {
+		case clickCount >= 3:
+			s.selecting = false
+			s.setTextSelection(selectable, off, selectable.SelectLineAt(pos))
+		case clickCount == 2:
+			s.selecting = false
+			s.setTextSelection(selectable, off, selectable.SelectWordAt(pos))
+		default:
+			s.selecting = true
+			endpoint := selectionEndpoint{Selectable: selectable, Offset: off, Position: pos}
+			s.setSelection(endpoint, endpoint)
+		}
 		return EventHandled
 	case EventMotion:
 		if !s.selecting || !s.hasSelection {
@@ -109,6 +126,22 @@ func (s *selectionAreaState) handleMouse(mouse Mouse) EventResult {
 	return EventIgnored
 }
 
+func (s *selectionAreaState) mouseClickCount(mouse Mouse) int {
+	now := time.Now()
+	if s.now != nil {
+		now = s.now()
+	}
+	if s.clickCount == 0 || mouse.Row != s.lastClickRow || mouse.Col != s.lastClickCol || now.Sub(s.lastClick) > textEditorMultiClickInterval {
+		s.clickCount = 1
+	} else {
+		s.clickCount++
+	}
+	s.lastClick = now
+	s.lastClickRow = mouse.Row
+	s.lastClickCol = mouse.Col
+	return s.clickCount
+}
+
 func (s *selectionAreaState) areaRender() *renderSelectionArea {
 	ro := s.Context().FindRenderObject()
 	if r, ok := ro.(*renderSelectionArea); ok {
@@ -126,6 +159,13 @@ func (s *selectionAreaState) setSelection(anchor, extent selectionEndpoint) {
 		return
 	}
 	s.selected = area.ApplySelection(anchor, extent, MustDepend[Theme](s.Context()).TextField.Selection, s.selected)
+}
+
+func (s *selectionAreaState) setTextSelection(selectable selectableTextRender, off Offset, selection TextSelection) {
+	s.setSelection(
+		selectionEndpoint{Selectable: selectable, Offset: off, Position: selection.Base},
+		selectionEndpoint{Selectable: selectable, Offset: off, Position: selection.Extent},
+	)
 }
 
 func (s *selectionAreaState) clearSelection() {
@@ -314,6 +354,8 @@ type selectableTextRender interface {
 	StartPosition() TextPosition
 	EndPosition() TextPosition
 	SelectAll() TextSelection
+	SelectWordAt(TextPosition) TextSelection
+	SelectLineAt(TextPosition) TextSelection
 	SelectedText(TextSelection) string
 	SetSelection(TextSelection, Style)
 }

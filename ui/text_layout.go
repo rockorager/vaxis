@@ -69,6 +69,12 @@ type textAtom struct {
 	synthetic bool
 }
 
+type textCharacter struct {
+	char     Character
+	position TextPosition
+	end      TextPosition
+}
+
 type (
 	textLayoutOptions = TextLayoutOptions
 )
@@ -477,6 +483,53 @@ func textSelectionForSpans(spans []TextSpan) TextSelection {
 	return TextSelection{Extent: textEndPositionForSpans(spans)}
 }
 
+func textWordSelectionForSpans(spans []TextSpan, pos TextPosition) TextSelection {
+	chars := textCharactersForSpans(spans)
+	if len(chars) == 0 {
+		return TextSelection{Base: pos, Extent: pos}
+	}
+	offset, ok := textCharacterIndexForPosition(chars, pos)
+	if !ok {
+		return TextSelection{Base: pos, Extent: pos}
+	}
+	kind := textBufferKind(chars[offset].char)
+	start := offset
+	for start > 0 && textBufferKind(chars[start-1].char) == kind {
+		start--
+	}
+	end := offset + 1
+	for end < len(chars) && textBufferKind(chars[end].char) == kind {
+		end++
+	}
+	return TextSelection{Base: textPositionAtCharacterIndex(chars, start), Extent: textPositionAtCharacterIndex(chars, end)}
+}
+
+func textLineSelectionForSpans(spans []TextSpan, pos TextPosition) TextSelection {
+	chars := textCharactersForSpans(spans)
+	if len(chars) == 0 {
+		return TextSelection{Base: pos, Extent: pos}
+	}
+	if sameTextPosition(pos, chars[len(chars)-1].end) && chars[len(chars)-1].char.Grapheme == "\n" {
+		return TextSelection{Base: pos, Extent: pos}
+	}
+	offset, ok := textCharacterIndexForPosition(chars, pos)
+	if !ok {
+		return TextSelection{Base: pos, Extent: pos}
+	}
+	start := offset
+	for start > 0 && chars[start-1].char.Grapheme != "\n" {
+		start--
+	}
+	end := offset
+	for end < len(chars) && chars[end].char.Grapheme != "\n" {
+		end++
+	}
+	if end < len(chars) && chars[end].char.Grapheme == "\n" {
+		end++
+	}
+	return TextSelection{Base: textPositionAtCharacterIndex(chars, start), Extent: textPositionAtCharacterIndex(chars, end)}
+}
+
 func textEndPositionForSpans(spans []TextSpan) TextPosition {
 	end := TextPosition{}
 	for spanIndex, span := range spans {
@@ -489,6 +542,38 @@ func textEndPositionForSpans(spans []TextSpan) TextPosition {
 		}
 	}
 	return end
+}
+
+func textCharactersForSpans(spans []TextSpan) []textCharacter {
+	var chars []textCharacter
+	for spanIndex, span := range spans {
+		pos := TextPosition{Span: spanIndex}
+		for _, ch := range vaxisCharacters(span.Text) {
+			end := advanceTextPosition(pos, ch.Grapheme)
+			chars = append(chars, textCharacter{char: ch, position: pos, end: end})
+			pos = end
+		}
+	}
+	return chars
+}
+
+func textCharacterIndexForPosition(chars []textCharacter, pos TextPosition) (int, bool) {
+	for i, ch := range chars {
+		if compareTextPosition(ch.position, pos) <= 0 && compareTextPosition(pos, ch.end) < 0 {
+			return i, true
+		}
+	}
+	if len(chars) > 0 && sameTextPosition(pos, chars[len(chars)-1].end) {
+		return len(chars) - 1, true
+	}
+	return 0, false
+}
+
+func textPositionAtCharacterIndex(chars []textCharacter, index int) TextPosition {
+	if index >= len(chars) {
+		return chars[len(chars)-1].end
+	}
+	return chars[index].position
 }
 
 func selectedTextForSpans(spans []TextSpan, selection TextSelection) string {

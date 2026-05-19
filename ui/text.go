@@ -116,6 +116,14 @@ func (r *renderText) SelectAll() TextSelection {
 	return textSelectionForSpans([]TextSpan{{Text: r.Text}})
 }
 
+func (r *renderText) SelectWordAt(pos TextPosition) TextSelection {
+	return textWordSelectionForSpans([]TextSpan{{Text: r.Text}}, pos)
+}
+
+func (r *renderText) SelectLineAt(pos TextPosition) TextSelection {
+	return textLineSelectionForSpans([]TextSpan{{Text: r.Text}}, pos)
+}
+
 func (r *renderText) SelectedText(selection TextSelection) string {
 	return selectedTextForSpans([]TextSpan{{Text: r.Text}}, selection)
 }

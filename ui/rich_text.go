@@ -87,6 +87,14 @@ func (r *renderRichText) SelectAll() TextSelection {
 	return textSelectionForSpans(r.Spans)
 }
 
+func (r *renderRichText) SelectWordAt(pos TextPosition) TextSelection {
+	return textWordSelectionForSpans(r.Spans, pos)
+}
+
+func (r *renderRichText) SelectLineAt(pos TextPosition) TextSelection {
+	return textLineSelectionForSpans(r.Spans, pos)
+}
+
 func (r *renderRichText) SelectedText(selection TextSelection) string {
 	return selectedTextForSpans(r.Spans, selection)
 }
