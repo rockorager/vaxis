@@ -7,6 +7,9 @@ type SliverConstraints struct {
 	ViewportWidth int
 	// ViewportHeight is the viewport height in cells.
 	ViewportHeight int
+	// RemainingPaintExtent is the number of viewport rows left after previous
+	// slivers.
+	RemainingPaintExtent int
 	// ScrollOffset is the number of rows scrolled into this sliver.
 	ScrollOffset int
 }
@@ -173,9 +176,10 @@ func (r *renderCustomScrollView) Layout(ctx LayoutContext, c Constraints) {
 			continue
 		}
 		geometry := sliver.LayoutSliver(ctx, SliverConstraints{
-			ViewportWidth:  width,
-			ViewportHeight: viewportHeight,
-			ScrollOffset:   max(0, r.scrollRow()-scrollBefore),
+			ViewportWidth:        width,
+			ViewportHeight:       viewportHeight,
+			RemainingPaintExtent: max(0, viewportHeight-contentHeight+r.scrollRow()),
+			ScrollOffset:         max(0, r.scrollRow()-scrollBefore),
 		})
 		r.childOffsets[i] = Offset{Y: contentHeight}
 		contentHeight += geometry.ScrollExtent
@@ -331,7 +335,11 @@ type renderSliverToBox struct {
 }
 
 func (r *renderSliverToBox) Layout(ctx LayoutContext, c Constraints) {
-	geometry := r.LayoutSliver(ctx, SliverConstraints{ViewportWidth: c.MaxWidth, ViewportHeight: c.MaxHeight})
+	geometry := r.LayoutSliver(ctx, SliverConstraints{
+		ViewportWidth:        c.MaxWidth,
+		ViewportHeight:       c.MaxHeight,
+		RemainingPaintExtent: c.MaxHeight,
+	})
 	r.geometry = geometry
 }
 
@@ -372,6 +380,79 @@ func (r *renderSliverToBox) SelectionSize() Size {
 	return r.Size()
 }
 
+// SliverFillRemaining sizes its child to at least the remaining viewport height.
+type SliverFillRemaining struct {
+	// Child is laid out at the viewport width and fills any remaining rows.
+	Child Widget
+}
+
+func (w SliverFillRemaining) ChildWidget() Widget {
+	return w.Child
+}
+
+func (w SliverFillRemaining) CreateRenderObject(BuildContext) RenderObject {
+	return &renderSliverFillRemaining{}
+}
+
+func (w SliverFillRemaining) UpdateRenderObject(BuildContext, RenderObject) {
+}
+
+type renderSliverFillRemaining struct {
+	SingleChildRenderObject
+	geometry SliverGeometry
+}
+
+func (r *renderSliverFillRemaining) Layout(ctx LayoutContext, c Constraints) {
+	r.LayoutSliver(ctx, SliverConstraints{
+		ViewportWidth:        c.MaxWidth,
+		ViewportHeight:       c.MaxHeight,
+		RemainingPaintExtent: c.MaxHeight,
+	})
+}
+
+func (r *renderSliverFillRemaining) LayoutSliver(ctx LayoutContext, c SliverConstraints) SliverGeometry {
+	child := r.Child()
+	if child == nil {
+		r.SetSize(Size{Width: c.ViewportWidth, Height: max(0, c.RemainingPaintExtent)})
+		r.geometry = SliverGeometry{ScrollExtent: r.Size().Height, PaintExtent: visibleSliverExtent(c, r.Size().Height)}
+		return r.geometry
+	}
+	child.Layout(ctx, Constraints{
+		MinWidth:  c.ViewportWidth,
+		MaxWidth:  c.ViewportWidth,
+		MinHeight: max(0, c.RemainingPaintExtent),
+		MaxHeight: Unbounded,
+	})
+	size := child.Base().Size()
+	r.SetSize(size)
+	r.geometry = SliverGeometry{
+		ScrollExtent: size.Height,
+		PaintExtent:  visibleSliverExtent(c, size.Height),
+	}
+	return r.geometry
+}
+
+func (r *renderSliverFillRemaining) Paint(p *Painter, off Offset) {
+	r.PaintSliver(p, off)
+}
+
+func (r *renderSliverFillRemaining) PaintSliver(p *Painter, off Offset) {
+	if child := r.Child(); child != nil {
+		child.Paint(p, off)
+	}
+}
+
+func (r *renderSliverFillRemaining) HitTest(*HitTestResult, Point) bool {
+	return false
+}
+
+func (r *renderSliverFillRemaining) SelectionSize() Size {
+	if child := r.Child(); child != nil {
+		return selectionSize(child)
+	}
+	return r.Size()
+}
+
 // SliverList lays out a fixed list of children as one scrollable sliver.
 type SliverList struct {
 	// Children are laid out vertically in order.
@@ -396,7 +477,11 @@ type renderSliverList struct {
 }
 
 func (r *renderSliverList) Layout(ctx LayoutContext, c Constraints) {
-	r.LayoutSliver(ctx, SliverConstraints{ViewportWidth: c.MaxWidth, ViewportHeight: c.MaxHeight})
+	r.LayoutSliver(ctx, SliverConstraints{
+		ViewportWidth:        c.MaxWidth,
+		ViewportHeight:       c.MaxHeight,
+		RemainingPaintExtent: c.MaxHeight,
+	})
 }
 
 func (r *renderSliverList) LayoutSliver(ctx LayoutContext, c SliverConstraints) SliverGeometry {

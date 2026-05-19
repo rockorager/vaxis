@@ -168,3 +168,76 @@ func TestSliverListReportsChildOffsetsForHitTesting(t *testing.T) {
 		t.Fatal("expected hit testing to reach scrolled sliver list child")
 	}
 }
+
+func TestSliverFillRemainingFillsViewport(t *testing.T) {
+	app := NewApp(CustomScrollView{Slivers: []Widget{
+		SliverToBox{Child: Text{Value: "header"}},
+		SliverFillRemaining{Child: Text{Value: "body", Style: Style{Background: RGB(12, 34, 56)}}},
+	}})
+	app.Pump(Size{Width: 10, Height: 4})
+
+	p := NewPainter(Size{Width: 10, Height: 4})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Grapheme; got != "h" {
+		t.Fatalf("first row = %q, want header", got)
+	}
+	if got := p.Cell(0, 1).Grapheme; got != "b" {
+		t.Fatalf("fill child row = %q, want body", got)
+	}
+	if got := p.Cell(0, 3).Background; got != RGB(12, 34, 56) {
+		t.Fatalf("bottom fill background = %#v, want fill child background", got)
+	}
+}
+
+func TestSliverFillRemainingScrollsTallChild(t *testing.T) {
+	app := NewApp(CustomScrollView{Slivers: []Widget{
+		SliverToBox{Child: Text{Value: "header"}},
+		SliverFillRemaining{Child: Flex{
+			Axis:               Vertical,
+			CrossAxisAlignment: CrossAxisStart,
+			ChildrenWidget: []Widget{
+				Text{Value: "one"},
+				Text{Value: "two"},
+				Text{Value: "three"},
+				Text{Value: "four"},
+			},
+		}},
+	}})
+	app.Pump(Size{Width: 10, Height: 3})
+
+	app.Send(Key{Keycode: KeyEnd})
+	app.Pump(Size{Width: 10, Height: 3})
+	p := NewPainter(Size{Width: 10, Height: 3})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Grapheme; got != "t" {
+		t.Fatalf("first visible row after end = %q, want two", got)
+	}
+	if got := p.Cell(0, 2).Grapheme; got != "f" {
+		t.Fatalf("last visible row after end = %q, want four", got)
+	}
+}
+
+func TestSliverFillRemainingContributesScrollbarMetrics(t *testing.T) {
+	app := NewApp(Scrollbar{Child: CustomScrollView{Slivers: []Widget{
+		SliverToBox{Child: Text{Value: "header"}},
+		SliverFillRemaining{Child: Flex{
+			Axis:               Vertical,
+			CrossAxisAlignment: CrossAxisStart,
+			ChildrenWidget: []Widget{
+				Text{Value: "one"},
+				Text{Value: "two"},
+				Text{Value: "three"},
+				Text{Value: "four"},
+			},
+		}},
+	}}})
+	app.Pump(Size{Width: 10, Height: 3})
+
+	app.Send(Mouse{Col: 9, Row: 2, Button: MouseLeftButton, EventType: EventPress})
+	app.Pump(Size{Width: 10, Height: 3})
+	p := NewPainter(Size{Width: 10, Height: 3})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Grapheme; got != "t" {
+		t.Fatalf("first visible row after track click = %q, want three", got)
+	}
+}
