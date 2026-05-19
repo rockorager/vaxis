@@ -5,7 +5,18 @@ import (
 	"time"
 )
 
-// SelectionArea enables read-only text selection for descendant Text and RichText widgets.
+// SelectionArea enables read-only text selection for descendant Text and
+// RichText widgets.
+//
+// Users can drag to select text, double-click to select a word, triple-click
+// to select a line, press Ctrl+A to select all selectable descendants, and
+// press Ctrl+C to copy the current selection. TextField and TextArea manage
+// their own editable selections and are skipped by SelectionArea traversal.
+//
+// Mouse selections copy the visible text when they start inside clipped
+// content. Selections that start outside a ScrollView include its hidden rows,
+// and selections that start inside a ScrollView expand to hidden rows only when
+// autoscrolling moves the viewport.
 type SelectionArea struct {
 	// Child is the subtree that can contain selectable text.
 	Child Widget
@@ -102,12 +113,19 @@ func (s *selectionAreaState) handleMouse(ctx EventContext, mouse Mouse) EventRes
 			s.selecting = true
 			endpoint := selectionEndpoint{Selectable: selectable, Offset: off, Position: pos, Clipped: clipped}
 			s.setSelection(endpoint, endpoint, true)
+			if ctx.app != nil {
+				ctx.app.captureMouse(s.element)
+			}
 			s.startAutoScroll(ctx, mouse, scrollTarget, scrollOff)
 		}
 		return EventHandled
 	case EventMotion:
 		if !s.selecting || !s.hasSelection {
 			return EventIgnored
+		}
+		if mouse.Button == MouseNoButton {
+			s.stopSelecting(ctx)
+			return EventHandled
 		}
 		area := s.areaRender()
 		if area == nil {
@@ -130,9 +148,8 @@ func (s *selectionAreaState) handleMouse(ctx EventContext, mouse Mouse) EventRes
 		s.updateAutoScroll(ctx, mouse)
 		return EventHandled
 	case EventRelease:
-		if mouse.Button == MouseLeftButton && s.selecting {
-			s.selecting = false
-			s.stopAutoScroll()
+		if s.selecting {
+			s.stopSelecting(ctx)
 			return EventHandled
 		}
 	}
@@ -230,6 +247,14 @@ func (s *selectionAreaState) updateAutoScroll(ctx EventContext, mouse Mouse) {
 
 func (s *selectionAreaState) stopAutoScroll() {
 	s.autoScroll = selectionAutoScroll{}
+}
+
+func (s *selectionAreaState) stopSelecting(ctx EventContext) {
+	s.selecting = false
+	s.stopAutoScroll()
+	if ctx.app != nil {
+		ctx.app.releaseMouseCapture(s.element)
+	}
 }
 
 func (s *selectionAreaState) visibleOnlyForExtent(extent selectionEndpoint) bool {
@@ -652,9 +677,20 @@ type selectionChildOffsetProvider interface {
 	SelectionChildOffset(RenderObject) Offset
 }
 
+type selectionSizeProvider interface {
+	SelectionSize() Size
+}
+
 func selectionDisabled(ro RenderObject) bool {
 	d, ok := ro.(selectionDisabler)
 	return ok && d.SelectionDisabled()
+}
+
+func selectionSize(ro RenderObject) Size {
+	if provider, ok := ro.(selectionSizeProvider); ok {
+		return provider.SelectionSize()
+	}
+	return ro.Base().Size()
 }
 
 func rectAtOffset(r Rect, off Offset) Rect {

@@ -3,7 +3,10 @@ package ui
 // SelectionContainer controls how a subtree participates in ancestor selection.
 //
 // A non-disabled SelectionContainer is transparent. When Disabled is true,
-// descendant selectable widgets are skipped by the nearest SelectionArea.
+// descendant selectable widgets are skipped by the nearest SelectionArea for
+// drag selection, Ctrl+A, and copy. Use it around content such as controls,
+// embedded editors, or decorative text that should not be copied as part of the
+// surrounding read-only selection.
 type SelectionContainer struct {
 	// Disabled excludes Child from ancestor SelectionArea traversal when true.
 	Disabled bool

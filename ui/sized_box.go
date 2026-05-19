@@ -53,3 +53,15 @@ func (r *renderSizedBox) Paint(p *Painter, off Offset) {
 func (r *renderSizedBox) HitTest(*HitTestResult, Point) bool {
 	return false
 }
+
+func (r *renderSizedBox) SelectionSize() Size {
+	child := r.Child()
+	if child == nil {
+		return r.Size()
+	}
+	childSize := selectionSize(child)
+	size := r.Size()
+	size.Width = max(size.Width, childSize.Width)
+	size.Height = max(size.Height, childSize.Height)
+	return size
+}

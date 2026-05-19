@@ -55,6 +55,7 @@ func RGB(r, g, b uint8) Color {
 
 const (
 	// MouseLeftButton aliases vaxis.MouseLeftButton.
+	MouseNoButton     = vaxis.MouseNoButton
 	MouseLeftButton   = vaxis.MouseLeftButton
 	MouseMiddleButton = vaxis.MouseMiddleButton
 	MouseRightButton  = vaxis.MouseRightButton

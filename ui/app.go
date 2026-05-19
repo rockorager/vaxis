@@ -15,6 +15,7 @@ type App struct {
 	frameRequested  bool
 	mouseShape      MouseShape
 	mouseShapeDirty bool
+	mouseCapture    element
 	dispatch        func(func())
 	setTitle        func(string)
 	copyToClipboard func(string)
@@ -163,6 +164,20 @@ func (a *App) dispatchEvent(ev Event) EventResult {
 		a.updateHoverPath(path)
 		if len(path) > 0 {
 			a.applyMouseShape(path, mouse)
+		}
+		if a.mouseCapture != nil && mouse.EventType != EventPress {
+			captured := a.pathTo(a.mouseCapture)
+			if len(captured) == 0 {
+				a.mouseCapture = nil
+			} else {
+				result := a.dispatchPath(captured, ev)
+				if mouse.EventType == EventRelease {
+					a.mouseCapture = nil
+				}
+				return result
+			}
+		}
+		if len(path) > 0 {
 			return a.dispatchPath(path, ev)
 		}
 	}
@@ -181,6 +196,16 @@ func (a *App) dispatchEvent(ev Event) EventResult {
 		target = a.build.Root()
 	}
 	return a.dispatchPath(a.pathTo(target), ev)
+}
+
+func (a *App) captureMouse(e element) {
+	a.mouseCapture = e
+}
+
+func (a *App) releaseMouseCapture(e element) {
+	if a.mouseCapture == e {
+		a.mouseCapture = nil
+	}
 }
 
 func (a *App) updateHoverPath(next []element) {

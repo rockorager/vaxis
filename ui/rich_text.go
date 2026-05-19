@@ -1,6 +1,9 @@
 package ui
 
 // RichText displays multiple styled spans as one text layout.
+//
+// RichText participates in ancestor SelectionArea widgets as one selectable
+// text run. Selection and copy preserve the rendered span order, but not style.
 type RichText struct {
 	// Spans are the styled text runs to display.
 	Spans []TextSpan

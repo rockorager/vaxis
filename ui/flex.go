@@ -257,6 +257,53 @@ func (r *renderFlex) HitTest(*HitTestResult, Point) bool {
 	return false
 }
 
+func (r *renderFlex) SelectionChildOffset(child RenderObject) Offset {
+	off := r.ChildOffset(child)
+	extra := 0
+	for _, candidate := range r.Children() {
+		if candidate == child {
+			break
+		}
+		visual := candidate.Base().Size()
+		logical := selectionSize(candidate)
+		if r.Axis == Vertical {
+			extra += logical.Height - visual.Height
+		} else {
+			extra += logical.Width - visual.Width
+		}
+	}
+	if r.Axis == Vertical {
+		off.Y += extra
+	} else {
+		off.X += extra
+	}
+	return off
+}
+
+func (r *renderFlex) SelectionSize() Size {
+	size := r.Size()
+	mainUsed := 0
+	crossUsed := 0
+	for _, child := range r.Children() {
+		childSize := selectionSize(child)
+		if r.Axis == Vertical {
+			mainUsed += childSize.Height
+			crossUsed = max(crossUsed, childSize.Width)
+		} else {
+			mainUsed += childSize.Width
+			crossUsed = max(crossUsed, childSize.Height)
+		}
+	}
+	if r.Axis == Vertical {
+		size.Height = max(size.Height, mainUsed)
+		size.Width = max(size.Width, crossUsed)
+	} else {
+		size.Width = max(size.Width, mainUsed)
+		size.Height = max(size.Height, crossUsed)
+	}
+	return size
+}
+
 // ExpandedWidget gives a Flex child a tight share of remaining space.
 type ExpandedWidget struct {
 	// Flex is the share of remaining space assigned to the child.

@@ -1,6 +1,10 @@
 package ui
 
 // ScrollView clips a single child to a vertical viewport and scrolls it.
+//
+// When used inside SelectionArea, selections that start outside the ScrollView
+// include hidden rows, while selections that start inside it initially use the
+// visible rows and expand as selection autoscroll moves the viewport.
 type ScrollView struct {
 	// Child is laid out at the viewport width with unbounded height.
 	Child Widget
@@ -173,6 +177,14 @@ func (r *renderScrollView) SelectionClip() Rect {
 
 func (r *renderScrollView) SelectionChildOffset(RenderObject) Offset {
 	return Offset{}
+}
+
+func (r *renderScrollView) SelectionSize() Size {
+	child := r.Child()
+	if child == nil {
+		return Size{}
+	}
+	return selectionSize(child)
 }
 
 func (r *renderScrollView) ScrollByLines(lines int) bool {

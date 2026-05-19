@@ -28,6 +28,10 @@ const (
 )
 
 // Text displays a single styled string.
+//
+// Text participates in ancestor SelectionArea widgets. Mouse selection copies
+// the laid-out visible text; Ctrl+A from SelectionArea copies the full value,
+// including text hidden by clipping or ellipsis.
 type Text struct {
 	// Value is the string to display.
 	Value string
