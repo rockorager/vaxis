@@ -241,3 +241,114 @@ func TestSliverFillRemainingContributesScrollbarMetrics(t *testing.T) {
 		t.Fatalf("first visible row after track click = %q, want three", got)
 	}
 }
+
+func TestSliverPinnedHeaderStartsInNormalPosition(t *testing.T) {
+	app := NewApp(CustomScrollView{Slivers: []Widget{
+		SliverToBox{Child: Text{Value: "intro"}},
+		SliverPinnedHeader{Child: Text{Value: "header"}},
+		SliverList{ChildrenWidget: []Widget{
+			Text{Value: "one"},
+			Text{Value: "two"},
+		}},
+	}})
+	app.Pump(Size{Width: 10, Height: 3})
+
+	p := NewPainter(Size{Width: 10, Height: 3})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Grapheme; got != "i" {
+		t.Fatalf("first row = %q, want intro", got)
+	}
+	if got := p.Cell(0, 1).Grapheme; got != "h" {
+		t.Fatalf("second row = %q, want header", got)
+	}
+}
+
+func TestSliverPinnedHeaderStaysAtTopAfterScroll(t *testing.T) {
+	app := NewApp(CustomScrollView{Slivers: []Widget{
+		SliverPinnedHeader{Child: Text{Value: "header", Style: Style{Background: RGB(20, 40, 60)}}},
+		SliverList{ChildrenWidget: []Widget{
+			Text{Value: "one"},
+			Text{Value: "two"},
+			Text{Value: "three"},
+			Text{Value: "four"},
+		}},
+	}})
+	app.Pump(Size{Width: 10, Height: 3})
+
+	app.Send(Mouse{Button: MouseWheelDown, EventType: EventPress})
+	app.Pump(Size{Width: 10, Height: 3})
+	p := NewPainter(Size{Width: 10, Height: 3})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Grapheme; got != "h" {
+		t.Fatalf("pinned row = %q, want header", got)
+	}
+	if got := p.Cell(0, 0).Background; got != RGB(20, 40, 60) {
+		t.Fatalf("pinned row background = %#v, want header background", got)
+	}
+	if got := p.Cell(0, 1).Grapheme; got != "t" {
+		t.Fatalf("row after pinned header = %q, want two", got)
+	}
+}
+
+func TestSliverPinnedHeaderFillsWidthWhenPinned(t *testing.T) {
+	header := RGB(20, 40, 60)
+	app := NewApp(CustomScrollView{Slivers: []Widget{
+		SliverPinnedHeader{Child: Text{Value: "head", Style: Style{Background: header}}},
+		SliverList{ChildrenWidget: []Widget{
+			Text{Value: "row number 1"},
+			Text{Value: "row number 2"},
+			Text{Value: "row number 3"},
+		}},
+	}})
+	app.Pump(Size{Width: 12, Height: 2})
+
+	app.Send(Mouse{Button: MouseWheelDown, EventType: EventPress})
+	app.Pump(Size{Width: 12, Height: 2})
+	p := NewPainter(Size{Width: 12, Height: 2})
+	app.Paint(p)
+	if got := p.Cell(4, 0); got.Grapheme != " " || got.Background != header {
+		t.Fatalf("cell after short pinned header = %#v, want header fill", got)
+	}
+}
+
+func TestSliverPinnedHeaderContributesScrollbarMetrics(t *testing.T) {
+	app := NewApp(CustomScrollView{Slivers: []Widget{
+		SliverPinnedHeader{Child: Text{Value: "header"}},
+		SliverList{ChildrenWidget: []Widget{
+			Text{Value: "one"},
+			Text{Value: "two"},
+			Text{Value: "three"},
+		}},
+	}})
+	app.Pump(Size{Width: 10, Height: 2})
+
+	r, ok := app.rootRO.(*renderCustomScrollView)
+	if !ok {
+		t.Fatalf("root render object = %T, want *renderCustomScrollView", app.rootRO)
+	}
+	got := r.ScrollMetrics()
+	want := ScrollMetrics{MaxScrollOffset: 2, ViewportHeight: 2, ViewportWidth: 10, ContentHeight: 4}
+	if got != want {
+		t.Fatalf("metrics = %#v, want %#v", got, want)
+	}
+}
+
+func TestSliverPinnedHeaderHitTestsAtPinnedOffset(t *testing.T) {
+	clicked := false
+	app := NewApp(CustomScrollView{Slivers: []Widget{
+		SliverPinnedHeader{Child: Button{Label: "head", OnPressed: func(EventContext) { clicked = true }}},
+		SliverList{ChildrenWidget: []Widget{
+			Text{Value: "one"},
+			Text{Value: "two"},
+			Text{Value: "three"},
+		}},
+	}})
+	app.Pump(Size{Width: 10, Height: 2})
+	app.Send(Mouse{Button: MouseWheelDown, EventType: EventPress})
+	app.Pump(Size{Width: 10, Height: 2})
+
+	app.Send(Mouse{Col: 1, Row: 0, Button: MouseLeftButton, EventType: EventPress})
+	if !clicked {
+		t.Fatal("expected pinned header button to receive click at pinned row")
+	}
+}

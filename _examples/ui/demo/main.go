@@ -222,14 +222,15 @@ func (s *DemoState) listsPage() ui.Widget {
 	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStretch, ChildrenWidget: []ui.Widget{
 		ui.RichText{Spans: []ui.TextSpan{
 			{Text: "Lists", Style: ui.Style{Attribute: ui.AttrBold}},
-			{Text: "\nThis page uses CustomScrollView with mixed slivers. The header, list, and footer share one scroll offset and one scrollbar."},
+			{Text: "\nThis page uses CustomScrollView with mixed slivers. The section header pins while the list and footer scroll under one scrollbar."},
 		}, SoftWrap: true},
 		ui.SizedBox{Height: 1},
 		ui.SizedBox{Width: 72, Height: 12, Child: ui.Scrollbar{Child: ui.CustomScrollView{Slivers: []ui.Widget{
-			ui.SliverToBox{Child: ui.RichText{Spans: []ui.TextSpan{
-				{Text: "Mixed slivers", Style: ui.Style{Attribute: ui.AttrBold}},
-				{Text: "\nThis ordinary box is the first sliver. It scrolls with the list and footer in one viewport."},
-			}, SoftWrap: true}},
+			ui.SliverToBox{Child: ui.Text{Value: "The intro sliver scrolls away before the pinned header takes over.", SoftWrap: true}},
+			ui.SliverPinnedHeader{Child: ui.Text{
+				Value: " #  target             status",
+				Style: ui.Style{Attribute: ui.AttrBold, Background: ui.RGB(48, 48, 48)},
+			}},
 			ui.SliverList{ChildrenWidget: listDemoRows()},
 			ui.SliverToBox{Child: ui.RichText{Spans: []ui.TextSpan{
 				{Text: "Footer sliver", Style: ui.Style{Attribute: ui.AttrBold}},

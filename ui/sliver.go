@@ -28,6 +28,10 @@ type renderSliver interface {
 	PaintSliver(*Painter, Offset)
 }
 
+type pinnedSliver interface {
+	PinnedOffset(logical Offset, scrollOffset int) Offset
+}
+
 // CustomScrollView composes row-based slivers in one vertical scroll viewport.
 //
 // Mouse wheel events scroll by one line. Page Up and Page Down scroll by one
@@ -217,8 +221,22 @@ func (r *renderCustomScrollView) Paint(p *Painter, off Offset) {
 		if !ok || i >= len(r.childOffsets) {
 			continue
 		}
-		childOff := r.childOffsets[i]
-		sliver.PaintSliver(p, Offset{X: off.X + childOff.X, Y: off.Y + childOff.Y - r.scrollRow()})
+		if _, ok := sliver.(pinnedSliver); ok {
+			continue
+		}
+		childOff := r.paintChildOffset(i)
+		sliver.PaintSliver(p, off.Add(childOff))
+	}
+	for i, child := range r.Children() {
+		sliver, ok := child.(renderSliver)
+		if !ok || i >= len(r.childOffsets) {
+			continue
+		}
+		if _, ok := sliver.(pinnedSliver); !ok {
+			continue
+		}
+		childOff := r.paintChildOffset(i)
+		sliver.PaintSliver(p, off.Add(childOff))
 	}
 }
 
@@ -229,10 +247,21 @@ func (r *renderCustomScrollView) HitTest(*HitTestResult, Point) bool {
 func (r *renderCustomScrollView) ChildOffset(child RenderObject) Offset {
 	for i, candidate := range r.Children() {
 		if candidate == child && i < len(r.childOffsets) {
-			return Offset{X: r.childOffsets[i].X, Y: r.childOffsets[i].Y - r.scrollRow()}
+			return r.paintChildOffset(i)
 		}
 	}
 	return Offset{}
+}
+
+func (r *renderCustomScrollView) paintChildOffset(i int) Offset {
+	if i >= len(r.childOffsets) {
+		return Offset{}
+	}
+	off := Offset{X: r.childOffsets[i].X, Y: r.childOffsets[i].Y - r.scrollRow()}
+	if pinned, ok := r.Children()[i].(pinnedSliver); ok {
+		return pinned.PinnedOffset(off, r.scrollRow())
+	}
+	return off
 }
 
 func (r *renderCustomScrollView) SelectionClip() Rect {
@@ -374,6 +403,82 @@ func (r *renderSliverToBox) HitTest(*HitTestResult, Point) bool {
 }
 
 func (r *renderSliverToBox) SelectionSize() Size {
+	if child := r.Child(); child != nil {
+		return selectionSize(child)
+	}
+	return r.Size()
+}
+
+// SliverPinnedHeader keeps its child visible at the top of a CustomScrollView
+// after it would otherwise scroll offscreen.
+type SliverPinnedHeader struct {
+	// Child is laid out at the viewport width with its natural height.
+	Child Widget
+}
+
+func (w SliverPinnedHeader) ChildWidget() Widget {
+	return w.Child
+}
+
+func (w SliverPinnedHeader) CreateRenderObject(BuildContext) RenderObject {
+	return &renderSliverPinnedHeader{}
+}
+
+func (w SliverPinnedHeader) UpdateRenderObject(BuildContext, RenderObject) {
+}
+
+type renderSliverPinnedHeader struct {
+	SingleChildRenderObject
+	geometry SliverGeometry
+}
+
+func (r *renderSliverPinnedHeader) Layout(ctx LayoutContext, c Constraints) {
+	r.LayoutSliver(ctx, SliverConstraints{
+		ViewportWidth:        c.MaxWidth,
+		ViewportHeight:       c.MaxHeight,
+		RemainingPaintExtent: c.MaxHeight,
+	})
+}
+
+func (r *renderSliverPinnedHeader) LayoutSliver(ctx LayoutContext, c SliverConstraints) SliverGeometry {
+	child := r.Child()
+	if child == nil {
+		r.SetSize(Size{})
+		r.geometry = SliverGeometry{}
+		return r.geometry
+	}
+	child.Layout(ctx, Constraints{MinWidth: c.ViewportWidth, MaxWidth: c.ViewportWidth, MaxHeight: Unbounded})
+	size := child.Base().Size()
+	r.SetSize(size)
+	r.geometry = SliverGeometry{
+		ScrollExtent: size.Height,
+		PaintExtent:  min(size.Height, c.ViewportHeight),
+	}
+	return r.geometry
+}
+
+func (r *renderSliverPinnedHeader) Paint(p *Painter, off Offset) {
+	r.PaintSliver(p, off)
+}
+
+func (r *renderSliverPinnedHeader) PaintSliver(p *Painter, off Offset) {
+	if child := r.Child(); child != nil {
+		child.Paint(p, off)
+	}
+}
+
+func (r *renderSliverPinnedHeader) HitTest(*HitTestResult, Point) bool {
+	return false
+}
+
+func (r *renderSliverPinnedHeader) PinnedOffset(off Offset, _ int) Offset {
+	if off.Y < 0 {
+		off.Y = 0
+	}
+	return off
+}
+
+func (r *renderSliverPinnedHeader) SelectionSize() Size {
 	if child := r.Child(); child != nil {
 		return selectionSize(child)
 	}
