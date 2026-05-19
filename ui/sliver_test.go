@@ -383,6 +383,42 @@ func TestSliverListBuilderVariableHeightsAnchorsVisibleRowOnResize(t *testing.T)
 	}
 }
 
+func TestCustomScrollViewAnchorsMixedSliversOnResize(t *testing.T) {
+	app := NewApp(CustomScrollView{Slivers: []Widget{
+		SliverToBox{Child: Text{Value: "intro"}},
+		SliverPinnedHeader{Child: Text{Value: "head", Style: Style{Background: RGB(12, 34, 56)}}},
+		SliverListBuilder{
+			Count:               20,
+			EstimatedItemExtent: 1,
+			Overscan:            3,
+			Builder: func(ctx BuildContext, i int) Widget {
+				return Text{Value: "row " + padTestInt(i, 2) + " abcdefghij", SoftWrap: true}
+			},
+		},
+		SliverToBox{Child: Text{Value: "footer"}},
+	}})
+	app.Pump(Size{Width: 20, Height: 4})
+	app.Pump(Size{Width: 20, Height: 4})
+	r, ok := app.rootRO.(*renderCustomScrollView)
+	if !ok {
+		t.Fatalf("root render object = %T, want *renderCustomScrollView", app.rootRO)
+	}
+	r.ScrollToOffset(8)
+	app.Pump(Size{Width: 20, Height: 4})
+	app.Pump(Size{Width: 20, Height: 4})
+
+	app.Pump(Size{Width: 10, Height: 4})
+	app.Pump(Size{Width: 10, Height: 4})
+	p := NewPainter(Size{Width: 10, Height: 4})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Grapheme + p.Cell(1, 0).Grapheme + p.Cell(2, 0).Grapheme + p.Cell(3, 0).Grapheme; got != "head" {
+		t.Fatalf("pinned header row = %q, want head", got)
+	}
+	if got := p.Cell(4, 1).Grapheme + p.Cell(5, 1).Grapheme; got != "07" {
+		t.Fatalf("first visible list row suffix after resize = %q, want row 07", got)
+	}
+}
+
 func TestCustomScrollViewResizeToFitContentClearsBottomOffset(t *testing.T) {
 	app := NewApp(CustomScrollView{Slivers: []Widget{
 		SliverList{ChildrenWidget: []Widget{

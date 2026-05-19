@@ -14,6 +14,9 @@ type SliverConstraints struct {
 	RemainingPaintExtent int
 	// ScrollOffset is the number of rows scrolled into this sliver.
 	ScrollOffset int
+	// ObscuredLeadingExtent is the number of rows from this sliver's leading
+	// edge that are hidden by viewport clipping or pinned content.
+	ObscuredLeadingExtent int
 }
 
 // SliverGeometry reports a sliver's scrollable and visible extent.
@@ -44,7 +47,10 @@ const defaultSliverListBuilderInitialCount = 32
 // Mouse wheel events scroll by one line. Page Up and Page Down scroll by one
 // viewport. Home and End jump to the start and end. Scrollbar can wrap a
 // CustomScrollView because it exposes the same scroll metrics and commands as
-// ScrollView.
+// ScrollView. Slivers may report a scroll offset correction during layout when
+// lazy measurement changes the logical position of visible content; the
+// viewport applies the correction and lays out again so the current anchor row
+// stays visually stable.
 type CustomScrollView struct {
 	// Slivers are laid out vertically in order.
 	Slivers []Widget
@@ -190,16 +196,20 @@ func (r *renderCustomScrollView) layoutOnce(ctx LayoutContext, c Constraints) in
 	r.childOffsets = make([]Offset, len(slivers))
 	scrollBefore := 0
 	contentHeight := 0
+	pinnedLeadingExtent := 0
 	for i, child := range slivers {
 		sliver, ok := child.(renderSliver)
 		if !ok {
 			continue
 		}
+		childPaintOffset := contentHeight - r.scrollRow()
 		geometry := sliver.LayoutSliver(ctx, SliverConstraints{
 			ViewportWidth:        width,
 			ViewportHeight:       viewportHeight,
 			RemainingPaintExtent: max(0, viewportHeight-contentHeight+r.scrollRow()),
 			ScrollOffset:         max(0, r.scrollRow()-scrollBefore),
+			ObscuredLeadingExtent: max(0, pinnedLeadingExtent-
+				childPaintOffset),
 		})
 		r.childOffsets[i] = Offset{Y: contentHeight}
 		contentHeight += geometry.ScrollExtent
@@ -208,6 +218,9 @@ func (r *renderCustomScrollView) layoutOnce(ctx LayoutContext, c Constraints) in
 		if geometry.ScrollOffsetCorrection != 0 && r.State != nil {
 			r.State.scrollRow = max(0, r.State.scrollRow+geometry.ScrollOffsetCorrection)
 			return geometry.ScrollOffsetCorrection
+		}
+		if _, ok := sliver.(pinnedSliver); ok && childPaintOffset <= pinnedLeadingExtent {
+			pinnedLeadingExtent = max(pinnedLeadingExtent, sliver.Base().Size().Height)
 		}
 	}
 	r.contentHeight = contentHeight
@@ -363,6 +376,9 @@ func (r *renderCustomScrollView) clampScroll() {
 }
 
 // SliverToBox adapts a normal box widget into a CustomScrollView sliver.
+//
+// The child is laid out at the viewport width with unbounded height. Use this
+// for headers, footers, and other one-off content mixed into a sliver viewport.
 type SliverToBox struct {
 	// Child is laid out at the viewport width with unbounded height.
 	Child Widget
@@ -432,6 +448,10 @@ func (r *renderSliverToBox) SelectionSize() Size {
 
 // SliverPinnedHeader keeps its child visible at the top of a CustomScrollView
 // after it would otherwise scroll offscreen.
+//
+// The header still contributes its normal height to scroll extent. While
+// pinned, it paints after non-pinned slivers so it covers rows that scroll
+// underneath it.
 type SliverPinnedHeader struct {
 	// Child is laid out at the viewport width with its natural height.
 	Child Widget
@@ -507,6 +527,10 @@ func (r *renderSliverPinnedHeader) SelectionSize() Size {
 }
 
 // SliverFillRemaining sizes its child to at least the remaining viewport height.
+//
+// If previous slivers do not fill the viewport, the child is expanded to cover
+// the remaining rows. If the child needs more height than remains, it scrolls as
+// normal content.
 type SliverFillRemaining struct {
 	// Child is laid out at the viewport width and fills any remaining rows.
 	Child Widget
@@ -579,7 +603,10 @@ func (r *renderSliverFillRemaining) SelectionSize() Size {
 	return r.Size()
 }
 
-// SliverList lays out a fixed list of children as one scrollable sliver.
+// SliverList lays out an eager list of children as one scrollable sliver.
+//
+// All children are built and laid out every pass. Use SliverList for small or
+// already-materialized lists; use SliverListBuilder for large or dynamic lists.
 type SliverList struct {
 	// Children are laid out vertically in order.
 	ChildrenWidget []Widget
@@ -671,6 +698,10 @@ func (r *renderSliverList) SelectionSize() Size {
 // are laid out and EstimatedItemExtent is used for rows that have not been
 // built yet. Overscan adds rows before and after the visible range so small
 // scroll deltas can paint without waiting for another build.
+//
+// In measured mode, row heights are cached per viewport width. Resizing clears
+// the measurements for the old width, anchors the currently visible row, and
+// corrects the viewport scroll offset after rows are measured at the new width.
 type SliverListBuilder struct {
 	// Count is the number of logical rows available from Builder.
 	Count int
@@ -883,9 +914,10 @@ func (r *renderSliverListBuilder) layoutVariable(ctx LayoutContext, c SliverCons
 	}
 	extents := cloneSliverExtentCache(cachedExtents)
 	first, last := sliverListBuilderVariableVisibleRange(r.Count, estimate, r.Overscan, extents, c)
-	anchorIndex := sliverListBuilderIndexForOffset(c.ScrollOffset, r.Count, estimate, anchorExtents)
+	anchorScrollOffset := max(c.ScrollOffset, c.ObscuredLeadingExtent)
+	anchorIndex := sliverListBuilderIndexForOffset(anchorScrollOffset, r.Count, estimate, anchorExtents)
 	anchorOffset := sliverListBuilderOffsetForIndex(anchorIndex, estimate, anchorExtents)
-	anchorDelta := c.ScrollOffset - anchorOffset
+	anchorDelta := anchorScrollOffset - anchorOffset
 	if resized {
 		paintExtent := max(0, min(c.ViewportHeight, c.RemainingPaintExtent))
 		first = clampInt(anchorIndex-r.Overscan, 0, max(0, r.Count))
@@ -911,8 +943,8 @@ func (r *renderSliverListBuilder) layoutVariable(ctx LayoutContext, c SliverCons
 	}
 	scrollExtent := sliverListBuilderScrollExtent(r.Count, estimate, extents)
 	correction := 0
-	if c.ScrollOffset > 0 && anchorIndex < max(0, r.Count) {
-		correction = sliverListBuilderOffsetForIndex(anchorIndex, estimate, extents) + anchorDelta - c.ScrollOffset
+	if anchorScrollOffset > 0 && anchorIndex < max(0, r.Count) {
+		correction = sliverListBuilderOffsetForIndex(anchorIndex, estimate, extents) + anchorDelta - anchorScrollOffset
 	}
 	r.Extents = extents
 	if r.State != nil {
