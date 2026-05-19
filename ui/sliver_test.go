@@ -206,6 +206,111 @@ func TestScrollControllerCanMoveBetweenCustomScrollViews(t *testing.T) {
 	}
 }
 
+func TestCustomScrollViewFollowOutputTracksGrowthAtEnd(t *testing.T) {
+	app := NewApp(CustomScrollView{
+		FollowOutput: true,
+		Slivers: []Widget{
+			SliverList{ChildrenWidget: []Widget{
+				Text{Value: "one"},
+				Text{Value: "two"},
+				Text{Value: "three"},
+			}},
+		},
+	})
+	app.Pump(Size{Width: 10, Height: 2})
+	app.Send(Key{Keycode: KeyEnd})
+	app.Pump(Size{Width: 10, Height: 2})
+
+	app.UpdateRoot(CustomScrollView{
+		FollowOutput: true,
+		Slivers: []Widget{
+			SliverList{ChildrenWidget: []Widget{
+				Text{Value: "one"},
+				Text{Value: "two"},
+				Text{Value: "three"},
+				Text{Value: "four"},
+			}},
+		},
+	})
+	app.Pump(Size{Width: 10, Height: 2})
+	r, ok := app.rootRO.(*renderCustomScrollView)
+	if !ok {
+		t.Fatalf("root render object = %T, want *renderCustomScrollView", app.rootRO)
+	}
+	if got := r.ScrollMetrics().ScrollOffset; got != 2 {
+		t.Fatalf("follow output offset = %d, want new end 2", got)
+	}
+	p := NewPainter(Size{Width: 10, Height: 2})
+	app.Paint(p)
+	if got := p.Cell(0, 1).Grapheme; got != "f" {
+		t.Fatalf("last visible row after growth = %q, want four", got)
+	}
+}
+
+func TestCustomScrollViewFollowOutputDoesNotMoveWhenScrolledAway(t *testing.T) {
+	app := NewApp(CustomScrollView{
+		FollowOutput: true,
+		Slivers: []Widget{
+			SliverList{ChildrenWidget: []Widget{
+				Text{Value: "one"},
+				Text{Value: "two"},
+				Text{Value: "three"},
+			}},
+		},
+	})
+	app.Pump(Size{Width: 10, Height: 2})
+
+	app.UpdateRoot(CustomScrollView{
+		FollowOutput: true,
+		Slivers: []Widget{
+			SliverList{ChildrenWidget: []Widget{
+				Text{Value: "one"},
+				Text{Value: "two"},
+				Text{Value: "three"},
+				Text{Value: "four"},
+			}},
+		},
+	})
+	app.Pump(Size{Width: 10, Height: 2})
+	r, ok := app.rootRO.(*renderCustomScrollView)
+	if !ok {
+		t.Fatalf("root render object = %T, want *renderCustomScrollView", app.rootRO)
+	}
+	if got := r.ScrollMetrics().ScrollOffset; got != 0 {
+		t.Fatalf("follow output offset away from end = %d, want 0", got)
+	}
+	p := NewPainter(Size{Width: 10, Height: 2})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Grapheme; got != "o" {
+		t.Fatalf("first visible row after growth away from end = %q, want one", got)
+	}
+}
+
+func TestCustomScrollViewFollowOutputClampsWhenContentFits(t *testing.T) {
+	app := NewApp(CustomScrollView{
+		FollowOutput: true,
+		Slivers: []Widget{
+			SliverList{ChildrenWidget: []Widget{
+				Text{Value: "one"},
+				Text{Value: "two"},
+				Text{Value: "three"},
+			}},
+		},
+	})
+	app.Pump(Size{Width: 10, Height: 1})
+	app.Send(Key{Keycode: KeyEnd})
+	app.Pump(Size{Width: 10, Height: 1})
+
+	app.Pump(Size{Width: 10, Height: 3})
+	r, ok := app.rootRO.(*renderCustomScrollView)
+	if !ok {
+		t.Fatalf("root render object = %T, want *renderCustomScrollView", app.rootRO)
+	}
+	if got := r.ScrollMetrics().ScrollOffset; got != 0 {
+		t.Fatalf("follow output offset when content fits = %d, want 0", got)
+	}
+}
+
 func TestSliverListControllerScrollsToIndex(t *testing.T) {
 	controller := &SliverListController{}
 	if controller.Attached() {

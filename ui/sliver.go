@@ -55,6 +55,10 @@ type CustomScrollView struct {
 	// Controller can be used to inspect and change scroll position
 	// programmatically after this view is mounted.
 	Controller *ScrollController
+	// FollowOutput keeps the viewport at the end when it is already at the end
+	// before content grows. If the user scrolls away from the end, new content
+	// does not move the viewport until it is scrolled back to the end.
+	FollowOutput bool
 	// Slivers are laid out vertically in order.
 	Slivers []Widget
 }
@@ -224,20 +228,29 @@ func (w customScrollViewport) Children() []Widget {
 }
 
 func (w customScrollViewport) CreateRenderObject(BuildContext) RenderObject {
-	return &renderCustomScrollView{State: w.State}
+	return &renderCustomScrollView{
+		State:        w.State,
+		FollowOutput: w.State.Widget().(CustomScrollView).FollowOutput,
+	}
 }
 
 func (w customScrollViewport) UpdateRenderObject(_ BuildContext, ro RenderObject) {
 	r := ro.(*renderCustomScrollView)
+	nextFollow := w.State.Widget().(CustomScrollView).FollowOutput
 	if r.State != w.State {
 		r.State = w.State
 		r.MarkNeedsPaint()
+	}
+	if r.FollowOutput != nextFollow {
+		r.FollowOutput = nextFollow
+		r.MarkNeedsLayout()
 	}
 }
 
 type renderCustomScrollView struct {
 	MultiChildRenderObject
 	State         *customScrollViewState
+	FollowOutput  bool
 	contentHeight int
 	childOffsets  []Offset
 }
@@ -252,6 +265,7 @@ func (r *renderCustomScrollView) Layout(ctx LayoutContext, c Constraints) {
 }
 
 func (r *renderCustomScrollView) layoutOnce(ctx LayoutContext, c Constraints) int {
+	wasAtEnd := r.contentHeight > 0 && r.scrollRow() >= r.maxScroll()
 	width := 0
 	if c.HasBoundedWidth() {
 		width = c.MaxWidth
@@ -300,6 +314,10 @@ func (r *renderCustomScrollView) layoutOnce(ctx LayoutContext, c Constraints) in
 		size.Height = min(contentHeight, c.MaxHeight)
 	}
 	r.SetSize(c.Constrain(size))
+	if r.FollowOutput && wasAtEnd && r.State != nil {
+		r.State.scrollRow = r.maxScroll()
+		return 0
+	}
 	r.clampScroll()
 	return 0
 }
