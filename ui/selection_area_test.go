@@ -458,3 +458,107 @@ func TestSelectionContainerEnabledIsTransparent(t *testing.T) {
 		t.Fatalf("copies = %#v, want bc", backend.copies)
 	}
 }
+
+func TestSelectionAreaSelectAllSkipsTextFieldContents(t *testing.T) {
+	now := time.Unix(10, 0)
+	backend := newFakeBackend(ui.Size{Width: 20, Height: 3})
+	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+		ui.Text{Value: "before"},
+		ui.TextField{Value: "field", MinWidth: 10},
+		ui.Text{Value: "after"},
+	}}}), backend, ui.NewFrameScheduler(time.Second/60))
+	runner.Start(now)
+	if err := runner.HandleFrame(now); err != nil {
+		t.Fatal(err)
+	}
+
+	runner.HandleEvent(vaxis.Key{Text: "a", Keycode: 'a', Modifiers: vaxis.ModCtrl}, now)
+	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
+	if len(backend.copies) != 1 || backend.copies[0] != "before\nafter" {
+		t.Fatalf("copies = %#v, want before\\nafter", backend.copies)
+	}
+}
+
+func TestSelectionAreaFocusedTextFieldHandlesSelectAllAndCopy(t *testing.T) {
+	now := time.Unix(10, 0)
+	backend := newFakeBackend(ui.Size{Width: 20, Height: 3})
+	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+		ui.Text{Value: "before"},
+		ui.TextField{Value: "field", MinWidth: 10},
+		ui.Text{Value: "after"},
+	}}}), backend, ui.NewFrameScheduler(time.Second/60))
+	runner.Start(now)
+	if err := runner.HandleFrame(now); err != nil {
+		t.Fatal(err)
+	}
+
+	runner.HandleEvent(vaxis.Key{Keycode: vaxis.KeyTab}, now)
+	runner.HandleEvent(vaxis.Key{Text: "a", Keycode: 'a', Modifiers: vaxis.ModCtrl}, now)
+	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
+	if len(backend.copies) != 1 || backend.copies[0] != "field" {
+		t.Fatalf("copies = %#v, want field", backend.copies)
+	}
+}
+
+func TestSelectionAreaMousePressInTextFieldDoesNotStartOuterSelection(t *testing.T) {
+	now := time.Unix(10, 0)
+	backend := newFakeBackend(ui.Size{Width: 20, Height: 3})
+	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+		ui.Text{Value: "before"},
+		ui.TextField{Value: "field", MinWidth: 10},
+		ui.Text{Value: "after"},
+	}}}), backend, ui.NewFrameScheduler(time.Second/60))
+	runner.Start(now)
+	if err := runner.HandleFrame(now); err != nil {
+		t.Fatal(err)
+	}
+
+	runner.HandleEvent(vaxis.Mouse{Col: 2, Row: 1, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress}, now)
+	runner.HandleEvent(vaxis.Mouse{Col: 5, Row: 2, Button: vaxis.MouseLeftButton, EventType: vaxis.EventMotion}, now)
+	runner.HandleEvent(vaxis.Mouse{Col: 5, Row: 2, Button: vaxis.MouseLeftButton, EventType: vaxis.EventRelease}, now)
+	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
+	if len(backend.copies) != 0 {
+		t.Fatalf("copies = %#v, want none", backend.copies)
+	}
+}
+
+func TestSelectionAreaSelectAllSkipsTextAreaContents(t *testing.T) {
+	now := time.Unix(10, 0)
+	backend := newFakeBackend(ui.Size{Width: 20, Height: 4})
+	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+		ui.Text{Value: "before"},
+		ui.TextArea{Value: "area", MinWidth: 10, MinHeight: 1},
+		ui.Text{Value: "after"},
+	}}}), backend, ui.NewFrameScheduler(time.Second/60))
+	runner.Start(now)
+	if err := runner.HandleFrame(now); err != nil {
+		t.Fatal(err)
+	}
+
+	runner.HandleEvent(vaxis.Key{Text: "a", Keycode: 'a', Modifiers: vaxis.ModCtrl}, now)
+	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
+	if len(backend.copies) != 1 || backend.copies[0] != "before\nafter" {
+		t.Fatalf("copies = %#v, want before\\nafter", backend.copies)
+	}
+}
+
+func TestSelectionAreaFocusedTextAreaHandlesSelectAllAndCopy(t *testing.T) {
+	now := time.Unix(10, 0)
+	backend := newFakeBackend(ui.Size{Width: 20, Height: 4})
+	runner := ui.NewRunner(ui.NewApp(ui.SelectionArea{Child: ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+		ui.Text{Value: "before"},
+		ui.TextArea{Value: "area", MinWidth: 10, MinHeight: 1},
+		ui.Text{Value: "after"},
+	}}}), backend, ui.NewFrameScheduler(time.Second/60))
+	runner.Start(now)
+	if err := runner.HandleFrame(now); err != nil {
+		t.Fatal(err)
+	}
+
+	runner.HandleEvent(vaxis.Key{Keycode: vaxis.KeyTab}, now)
+	runner.HandleEvent(vaxis.Key{Text: "a", Keycode: 'a', Modifiers: vaxis.ModCtrl}, now)
+	runner.HandleEvent(vaxis.Key{Text: "c", Keycode: 'c', Modifiers: vaxis.ModCtrl}, now)
+	if len(backend.copies) != 1 || backend.copies[0] != "area" {
+		t.Fatalf("copies = %#v, want area", backend.copies)
+	}
+}

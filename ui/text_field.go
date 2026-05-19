@@ -48,6 +48,7 @@ func (s *textFieldState) Build(ctx BuildContext) Widget {
 		style = theme.Focused
 	}
 	content := s.content(w, displayValue, cursor, s.scroll, contentWidth, style, theme)
+	content = SelectionContainer{Disabled: true, Child: content}
 	if col, ok := textFieldCursorCell(cursor, s.scroll, len(chars), contentWidth); ok && s.editor.HasFocus() {
 		content = Cursor{Col: col, Shape: CursorBlock, Child: content}
 	}
