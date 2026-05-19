@@ -277,6 +277,11 @@ func (r *renderTextArea) keepCursorVisible(size Size) {
 	if r.State == nil || size.Width <= 0 || size.Height <= 0 {
 		return
 	}
+	r.State.scrollRow = min(r.State.scrollRow, max(0, len(r.layout.Lines)-1))
+	r.State.scrollCol = min(r.State.scrollCol, max(0, r.layout.Size.Width))
+	if r.layout.Size.Width <= size.Width {
+		r.State.scrollCol = 0
+	}
 	row, col, ok := r.layout.CursorCell(r.cursorPosition(), TextCursorCellOptions{SoftWrap: r.SoftWrap, WrapWidth: size.Width})
 	if !ok {
 		row, col = 0, 0

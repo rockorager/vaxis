@@ -355,6 +355,29 @@ func TestTextFieldControlledValueShrinkClampsSelection(t *testing.T) {
 	}
 }
 
+func TestTextFieldExternalReplacementResetsStaleScroll(t *testing.T) {
+	theme := ui.DefaultTheme()
+	theme.TextField.MinWidth = 5
+	app := ui.NewApp(ui.TextField{Value: "abcdef"}, ui.WithTheme(theme))
+	app.Pump(ui.Size{Width: 10, Height: 1})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnd})
+	app.Pump(ui.Size{Width: 10, Height: 1})
+	app.UpdateRoot(ui.TextField{Value: "x"})
+	app.Pump(ui.Size{Width: 10, Height: 1})
+
+	p := ui.NewPainter(ui.Size{Width: 10, Height: 1})
+	app.Paint(p)
+	if got := p.Cell(1, 0).Grapheme; got != "x" {
+		t.Fatalf("visible replacement text = %q, want x", got)
+	}
+	if got := p.Cell(1, 0).Grapheme; got == "…" {
+		t.Fatal("replacement should not keep stale leading ellipsis")
+	}
+	if cursor, ok := p.Cursor(); !ok || cursor.Col != 2 || cursor.Row != 0 {
+		t.Fatalf("replacement cursor = %#v ok=%v, want 2,0", cursor, ok)
+	}
+}
+
 func TestTextFieldMouseShape(t *testing.T) {
 	app := ui.NewApp(ui.Align{Alignment: ui.TopLeft, Child: ui.TextField{Value: "x"}})
 	app.Pump(ui.Size{Width: 10, Height: 1})

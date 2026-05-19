@@ -436,3 +436,40 @@ func TestTextAreaSelectionClipsHorizontally(t *testing.T) {
 		t.Fatalf("cell after horizontally clipped selection background = %#v, should not be selected", got)
 	}
 }
+
+func TestTextAreaExternalReplacementResetsStaleVerticalScroll(t *testing.T) {
+	app := ui.NewApp(ui.TextArea{Value: "a\nb\nc", MinHeight: 2})
+	app.Pump(ui.Size{Width: 10, Height: 2})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyDown})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyDown})
+	app.Pump(ui.Size{Width: 10, Height: 2})
+	app.UpdateRoot(ui.TextArea{Value: "x", MinHeight: 2})
+	app.Pump(ui.Size{Width: 10, Height: 2})
+
+	p := ui.NewPainter(ui.Size{Width: 10, Height: 2})
+	app.Paint(p)
+	if got := p.Cell(1, 0).Grapheme; got != "x" {
+		t.Fatalf("visible replacement text = %q, want x", got)
+	}
+	if cursor, ok := p.Cursor(); !ok || cursor.Col != 2 || cursor.Row != 0 {
+		t.Fatalf("replacement cursor = %#v ok=%v, want 2,0", cursor, ok)
+	}
+}
+
+func TestTextAreaExternalReplacementResetsStaleHorizontalScroll(t *testing.T) {
+	app := ui.NewApp(ui.TextArea{Value: "abcdef", MinWidth: 5, SoftWrap: false})
+	app.Pump(ui.Size{Width: 5, Height: 3})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnd})
+	app.Pump(ui.Size{Width: 5, Height: 3})
+	app.UpdateRoot(ui.TextArea{Value: "x", MinWidth: 5, SoftWrap: false})
+	app.Pump(ui.Size{Width: 5, Height: 3})
+
+	p := ui.NewPainter(ui.Size{Width: 5, Height: 3})
+	app.Paint(p)
+	if got := p.Cell(1, 0).Grapheme; got != "x" {
+		t.Fatalf("visible replacement text = %q, want x", got)
+	}
+	if cursor, ok := p.Cursor(); !ok || cursor.Col != 2 || cursor.Row != 0 {
+		t.Fatalf("replacement cursor = %#v ok=%v, want 2,0", cursor, ok)
+	}
+}

@@ -188,6 +188,10 @@ func textFieldScroll(scroll, cursor, length, width int) int {
 	if width <= 0 {
 		return cursor
 	}
+	if length <= width {
+		return 0
+	}
+	scroll = min(scroll, length)
 	if cursor < 0 {
 		cursor = 0
 	}
