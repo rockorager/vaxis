@@ -1,5 +1,7 @@
 package ui
 
+import "sort"
+
 // element is a mounted widget instance in the build tree.
 type element interface {
 	Base() *elementBase
@@ -124,6 +126,9 @@ func (o *buildOwner) BuildScope() {
 	for len(o.dirty) > 0 {
 		dirty := o.dirty
 		o.dirty = nil
+		sort.SliceStable(dirty, func(i, j int) bool {
+			return elementDepth(dirty[i]) < elementDepth(dirty[j])
+		})
 		for _, e := range dirty {
 			if e.Base().owner != nil && e.Base().dirty {
 				e.Base().dirty = false
@@ -144,6 +149,7 @@ func (o *buildOwner) UpdateChild(parent element, old element, next Widget, slot 
 	if old != nil && canUpdate(old.Base().widget, next) {
 		previous := old.Base().widget
 		old.Base().widget = next
+		old.Base().dirty = false
 		if u, ok := old.(interface{ update(Widget) }); ok {
 			u.update(previous)
 		}
@@ -157,6 +163,14 @@ func (o *buildOwner) UpdateChild(parent element, old element, next Widget, slot 
 	o.mount(child, parent, next)
 	child.Rebuild()
 	return child
+}
+
+func elementDepth(e element) int {
+	depth := 0
+	for parent := e.Base().parent; parent != nil; parent = parent.Base().parent {
+		depth++
+	}
+	return depth
 }
 
 func (o *buildOwner) mount(e element, parent element, widget Widget) {

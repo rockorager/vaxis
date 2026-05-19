@@ -480,6 +480,47 @@ func TestTextFieldCursorAdvancesWithControlledSetState(t *testing.T) {
 	}
 }
 
+type controlledTextFieldAfterButtonApp struct {
+	state *controlledTextFieldAfterButtonState
+}
+
+func (a *controlledTextFieldAfterButtonApp) CreateState() ui.State {
+	a.state = &controlledTextFieldAfterButtonState{}
+	return a.state
+}
+
+type controlledTextFieldAfterButtonState struct {
+	ui.StateBase
+	value string
+}
+
+func (s *controlledTextFieldAfterButtonState) Build(ui.BuildContext) ui.Widget {
+	return ui.Column(
+		ui.Button{Label: "before"},
+		ui.TextField{Value: s.value, OnChanged: func(ctx ui.EventContext, value string) {
+			s.SetState(func() { s.value = value })
+		}},
+	)
+}
+
+func TestTextFieldCursorAdvancesWithControlledSetStateAfterFocusChange(t *testing.T) {
+	root := &controlledTextFieldAfterButtonApp{}
+	app := ui.NewApp(root)
+	app.Pump(ui.Size{Width: 20, Height: 2})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyTab})
+
+	app.Send(vaxis.Key{Text: "a", Keycode: 'a'})
+	app.Pump(ui.Size{Width: 20, Height: 2})
+	app.Send(vaxis.Key{Text: "b", Keycode: 'b'})
+	app.Pump(ui.Size{Width: 20, Height: 2})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyLeft})
+	app.Send(vaxis.Key{Text: "x", Keycode: 'x'})
+	app.Pump(ui.Size{Width: 20, Height: 2})
+	if root.state.value != "axb" {
+		t.Fatalf("value = %q, want axb", root.state.value)
+	}
+}
+
 func TestTextFieldRepeatedBackspaceBeforePumpUsesLatestEditState(t *testing.T) {
 	h := &textFieldHarness{value: "abcdef"}
 	app := ui.NewApp(h)
