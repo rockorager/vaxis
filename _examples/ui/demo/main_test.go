@@ -23,7 +23,7 @@ func TestDemoExampleNavigationAndControls(t *testing.T) {
 
 	app.Key("n")
 	app.Pump(90, 20)
-	if !app.Contains("Controls") || !app.Contains("count: 0") {
+	if !app.Contains("Controls") || !app.Contains("count: 0") || !app.Contains("Stack base") {
 		t.Fatalf("controls page missing content: %q", app.Text())
 	}
 	app.Key("n")

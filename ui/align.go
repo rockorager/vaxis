@@ -32,7 +32,7 @@ type Align struct {
 	Child Widget
 }
 
-func (w Align) ChildWidget() Widget {
+func (w Align) WidgetChild() Widget {
 	return w.Child
 }
 

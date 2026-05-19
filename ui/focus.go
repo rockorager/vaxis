@@ -4,13 +4,13 @@ package ui
 type focusWidget struct {
 	// Node controls and observes focus for this widget.
 	Node *FocusNode
-	// ChildWidget is the focusable subtree.
-	ChildWidget Widget
+	// Child is the focusable subtree.
+	Child Widget
 }
 
 // Focus returns a focusable wrapper around child.
 func Focus(node *FocusNode, child Widget) Widget {
-	return focusWidget{Node: node, ChildWidget: child}
+	return focusWidget{Node: node, Child: child}
 }
 
 func (w focusWidget) CreateElement() element {
@@ -63,7 +63,7 @@ func (e *focusElement) Rebuild() {
 	if w.Node != nil {
 		w.Node.attach(e.owner.app, e)
 	}
-	e.child = e.UpdateChild(e.child, w.ChildWidget, nil)
+	e.child = e.UpdateChild(e.child, w.Child, nil)
 }
 
 func (e *focusElement) VisitChildren(fn func(element)) {

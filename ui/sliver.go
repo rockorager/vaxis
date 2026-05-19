@@ -223,7 +223,7 @@ type customScrollViewport struct {
 	Slivers []Widget
 }
 
-func (w customScrollViewport) Children() []Widget {
+func (w customScrollViewport) WidgetChildren() []Widget {
 	return w.Slivers
 }
 
@@ -470,7 +470,7 @@ type SliverToBox struct {
 	Child Widget
 }
 
-func (w SliverToBox) ChildWidget() Widget {
+func (w SliverToBox) WidgetChild() Widget {
 	return w.Child
 }
 
@@ -543,7 +543,7 @@ type SliverPinnedHeader struct {
 	Child Widget
 }
 
-func (w SliverPinnedHeader) ChildWidget() Widget {
+func (w SliverPinnedHeader) WidgetChild() Widget {
 	return w.Child
 }
 
@@ -622,7 +622,7 @@ type SliverFillRemaining struct {
 	Child Widget
 }
 
-func (w SliverFillRemaining) ChildWidget() Widget {
+func (w SliverFillRemaining) WidgetChild() Widget {
 	return w.Child
 }
 
@@ -695,11 +695,11 @@ func (r *renderSliverFillRemaining) SelectionSize() Size {
 // already-materialized lists; use SliverListBuilder for large or dynamic lists.
 type SliverList struct {
 	// Children are laid out vertically in order.
-	ChildrenWidget []Widget
+	Children []Widget
 }
 
-func (w SliverList) Children() []Widget {
-	return w.ChildrenWidget
+func (w SliverList) WidgetChildren() []Widget {
+	return w.Children
 }
 
 func (w SliverList) CreateRenderObject(BuildContext) RenderObject {
@@ -833,20 +833,20 @@ func (s *sliverListBuilderState) Build(ctx BuildContext) Widget {
 				child = SizedBox{Height: normalizeSliverBuilderEstimate(w)}
 			}
 			children = append(children, sliverListBuilderChild{
-				Key:         KeyValue(strconv.Itoa(i)),
-				ChildWidget: child,
+				Key:   KeyValue(strconv.Itoa(i)),
+				Child: child,
 			})
 		}
 	}
 	return sliverListBuilderView{
-		State:       s,
-		Count:       count,
-		ItemExtent:  w.ItemExtent,
-		Estimate:    normalizeSliverBuilderEstimate(w),
-		Overscan:    max(0, w.Overscan),
-		First:       first,
-		Extents:     s.extentsForWidth(),
-		ChildWidget: children,
+		State:      s,
+		Count:      count,
+		ItemExtent: w.ItemExtent,
+		Estimate:   normalizeSliverBuilderEstimate(w),
+		Overscan:   max(0, w.Overscan),
+		First:      first,
+		Extents:    s.extentsForWidth(),
+		Child:      children,
 	}
 }
 
@@ -935,8 +935,8 @@ func (s *sliverListBuilderState) updateLayout(width, first, last int, measured m
 }
 
 type sliverListBuilderChild struct {
-	Key         KeyValue
-	ChildWidget Widget
+	Key   KeyValue
+	Child Widget
 }
 
 func (w sliverListBuilderChild) WidgetKey() KeyValue {
@@ -944,22 +944,22 @@ func (w sliverListBuilderChild) WidgetKey() KeyValue {
 }
 
 func (w sliverListBuilderChild) Build(BuildContext) Widget {
-	return w.ChildWidget
+	return w.Child
 }
 
 type sliverListBuilderView struct {
-	State       *sliverListBuilderState
-	Count       int
-	ItemExtent  int
-	Estimate    int
-	Overscan    int
-	First       int
-	Extents     map[int]int
-	ChildWidget []Widget
+	State      *sliverListBuilderState
+	Count      int
+	ItemExtent int
+	Estimate   int
+	Overscan   int
+	First      int
+	Extents    map[int]int
+	Child      []Widget
 }
 
-func (w sliverListBuilderView) Children() []Widget {
-	return w.ChildWidget
+func (w sliverListBuilderView) WidgetChildren() []Widget {
+	return w.Child
 }
 
 func (w sliverListBuilderView) CreateRenderObject(BuildContext) RenderObject {

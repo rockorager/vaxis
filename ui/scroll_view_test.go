@@ -190,5 +190,5 @@ func scrollViewLines(lines ...string) Widget {
 	for _, line := range lines {
 		children = append(children, Text{Value: line})
 	}
-	return Flex{Axis: Vertical, CrossAxisAlignment: CrossAxisStart, ChildrenWidget: children}
+	return Flex{Axis: Vertical, CrossAxisAlignment: CrossAxisStart, Children: children}
 }

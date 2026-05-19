@@ -134,7 +134,7 @@ type scrollbarView struct {
 	TrackStyle Style
 }
 
-func (w scrollbarView) ChildWidget() Widget {
+func (w scrollbarView) WidgetChild() Widget {
 	return w.Child
 }
 

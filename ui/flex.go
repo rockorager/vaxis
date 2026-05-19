@@ -72,22 +72,22 @@ type Flex struct {
 	MainAxisAlignment MainAxisAlignment
 	// CrossAxisAlignment controls child placement on the cross axis.
 	CrossAxisAlignment CrossAxisAlignment
-	// ChildrenWidget is the ordered list of children.
-	ChildrenWidget []Widget
+	// Children is the ordered list of children.
+	Children []Widget
 }
 
 // Row creates a horizontal Flex.
 func Row(children ...Widget) Widget {
-	return Flex{Axis: Horizontal, ChildrenWidget: children}
+	return Flex{Axis: Horizontal, Children: children}
 }
 
 // Column creates a vertical Flex.
 func Column(children ...Widget) Widget {
-	return Flex{Axis: Vertical, ChildrenWidget: children}
+	return Flex{Axis: Vertical, Children: children}
 }
 
-func (w Flex) Children() []Widget {
-	return w.ChildrenWidget
+func (w Flex) WidgetChildren() []Widget {
+	return w.Children
 }
 
 func (w Flex) CreateRenderObject(ctx BuildContext) RenderObject {
@@ -308,17 +308,17 @@ func (r *renderFlex) SelectionSize() Size {
 type ExpandedWidget struct {
 	// Flex is the share of remaining space assigned to the child.
 	Flex int
-	// ChildWidget is the wrapped child.
-	ChildWidget Widget
+	// Child is the wrapped child.
+	Child Widget
 }
 
 // Expanded wraps child with a tight flex factor of 1.
 func Expanded(child Widget) Widget {
-	return ExpandedWidget{Flex: 1, ChildWidget: child}
+	return ExpandedWidget{Flex: 1, Child: child}
 }
 
-func (w ExpandedWidget) Child() Widget {
-	return w.ChildWidget
+func (w ExpandedWidget) WidgetChild() Widget {
+	return w.Child
 }
 
 func (w ExpandedWidget) ApplyParentData(ro RenderObject) {
@@ -335,17 +335,17 @@ type FlexibleWidget struct {
 	Flex int
 	// Fit controls whether the child must fill its flex allocation.
 	Fit FlexFit
-	// ChildWidget is the wrapped child.
-	ChildWidget Widget
+	// Child is the wrapped child.
+	Child Widget
 }
 
 // Flexible wraps child with a loose flex factor of 1.
 func Flexible(child Widget) Widget {
-	return FlexibleWidget{Flex: 1, Fit: FlexFitLoose, ChildWidget: child}
+	return FlexibleWidget{Flex: 1, Fit: FlexFitLoose, Child: child}
 }
 
-func (w FlexibleWidget) Child() Widget {
-	return w.ChildWidget
+func (w FlexibleWidget) WidgetChild() Widget {
+	return w.Child
 }
 
 func (w FlexibleWidget) ApplyParentData(ro RenderObject) {

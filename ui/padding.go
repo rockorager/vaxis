@@ -4,17 +4,17 @@ package ui
 type paddingWidget struct {
 	// Insets is the empty space around the child.
 	Insets Insets
-	// ChildWidget is laid out inside the inset space.
-	ChildWidget Widget
+	// Child is laid out inside the inset space.
+	Child Widget
 }
 
 // Padding returns a widget that insets child.
 func Padding(in Insets, child Widget) Widget {
-	return paddingWidget{Insets: in, ChildWidget: child}
+	return paddingWidget{Insets: in, Child: child}
 }
 
-func (w paddingWidget) Child() Widget {
-	return w.ChildWidget
+func (w paddingWidget) WidgetChild() Widget {
+	return w.Child
 }
 
 func (w paddingWidget) CreateRenderObject(ctx BuildContext) RenderObject {

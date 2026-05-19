@@ -164,7 +164,7 @@ type frameParentWidget struct {
 	child  *frameRender
 }
 
-func (w frameParentWidget) Child() ui.Widget {
+func (w frameParentWidget) WidgetChild() ui.Widget {
 	return frameRenderWidget{render: w.child}
 }
 

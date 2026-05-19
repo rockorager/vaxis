@@ -8,7 +8,7 @@ type ConstrainedBox struct {
 	Child Widget
 }
 
-func (w ConstrainedBox) ChildWidget() Widget {
+func (w ConstrainedBox) WidgetChild() Widget {
 	return w.Child
 }
 

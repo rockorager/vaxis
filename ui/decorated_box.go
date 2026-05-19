@@ -44,17 +44,17 @@ type BorderChars struct {
 type decoratedBoxWidget struct {
 	// Decoration is painted before the child.
 	Decoration Decoration
-	// ChildWidget is painted over the decoration.
-	ChildWidget Widget
+	// Child is painted over the decoration.
+	Child Widget
 }
 
 // DecoratedBox returns a widget that paints decoration behind child.
 func DecoratedBox(decoration Decoration, child Widget) Widget {
-	return decoratedBoxWidget{Decoration: decoration, ChildWidget: child}
+	return decoratedBoxWidget{Decoration: decoration, Child: child}
 }
 
-func (w decoratedBoxWidget) Child() Widget {
-	return w.ChildWidget
+func (w decoratedBoxWidget) WidgetChild() Widget {
+	return w.Child
 }
 
 func (w decoratedBoxWidget) CreateRenderObject(ctx BuildContext) RenderObject {

@@ -6,14 +6,14 @@ import "reflect"
 type Provider[T any] struct {
 	// Value is the value exposed to descendants.
 	Value T
-	// ChildWidget is the subtree that can depend on Value.
-	ChildWidget Widget
+	// Child is the subtree that can depend on Value.
+	Child Widget
 	// ShouldNotify controls whether dependents rebuild after Value changes.
 	ShouldNotify func(old, next T) bool
 }
 
-func (p Provider[T]) Child() Widget {
-	return p.ChildWidget
+func (p Provider[T]) WidgetChild() Widget {
+	return p.Child
 }
 
 func (p Provider[T]) CreateElement() element {
@@ -51,7 +51,7 @@ func (e *providerElement[T]) Rebuild() {
 	}
 	e.value = w.Value
 	e.shouldNotify = w.ShouldNotify
-	e.child = e.UpdateChild(e.child, w.ChildWidget, nil)
+	e.child = e.UpdateChild(e.child, w.Child, nil)
 }
 
 func (e *providerElement[T]) VisitChildren(fn func(element)) {

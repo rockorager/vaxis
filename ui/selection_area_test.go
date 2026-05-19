@@ -262,7 +262,7 @@ func TestSelectionAreaStaticTextSelectsEndOfLineWhenPointerBelow(t *testing.T) {
 	h := newSelectionAreaHarness(t, ui.Size{Width: 12, Height: 3}, selectionAreaRoot(ui.Flex{
 		Axis:               ui.Vertical,
 		CrossAxisAlignment: ui.CrossAxisStart,
-		ChildrenWidget: []ui.Widget{
+		Children: []ui.Widget{
 			ui.Text{Value: "line 1"},
 			ui.Text{Value: "line 2"},
 		},
@@ -287,7 +287,7 @@ func TestSelectionAreaMouseNoButtonMotionEndsDrag(t *testing.T) {
 func TestSelectionAreaCapturedReleaseOutsideStopsDrag(t *testing.T) {
 	h := newSelectionAreaHarness(t, ui.Size{Width: 12, Height: 1}, ui.Flex{
 		Axis: ui.Horizontal,
-		ChildrenWidget: []ui.Widget{
+		Children: []ui.Widget{
 			ui.SizedBox{Width: 4, Height: 1, Child: selectionAreaRoot(ui.Text{Value: "abcd"})},
 			ui.Text{Value: "outside"},
 		},
@@ -302,7 +302,7 @@ func TestSelectionAreaCapturedReleaseOutsideStopsDrag(t *testing.T) {
 }
 
 func TestSelectionAreaSelectsAcrossTextWidgets(t *testing.T) {
-	app := ui.NewApp(ui.SelectionArea{Child: ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+	app := ui.NewApp(ui.SelectionArea{Child: ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, Children: []ui.Widget{
 		ui.Text{Value: "abcd"},
 		ui.Text{Value: "efgh"},
 	}}})
@@ -329,7 +329,7 @@ func TestSelectionAreaSelectsAcrossTextWidgets(t *testing.T) {
 }
 
 func TestSelectionAreaCopiesAcrossTextWidgets(t *testing.T) {
-	h := newSelectionAreaHarness(t, ui.Size{Width: 10, Height: 2}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+	h := newSelectionAreaHarness(t, ui.Size{Width: 10, Height: 2}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, Children: []ui.Widget{
 		ui.Text{Value: "abcd"},
 		ui.Text{Value: "efgh"},
 	}}))
@@ -340,7 +340,7 @@ func TestSelectionAreaCopiesAcrossTextWidgets(t *testing.T) {
 }
 
 func TestSelectionAreaSelectsAcrossTextWidgetsInReverse(t *testing.T) {
-	h := newSelectionAreaHarness(t, ui.Size{Width: 10, Height: 2}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+	h := newSelectionAreaHarness(t, ui.Size{Width: 10, Height: 2}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, Children: []ui.Widget{
 		ui.Text{Value: "abcd"},
 		ui.Text{Value: "efgh"},
 	}}))
@@ -351,7 +351,7 @@ func TestSelectionAreaSelectsAcrossTextWidgetsInReverse(t *testing.T) {
 }
 
 func TestSelectionAreaSelectAllCopiesAllTextWidgets(t *testing.T) {
-	h := newSelectionAreaHarness(t, ui.Size{Width: 10, Height: 2}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+	h := newSelectionAreaHarness(t, ui.Size{Width: 10, Height: 2}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, Children: []ui.Widget{
 		ui.Text{Value: "ab"},
 		ui.Text{Value: "cd"},
 	}}))
@@ -366,12 +366,12 @@ func TestSelectionAreaMouseSelectionAcrossScrollViewIncludesHiddenRows(t *testin
 	h := newSelectionAreaHarness(t, ui.Size{Width: 10, Height: 4}, selectionAreaRoot(ui.Flex{
 		Axis:               ui.Vertical,
 		CrossAxisAlignment: ui.CrossAxisStart,
-		ChildrenWidget: []ui.Widget{
+		Children: []ui.Widget{
 			ui.Text{Value: "before"},
 			ui.SizedBox{Width: 10, Height: 2, Child: ui.ScrollView{Child: ui.Flex{
 				Axis:               ui.Vertical,
 				CrossAxisAlignment: ui.CrossAxisStart,
-				ChildrenWidget: []ui.Widget{
+				Children: []ui.Widget{
 					ui.Text{Value: "one"},
 					ui.Text{Value: "two"},
 					ui.Text{Value: "three"},
@@ -393,12 +393,12 @@ func TestSelectionAreaMouseSelectionFromScrollViewSkipsHiddenRows(t *testing.T) 
 	h := newSelectionAreaHarness(t, ui.Size{Width: 10, Height: 4}, selectionAreaRoot(ui.Flex{
 		Axis:               ui.Vertical,
 		CrossAxisAlignment: ui.CrossAxisStart,
-		ChildrenWidget: []ui.Widget{
+		Children: []ui.Widget{
 			ui.Text{Value: "before"},
 			ui.SizedBox{Width: 10, Height: 2, Child: ui.ScrollView{Child: ui.Flex{
 				Axis:               ui.Vertical,
 				CrossAxisAlignment: ui.CrossAxisStart,
-				ChildrenWidget: []ui.Widget{
+				Children: []ui.Widget{
 					ui.Text{Value: "one"},
 					ui.Text{Value: "two"},
 					ui.Text{Value: "three"},
@@ -467,7 +467,7 @@ func TestSelectionAreaAutoScrollSelectionContinuesIntoFollowingText(t *testing.T
 	h := newSelectionAreaHarness(t, ui.Size{Width: 12, Height: 5}, selectionAreaRoot(ui.Flex{
 		Axis:               ui.Vertical,
 		CrossAxisAlignment: ui.CrossAxisStart,
-		ChildrenWidget: []ui.Widget{
+		Children: []ui.Widget{
 			ui.SizedBox{Width: 12, Height: 3, Child: ui.ScrollView{Child: scrollSelectionLines(30)}},
 			ui.Text{Value: "after"},
 		},
@@ -509,17 +509,17 @@ func TestSelectionAreaMouseSelectionAcrossNestedScrollViewIncludesHiddenRows(t *
 	h := newSelectionAreaHarness(t, ui.Size{Width: 10, Height: 5}, selectionAreaRoot(ui.Flex{
 		Axis:               ui.Vertical,
 		CrossAxisAlignment: ui.CrossAxisStart,
-		ChildrenWidget: []ui.Widget{
+		Children: []ui.Widget{
 			ui.Text{Value: "before"},
 			ui.SizedBox{Width: 10, Height: 3, Child: ui.ScrollView{Child: ui.Flex{
 				Axis:               ui.Vertical,
 				CrossAxisAlignment: ui.CrossAxisStart,
-				ChildrenWidget: []ui.Widget{
+				Children: []ui.Widget{
 					ui.Text{Value: "top"},
 					ui.SizedBox{Width: 10, Height: 2, Child: ui.ScrollView{Child: ui.Flex{
 						Axis:               ui.Vertical,
 						CrossAxisAlignment: ui.CrossAxisStart,
-						ChildrenWidget: []ui.Widget{
+						Children: []ui.Widget{
 							ui.Text{Value: "inner 1"},
 							ui.Text{Value: "inner 2"},
 							ui.Text{Value: "inner 3"},
@@ -544,7 +544,7 @@ func TestSelectionAreaSelectAllIncludesHiddenScrollViewRows(t *testing.T) {
 	h := newSelectionAreaHarness(t, ui.Size{Width: 10, Height: 2}, selectionAreaRoot(ui.SizedBox{Width: 10, Height: 2, Child: ui.ScrollView{Child: ui.Flex{
 		Axis:               ui.Vertical,
 		CrossAxisAlignment: ui.CrossAxisStart,
-		ChildrenWidget: []ui.Widget{
+		Children: []ui.Widget{
 			ui.Text{Value: "one"},
 			ui.Text{Value: "two"},
 			ui.Text{Value: "three"},
@@ -560,10 +560,10 @@ func TestSelectionAreaMouseSelectionAcrossCustomScrollViewIncludesHiddenRows(t *
 	h := newSelectionAreaHarness(t, ui.Size{Width: 10, Height: 4}, selectionAreaRoot(ui.Flex{
 		Axis:               ui.Vertical,
 		CrossAxisAlignment: ui.CrossAxisStart,
-		ChildrenWidget: []ui.Widget{
+		Children: []ui.Widget{
 			ui.Text{Value: "before"},
 			ui.SizedBox{Width: 10, Height: 2, Child: ui.CustomScrollView{Slivers: []ui.Widget{
-				ui.SliverList{ChildrenWidget: []ui.Widget{
+				ui.SliverList{Children: []ui.Widget{
 					ui.Text{Value: "one"},
 					ui.Text{Value: "two"},
 					ui.Text{Value: "three"},
@@ -584,11 +584,11 @@ func scrollSelectionLines(n int) ui.Widget {
 	for i := 1; i <= n; i++ {
 		children = append(children, ui.Text{Value: "row " + strconv.Itoa(i)})
 	}
-	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: children}
+	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, Children: children}
 }
 
 func TestSelectionContainerDisabledExcludesSubtreeFromCopy(t *testing.T) {
-	h := newSelectionAreaHarness(t, ui.Size{Width: 16, Height: 3}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+	h := newSelectionAreaHarness(t, ui.Size{Width: 16, Height: 3}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, Children: []ui.Widget{
 		ui.Text{Value: "aa"},
 		ui.SelectionContainer{Disabled: true, Child: ui.Text{Value: "bb"}},
 		ui.Text{Value: "cc"},
@@ -621,7 +621,7 @@ func TestSelectionContainerEnabledIsTransparent(t *testing.T) {
 }
 
 func TestSelectionAreaSelectAllSkipsTextFieldContents(t *testing.T) {
-	h := newSelectionAreaHarness(t, ui.Size{Width: 20, Height: 3}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+	h := newSelectionAreaHarness(t, ui.Size{Width: 20, Height: 3}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, Children: []ui.Widget{
 		ui.Text{Value: "before"},
 		ui.TextField{Value: "field", MinWidth: 10},
 		ui.Text{Value: "after"},
@@ -633,7 +633,7 @@ func TestSelectionAreaSelectAllSkipsTextFieldContents(t *testing.T) {
 }
 
 func TestSelectionAreaFocusedTextFieldHandlesSelectAllAndCopy(t *testing.T) {
-	h := newSelectionAreaHarness(t, ui.Size{Width: 20, Height: 3}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+	h := newSelectionAreaHarness(t, ui.Size{Width: 20, Height: 3}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, Children: []ui.Widget{
 		ui.Text{Value: "before"},
 		ui.TextField{Value: "field", MinWidth: 10},
 		ui.Text{Value: "after"},
@@ -646,7 +646,7 @@ func TestSelectionAreaFocusedTextFieldHandlesSelectAllAndCopy(t *testing.T) {
 }
 
 func TestSelectionAreaMousePressInTextFieldDoesNotStartOuterSelection(t *testing.T) {
-	h := newSelectionAreaHarness(t, ui.Size{Width: 20, Height: 3}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+	h := newSelectionAreaHarness(t, ui.Size{Width: 20, Height: 3}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, Children: []ui.Widget{
 		ui.Text{Value: "before"},
 		ui.TextField{Value: "field", MinWidth: 10},
 		ui.Text{Value: "after"},
@@ -658,7 +658,7 @@ func TestSelectionAreaMousePressInTextFieldDoesNotStartOuterSelection(t *testing
 }
 
 func TestSelectionAreaSelectAllSkipsTextAreaContents(t *testing.T) {
-	h := newSelectionAreaHarness(t, ui.Size{Width: 20, Height: 4}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+	h := newSelectionAreaHarness(t, ui.Size{Width: 20, Height: 4}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, Children: []ui.Widget{
 		ui.Text{Value: "before"},
 		ui.TextArea{Value: "area", MinWidth: 10, MinHeight: 1},
 		ui.Text{Value: "after"},
@@ -670,7 +670,7 @@ func TestSelectionAreaSelectAllSkipsTextAreaContents(t *testing.T) {
 }
 
 func TestSelectionAreaFocusedTextAreaHandlesSelectAllAndCopy(t *testing.T) {
-	h := newSelectionAreaHarness(t, ui.Size{Width: 20, Height: 4}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+	h := newSelectionAreaHarness(t, ui.Size{Width: 20, Height: 4}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, Children: []ui.Widget{
 		ui.Text{Value: "before"},
 		ui.TextArea{Value: "area", MinWidth: 10, MinHeight: 1},
 		ui.Text{Value: "after"},
@@ -683,7 +683,7 @@ func TestSelectionAreaFocusedTextAreaHandlesSelectAllAndCopy(t *testing.T) {
 }
 
 func TestSelectionAreaMousePressInTextAreaSelectsTextArea(t *testing.T) {
-	h := newSelectionAreaHarness(t, ui.Size{Width: 20, Height: 4}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+	h := newSelectionAreaHarness(t, ui.Size{Width: 20, Height: 4}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, Children: []ui.Widget{
 		ui.Text{Value: "before"},
 		ui.TextArea{Value: "area", MinWidth: 10, MinHeight: 1},
 		ui.Text{Value: "after"},
@@ -695,7 +695,7 @@ func TestSelectionAreaMousePressInTextAreaSelectsTextArea(t *testing.T) {
 }
 
 func TestSelectionAreaReadOnlyTextStillSelectableAroundTextArea(t *testing.T) {
-	h := newSelectionAreaHarness(t, ui.Size{Width: 20, Height: 4}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+	h := newSelectionAreaHarness(t, ui.Size{Width: 20, Height: 4}, selectionAreaRoot(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, Children: []ui.Widget{
 		ui.Text{Value: "before"},
 		ui.TextArea{Value: "area", MinWidth: 10, MinHeight: 1},
 		ui.Text{Value: "after"},

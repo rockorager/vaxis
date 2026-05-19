@@ -17,7 +17,7 @@ func TestFlexMainAxisAlignmentPositionsChildren(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			app := NewApp(Flex{Axis: Horizontal, MainAxisAlignment: tt.align, ChildrenWidget: []Widget{Text{Value: "a"}, Text{Value: "b"}}})
+			app := NewApp(Flex{Axis: Horizontal, MainAxisAlignment: tt.align, Children: []Widget{Text{Value: "a"}, Text{Value: "b"}}})
 			app.Pump(Size{Width: 10, Height: 1})
 			p := NewPainter(Size{Width: 10, Height: 1})
 			app.Paint(p)
@@ -43,7 +43,7 @@ func TestFlexCrossAxisAlignmentPositionsChildren(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			app := NewApp(Flex{Axis: Horizontal, CrossAxisAlignment: tt.align, ChildrenWidget: []Widget{Text{Value: "x"}}})
+			app := NewApp(Flex{Axis: Horizontal, CrossAxisAlignment: tt.align, Children: []Widget{Text{Value: "x"}}})
 			app.Pump(Size{Width: 1, Height: 5})
 			p := NewPainter(Size{Width: 1, Height: 5})
 			app.Paint(p)
@@ -86,8 +86,8 @@ func TestFlexExpandedDistributesAllRemainingSpace(t *testing.T) {
 	left := &recordingRenderObject{}
 	right := &recordingRenderObject{}
 	app := NewApp(Row(
-		ExpandedWidget{Flex: 1, ChildWidget: recordingWidget{RO: left}},
-		ExpandedWidget{Flex: 2, ChildWidget: recordingWidget{RO: right}},
+		ExpandedWidget{Flex: 1, Child: recordingWidget{RO: left}},
+		ExpandedWidget{Flex: 2, Child: recordingWidget{RO: right}},
 	))
 	app.Pump(Size{Width: 10, Height: 1})
 	if left.Size().Width != 3 || right.Size().Width != 7 {
@@ -109,7 +109,7 @@ func TestFlexibleLooseCanUseLessThanAllocatedSpace(t *testing.T) {
 
 func TestFlexCrossAxisStretchTightensCrossAxis(t *testing.T) {
 	child := &recordingRenderObject{desired: Size{Width: 1, Height: 1}}
-	app := NewApp(Flex{Axis: Horizontal, CrossAxisAlignment: CrossAxisStretch, ChildrenWidget: []Widget{recordingWidget{RO: child}}})
+	app := NewApp(Flex{Axis: Horizontal, CrossAxisAlignment: CrossAxisStretch, Children: []Widget{recordingWidget{RO: child}}})
 	app.Pump(Size{Width: 5, Height: 4})
 	if child.Size().Height != 4 {
 		t.Fatalf("stretched child height = %d, want 4", child.Size().Height)
@@ -117,7 +117,7 @@ func TestFlexCrossAxisStretchTightensCrossAxis(t *testing.T) {
 }
 
 func TestFlexMainAxisSizeMinShrinksToChildren(t *testing.T) {
-	app := NewApp(Align{Alignment: TopLeft, Child: Flex{Axis: Horizontal, MainAxisSize: MainAxisSizeMin, ChildrenWidget: []Widget{Text{Value: "a"}, Text{Value: "bc"}}}})
+	app := NewApp(Align{Alignment: TopLeft, Child: Flex{Axis: Horizontal, MainAxisSize: MainAxisSizeMin, Children: []Widget{Text{Value: "a"}, Text{Value: "bc"}}}})
 	app.Pump(Size{Width: 10, Height: 1})
 	row := findRenderObject(app.build.Root()).(*renderAlign).Child().(*renderFlex)
 	if row.Size().Width != 3 {

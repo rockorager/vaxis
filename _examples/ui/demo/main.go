@@ -73,7 +73,7 @@ func (s *DemoState) Build(ctx ui.BuildContext) ui.Widget {
 		},
 		Child: ui.Padding(
 			ui.All(1),
-			ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStretch, ChildrenWidget: []ui.Widget{
+			ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStretch, Children: []ui.Widget{
 				s.header(),
 				ui.SizedBox{Height: 1},
 				s.pageBody(ctx),
@@ -85,12 +85,12 @@ func (s *DemoState) Build(ctx ui.BuildContext) ui.Widget {
 }
 
 func (s *DemoState) header() ui.Widget {
-	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStretch, ChildrenWidget: []ui.Widget{
+	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStretch, Children: []ui.Widget{
 		ui.RichText{Spans: []ui.TextSpan{
 			{Text: "Vaxis UI demo", Style: ui.Style{Attribute: ui.AttrBold}},
 			{Text: "  —  n/p to switch pages, Tab to move focus, q to quit"},
 		}},
-		ui.Flex{Axis: ui.Horizontal, MainAxisAlignment: ui.MainAxisCenter, CrossAxisAlignment: ui.CrossAxisCenter, ChildrenWidget: []ui.Widget{
+		ui.Flex{Axis: ui.Horizontal, MainAxisAlignment: ui.MainAxisCenter, CrossAxisAlignment: ui.CrossAxisCenter, Children: []ui.Widget{
 			s.navButton(0, "Home"),
 			ui.SizedBox{Width: 1, Height: 1},
 			s.navButton(1, "Text"),
@@ -137,7 +137,7 @@ func (s *DemoState) pageContent() ui.Widget {
 }
 
 func (s *DemoState) homePage() ui.Widget {
-	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, Children: []ui.Widget{
 		ui.RichText{Spans: []ui.TextSpan{
 			{Text: "Home", Style: ui.Style{Attribute: ui.AttrBold}},
 			{Text: "\nThis example is intentionally larger than the counter. It uses state, focus, buttons, keymaps, rich text, wrapping text, alignment, themed borders, and runtime dispatch from a goroutine."},
@@ -152,7 +152,7 @@ func (s *DemoState) homePage() ui.Widget {
 }
 
 func (s *DemoState) textPage() ui.Widget {
-	return ui.SelectionArea{Child: ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+	return ui.SelectionArea{Child: ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, Children: []ui.Widget{
 		ui.RichText{Spans: []ui.TextSpan{
 			{Text: "Text layout", Style: ui.Style{Attribute: ui.AttrBold}},
 			{Text: "\nDrag to select, double-click words, triple-click lines, then press Ctrl+C to copy."},
@@ -189,7 +189,7 @@ func (s *DemoState) textPage() ui.Widget {
 }
 
 func (s *DemoState) controlsPage() ui.Widget {
-	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStretch, ChildrenWidget: []ui.Widget{
+	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStretch, Children: []ui.Widget{
 		ui.RichText{Spans: []ui.TextSpan{
 			{Text: "Controls", Style: ui.Style{Attribute: ui.AttrBold}},
 			{Text: "\nButtons are focusable. Use Tab/Shift+Tab and Enter, or click them with the mouse."},
@@ -200,12 +200,17 @@ func (s *DemoState) controlsPage() ui.Widget {
 			s.SetState(func() { s.name = value })
 		}},
 		ui.SizedBox{Height: 1},
+		ui.Stack{Alignment: ui.TopLeft, Children: []ui.Widget{
+			ui.SizedBox{Width: 28, Height: 1, Child: ui.DecoratedBox(ui.Decoration{Style: ui.Style{Background: ui.RGB(36, 36, 36)}}, ui.Text{Value: "Stack base", Style: ui.Style{Attribute: ui.AttrBold}})},
+			ui.Positioned{Left: 18, Top: 0, Child: ui.Text{Value: "new", Style: ui.Style{Attribute: ui.AttrBold, Foreground: ui.RGB(78, 201, 176)}}},
+		}},
+		ui.SizedBox{Height: 1},
 		ui.Text{Value: "Notes"},
 		ui.TextArea{Value: s.notes, Placeholder: "write a note", MinHeight: 3, SoftWrap: true, OnChanged: func(ctx ui.EventContext, value string) {
 			s.SetState(func() { s.notes = value })
 		}},
 		ui.SizedBox{Height: 1},
-		ui.Flex{Axis: ui.Horizontal, CrossAxisAlignment: ui.CrossAxisCenter, ChildrenWidget: []ui.Widget{
+		ui.Flex{Axis: ui.Horizontal, CrossAxisAlignment: ui.CrossAxisCenter, Children: []ui.Widget{
 			ui.Button{Label: "-", OnPressed: func(ctx ui.EventContext) { s.SetState(func() { s.count-- }) }},
 			ui.SizedBox{Width: 1, Height: 1},
 			ui.RichText{Spans: []ui.TextSpan{
@@ -226,7 +231,7 @@ func (s *DemoState) controlsPage() ui.Widget {
 }
 
 func (s *DemoState) listsPage() ui.Widget {
-	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStretch, ChildrenWidget: []ui.Widget{
+	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStretch, Children: []ui.Widget{
 		ui.RichText{Spans: []ui.TextSpan{
 			{Text: "Lists", Style: ui.Style{Attribute: ui.AttrBold}},
 			{Text: "  mixed slivers, lazy rows, and follow-output logs"},
@@ -288,7 +293,7 @@ func (s *DemoState) listsPage() ui.Widget {
 func (s *DemoState) animationPage() ui.Widget {
 	value := s.anim.Value()
 	status := animationStatus(s.anim.Status())
-	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: []ui.Widget{
+	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, Children: []ui.Widget{
 		ui.RichText{Spans: []ui.TextSpan{
 			{Text: "Animation", Style: ui.Style{Attribute: ui.AttrBold}},
 			{Text: "\nThis page uses a StateBase-owned AnimationController. The runner ticks it before each frame and the state is rebuilt while it is active."},
@@ -303,7 +308,7 @@ func (s *DemoState) animationPage() ui.Widget {
 		ui.Text{Value: animationTrack(value, 48)},
 		ui.RichText{Spans: animationBar(value, 48)},
 		ui.SizedBox{Height: 1},
-		ui.Flex{Axis: ui.Horizontal, CrossAxisAlignment: ui.CrossAxisCenter, ChildrenWidget: []ui.Widget{
+		ui.Flex{Axis: ui.Horizontal, CrossAxisAlignment: ui.CrossAxisCenter, Children: []ui.Widget{
 			ui.Button{Label: "Replay", OnPressed: func(ctx ui.EventContext) { s.anim.Forward() }},
 			ui.SizedBox{Width: 1, Height: 1},
 			ui.Button{Label: "Stop", OnPressed: func(ctx ui.EventContext) { s.anim.Stop() }},
@@ -314,7 +319,7 @@ func (s *DemoState) animationPage() ui.Widget {
 }
 
 func (s *DemoState) footer() ui.Widget {
-	return ui.Flex{Axis: ui.Horizontal, MainAxisAlignment: ui.MainAxisEnd, ChildrenWidget: []ui.Widget{
+	return ui.Flex{Axis: ui.Horizontal, MainAxisAlignment: ui.MainAxisEnd, Children: []ui.Widget{
 		ui.RichText{Spans: []ui.TextSpan{
 			{Text: "page "},
 			{Text: strconv.Itoa(s.page + 1), Style: ui.Style{Attribute: ui.AttrBold}},
@@ -392,7 +397,7 @@ func scrollDemoLines() ui.Widget {
 			{Text: "  scrollable content for the demo viewport"},
 		}})
 	}
-	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: children}
+	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, Children: children}
 }
 
 func listDemoRow(i int) ui.Widget {

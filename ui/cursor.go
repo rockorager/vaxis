@@ -12,7 +12,7 @@ type Cursor struct {
 	Child Widget
 }
 
-func (w Cursor) ChildWidget() Widget {
+func (w Cursor) WidgetChild() Widget {
 	return w.Child
 }
 

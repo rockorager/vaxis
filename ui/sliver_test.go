@@ -8,7 +8,7 @@ import (
 func TestCustomScrollViewComposesSlivers(t *testing.T) {
 	app := NewApp(CustomScrollView{Slivers: []Widget{
 		SliverToBox{Child: Text{Value: "header"}},
-		SliverList{ChildrenWidget: []Widget{
+		SliverList{Children: []Widget{
 			Text{Value: "one"},
 			Text{Value: "two"},
 			Text{Value: "three"},
@@ -36,7 +36,7 @@ func TestCustomScrollViewComposesSlivers(t *testing.T) {
 func TestCustomScrollViewWheelAndKeyboardScroll(t *testing.T) {
 	app := NewApp(CustomScrollView{Slivers: []Widget{
 		SliverToBox{Child: Text{Value: "header"}},
-		SliverList{ChildrenWidget: []Widget{
+		SliverList{Children: []Widget{
 			Text{Value: "one"},
 			Text{Value: "two"},
 			Text{Value: "three"},
@@ -81,7 +81,7 @@ func TestCustomScrollViewWheelAndKeyboardScroll(t *testing.T) {
 func TestCustomScrollViewReportsScrollMetrics(t *testing.T) {
 	app := NewApp(CustomScrollView{Slivers: []Widget{
 		SliverToBox{Child: Text{Value: "header"}},
-		SliverList{ChildrenWidget: []Widget{
+		SliverList{Children: []Widget{
 			Text{Value: "one"},
 			Text{Value: "two"},
 			Text{Value: "three"},
@@ -113,7 +113,7 @@ func TestScrollControllerControlsCustomScrollView(t *testing.T) {
 	app := NewApp(CustomScrollView{
 		Controller: controller,
 		Slivers: []Widget{
-			SliverList{ChildrenWidget: []Widget{
+			SliverList{Children: []Widget{
 				Text{Value: "one"},
 				Text{Value: "two"},
 				Text{Value: "three"},
@@ -147,7 +147,7 @@ func TestScrollControllerDetachesFromCustomScrollView(t *testing.T) {
 	app := NewApp(CustomScrollView{
 		Controller: controller,
 		Slivers: []Widget{
-			SliverList{ChildrenWidget: []Widget{Text{Value: "one"}, Text{Value: "two"}}},
+			SliverList{Children: []Widget{Text{Value: "one"}, Text{Value: "two"}}},
 		},
 	})
 	app.Pump(Size{Width: 10, Height: 1})
@@ -170,7 +170,7 @@ func TestScrollControllerCanMoveBetweenCustomScrollViews(t *testing.T) {
 	app := NewApp(CustomScrollView{
 		Controller: controller,
 		Slivers: []Widget{
-			SliverList{ChildrenWidget: []Widget{Text{Value: "one"}, Text{Value: "two"}, Text{Value: "three"}}},
+			SliverList{Children: []Widget{Text{Value: "one"}, Text{Value: "two"}, Text{Value: "three"}}},
 		},
 	})
 	app.Pump(Size{Width: 10, Height: 1})
@@ -182,7 +182,7 @@ func TestScrollControllerCanMoveBetweenCustomScrollViews(t *testing.T) {
 	app.UpdateRoot(CustomScrollView{
 		Controller: controller,
 		Slivers: []Widget{
-			SliverList{ChildrenWidget: []Widget{
+			SliverList{Children: []Widget{
 				Text{Value: "alpha"},
 				Text{Value: "beta"},
 				Text{Value: "gamma"},
@@ -210,7 +210,7 @@ func TestCustomScrollViewFollowOutputTracksGrowthAtEnd(t *testing.T) {
 	app := NewApp(CustomScrollView{
 		FollowOutput: true,
 		Slivers: []Widget{
-			SliverList{ChildrenWidget: []Widget{
+			SliverList{Children: []Widget{
 				Text{Value: "one"},
 				Text{Value: "two"},
 				Text{Value: "three"},
@@ -224,7 +224,7 @@ func TestCustomScrollViewFollowOutputTracksGrowthAtEnd(t *testing.T) {
 	app.UpdateRoot(CustomScrollView{
 		FollowOutput: true,
 		Slivers: []Widget{
-			SliverList{ChildrenWidget: []Widget{
+			SliverList{Children: []Widget{
 				Text{Value: "one"},
 				Text{Value: "two"},
 				Text{Value: "three"},
@@ -251,7 +251,7 @@ func TestCustomScrollViewFollowOutputDoesNotMoveWhenScrolledAway(t *testing.T) {
 	app := NewApp(CustomScrollView{
 		FollowOutput: true,
 		Slivers: []Widget{
-			SliverList{ChildrenWidget: []Widget{
+			SliverList{Children: []Widget{
 				Text{Value: "one"},
 				Text{Value: "two"},
 				Text{Value: "three"},
@@ -263,7 +263,7 @@ func TestCustomScrollViewFollowOutputDoesNotMoveWhenScrolledAway(t *testing.T) {
 	app.UpdateRoot(CustomScrollView{
 		FollowOutput: true,
 		Slivers: []Widget{
-			SliverList{ChildrenWidget: []Widget{
+			SliverList{Children: []Widget{
 				Text{Value: "one"},
 				Text{Value: "two"},
 				Text{Value: "three"},
@@ -290,7 +290,7 @@ func TestCustomScrollViewFollowOutputClampsWhenContentFits(t *testing.T) {
 	app := NewApp(CustomScrollView{
 		FollowOutput: true,
 		Slivers: []Widget{
-			SliverList{ChildrenWidget: []Widget{
+			SliverList{Children: []Widget{
 				Text{Value: "one"},
 				Text{Value: "two"},
 				Text{Value: "three"},
@@ -437,7 +437,7 @@ func TestSliverListControllerDetaches(t *testing.T) {
 
 func TestCustomScrollViewWorksWithScrollbar(t *testing.T) {
 	app := NewApp(Scrollbar{Child: CustomScrollView{Slivers: []Widget{
-		SliverList{ChildrenWidget: []Widget{
+		SliverList{Children: []Widget{
 			Text{Value: "one"},
 			Text{Value: "two"},
 			Text{Value: "three"},
@@ -459,7 +459,7 @@ func TestCustomScrollViewWorksWithScrollbar(t *testing.T) {
 
 func TestCustomScrollViewClampsOffsetWhenSliversShrink(t *testing.T) {
 	app := NewApp(CustomScrollView{Slivers: []Widget{
-		SliverList{ChildrenWidget: []Widget{
+		SliverList{Children: []Widget{
 			Text{Value: "one"},
 			Text{Value: "two"},
 			Text{Value: "three"},
@@ -471,7 +471,7 @@ func TestCustomScrollViewClampsOffsetWhenSliversShrink(t *testing.T) {
 	app.Pump(Size{Width: 10, Height: 2})
 
 	app.UpdateRoot(CustomScrollView{Slivers: []Widget{
-		SliverList{ChildrenWidget: []Widget{
+		SliverList{Children: []Widget{
 			Text{Value: "one"},
 			Text{Value: "two"},
 			Text{Value: "three"},
@@ -490,7 +490,7 @@ func TestSliverListReportsChildOffsetsForHitTesting(t *testing.T) {
 	clicked := false
 	app := NewApp(CustomScrollView{Slivers: []Widget{
 		SliverToBox{Child: Text{Value: "header"}},
-		SliverList{ChildrenWidget: []Widget{
+		SliverList{Children: []Widget{
 			Button{Label: "one"},
 			Button{Label: "two", OnPressed: func(EventContext) { clicked = true }},
 		}},
@@ -796,7 +796,7 @@ func TestCustomScrollViewAnchorsMixedSliversOnResize(t *testing.T) {
 
 func TestCustomScrollViewResizeToFitContentClearsBottomOffset(t *testing.T) {
 	app := NewApp(CustomScrollView{Slivers: []Widget{
-		SliverList{ChildrenWidget: []Widget{
+		SliverList{Children: []Widget{
 			Text{Value: "one"},
 			Text{Value: "two"},
 			Text{Value: "three"},
@@ -879,7 +879,7 @@ func TestSliverFillRemainingScrollsTallChild(t *testing.T) {
 		SliverFillRemaining{Child: Flex{
 			Axis:               Vertical,
 			CrossAxisAlignment: CrossAxisStart,
-			ChildrenWidget: []Widget{
+			Children: []Widget{
 				Text{Value: "one"},
 				Text{Value: "two"},
 				Text{Value: "three"},
@@ -907,7 +907,7 @@ func TestSliverFillRemainingContributesScrollbarMetrics(t *testing.T) {
 		SliverFillRemaining{Child: Flex{
 			Axis:               Vertical,
 			CrossAxisAlignment: CrossAxisStart,
-			ChildrenWidget: []Widget{
+			Children: []Widget{
 				Text{Value: "one"},
 				Text{Value: "two"},
 				Text{Value: "three"},
@@ -930,7 +930,7 @@ func TestSliverPinnedHeaderStartsInNormalPosition(t *testing.T) {
 	app := NewApp(CustomScrollView{Slivers: []Widget{
 		SliverToBox{Child: Text{Value: "intro"}},
 		SliverPinnedHeader{Child: Text{Value: "header"}},
-		SliverList{ChildrenWidget: []Widget{
+		SliverList{Children: []Widget{
 			Text{Value: "one"},
 			Text{Value: "two"},
 		}},
@@ -950,7 +950,7 @@ func TestSliverPinnedHeaderStartsInNormalPosition(t *testing.T) {
 func TestSliverPinnedHeaderStaysAtTopAfterScroll(t *testing.T) {
 	app := NewApp(CustomScrollView{Slivers: []Widget{
 		SliverPinnedHeader{Child: Text{Value: "header", Style: Style{Background: RGB(20, 40, 60)}}},
-		SliverList{ChildrenWidget: []Widget{
+		SliverList{Children: []Widget{
 			Text{Value: "one"},
 			Text{Value: "two"},
 			Text{Value: "three"},
@@ -978,7 +978,7 @@ func TestSliverPinnedHeaderFillsWidthWhenPinned(t *testing.T) {
 	header := RGB(20, 40, 60)
 	app := NewApp(CustomScrollView{Slivers: []Widget{
 		SliverPinnedHeader{Child: Text{Value: "head", Style: Style{Background: header}}},
-		SliverList{ChildrenWidget: []Widget{
+		SliverList{Children: []Widget{
 			Text{Value: "row number 1"},
 			Text{Value: "row number 2"},
 			Text{Value: "row number 3"},
@@ -998,7 +998,7 @@ func TestSliverPinnedHeaderFillsWidthWhenPinned(t *testing.T) {
 func TestSliverPinnedHeaderContributesScrollbarMetrics(t *testing.T) {
 	app := NewApp(CustomScrollView{Slivers: []Widget{
 		SliverPinnedHeader{Child: Text{Value: "header"}},
-		SliverList{ChildrenWidget: []Widget{
+		SliverList{Children: []Widget{
 			Text{Value: "one"},
 			Text{Value: "two"},
 			Text{Value: "three"},
@@ -1021,7 +1021,7 @@ func TestSliverPinnedHeaderHitTestsAtPinnedOffset(t *testing.T) {
 	clicked := false
 	app := NewApp(CustomScrollView{Slivers: []Widget{
 		SliverPinnedHeader{Child: Button{Label: "head", OnPressed: func(EventContext) { clicked = true }}},
-		SliverList{ChildrenWidget: []Widget{
+		SliverList{Children: []Widget{
 			Text{Value: "one"},
 			Text{Value: "two"},
 			Text{Value: "three"},

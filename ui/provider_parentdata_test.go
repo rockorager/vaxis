@@ -54,7 +54,7 @@ func (s *providedValueState) Build(ctx BuildContext) Widget {
 
 func TestProviderUsesNearestProvider(t *testing.T) {
 	var seen []string
-	app := NewApp(Provider[string]{Value: "outer", ChildWidget: Provider[string]{Value: "inner", ChildWidget: providedValueConsumer{Seen: &seen}}})
+	app := NewApp(Provider[string]{Value: "outer", Child: Provider[string]{Value: "inner", Child: providedValueConsumer{Seen: &seen}}})
 	app.Pump(Size{Width: 10, Height: 1})
 	if len(seen) != 1 || seen[0] != "inner" {
 		t.Fatalf("seen = %#v, want inner", seen)
@@ -63,10 +63,10 @@ func TestProviderUsesNearestProvider(t *testing.T) {
 
 func TestProviderSuppressedNotificationStillUpdatesValueForLaterBuild(t *testing.T) {
 	var seen []string
-	app := NewApp(Provider[string]{Value: "one", ShouldNotify: func(string, string) bool { return false }, ChildWidget: providedValueConsumer{Seen: &seen}})
+	app := NewApp(Provider[string]{Value: "one", ShouldNotify: func(string, string) bool { return false }, Child: providedValueConsumer{Seen: &seen}})
 	app.Pump(Size{Width: 10, Height: 1})
 	state := findState[*providedValueState](app.build.Root())
-	app.UpdateRoot(Provider[string]{Value: "two", ShouldNotify: func(string, string) bool { return false }, ChildWidget: providedValueConsumer{Seen: &seen}})
+	app.UpdateRoot(Provider[string]{Value: "two", ShouldNotify: func(string, string) bool { return false }, Child: providedValueConsumer{Seen: &seen}})
 	app.Pump(Size{Width: 10, Height: 1})
 	if len(seen) != 1 {
 		t.Fatalf("suppressed notification rebuilt consumer; seen = %#v", seen)
@@ -79,13 +79,13 @@ func TestProviderSuppressedNotificationStillUpdatesValueForLaterBuild(t *testing
 }
 
 func TestExpandedParentDataChangeMarksParentLayoutDirty(t *testing.T) {
-	app := NewApp(Row(ExpandedWidget{Flex: 1, ChildWidget: Text{Value: "x"}}))
+	app := NewApp(Row(ExpandedWidget{Flex: 1, Child: Text{Value: "x"}}))
 	app.Pump(Size{Width: 10, Height: 1})
 	row := findRenderObject(app.build.Root()).(*renderFlex)
 	if row.NeedsLayout() {
 		t.Fatal("row should be clean after pump")
 	}
-	app.UpdateRoot(Row(ExpandedWidget{Flex: 2, ChildWidget: Text{Value: "x"}}))
+	app.UpdateRoot(Row(ExpandedWidget{Flex: 2, Child: Text{Value: "x"}}))
 	if !row.NeedsLayout() {
 		t.Fatal("changing flex parent data should mark parent layout dirty")
 	}

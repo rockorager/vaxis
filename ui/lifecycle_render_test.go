@@ -209,15 +209,15 @@ func (s *dirtyCountingParentState) Build(BuildContext) Widget {
 	if s.childName == "" {
 		return Text{Value: "empty"}
 	}
-	return dirtyCountingChildWidget{Name: s.childName, Stats: w.stats}
+	return dirtyCountingChild{Name: s.childName, Stats: w.stats}
 }
 
-type dirtyCountingChildWidget struct {
+type dirtyCountingChild struct {
 	Name  string
 	Stats *dirtyChildStats
 }
 
-func (w dirtyCountingChildWidget) CreateState() State {
+func (w dirtyCountingChild) CreateState() State {
 	return &dirtyCountingChildState{}
 }
 
@@ -226,15 +226,15 @@ type dirtyCountingChildState struct {
 }
 
 func (s *dirtyCountingChildState) DidUpdateWidget(Widget) {
-	s.Widget().(dirtyCountingChildWidget).Stats.updates++
+	s.Widget().(dirtyCountingChild).Stats.updates++
 }
 
 func (s *dirtyCountingChildState) Dispose() {
-	s.Widget().(dirtyCountingChildWidget).Stats.dispose++
+	s.Widget().(dirtyCountingChild).Stats.dispose++
 }
 
 func (s *dirtyCountingChildState) Build(BuildContext) Widget {
-	w := s.Widget().(dirtyCountingChildWidget)
+	w := s.Widget().(dirtyCountingChild)
 	w.Stats.builds++
 	return Text{Value: w.Name}
 }
@@ -320,7 +320,7 @@ func (w testRenderWidget) CreateRenderObject(BuildContext) RenderObject {
 func (w testRenderWidget) UpdateRenderObject(BuildContext, RenderObject) {
 }
 
-func (w testRenderWidget) Children() []Widget {
+func (w testRenderWidget) WidgetChildren() []Widget {
 	return w.Kids
 }
 

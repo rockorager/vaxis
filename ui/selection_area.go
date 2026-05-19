@@ -331,7 +331,7 @@ type selectionAreaView struct {
 	Child Widget
 }
 
-func (w selectionAreaView) ChildWidget() Widget {
+func (w selectionAreaView) WidgetChild() Widget {
 	return w.Child
 }
 

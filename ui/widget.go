@@ -19,7 +19,7 @@ type (
 
 // ParentDataWidget writes layout data onto its child's render object.
 type ParentDataWidget interface {
-	Child() Widget
+	WidgetChild() Widget
 	ApplyParentData(RenderObject)
 }
 

@@ -107,7 +107,7 @@ type scrollViewViewport struct {
 	Child Widget
 }
 
-func (w scrollViewViewport) ChildWidget() Widget {
+func (w scrollViewViewport) WidgetChild() Widget {
 	return w.Child
 }
 

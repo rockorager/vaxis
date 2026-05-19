@@ -1,15 +1,15 @@
 package ui
 
 // centerWidget centers its child within the space allowed by its parent.
-type centerWidget struct{ ChildWidget Widget }
+type centerWidget struct{ Child Widget }
 
 // Center returns a widget that centers child.
 func Center(child Widget) Widget {
-	return centerWidget{ChildWidget: child}
+	return centerWidget{Child: child}
 }
 
-func (w centerWidget) Child() Widget {
-	return w.ChildWidget
+func (w centerWidget) WidgetChild() Widget {
+	return w.Child
 }
 
 func (w centerWidget) CreateRenderObject(ctx BuildContext) RenderObject {

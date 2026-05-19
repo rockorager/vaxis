@@ -133,10 +133,10 @@ func (providerText) Build(ctx ui.BuildContext) ui.Widget {
 }
 
 func TestProviderNotifiesDependents(t *testing.T) {
-	root := ui.Provider[string]{Value: "a", ChildWidget: providerText{}}
+	root := ui.Provider[string]{Value: "a", Child: providerText{}}
 	app := ui.NewApp(root)
 	app.Pump(ui.Size{Width: 1, Height: 1})
-	app.UpdateRoot(ui.Provider[string]{Value: "b", ChildWidget: providerText{}})
+	app.UpdateRoot(ui.Provider[string]{Value: "b", Child: providerText{}})
 	app.Pump(ui.Size{Width: 1, Height: 1})
 	p := ui.NewPainter(ui.Size{Width: 1, Height: 1})
 	app.Paint(p)
@@ -147,13 +147,13 @@ func TestProviderNotifiesDependents(t *testing.T) {
 
 func TestProviderShouldNotifyCanSuppressDependentRebuild(t *testing.T) {
 	called := false
-	root := ui.Provider[string]{Value: "a", ChildWidget: providerText{}, ShouldNotify: func(old, next string) bool {
+	root := ui.Provider[string]{Value: "a", Child: providerText{}, ShouldNotify: func(old, next string) bool {
 		called = true
 		return false
 	}}
 	app := ui.NewApp(root)
 	app.Pump(ui.Size{Width: 1, Height: 1})
-	app.UpdateRoot(ui.Provider[string]{Value: "b", ChildWidget: providerText{}})
+	app.UpdateRoot(ui.Provider[string]{Value: "b", Child: providerText{}})
 	app.Pump(ui.Size{Width: 1, Height: 1})
 	if !called {
 		t.Fatal("expected ShouldNotify to be called")
@@ -795,7 +795,7 @@ type offsetBox struct {
 	child  ui.Widget
 }
 
-func (b offsetBox) Child() ui.Widget {
+func (b offsetBox) WidgetChild() ui.Widget {
 	return b.child
 }
 

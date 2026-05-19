@@ -8,7 +8,7 @@ type SizedBox struct {
 	Child Widget
 }
 
-func (w SizedBox) ChildWidget() Widget {
+func (w SizedBox) WidgetChild() Widget {
 	return w.Child
 }
 

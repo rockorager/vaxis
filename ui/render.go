@@ -331,22 +331,16 @@ func detachRenderTree(ro RenderObject) {
 }
 
 type (
-	childProvider       interface{ Children() []Widget }
-	singleChildProvider interface{ Child() Widget }
-	childWidgetProvider interface{ ChildWidget() Widget }
+	childrenProvider interface{ WidgetChildren() []Widget }
+	childProvider    interface{ WidgetChild() Widget }
 )
 
 func widgetChildren(w Widget) []Widget {
+	if c, ok := w.(childrenProvider); ok {
+		return c.WidgetChildren()
+	}
 	if c, ok := w.(childProvider); ok {
-		return c.Children()
-	}
-	if c, ok := w.(singleChildProvider); ok {
-		if child := c.Child(); child != nil {
-			return []Widget{child}
-		}
-	}
-	if c, ok := w.(childWidgetProvider); ok {
-		if child := c.ChildWidget(); child != nil {
+		if child := c.WidgetChild(); child != nil {
 			return []Widget{child}
 		}
 	}
@@ -364,7 +358,7 @@ func newParentDataElement(w ParentDataWidget) element {
 
 func (e *parentDataElement) Rebuild() {
 	w := e.widget.(ParentDataWidget)
-	e.child = e.UpdateChild(e.child, w.Child(), nil)
+	e.child = e.UpdateChild(e.child, w.WidgetChild(), nil)
 	if e.child != nil {
 		if ro := findRenderObject(e.child); ro != nil {
 			w.ApplyParentData(ro)

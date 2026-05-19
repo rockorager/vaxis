@@ -38,13 +38,13 @@ func NewApp(root Widget, opts ...Option) *App {
 	app.copyToClipboard = func(string) {}
 	app.notify = func(string, string) {}
 	owner.app = app
-	owner.Mount(Provider[Theme]{Value: app.theme, ChildWidget: root})
+	owner.Mount(Provider[Theme]{Value: app.theme, Child: root})
 	return app
 }
 
 // UpdateRoot replaces the root widget while preserving compatible elements.
 func (a *App) UpdateRoot(root Widget) {
-	a.build.UpdateRoot(Provider[Theme]{Value: a.theme, ChildWidget: root})
+	a.build.UpdateRoot(Provider[Theme]{Value: a.theme, Child: root})
 }
 
 // Send dispatches ev through the widget tree.
@@ -439,14 +439,18 @@ func hitElement(e element, pt Point) []element {
 		return nil
 	}
 	var best []element
-	e.VisitChildren(func(child element) {
+	children := elementChildren(e)
+	if ro, ok := ownRenderObject(e).(interface{ HitTestChildrenReverse() bool }); ok && ro.HitTestChildrenReverse() {
+		reverseElements(children)
+	}
+	for _, child := range children {
 		if best != nil {
-			return
+			break
 		}
 		if path := hitElement(child, childPoint(e, child, pt)); path != nil {
 			best = path
 		}
-	})
+	}
 	if best != nil {
 		return append([]element{e}, best...)
 	}
@@ -454,6 +458,20 @@ func hitElement(e element, pt Point) []element {
 		return []element{e}
 	}
 	return nil
+}
+
+func elementChildren(e element) []element {
+	var children []element
+	e.VisitChildren(func(child element) {
+		children = append(children, child)
+	})
+	return children
+}
+
+func reverseElements(elements []element) {
+	for i, j := 0, len(elements)-1; i < j; i, j = i+1, j-1 {
+		elements[i], elements[j] = elements[j], elements[i]
+	}
 }
 
 func childPoint(parent, child element, pt Point) Point {

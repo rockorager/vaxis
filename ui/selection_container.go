@@ -14,7 +14,7 @@ type SelectionContainer struct {
 	Child Widget
 }
 
-func (w SelectionContainer) ChildWidget() Widget {
+func (w SelectionContainer) WidgetChild() Widget {
 	return w.Child
 }
 
