@@ -875,9 +875,10 @@ func (r *renderSliverListBuilder) LayoutSliver(ctx LayoutContext, c SliverConstr
 }
 
 func (r *renderSliverListBuilder) layoutFixed(ctx LayoutContext, c SliverConstraints) SliverGeometry {
-	itemExtent := normalizeSliverItemExtent(r.ItemExtent)
-	scrollExtent := max(0, r.Count) * itemExtent
-	first, last := sliverListBuilderFixedVisibleRange(r.Count, itemExtent, r.Overscan, c)
+	model := fixedSliverExtentModel{Count: r.Count, Extent: r.ItemExtent}
+	itemExtent := model.ItemExtent()
+	scrollExtent := model.ScrollExtent()
+	first, last := model.VisibleRange(r.Overscan, c)
 	width := c.ViewportWidth
 	children := r.Children()
 	r.childOffsets = make([]Offset, len(children))
@@ -904,7 +905,6 @@ func (r *renderSliverListBuilder) layoutFixed(ctx LayoutContext, c SliverConstra
 }
 
 func (r *renderSliverListBuilder) layoutVariable(ctx LayoutContext, c SliverConstraints) SliverGeometry {
-	estimate := normalizeSliverEstimatedItemExtent(r.Estimate)
 	cachedExtents := cloneSliverExtentCache(r.Extents)
 	resized := r.State != nil && r.State.width != 0 && r.State.width != c.ViewportWidth
 	anchorExtents := cachedExtents
@@ -912,16 +912,17 @@ func (r *renderSliverListBuilder) layoutVariable(ctx LayoutContext, c SliverCons
 		anchorExtents = cloneSliverExtentCache(r.Extents)
 		cachedExtents = nil
 	}
-	extents := cloneSliverExtentCache(cachedExtents)
-	first, last := sliverListBuilderVariableVisibleRange(r.Count, estimate, r.Overscan, extents, c)
+	model := measuredSliverExtentModel{Count: r.Count, Estimate: r.Estimate, Extents: cloneSliverExtentCache(cachedExtents)}
+	anchorModel := measuredSliverExtentModel{Count: r.Count, Estimate: r.Estimate, Extents: anchorExtents}
+	first, last := model.VisibleRange(r.Overscan, c)
 	anchorScrollOffset := max(c.ScrollOffset, c.ObscuredLeadingExtent)
-	anchorIndex := sliverListBuilderIndexForOffset(anchorScrollOffset, r.Count, estimate, anchorExtents)
-	anchorOffset := sliverListBuilderOffsetForIndex(anchorIndex, estimate, anchorExtents)
+	anchorIndex := anchorModel.IndexForOffset(anchorScrollOffset)
+	anchorOffset := anchorModel.OffsetForIndex(anchorIndex)
 	anchorDelta := anchorScrollOffset - anchorOffset
 	if resized {
 		paintExtent := max(0, min(c.ViewportHeight, c.RemainingPaintExtent))
-		first = clampInt(anchorIndex-r.Overscan, 0, max(0, r.Count))
-		last = clampInt(anchorIndex+(paintExtent+estimate-1)/estimate+r.Overscan+1, first, max(0, r.Count))
+		first = clampInt(anchorIndex-r.Overscan, 0, model.ItemCount())
+		last = clampInt(anchorIndex+(paintExtent+model.EstimatedExtent()-1)/model.EstimatedExtent()+r.Overscan+1, first, model.ItemCount())
 	}
 	width := c.ViewportWidth
 	children := r.Children()
@@ -929,7 +930,7 @@ func (r *renderSliverListBuilder) layoutVariable(ctx LayoutContext, c SliverCons
 	r.childOffsets = make([]Offset, len(children))
 	for i, child := range children {
 		index := r.First + i
-		r.childOffsets[i] = Offset{Y: sliverListBuilderOffsetForIndex(index, estimate, extents)}
+		r.childOffsets[i] = Offset{Y: model.OffsetForIndex(index)}
 		child.Layout(ctx, Constraints{
 			MinWidth:  c.ViewportWidth,
 			MaxWidth:  c.ViewportWidth,
@@ -938,15 +939,15 @@ func (r *renderSliverListBuilder) layoutVariable(ctx LayoutContext, c SliverCons
 		size := child.Base().Size()
 		extent := max(0, size.Height)
 		measured[index] = extent
-		extents[index] = extent
+		model.Update(index, extent)
 		width = max(width, size.Width)
 	}
-	scrollExtent := sliverListBuilderScrollExtent(r.Count, estimate, extents)
+	scrollExtent := model.ScrollExtent()
 	correction := 0
-	if anchorScrollOffset > 0 && anchorIndex < max(0, r.Count) {
-		correction = sliverListBuilderOffsetForIndex(anchorIndex, estimate, extents) + anchorDelta - anchorScrollOffset
+	if anchorScrollOffset > 0 && anchorIndex < model.ItemCount() {
+		correction = model.OffsetForIndex(anchorIndex) + anchorDelta - anchorScrollOffset
 	}
-	r.Extents = extents
+	r.Extents = model.Extents
 	if r.State != nil {
 		r.State.updateLayout(c.ViewportWidth, first, last, measured)
 	}
@@ -1014,67 +1015,113 @@ func normalizeSliverBuilderEstimate(w SliverListBuilder) int {
 	return normalizeSliverEstimatedItemExtent(w.EstimatedItemExtent)
 }
 
-func sliverListBuilderFixedVisibleRange(count, itemExtent, overscan int, c SliverConstraints) (int, int) {
-	count = max(0, count)
+type fixedSliverExtentModel struct {
+	Count  int
+	Extent int
+}
+
+func (m fixedSliverExtentModel) ItemCount() int {
+	return max(0, m.Count)
+}
+
+func (m fixedSliverExtentModel) ItemExtent() int {
+	return normalizeSliverItemExtent(m.Extent)
+}
+
+func (m fixedSliverExtentModel) ScrollExtent() int {
+	return m.ItemCount() * m.ItemExtent()
+}
+
+func (m fixedSliverExtentModel) OffsetForIndex(index int) int {
+	return clampInt(index, 0, m.ItemCount()) * m.ItemExtent()
+}
+
+func (m fixedSliverExtentModel) IndexForOffset(offset int) int {
+	if m.ItemCount() == 0 {
+		return 0
+	}
+	return clampInt(max(0, offset)/m.ItemExtent(), 0, m.ItemCount())
+}
+
+func (m fixedSliverExtentModel) VisibleRange(overscan int, c SliverConstraints) (int, int) {
+	count := m.ItemCount()
 	if count == 0 {
 		return 0, 0
 	}
-	itemExtent = normalizeSliverItemExtent(itemExtent)
 	overscan = max(0, overscan)
 	paintExtent := max(0, min(c.ViewportHeight, c.RemainingPaintExtent))
-	first := clampInt(c.ScrollOffset/itemExtent-overscan, 0, count)
-	last := clampInt((c.ScrollOffset+paintExtent+itemExtent-1)/itemExtent+overscan, first, count)
+	first := clampInt(m.IndexForOffset(c.ScrollOffset)-overscan, 0, count)
+	last := clampInt((c.ScrollOffset+paintExtent+m.ItemExtent()-1)/m.ItemExtent()+overscan, first, count)
 	return first, last
 }
 
-func sliverListBuilderVariableVisibleRange(count, estimate, overscan int, extents map[int]int, c SliverConstraints) (int, int) {
-	count = max(0, count)
-	if count == 0 {
-		return 0, 0
+type measuredSliverExtentModel struct {
+	Count    int
+	Estimate int
+	Extents  map[int]int
+}
+
+func (m measuredSliverExtentModel) ItemCount() int {
+	return max(0, m.Count)
+}
+
+func (m measuredSliverExtentModel) EstimatedExtent() int {
+	return normalizeSliverEstimatedItemExtent(m.Estimate)
+}
+
+func (m measuredSliverExtentModel) ScrollExtent() int {
+	y := 0
+	for i := 0; i < m.ItemCount(); i++ {
+		y += m.ExtentForIndex(i)
 	}
-	estimate = normalizeSliverEstimatedItemExtent(estimate)
-	overscan = max(0, overscan)
-	paintExtent := max(0, min(c.ViewportHeight, c.RemainingPaintExtent))
-	first := clampInt(sliverListBuilderIndexForOffset(c.ScrollOffset, count, estimate, extents)-overscan, 0, count)
-	last := clampInt(sliverListBuilderIndexForOffset(c.ScrollOffset+paintExtent, count, estimate, extents)+overscan+1, first, count)
-	return first, last
+	return y
 }
 
-func sliverListBuilderIndexForOffset(offset, count, estimate int, extents map[int]int) int {
+func (m measuredSliverExtentModel) OffsetForIndex(index int) int {
+	index = clampInt(index, 0, m.ItemCount())
+	y := 0
+	for i := 0; i < index; i++ {
+		y += m.ExtentForIndex(i)
+	}
+	return y
+}
+
+func (m measuredSliverExtentModel) IndexForOffset(offset int) int {
 	offset = max(0, offset)
 	y := 0
-	for i := 0; i < count; i++ {
-		y += sliverListBuilderExtentForIndex(i, estimate, extents)
+	for i := 0; i < m.ItemCount(); i++ {
+		y += m.ExtentForIndex(i)
 		if y > offset {
 			return i
 		}
 	}
-	return count
+	return m.ItemCount()
 }
 
-func sliverListBuilderOffsetForIndex(index, estimate int, extents map[int]int) int {
-	index = max(0, index)
-	y := 0
-	for i := 0; i < index; i++ {
-		y += sliverListBuilderExtentForIndex(i, estimate, extents)
-	}
-	return y
-}
-
-func sliverListBuilderScrollExtent(count, estimate int, extents map[int]int) int {
-	count = max(0, count)
-	y := 0
-	for i := 0; i < count; i++ {
-		y += sliverListBuilderExtentForIndex(i, estimate, extents)
-	}
-	return y
-}
-
-func sliverListBuilderExtentForIndex(index, estimate int, extents map[int]int) int {
-	if extent, ok := extents[index]; ok {
+func (m measuredSliverExtentModel) ExtentForIndex(index int) int {
+	if extent, ok := m.Extents[index]; ok {
 		return extent
 	}
-	return normalizeSliverEstimatedItemExtent(estimate)
+	return m.EstimatedExtent()
+}
+
+func (m measuredSliverExtentModel) Update(index, extent int) {
+	if m.Extents == nil {
+		m.Extents = make(map[int]int)
+	}
+	m.Extents[index] = max(0, extent)
+}
+
+func (m measuredSliverExtentModel) VisibleRange(overscan int, c SliverConstraints) (int, int) {
+	count := m.ItemCount()
+	if count == 0 {
+		return 0, 0
+	}
+	overscan = max(0, overscan)
+	paintExtent := max(0, min(c.ViewportHeight, c.RemainingPaintExtent))
+	first := clampInt(m.IndexForOffset(c.ScrollOffset)-overscan, 0, count)
+	last := clampInt(m.IndexForOffset(c.ScrollOffset+paintExtent)+overscan+1, first, count)
+	return first, last
 }
 
 func cloneSliverExtentCache(extents map[int]int) map[int]int {

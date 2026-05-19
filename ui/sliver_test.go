@@ -266,6 +266,48 @@ func TestSliverListBuilderHitTestsVisibleRows(t *testing.T) {
 	}
 }
 
+func TestFixedSliverExtentModel(t *testing.T) {
+	model := fixedSliverExtentModel{Count: 10, Extent: 2}
+	if got := model.ScrollExtent(); got != 20 {
+		t.Fatalf("scroll extent = %d, want 20", got)
+	}
+	if got := model.OffsetForIndex(4); got != 8 {
+		t.Fatalf("offset for index = %d, want 8", got)
+	}
+	if got := model.IndexForOffset(9); got != 4 {
+		t.Fatalf("index for offset = %d, want 4", got)
+	}
+	first, last := model.VisibleRange(1, SliverConstraints{ViewportHeight: 5, RemainingPaintExtent: 5, ScrollOffset: 6})
+	if first != 2 || last != 7 {
+		t.Fatalf("visible range = %d,%d, want 2,7", first, last)
+	}
+}
+
+func TestMeasuredSliverExtentModel(t *testing.T) {
+	model := measuredSliverExtentModel{
+		Count:    5,
+		Estimate: 2,
+		Extents:  map[int]int{1: 4, 3: 1},
+	}
+	if got := model.ScrollExtent(); got != 11 {
+		t.Fatalf("scroll extent = %d, want 11", got)
+	}
+	if got := model.OffsetForIndex(3); got != 8 {
+		t.Fatalf("offset for index = %d, want 8", got)
+	}
+	if got := model.IndexForOffset(6); got != 2 {
+		t.Fatalf("index for offset = %d, want 2", got)
+	}
+	first, last := model.VisibleRange(1, SliverConstraints{ViewportHeight: 3, RemainingPaintExtent: 3, ScrollOffset: 4})
+	if first != 0 || last != 4 {
+		t.Fatalf("visible range = %d,%d, want 0,4", first, last)
+	}
+	model.Update(2, 5)
+	if got := model.ScrollExtent(); got != 14 {
+		t.Fatalf("scroll extent after update = %d, want 14", got)
+	}
+}
+
 func TestSliverListBuilderVariableHeightsUpdateMetrics(t *testing.T) {
 	heights := []int{1, 3, 2, 1}
 	app := NewApp(CustomScrollView{Slivers: []Widget{
