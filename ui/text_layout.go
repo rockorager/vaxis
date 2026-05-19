@@ -14,6 +14,12 @@ type TextLayout struct {
 	Size  Size
 }
 
+type TextSelectionRange struct {
+	Row   int
+	Col   int
+	Width int
+}
+
 type TextLine struct {
 	Runs   []TextSpan
 	Width  int
@@ -192,6 +198,38 @@ func (l TextLayout) CellForPosition(pos TextPosition) (row, col int, ok bool) {
 		}
 	}
 	return 0, 0, false
+}
+
+func (l TextLayout) SelectionRanges(selection TextSelection) []TextSelectionRange {
+	if selection.IsCollapsed() {
+		return nil
+	}
+	var ranges []TextSelectionRange
+	for row, line := range l.Lines {
+		start := -1
+		width := 0
+		x := line.Offset
+		for _, cell := range line.Cells {
+			if selection.IntersectsCell(cell) {
+				if start < 0 {
+					start = x
+				}
+				width += cell.Width
+			} else if start >= 0 {
+				ranges = append(ranges, TextSelectionRange{Row: row, Col: start, Width: width})
+				start = -1
+				width = 0
+			}
+			x += cell.Width
+		}
+		if start >= 0 {
+			ranges = append(ranges, TextSelectionRange{Row: row, Col: start, Width: width})
+		}
+		if len(line.Cells) == 0 && selection.ContainsLineBreak(line) {
+			ranges = append(ranges, TextSelectionRange{Row: row, Col: line.Offset, Width: 1})
+		}
+	}
+	return ranges
 }
 
 func advanceTextPosition(pos TextPosition, text string) TextPosition {

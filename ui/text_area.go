@@ -251,6 +251,9 @@ func (r *renderTextArea) Paint(p *Painter, off Offset) {
 	size := r.Size()
 	p.PushClip(Rect{X: off.X, Y: off.Y, Width: size.Width, Height: size.Height})
 	defer p.PopClip()
+	if r.Focused {
+		r.paintSelection(p, off, size)
+	}
 	for row := r.scrollRow(); row < len(r.layout.Lines) && row < r.scrollRow()+size.Height; row++ {
 		line := r.layout.Lines[row]
 		y := off.Y + row - r.scrollRow()
@@ -263,9 +266,6 @@ func (r *renderTextArea) Paint(p *Painter, off Offset) {
 			p.DrawText(Offset{X: off.X + x, Y: y}, cell.Text, style)
 			x += cell.Width
 		}
-		if r.Focused && len(line.Cells) == 0 && r.Selection.ContainsLineBreak(line) {
-			p.DrawCell(Point{X: off.X + x, Y: y}, Cell{Character: Character{Grapheme: " ", Width: 1}, Style: r.SelectionStyle})
-		}
 	}
 	if r.Focused && r.Value != "" {
 		if row, col, ok := r.cursorCell(size.Width); ok {
@@ -273,6 +273,32 @@ func (r *renderTextArea) Paint(p *Painter, off Offset) {
 		}
 	} else if r.Focused && r.Value == "" {
 		p.ShowCursor(off.X, off.Y, CursorBlock)
+	}
+}
+
+func (r *renderTextArea) paintSelection(p *Painter, off Offset, size Size) {
+	for _, selection := range r.layout.SelectionRanges(r.Selection) {
+		if selection.Row < r.scrollRow() || selection.Row >= r.scrollRow()+size.Height {
+			continue
+		}
+		col := selection.Col
+		width := selection.Width
+		if col < r.scrollCol() {
+			width -= r.scrollCol() - col
+			col = r.scrollCol()
+		}
+		if col+width > r.scrollCol()+size.Width {
+			width = r.scrollCol() + size.Width - col
+		}
+		if width <= 0 {
+			continue
+		}
+		p.Fill(Rect{
+			X:      off.X + col - r.scrollCol(),
+			Y:      off.Y + selection.Row - r.scrollRow(),
+			Width:  width,
+			Height: 1,
+		}, Cell{Character: Character{Grapheme: " ", Width: 1}, Style: r.SelectionStyle})
 	}
 }
 

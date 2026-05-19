@@ -326,6 +326,29 @@ func TestTextAreaScrollsVerticallyToCursor(t *testing.T) {
 	}
 }
 
+func TestTextAreaSelectionPaintsVisibleRowsWhenStartIsOffscreen(t *testing.T) {
+	app := ui.NewApp(ui.TextArea{Value: "a\nb\nc", MinHeight: 2})
+	app.Pump(ui.Size{Width: 10, Height: 2})
+	app.Send(vaxis.Key{Text: "a", Keycode: 'a', Modifiers: vaxis.ModCtrl})
+	app.Pump(ui.Size{Width: 10, Height: 2})
+
+	p := ui.NewPainter(ui.Size{Width: 10, Height: 2})
+	app.Paint(p)
+	want := ui.DefaultTheme().TextField.Selection.Background
+	if got := p.Cell(1, 0).Grapheme; got != "b" {
+		t.Fatalf("top visible line = %q, want b", got)
+	}
+	if got := p.Cell(1, 0).Background; got != want {
+		t.Fatalf("top visible selection background = %#v, want %#v", got, want)
+	}
+	if got := p.Cell(1, 1).Grapheme; got != "c" {
+		t.Fatalf("bottom visible line = %q, want c", got)
+	}
+	if got := p.Cell(1, 1).Background; got != want {
+		t.Fatalf("bottom visible selection background = %#v, want %#v", got, want)
+	}
+}
+
 func TestTextAreaScrollsHorizontallyWithoutSoftWrap(t *testing.T) {
 	h := &textAreaHarness{value: "abcdef"}
 	app := ui.NewApp(ui.TextArea{
