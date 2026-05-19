@@ -155,3 +155,101 @@ func stackAlignment(a Alignment) Alignment {
 	}
 	return a
 }
+
+// IndexedStack keeps every child mounted but paints only one child.
+//
+// All children are laid out with the same loose constraints and the stack size
+// is the maximum child size. Only Children[Index] is painted and hit-tested.
+type IndexedStack struct {
+	// Index selects the visible child.
+	Index int
+	// Alignment places the visible child inside the stack. The zero value is
+	// CenterAlign.
+	Alignment Alignment
+	// Children is the ordered child list.
+	Children []Widget
+}
+
+func (w IndexedStack) WidgetChildren() []Widget {
+	return w.Children
+}
+
+func (w IndexedStack) CreateRenderObject(BuildContext) RenderObject {
+	return &renderIndexedStack{Index: w.Index, Alignment: w.Alignment}
+}
+
+func (w IndexedStack) UpdateRenderObject(_ BuildContext, ro RenderObject) {
+	r := ro.(*renderIndexedStack)
+	if r.Index != w.Index || r.Alignment != w.Alignment {
+		r.Index = w.Index
+		r.Alignment = w.Alignment
+		r.MarkNeedsLayout()
+	}
+}
+
+type renderIndexedStack struct {
+	MultiChildRenderObject
+	Index     int
+	Alignment Alignment
+}
+
+func (r *renderIndexedStack) Layout(ctx LayoutContext, c Constraints) {
+	size, childSizes := r.layoutSizes(ctx, c, false)
+	for i, child := range r.Children() {
+		pd, _ := child.Base().ParentData().(StackParentData)
+		pd.Offset = alignOffset(size, childSizes[i], stackAlignment(r.Alignment))
+		child.Base().SetParentData(pd)
+	}
+	r.SetSize(size)
+}
+
+func (r *renderIndexedStack) DryLayout(ctx LayoutContext, c Constraints) Size {
+	size, _ := r.layoutSizes(ctx, c, true)
+	return size
+}
+
+func (r *renderIndexedStack) layoutSizes(ctx LayoutContext, c Constraints, dry bool) (Size, []Size) {
+	children := r.Children()
+	childSizes := make([]Size, len(children))
+	size := Size{}
+	for i, child := range children {
+		childSize := r.layoutChild(ctx, child, stackLooseConstraints(c), dry)
+		childSizes[i] = childSize
+		size.Width = max(size.Width, childSize.Width)
+		size.Height = max(size.Height, childSize.Height)
+	}
+	return c.Constrain(size), childSizes
+}
+
+func (r *renderIndexedStack) layoutChild(ctx LayoutContext, child RenderObject, c Constraints, dry bool) Size {
+	if dry {
+		return DryLayout(ctx, child, c)
+	}
+	child.Layout(ctx, c)
+	return child.Base().Size()
+}
+
+func (r *renderIndexedStack) Paint(p *Painter, off Offset) {
+	child := r.activeChild()
+	if child == nil {
+		return
+	}
+	pd, _ := child.Base().ParentData().(StackParentData)
+	child.Paint(p, off.Add(pd.Offset))
+}
+
+func (r *renderIndexedStack) HitTest(*HitTestResult, Point) bool {
+	return false
+}
+
+func (r *renderIndexedStack) HitTestChild(child RenderObject) bool {
+	return child == r.activeChild()
+}
+
+func (r *renderIndexedStack) activeChild() RenderObject {
+	children := r.Children()
+	if r.Index < 0 || r.Index >= len(children) {
+		return nil
+	}
+	return children[r.Index]
+}

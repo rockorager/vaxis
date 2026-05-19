@@ -447,6 +447,12 @@ func hitElement(e element, pt Point) []element {
 		if best != nil {
 			break
 		}
+		if ro, ok := ownRenderObject(e).(interface{ HitTestChild(RenderObject) bool }); ok {
+			childRO := findRenderObject(child)
+			if childRO != nil && !ro.HitTestChild(childRO) {
+				continue
+			}
+		}
 		if path := hitElement(child, childPoint(e, child, pt)); path != nil {
 			best = path
 		}

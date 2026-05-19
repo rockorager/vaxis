@@ -76,3 +76,78 @@ func TestStackHitTestsTopChildFirst(t *testing.T) {
 		t.Fatalf("pressed = %q, want top", pressed)
 	}
 }
+
+func TestIndexedStackPaintsOnlyActiveChild(t *testing.T) {
+	app := NewApp(IndexedStack{Index: 1, Children: []Widget{
+		Text{Value: "a"},
+		Text{Value: "b"},
+	}})
+	app.Pump(Size{Width: 1, Height: 1})
+
+	p := NewPainter(Size{Width: 1, Height: 1})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Grapheme; got != "b" {
+		t.Fatalf("painted cell = %q, want active child b", got)
+	}
+}
+
+func TestIndexedStackSizesToLargestChild(t *testing.T) {
+	ro := (&IndexedStack{Index: 0}).CreateRenderObject(BuildContext{}).(*renderIndexedStack)
+	ro.SetChildren([]RenderObject{
+		(&SizedBox{Width: 2, Height: 1}).CreateRenderObject(BuildContext{}),
+		(&SizedBox{Width: 5, Height: 3}).CreateRenderObject(BuildContext{}),
+	})
+	if got := DryLayout(LayoutContext{}, ro, Constraints{MaxWidth: 10, MaxHeight: 10}); got != (Size{Width: 5, Height: 3}) {
+		t.Fatalf("indexed stack size = %#v, want 5x3", got)
+	}
+}
+
+func TestIndexedStackHitTestsOnlyActiveChild(t *testing.T) {
+	var pressed string
+	app := NewApp(IndexedStack{Index: 1, Children: []Widget{
+		Button{Label: "zero", OnPressed: func(EventContext) { pressed = "zero" }},
+		Button{Label: "one", OnPressed: func(EventContext) { pressed = "one" }},
+	}})
+	app.Pump(Size{Width: 10, Height: 1})
+
+	app.Send(Mouse{Col: 1, Row: 0, Button: MouseLeftButton, EventType: EventPress})
+	if pressed != "one" {
+		t.Fatalf("pressed = %q, want one", pressed)
+	}
+}
+
+func TestIndexedStackPreservesInactiveChildState(t *testing.T) {
+	app := NewApp(IndexedStack{Index: 0, Children: []Widget{
+		indexedStackCounter{Value: "a"},
+		indexedStackCounter{Value: "b"},
+	}})
+	app.Pump(Size{Width: 1, Height: 1})
+	app.UpdateRoot(IndexedStack{Index: 1, Children: []Widget{
+		indexedStackCounter{Value: "x"},
+		indexedStackCounter{Value: "y"},
+	}})
+	app.Pump(Size{Width: 1, Height: 1})
+
+	p := NewPainter(Size{Width: 1, Height: 1})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Grapheme; got != "b" {
+		t.Fatalf("active state text = %q, want preserved b", got)
+	}
+}
+
+type indexedStackCounter struct {
+	Value string
+}
+
+func (w indexedStackCounter) CreateState() State {
+	return &indexedStackCounterState{Value: w.Value}
+}
+
+type indexedStackCounterState struct {
+	StateBase
+	Value string
+}
+
+func (s *indexedStackCounterState) Build(BuildContext) Widget {
+	return Text{Value: s.Value}
+}
