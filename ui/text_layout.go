@@ -65,6 +65,14 @@ type (
 	textLayoutOptions = TextLayoutOptions
 )
 
+type textLayoutPaintOptions struct {
+	Size           Size
+	ScrollRow      int
+	ScrollCol      int
+	Selection      TextSelection
+	SelectionStyle Style
+}
+
 func LayoutText(spans []TextSpan, c Constraints, opts TextLayoutOptions) TextLayout {
 	maxWidth := c.MaxWidth
 	if !opts.SoftWrap || maxWidth == Unbounded {
@@ -356,6 +364,49 @@ func paintLaidOutText(p *Painter, off Offset, layout TextLayout, opts textLayout
 			p.DrawText(Offset{X: x, Y: off.Y + y}, run.Text, run.Style)
 			x += textWidth(run.Text)
 		}
+	}
+}
+
+func paintVisibleTextLayout(p *Painter, off Offset, layout TextLayout, opts textLayoutPaintOptions) {
+	paintVisibleTextSelection(p, off, layout, opts)
+	for row := opts.ScrollRow; row < len(layout.Lines) && row < opts.ScrollRow+opts.Size.Height; row++ {
+		line := layout.Lines[row]
+		y := off.Y + row - opts.ScrollRow
+		x := line.Offset - opts.ScrollCol
+		for _, cell := range line.Cells {
+			style := cell.Style
+			if opts.Selection.IntersectsCell(cell) {
+				style = mergeStyle(style, opts.SelectionStyle)
+			}
+			p.DrawText(Offset{X: off.X + x, Y: y}, cell.Text, style)
+			x += cell.Width
+		}
+	}
+}
+
+func paintVisibleTextSelection(p *Painter, off Offset, layout TextLayout, opts textLayoutPaintOptions) {
+	for _, selection := range layout.SelectionRanges(opts.Selection) {
+		if selection.Row < opts.ScrollRow || selection.Row >= opts.ScrollRow+opts.Size.Height {
+			continue
+		}
+		col := selection.Col
+		width := selection.Width
+		if col < opts.ScrollCol {
+			width -= opts.ScrollCol - col
+			col = opts.ScrollCol
+		}
+		if col+width > opts.ScrollCol+opts.Size.Width {
+			width = opts.ScrollCol + opts.Size.Width - col
+		}
+		if width <= 0 {
+			continue
+		}
+		p.Fill(Rect{
+			X:      off.X + col - opts.ScrollCol,
+			Y:      off.Y + selection.Row - opts.ScrollRow,
+			Width:  width,
+			Height: 1,
+		}, Cell{Character: Character{Grapheme: " ", Width: 1}, Style: opts.SelectionStyle})
 	}
 }
 

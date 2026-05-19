@@ -373,3 +373,31 @@ func TestTextAreaScrollsHorizontallyWithoutSoftWrap(t *testing.T) {
 		t.Fatalf("cursor = %#v ok=%v, want 3,0", cursor, ok)
 	}
 }
+
+func TestTextAreaSelectionClipsHorizontally(t *testing.T) {
+	app := ui.NewApp(ui.TextArea{Value: "abcdef", MinWidth: 5, SoftWrap: false})
+	app.Pump(ui.Size{Width: 5, Height: 3})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnd})
+	app.Pump(ui.Size{Width: 5, Height: 3})
+	app.Send(vaxis.Key{Text: "a", Keycode: 'a', Modifiers: vaxis.ModCtrl})
+	app.Pump(ui.Size{Width: 5, Height: 3})
+
+	p := ui.NewPainter(ui.Size{Width: 5, Height: 3})
+	app.Paint(p)
+	want := ui.DefaultTheme().TextField.Selection.Background
+	if got := p.Cell(1, 0).Grapheme; got != "e" {
+		t.Fatalf("first visible selected cell = %q, want e", got)
+	}
+	if got := p.Cell(1, 0).Background; got != want {
+		t.Fatalf("first visible selected background = %#v, want %#v", got, want)
+	}
+	if got := p.Cell(2, 0).Grapheme; got != "f" {
+		t.Fatalf("second visible selected cell = %q, want f", got)
+	}
+	if got := p.Cell(2, 0).Background; got != want {
+		t.Fatalf("second visible selected background = %#v, want %#v", got, want)
+	}
+	if got := p.Cell(3, 0).Background; got == want {
+		t.Fatalf("cell after horizontally clipped selection background = %#v, should not be selected", got)
+	}
+}
