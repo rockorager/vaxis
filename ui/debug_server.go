@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -126,6 +127,35 @@ func newDebugServerHandler(app *App, token string, dispatch func(func()), submit
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]int{"submitted": len(events)})
 	})
+	mux.HandleFunc("/debug/ui/actions", func(w http.ResponseWriter, r *http.Request) {
+		if !debugAuthenticated(r, token) {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		actions, err := parseDebugActions(r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if submitEvent == nil {
+			http.Error(w, "debug action submission is unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		if err := debugPerformActionsViaDispatch(r.Context(), app, dispatch, submitEvent, actions); err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				http.Error(w, err.Error(), http.StatusServiceUnavailable)
+				return
+			}
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]int{"performed": len(actions)})
+	})
 	return mux
 }
 
@@ -230,6 +260,29 @@ func debugRenderedTextViaDispatch(ctx context.Context, dispatch func(func()), re
 	}
 }
 
+func debugPerformActionsViaDispatch(ctx context.Context, app *App, dispatch func(func()), submitEvent func(Event), actions []debugActionRequest) error {
+	done := make(chan error, 1)
+	dispatch(func() {
+		for _, action := range actions {
+			if err := app.debugPerformAction(action, submitEvent); err != nil {
+				done <- err
+				return
+			}
+		}
+		done <- nil
+	})
+	timer := time.NewTimer(2 * time.Second)
+	defer timer.Stop()
+	select {
+	case err := <-done:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return context.DeadlineExceeded
+	}
+}
+
 type debugEventsRequest struct {
 	Events []debugEventRequest `json:"events"`
 }
@@ -290,6 +343,35 @@ func parseDebugEvents(r *http.Request) ([]Event, error) {
 		events = append(events, ev)
 	}
 	return events, nil
+}
+
+func parseDebugActions(r *http.Request) ([]debugActionRequest, error) {
+	defer func() { _ = r.Body.Close() }()
+	var raw json.RawMessage
+	if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
+		return nil, err
+	}
+	var actions []debugActionRequest
+	if len(raw) > 0 && raw[0] == '[' {
+		if err := json.Unmarshal(raw, &actions); err != nil {
+			return nil, err
+		}
+	} else {
+		var wrapper debugActionsRequest
+		if err := json.Unmarshal(raw, &wrapper); err == nil && wrapper.Actions != nil {
+			actions = wrapper.Actions
+		} else {
+			var action debugActionRequest
+			if err := json.Unmarshal(raw, &action); err != nil {
+				return nil, err
+			}
+			actions = []debugActionRequest{action}
+		}
+	}
+	if len(actions) == 0 {
+		return nil, fmt.Errorf("missing actions")
+	}
+	return actions, nil
 }
 
 func (r debugEventRequest) event() (Event, error) {

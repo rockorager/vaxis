@@ -109,6 +109,42 @@ func TestDebugServerSubmitsEvents(t *testing.T) {
 	}
 }
 
+func TestDebugServerPerformsActions(t *testing.T) {
+	var first, second FocusNode
+	clicked := false
+	app := NewApp(Row(
+		Focus(&first, Text{Value: "first"}),
+		Button{Label: "go", OnPressed: func(EventContext) { clicked = true }},
+		Focus(&second, Text{Value: "second"}),
+	))
+	app.Pump(Size{Width: 30, Height: 1})
+	handler := newDebugServerHandler(app, "secret", func(fn func()) { fn() }, func(ev Event) {
+		app.Send(ev)
+	}, nil, nil)
+
+	req := httptest.NewRequest(http.MethodPost, "/debug/ui/actions", bytes.NewBufferString(`{"action":"focus","label":"second"}`))
+	req.Header.Set("Authorization", "Bearer secret")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want ok: %s", rec.Code, rec.Body.String())
+	}
+	if !second.HasFocus() {
+		t.Fatal("expected action to focus second target")
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/debug/ui/actions", bytes.NewBufferString(`{"action":"click","label":"go"}`))
+	req.Header.Set("Authorization", "Bearer secret")
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want ok: %s", rec.Code, rec.Body.String())
+	}
+	if !clicked {
+		t.Fatal("expected action to click button")
+	}
+}
+
 func TestDebugServerRenderedEndpoints(t *testing.T) {
 	app := NewApp(Text{Value: "unused"})
 	painter := NewPainter(Size{Width: 5, Height: 2})
