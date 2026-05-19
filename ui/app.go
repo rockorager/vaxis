@@ -4,11 +4,11 @@ import "time"
 
 // App owns a widget tree and dispatches events, layout, painting, and focus.
 type App struct {
-	build           *BuildOwner
+	build           *buildOwner
 	rootRO          RenderObject
 	size            Size
-	focusables      []Element
-	focused         Element
+	focusables      []element
+	focused         element
 	quit            bool
 	theme           Theme
 	frameRequested  bool
@@ -18,14 +18,14 @@ type App struct {
 	setTitle        func(string)
 	copyToClipboard func(string)
 	notify          func(string, string)
-	pendingFocus    []Element
-	hoverPath       []Element
+	pendingFocus    []element
+	hoverPath       []element
 	animations      map[*AnimationController]struct{}
 }
 
 // NewApp creates an app mounted with root.
 func NewApp(root Widget, opts ...Option) *App {
-	owner := NewBuildOwner()
+	owner := newBuildOwner()
 	options := options{theme: DefaultTheme()}
 	for _, opt := range opts {
 		opt(&options)
@@ -154,7 +154,7 @@ func (a *App) dispatchEvent(ev Event) EventResult {
 	return a.dispatchPath(a.pathTo(target), ev)
 }
 
-func (a *App) updateHoverPath(next []Element) {
+func (a *App) updateHoverPath(next []element) {
 	for _, old := range a.hoverPath {
 		if !elementInPath(old, next) {
 			a.handle(old, TargetPhase, hoverExit{})
@@ -163,7 +163,7 @@ func (a *App) updateHoverPath(next []Element) {
 	a.hoverPath = next
 }
 
-func elementInPath(e Element, path []Element) bool {
+func elementInPath(e element, path []element) bool {
 	for _, candidate := range path {
 		if candidate == e {
 			return true
@@ -172,7 +172,7 @@ func elementInPath(e Element, path []Element) bool {
 	return false
 }
 
-func (a *App) dispatchPath(path []Element, ev Event) EventResult {
+func (a *App) dispatchPath(path []element, ev Event) EventResult {
 	points := pathMousePoints(path, ev)
 	for i := 0; i < len(path)-1; i++ {
 		if a.handle(path[i], CapturePhase, eventForPathElement(ev, points, i)) == EventHandled {
@@ -190,7 +190,7 @@ func (a *App) dispatchPath(path []Element, ev Event) EventResult {
 	return EventIgnored
 }
 
-func (a *App) applyMouseShape(path []Element, mouse Mouse) {
+func (a *App) applyMouseShape(path []element, mouse Mouse) {
 	ctx := EventContext{app: a, phase: TargetPhase}
 	points := pathMousePoints(path, mouse)
 	for i := len(path) - 1; i >= 0; i-- {
@@ -211,7 +211,7 @@ func (a *App) applyMouseShape(path []Element, mouse Mouse) {
 	}
 }
 
-func (a *App) handle(e Element, phase EventPhase, ev Event) EventResult {
+func (a *App) handle(e element, phase EventPhase, ev Event) EventResult {
 	ctx := EventContext{app: a, phase: phase}
 	h, ok := e.(EventHandler)
 	if !ok {
@@ -220,7 +220,7 @@ func (a *App) handle(e Element, phase EventPhase, ev Event) EventResult {
 	return h.HandleEvent(ctx, ev)
 }
 
-func pathMousePoints(path []Element, ev Event) []Point {
+func pathMousePoints(path []element, ev Event) []Point {
 	mouse, ok := ev.(Mouse)
 	if !ok {
 		return nil
@@ -249,16 +249,16 @@ func eventForPathElement(ev Event, points []Point, idx int) Event {
 	return mouse
 }
 
-func (a *App) pathTo(target Element) []Element {
-	var out []Element
-	var walk func(Element) bool
-	walk = func(e Element) bool {
+func (a *App) pathTo(target element) []element {
+	var out []element
+	var walk func(element) bool
+	walk = func(e element) bool {
 		out = append(out, e)
 		if e == target {
 			return true
 		}
 		found := false
-		e.VisitChildren(func(child Element) {
+		e.VisitChildren(func(child element) {
 			if !found && walk(child) {
 				found = true
 			}
@@ -273,7 +273,7 @@ func (a *App) pathTo(target Element) []Element {
 	return out
 }
 
-func (a *App) registerFocusable(e Element) {
+func (a *App) registerFocusable(e element) {
 	for _, existing := range a.focusables {
 		if existing == e {
 			return
@@ -285,7 +285,7 @@ func (a *App) registerFocusable(e Element) {
 	}
 }
 
-func (a *App) unregisterFocusable(e Element) {
+func (a *App) unregisterFocusable(e element) {
 	for i, existing := range a.focusables {
 		if existing == e {
 			a.focusables = append(a.focusables[:i], a.focusables[i+1:]...)
@@ -323,7 +323,7 @@ func (a *App) moveFocus(delta int) {
 	a.setFocused(a.focusables[idx])
 }
 
-func (a *App) setFocused(next Element) {
+func (a *App) setFocused(next element) {
 	if a.focused == next {
 		return
 	}
@@ -333,7 +333,7 @@ func (a *App) setFocused(next Element) {
 	a.notifyFocusChanged(next)
 }
 
-func (a *App) notifyFocusChanged(e Element) {
+func (a *App) notifyFocusChanged(e element) {
 	if e == nil {
 		return
 	}
@@ -341,12 +341,12 @@ func (a *App) notifyFocusChanged(e Element) {
 		a.deferFocusNotification(e)
 		return
 	}
-	if f, ok := e.Base().widget.(FocusWidget); ok && f.Node != nil && f.Node.onChange != nil {
+	if f, ok := e.Base().widget.(focusWidget); ok && f.Node != nil && f.Node.onChange != nil {
 		f.Node.onChange()
 	}
 }
 
-func (a *App) deferFocusNotification(e Element) {
+func (a *App) deferFocusNotification(e element) {
 	for _, existing := range a.pendingFocus {
 		if existing == e {
 			return
@@ -366,17 +366,17 @@ func (a *App) flushFocusNotifications() {
 	}
 }
 
-func (a *App) hitPath(pt Point) []Element {
+func (a *App) hitPath(pt Point) []element {
 	return hitElement(a.build.Root(), pt)
 }
 
-func hitElement(e Element, pt Point) []Element {
+func hitElement(e element, pt Point) []element {
 	ro := ownRenderObject(e)
 	if ro != nil && !pointInSize(pt, ro.Base().Size()) {
 		return nil
 	}
-	var best []Element
-	e.VisitChildren(func(child Element) {
+	var best []element
+	e.VisitChildren(func(child element) {
 		if best != nil {
 			return
 		}
@@ -385,15 +385,15 @@ func hitElement(e Element, pt Point) []Element {
 		}
 	})
 	if best != nil {
-		return append([]Element{e}, best...)
+		return append([]element{e}, best...)
 	}
 	if ro != nil {
-		return []Element{e}
+		return []element{e}
 	}
 	return nil
 }
 
-func childPoint(parent, child Element, pt Point) Point {
+func childPoint(parent, child element, pt Point) Point {
 	pro := ownRenderObject(parent)
 	if pro == nil {
 		return pt
@@ -414,7 +414,7 @@ func pointInSize(pt Point, size Size) bool {
 	return pt.X >= 0 && pt.Y >= 0 && pt.X < size.Width && pt.Y < size.Height
 }
 
-func ownRenderObject(e Element) RenderObject {
+func ownRenderObject(e element) RenderObject {
 	if r, ok := e.(interface{ RenderObject() RenderObject }); ok {
 		return r.RenderObject()
 	}

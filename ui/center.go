@@ -1,31 +1,31 @@
 package ui
 
-// CenterWidget centers its child within the space allowed by its parent.
-type CenterWidget struct{ ChildWidget Widget }
+// centerWidget centers its child within the space allowed by its parent.
+type centerWidget struct{ ChildWidget Widget }
 
 // Center returns a widget that centers child.
 func Center(child Widget) Widget {
-	return CenterWidget{ChildWidget: child}
+	return centerWidget{ChildWidget: child}
 }
 
-func (w CenterWidget) Child() Widget {
+func (w centerWidget) Child() Widget {
 	return w.ChildWidget
 }
 
-func (w CenterWidget) CreateRenderObject(ctx BuildContext) RenderObject {
-	return &RenderCenter{}
+func (w centerWidget) CreateRenderObject(ctx BuildContext) RenderObject {
+	return &renderCenter{}
 }
 
-func (w CenterWidget) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
+func (w centerWidget) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
 }
 
-// RenderCenter lays out one child and paints it centered.
-type RenderCenter struct {
+// renderCenter lays out one child and paints it centered.
+type renderCenter struct {
 	SingleChildRenderObject
 	offset Offset
 }
 
-func (r *RenderCenter) Layout(ctx LayoutContext, c Constraints) {
+func (r *renderCenter) Layout(ctx LayoutContext, c Constraints) {
 	size := c.Constrain(Size{Width: maxFinite(c.MaxWidth), Height: maxFinite(c.MaxHeight)})
 	child := r.Child()
 	if child != nil {
@@ -36,20 +36,20 @@ func (r *RenderCenter) Layout(ctx LayoutContext, c Constraints) {
 	r.SetSize(size)
 }
 
-func (r *RenderCenter) DryLayout(_ LayoutContext, c Constraints) Size {
+func (r *renderCenter) DryLayout(_ LayoutContext, c Constraints) Size {
 	return c.Constrain(Size{Width: maxFinite(c.MaxWidth), Height: maxFinite(c.MaxHeight)})
 }
 
-func (r *RenderCenter) Paint(p *Painter, off Offset) {
+func (r *renderCenter) Paint(p *Painter, off Offset) {
 	if child := r.Child(); child != nil {
 		child.Paint(p, off.Add(r.offset))
 	}
 }
 
-func (r *RenderCenter) ChildOffset(RenderObject) Offset {
+func (r *renderCenter) ChildOffset(RenderObject) Offset {
 	return r.offset
 }
 
-func (r *RenderCenter) HitTest(*HitTestResult, Point) bool {
+func (r *renderCenter) HitTest(*HitTestResult, Point) bool {
 	return false
 }

@@ -112,11 +112,11 @@ func TestMarkNeedsBuildAfterDisposePanics(t *testing.T) {
 	state.MarkNeedsBuild()
 }
 
-func findState[T any](root Element) T {
+func findState[T any](root element) T {
 	var zero T
 	var found T
-	var walk func(Element) bool
-	walk = func(e Element) bool {
+	var walk func(element) bool
+	walk = func(e element) bool {
 		if se, ok := e.(*statefulElement); ok {
 			if state, ok := se.state.(T); ok {
 				found = state
@@ -124,7 +124,7 @@ func findState[T any](root Element) T {
 			}
 		}
 		done := false
-		e.VisitChildren(func(child Element) {
+		e.VisitChildren(func(child element) {
 			if !done && walk(child) {
 				done = true
 			}

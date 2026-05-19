@@ -40,8 +40,8 @@ type BorderChars struct {
 	BottomLeft, BottomRight Character
 }
 
-// DecoratedBoxWidget paints a decoration behind its child.
-type DecoratedBoxWidget struct {
+// decoratedBoxWidget paints a decoration behind its child.
+type decoratedBoxWidget struct {
 	// Decoration is painted before the child.
 	Decoration Decoration
 	// ChildWidget is painted over the decoration.
@@ -50,40 +50,40 @@ type DecoratedBoxWidget struct {
 
 // DecoratedBox returns a widget that paints decoration behind child.
 func DecoratedBox(decoration Decoration, child Widget) Widget {
-	return DecoratedBoxWidget{Decoration: decoration, ChildWidget: child}
+	return decoratedBoxWidget{Decoration: decoration, ChildWidget: child}
 }
 
-func (w DecoratedBoxWidget) Child() Widget {
+func (w decoratedBoxWidget) Child() Widget {
 	return w.ChildWidget
 }
 
-func (w DecoratedBoxWidget) CreateRenderObject(ctx BuildContext) RenderObject {
-	return &RenderDecoratedBox{Decoration: w.Decoration}
+func (w decoratedBoxWidget) CreateRenderObject(ctx BuildContext) RenderObject {
+	return &renderDecoratedBox{Decoration: w.Decoration}
 }
 
-func (w DecoratedBoxWidget) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
-	r := ro.(*RenderDecoratedBox)
+func (w decoratedBoxWidget) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
+	r := ro.(*renderDecoratedBox)
 	if r.Decoration != w.Decoration {
 		r.Decoration = w.Decoration
 		r.MarkNeedsPaint()
 	}
 }
 
-// RenderDecoratedBox paints a decoration and then its child.
-type RenderDecoratedBox struct {
+// renderDecoratedBox paints a decoration and then its child.
+type renderDecoratedBox struct {
 	SingleChildRenderObject
 	Decoration Decoration
 }
 
-func (r *RenderDecoratedBox) Layout(ctx LayoutContext, c Constraints) {
+func (r *renderDecoratedBox) Layout(ctx LayoutContext, c Constraints) {
 	r.SetSize(r.layout(ctx, c, false))
 }
 
-func (r *RenderDecoratedBox) DryLayout(ctx LayoutContext, c Constraints) Size {
+func (r *renderDecoratedBox) DryLayout(ctx LayoutContext, c Constraints) Size {
 	return r.layout(ctx, c, true)
 }
 
-func (r *RenderDecoratedBox) layout(ctx LayoutContext, c Constraints, dry bool) Size {
+func (r *renderDecoratedBox) layout(ctx LayoutContext, c Constraints, dry bool) Size {
 	if child := r.Child(); child != nil {
 		if dry {
 			return c.Constrain(DryLayout(ctx, child, c))
@@ -94,7 +94,7 @@ func (r *RenderDecoratedBox) layout(ctx LayoutContext, c Constraints, dry bool) 
 	return c.Constrain(Size{})
 }
 
-func (r *RenderDecoratedBox) Paint(p *Painter, off Offset) {
+func (r *renderDecoratedBox) Paint(p *Painter, off Offset) {
 	size := r.Size()
 	fill := r.Decoration.Fill
 	if fill == (Character{}) {
@@ -107,7 +107,7 @@ func (r *RenderDecoratedBox) Paint(p *Painter, off Offset) {
 	}
 }
 
-func (r *RenderDecoratedBox) paintBorder(p *Painter, off Offset, size Size) {
+func (r *renderDecoratedBox) paintBorder(p *Painter, off Offset, size Size) {
 	border := r.Decoration.Border
 	if size.Width <= 0 || size.Height <= 0 || (!border.Top && !border.Right && !border.Bottom && !border.Left) {
 		return
@@ -171,6 +171,6 @@ func (c BorderChars) withDefaults() BorderChars {
 	return c
 }
 
-func (r *RenderDecoratedBox) HitTest(*HitTestResult, Point) bool {
+func (r *renderDecoratedBox) HitTest(*HitTestResult, Point) bool {
 	return false
 }

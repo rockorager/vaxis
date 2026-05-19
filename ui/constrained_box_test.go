@@ -20,7 +20,7 @@ func TestConstrainedBoxAppliesMinimumConstraints(t *testing.T) {
 	if child.Size() != (Size{Width: 4, Height: 3}) {
 		t.Fatalf("child size = %#v, want 4x3", child.Size())
 	}
-	ro := findRenderObject(app.build.Root()).(*RenderAlign).Child().(*RenderConstrainedBox)
+	ro := findRenderObject(app.build.Root()).(*renderAlign).Child().(*renderConstrainedBox)
 	if ro.Size() != (Size{Width: 4, Height: 3}) {
 		t.Fatalf("box size = %#v, want 4x3", ro.Size())
 	}
@@ -53,7 +53,7 @@ func TestConstrainedBoxRespectsParentConstraints(t *testing.T) {
 func TestConstrainedBoxMarksLayoutDirtyWhenConstraintsChange(t *testing.T) {
 	app := NewApp(ConstrainedBox{Constraints: Constraints{MinWidth: 2}, Child: Text{Value: "x"}})
 	app.Pump(Size{Width: 10, Height: 1})
-	ro := findRenderObject(app.build.Root()).(*RenderConstrainedBox)
+	ro := findRenderObject(app.build.Root()).(*renderConstrainedBox)
 	app.UpdateRoot(ConstrainedBox{Constraints: Constraints{MinWidth: 4}, Child: Text{Value: "x"}})
 	if !ro.NeedsLayout() {
 		t.Fatal("constraint update should mark layout dirty")

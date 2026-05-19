@@ -81,7 +81,7 @@ func TestProviderSuppressedNotificationStillUpdatesValueForLaterBuild(t *testing
 func TestExpandedParentDataChangeMarksParentLayoutDirty(t *testing.T) {
 	app := NewApp(Row(ExpandedWidget{Flex: 1, ChildWidget: Text{Value: "x"}}))
 	app.Pump(Size{Width: 10, Height: 1})
-	row := findRenderObject(app.build.Root()).(*RenderFlex)
+	row := findRenderObject(app.build.Root()).(*renderFlex)
 	if row.NeedsLayout() {
 		t.Fatal("row should be clean after pump")
 	}

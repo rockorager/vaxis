@@ -37,25 +37,25 @@ func (w Align) ChildWidget() Widget {
 }
 
 func (w Align) CreateRenderObject(ctx BuildContext) RenderObject {
-	return &RenderAlign{Alignment: w.Alignment}
+	return &renderAlign{Alignment: w.Alignment}
 }
 
 func (w Align) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
-	r := ro.(*RenderAlign)
+	r := ro.(*renderAlign)
 	if r.Alignment != w.Alignment {
 		r.Alignment = w.Alignment
 		r.MarkNeedsLayout()
 	}
 }
 
-// RenderAlign lays out one child and paints it at an aligned offset.
-type RenderAlign struct {
+// renderAlign lays out one child and paints it at an aligned offset.
+type renderAlign struct {
 	SingleChildRenderObject
 	Alignment Alignment
 	offset    Offset
 }
 
-func (r *RenderAlign) Layout(ctx LayoutContext, c Constraints) {
+func (r *renderAlign) Layout(ctx LayoutContext, c Constraints) {
 	size := c.Constrain(Size{Width: maxFinite(c.MaxWidth), Height: maxFinite(c.MaxHeight)})
 	child := r.Child()
 	if child != nil {
@@ -66,21 +66,21 @@ func (r *RenderAlign) Layout(ctx LayoutContext, c Constraints) {
 	r.SetSize(size)
 }
 
-func (r *RenderAlign) DryLayout(_ LayoutContext, c Constraints) Size {
+func (r *renderAlign) DryLayout(_ LayoutContext, c Constraints) Size {
 	return c.Constrain(Size{Width: maxFinite(c.MaxWidth), Height: maxFinite(c.MaxHeight)})
 }
 
-func (r *RenderAlign) Paint(p *Painter, off Offset) {
+func (r *renderAlign) Paint(p *Painter, off Offset) {
 	if child := r.Child(); child != nil {
 		child.Paint(p, off.Add(r.offset))
 	}
 }
 
-func (r *RenderAlign) ChildOffset(RenderObject) Offset {
+func (r *renderAlign) ChildOffset(RenderObject) Offset {
 	return r.offset
 }
 
-func (r *RenderAlign) HitTest(*HitTestResult, Point) bool {
+func (r *renderAlign) HitTest(*HitTestResult, Point) bool {
 	return false
 }
 

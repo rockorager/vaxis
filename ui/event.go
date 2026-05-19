@@ -112,7 +112,7 @@ type (
 // FocusNode controls and observes focus for a Focus widget.
 type FocusNode struct {
 	app      *App
-	element  Element
+	element  element
 	onChange func()
 }
 
@@ -128,11 +128,11 @@ func (n *FocusNode) HasFocus() bool {
 	return n != nil && n.app != nil && n.app.focused == n.element
 }
 
-func (n *FocusNode) attach(app *App, element Element) {
+func (n *FocusNode) attach(app *App, element element) {
 	n.app, n.element = app, element
 }
 
-func (n *FocusNode) detach(element Element) {
+func (n *FocusNode) detach(element element) {
 	if n != nil && n.element == element {
 		n.app, n.element = nil, nil
 	}

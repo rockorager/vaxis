@@ -8,20 +8,20 @@ type Keymap struct {
 	Child Widget
 }
 
-func (w Keymap) CreateElement() Element {
+func (w Keymap) CreateElement() element {
 	return &keymapElement{}
 }
 
 type keymapElement struct {
-	ElementBase
-	child Element
+	elementBase
+	child element
 }
 
 func (e *keymapElement) Rebuild() {
 	e.child = e.UpdateChild(e.child, e.widget.(Keymap).Child, nil)
 }
 
-func (e *keymapElement) VisitChildren(fn func(Element)) {
+func (e *keymapElement) VisitChildren(fn func(element)) {
 	if e.child != nil {
 		fn(e.child)
 	}

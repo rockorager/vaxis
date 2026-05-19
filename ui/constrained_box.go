@@ -13,32 +13,32 @@ func (w ConstrainedBox) ChildWidget() Widget {
 }
 
 func (w ConstrainedBox) CreateRenderObject(BuildContext) RenderObject {
-	return &RenderConstrainedBox{AdditionalConstraints: w.Constraints}
+	return &renderConstrainedBox{AdditionalConstraints: w.Constraints}
 }
 
 func (w ConstrainedBox) UpdateRenderObject(_ BuildContext, ro RenderObject) {
-	r := ro.(*RenderConstrainedBox)
+	r := ro.(*renderConstrainedBox)
 	if r.AdditionalConstraints != w.Constraints {
 		r.AdditionalConstraints = w.Constraints
 		r.MarkNeedsLayout()
 	}
 }
 
-// RenderConstrainedBox enforces additional constraints during layout.
-type RenderConstrainedBox struct {
+// renderConstrainedBox enforces additional constraints during layout.
+type renderConstrainedBox struct {
 	SingleChildRenderObject
 	AdditionalConstraints Constraints
 }
 
-func (r *RenderConstrainedBox) Layout(ctx LayoutContext, c Constraints) {
+func (r *renderConstrainedBox) Layout(ctx LayoutContext, c Constraints) {
 	r.SetSize(r.layout(ctx, c, false))
 }
 
-func (r *RenderConstrainedBox) DryLayout(ctx LayoutContext, c Constraints) Size {
+func (r *renderConstrainedBox) DryLayout(ctx LayoutContext, c Constraints) Size {
 	return r.layout(ctx, c, true)
 }
 
-func (r *RenderConstrainedBox) layout(ctx LayoutContext, c Constraints, dry bool) Size {
+func (r *renderConstrainedBox) layout(ctx LayoutContext, c Constraints, dry bool) Size {
 	constraints := normalizeAdditionalConstraints(r.AdditionalConstraints).Enforce(c)
 	child := r.Child()
 	if child == nil {
@@ -51,13 +51,13 @@ func (r *RenderConstrainedBox) layout(ctx LayoutContext, c Constraints, dry bool
 	return c.Constrain(child.Base().Size())
 }
 
-func (r *RenderConstrainedBox) Paint(p *Painter, off Offset) {
+func (r *renderConstrainedBox) Paint(p *Painter, off Offset) {
 	if child := r.Child(); child != nil {
 		child.Paint(p, off)
 	}
 }
 
-func (r *RenderConstrainedBox) HitTest(*HitTestResult, Point) bool {
+func (r *renderConstrainedBox) HitTest(*HitTestResult, Point) bool {
 	return false
 }
 

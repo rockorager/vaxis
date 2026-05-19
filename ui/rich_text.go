@@ -23,11 +23,11 @@ type TextSpan struct {
 }
 
 func (w RichText) CreateRenderObject(ctx BuildContext) RenderObject {
-	return &RenderRichText{Spans: themedSpans(ctx, w.Spans), Options: w.options()}
+	return &renderRichText{Spans: themedSpans(ctx, w.Spans), Options: w.options()}
 }
 
 func (w RichText) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
-	r := ro.(*RenderRichText)
+	r := ro.(*renderRichText)
 	r.Spans, r.Options = themedSpans(ctx, w.Spans), w.options()
 	r.MarkNeedsLayout()
 }
@@ -36,24 +36,24 @@ func (w RichText) options() TextLayoutOptions {
 	return TextLayoutOptions{SoftWrap: w.SoftWrap, Overflow: w.Overflow, MaxLines: w.MaxLines, Align: w.Align}
 }
 
-// RenderRichText lays out and paints a RichText widget.
-type RenderRichText struct {
+// renderRichText lays out and paints a RichText widget.
+type renderRichText struct {
 	LeafRenderObject
 	Spans   []TextSpan
 	Options TextLayoutOptions
 	layout  TextLayout
 }
 
-func (r *RenderRichText) Layout(ctx LayoutContext, c Constraints) {
+func (r *renderRichText) Layout(ctx LayoutContext, c Constraints) {
 	r.layout = LayoutText(r.Spans, c, r.Options)
 	r.SetSize(r.layout.Size)
 }
 
-func (r *RenderRichText) DryLayout(ctx LayoutContext, c Constraints) Size {
+func (r *renderRichText) DryLayout(ctx LayoutContext, c Constraints) Size {
 	return LayoutText(r.Spans, c, r.Options).Size
 }
 
-func (r *RenderRichText) Paint(p *Painter, off Offset) {
+func (r *renderRichText) Paint(p *Painter, off Offset) {
 	if r.Options.Overflow != TextOverflowVisible {
 		p.PushClip(Rect{X: off.X, Y: off.Y, Width: r.Size().Width, Height: r.Size().Height})
 		defer p.PopClip()

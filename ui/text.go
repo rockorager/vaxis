@@ -47,14 +47,14 @@ func (w Text) CreateRenderObject(ctx BuildContext) RenderObject {
 	if w.Style == (Style{}) {
 		w.Style = MustDepend[Theme](ctx).Text
 	}
-	return &RenderText{Text: w.Value, Style: w.Style, Options: w.options()}
+	return &renderText{Text: w.Value, Style: w.Style, Options: w.options()}
 }
 
 func (w Text) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
 	if w.Style == (Style{}) {
 		w.Style = MustDepend[Theme](ctx).Text
 	}
-	r := ro.(*RenderText)
+	r := ro.(*renderText)
 	r.Text, r.Style, r.Options = w.Value, w.Style, w.options()
 	r.MarkNeedsLayout()
 }
@@ -63,8 +63,8 @@ func (w Text) options() TextLayoutOptions {
 	return TextLayoutOptions{SoftWrap: w.SoftWrap, Overflow: w.Overflow, MaxLines: w.MaxLines, Align: w.Align}
 }
 
-// RenderText lays out and paints a Text widget.
-type RenderText struct {
+// renderText lays out and paints a Text widget.
+type renderText struct {
 	LeafRenderObject
 	Text    string
 	Style   Style
@@ -72,16 +72,16 @@ type RenderText struct {
 	layout  TextLayout
 }
 
-func (r *RenderText) Layout(ctx LayoutContext, c Constraints) {
+func (r *renderText) Layout(ctx LayoutContext, c Constraints) {
 	r.layout = LayoutText([]TextSpan{{Text: r.Text, Style: r.Style}}, c, r.Options)
 	r.SetSize(r.layout.Size)
 }
 
-func (r *RenderText) DryLayout(ctx LayoutContext, c Constraints) Size {
+func (r *renderText) DryLayout(ctx LayoutContext, c Constraints) Size {
 	return LayoutText([]TextSpan{{Text: r.Text, Style: r.Style}}, c, r.Options).Size
 }
 
-func (r *RenderText) Paint(p *Painter, off Offset) {
+func (r *renderText) Paint(p *Painter, off Offset) {
 	if r.Options.Overflow != TextOverflowVisible {
 		p.PushClip(Rect{X: off.X, Y: off.Y, Width: r.Size().Width, Height: r.Size().Height})
 		defer p.PopClip()

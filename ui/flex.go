@@ -91,11 +91,11 @@ func (w Flex) Children() []Widget {
 }
 
 func (w Flex) CreateRenderObject(ctx BuildContext) RenderObject {
-	return &RenderFlex{Axis: w.Axis, MainAxisSize: w.MainAxisSize, MainAxisAlignment: w.MainAxisAlignment, CrossAxisAlignment: w.CrossAxisAlignment}
+	return &renderFlex{Axis: w.Axis, MainAxisSize: w.MainAxisSize, MainAxisAlignment: w.MainAxisAlignment, CrossAxisAlignment: w.CrossAxisAlignment}
 }
 
 func (w Flex) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
-	r := ro.(*RenderFlex)
+	r := ro.(*renderFlex)
 	if r.Axis != w.Axis || r.MainAxisSize != w.MainAxisSize || r.MainAxisAlignment != w.MainAxisAlignment || r.CrossAxisAlignment != w.CrossAxisAlignment {
 		r.Axis = w.Axis
 		r.MainAxisSize = w.MainAxisSize
@@ -105,13 +105,13 @@ func (w Flex) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
 	}
 }
 
-// FlexParentData stores layout data for children of RenderFlex.
+// FlexParentData stores layout data for children of renderFlex.
 type FlexParentData struct {
 	// Flex is the child's flex factor.
 	Flex int
 	// Fit controls whether the child must fill its flex allocation.
 	Fit FlexFit
-	// Offset is the child paint offset computed by RenderFlex.
+	// Offset is the child paint offset computed by renderFlex.
 	Offset Offset
 }
 
@@ -120,8 +120,8 @@ func (d FlexParentData) RenderOffset() Offset {
 	return d.Offset
 }
 
-// RenderFlex lays out render children along a main axis.
-type RenderFlex struct {
+// renderFlex lays out render children along a main axis.
+type renderFlex struct {
 	MultiChildRenderObject
 	Axis               Axis
 	MainAxisSize       MainAxisSize
@@ -129,7 +129,7 @@ type RenderFlex struct {
 	CrossAxisAlignment CrossAxisAlignment
 }
 
-func (r *RenderFlex) Layout(ctx LayoutContext, c Constraints) {
+func (r *renderFlex) Layout(ctx LayoutContext, c Constraints) {
 	size, childSizes := r.layoutSizes(ctx, c, false)
 	freeSpace := max(0, mainSize(r.Axis, size)-mainUsedSize(r.Axis, childSizes))
 	leading, between := mainAxisGaps(r.MainAxisAlignment, freeSpace, len(childSizes))
@@ -148,12 +148,12 @@ func (r *RenderFlex) Layout(ctx LayoutContext, c Constraints) {
 	r.SetSize(size)
 }
 
-func (r *RenderFlex) DryLayout(ctx LayoutContext, c Constraints) Size {
+func (r *renderFlex) DryLayout(ctx LayoutContext, c Constraints) Size {
 	size, _ := r.layoutSizes(ctx, c, true)
 	return size
 }
 
-func (r *RenderFlex) layoutSizes(ctx LayoutContext, c Constraints, dry bool) (Size, []Size) {
+func (r *renderFlex) layoutSizes(ctx LayoutContext, c Constraints, dry bool) (Size, []Size) {
 	children := r.Children()
 	childSizes := make([]Size, len(children))
 	mainUsed, cross := 0, 0
@@ -198,7 +198,7 @@ func (r *RenderFlex) layoutSizes(ctx LayoutContext, c Constraints, dry bool) (Si
 	return r.flexSize(c, mainUsed, cross), childSizes
 }
 
-func (r *RenderFlex) layoutChild(ctx LayoutContext, child RenderObject, c Constraints, dry bool) Size {
+func (r *renderFlex) layoutChild(ctx LayoutContext, child RenderObject, c Constraints, dry bool) Size {
 	if dry {
 		return DryLayout(ctx, child, c)
 	}
@@ -214,7 +214,7 @@ func mainUsedSize(axis Axis, sizes []Size) int {
 	return used
 }
 
-func (r *RenderFlex) childConstraints(c Constraints, flexMain int, fit FlexFit) Constraints {
+func (r *renderFlex) childConstraints(c Constraints, flexMain int, fit FlexFit) Constraints {
 	minMain := 0
 	maxMain := Unbounded
 	if flexMain > 0 {
@@ -234,7 +234,7 @@ func (r *RenderFlex) childConstraints(c Constraints, flexMain int, fit FlexFit) 
 	return Constraints{MinWidth: minCross, MaxWidth: maxCross, MinHeight: minMain, MaxHeight: maxMain}
 }
 
-func (r *RenderFlex) flexSize(c Constraints, mainUsed, crossUsed int) Size {
+func (r *renderFlex) flexSize(c Constraints, mainUsed, crossUsed int) Size {
 	main := mainUsed
 	if r.MainAxisSize == MainAxisSizeMax && maxMain(r.Axis, c) != Unbounded {
 		main = maxMain(r.Axis, c)
@@ -246,14 +246,14 @@ func (r *RenderFlex) flexSize(c Constraints, mainUsed, crossUsed int) Size {
 	return c.Constrain(sizeFromAxis(r.Axis, main, cross))
 }
 
-func (r *RenderFlex) Paint(p *Painter, off Offset) {
+func (r *renderFlex) Paint(p *Painter, off Offset) {
 	for _, child := range r.Children() {
 		pd, _ := child.Base().ParentData().(FlexParentData)
 		child.Paint(p, off.Add(pd.Offset))
 	}
 }
 
-func (r *RenderFlex) HitTest(*HitTestResult, Point) bool {
+func (r *renderFlex) HitTest(*HitTestResult, Point) bool {
 	return false
 }
 

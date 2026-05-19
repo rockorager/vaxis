@@ -4,7 +4,7 @@ import "testing"
 
 func TestDryLayoutTextComputesHeightFromWidth(t *testing.T) {
 	app := NewApp(Text{Value: "hello world", SoftWrap: true})
-	ro := findRenderObject(app.build.Root()).(*RenderText)
+	ro := findRenderObject(app.build.Root()).(*renderText)
 	size := DryLayout(LayoutContext{}, ro, Constraints{MaxWidth: 5, MaxHeight: Unbounded})
 	if size != (Size{Width: 5, Height: 2}) {
 		t.Fatalf("dry text size = %#v, want 5x2", size)

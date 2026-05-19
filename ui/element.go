@@ -1,32 +1,32 @@
 package ui
 
-// Element is a mounted widget instance in the build tree.
-type Element interface {
-	Base() *ElementBase
+// element is a mounted widget instance in the build tree.
+type element interface {
+	Base() *elementBase
 	Rebuild()
-	VisitChildren(func(Element))
+	VisitChildren(func(element))
 }
 
-// ElementBase stores common mounted element state.
-type ElementBase struct {
+// elementBase stores common mounted element state.
+type elementBase struct {
 	widget Widget
-	parent Element
-	owner  *BuildOwner
+	parent element
+	owner  *buildOwner
 	dirty  bool
 }
 
 // Base returns the embedded element base.
-func (e *ElementBase) Base() *ElementBase {
+func (e *elementBase) Base() *elementBase {
 	return e
 }
 
 // Widget returns the element's current widget configuration.
-func (e *ElementBase) Widget() Widget {
+func (e *elementBase) Widget() Widget {
 	return e.widget
 }
 
 // MarkNeedsBuild schedules this element to rebuild.
-func (e *ElementBase) MarkNeedsBuild() {
+func (e *elementBase) MarkNeedsBuild() {
 	if e.owner == nil || e.self() == nil || e.dirty {
 		return
 	}
@@ -36,14 +36,14 @@ func (e *ElementBase) MarkNeedsBuild() {
 }
 
 // Context returns a build context for this element.
-func (e *ElementBase) Context() BuildContext {
+func (e *elementBase) Context() BuildContext {
 	return BuildContext{element: e.self()}
 }
 
 // FindRenderObject returns the nearest descendant render object.
-func (e *ElementBase) FindRenderObject() RenderObject {
+func (e *elementBase) FindRenderObject() RenderObject {
 	var found RenderObject
-	e.self().VisitChildren(func(child Element) {
+	e.self().VisitChildren(func(child element) {
 		if found == nil {
 			found = findRenderObject(child)
 		}
@@ -52,16 +52,16 @@ func (e *ElementBase) FindRenderObject() RenderObject {
 }
 
 // UpdateChild reconciles one child element with a new widget.
-func (e *ElementBase) UpdateChild(old Element, next Widget, slot any) Element {
+func (e *elementBase) UpdateChild(old element, next Widget, slot any) element {
 	return e.owner.UpdateChild(e.self(), old, next, slot)
 }
 
-func (e *ElementBase) self() Element {
+func (e *elementBase) self() element {
 	return e.owner.elements[e]
 }
 
 // BuildContext exposes tree-local services while building widgets.
-type BuildContext struct{ element Element }
+type BuildContext struct{ element element }
 
 // Widget returns the widget currently being built.
 func (c BuildContext) Widget() Widget {
@@ -78,29 +78,29 @@ func (c BuildContext) FindRenderObject() RenderObject {
 	return findRenderObject(c.element)
 }
 
-func findRenderObject(e Element) RenderObject {
+func findRenderObject(e element) RenderObject {
 	if r, ok := e.(interface{ RenderObject() RenderObject }); ok {
 		return r.RenderObject()
 	}
 	return e.Base().FindRenderObject()
 }
 
-// BuildOwner owns element mounting, reconciliation, and dirty rebuilds.
-type BuildOwner struct {
-	root     Element
-	dirty    []Element
-	elements map[*ElementBase]Element
+// buildOwner owns element mounting, reconciliation, and dirty rebuilds.
+type buildOwner struct {
+	root     element
+	dirty    []element
+	elements map[*elementBase]element
 	app      *App
 	building bool
 }
 
-// NewBuildOwner creates an empty build owner.
-func NewBuildOwner() *BuildOwner {
-	return &BuildOwner{elements: make(map[*ElementBase]Element)}
+// newBuildOwner creates an empty build owner.
+func newBuildOwner() *buildOwner {
+	return &buildOwner{elements: make(map[*elementBase]element)}
 }
 
 // Mount creates and builds a root element.
-func (o *BuildOwner) Mount(root Widget) Element {
+func (o *buildOwner) Mount(root Widget) element {
 	o.root = createElement(root)
 	o.mount(o.root, nil, root)
 	o.root.Rebuild()
@@ -108,17 +108,17 @@ func (o *BuildOwner) Mount(root Widget) Element {
 }
 
 // Root returns the mounted root element.
-func (o *BuildOwner) Root() Element {
+func (o *buildOwner) Root() element {
 	return o.root
 }
 
 // UpdateRoot reconciles the mounted root with a new root widget.
-func (o *BuildOwner) UpdateRoot(root Widget) {
+func (o *buildOwner) UpdateRoot(root Widget) {
 	o.root = o.UpdateChild(nil, o.root, root, nil)
 }
 
 // BuildScope rebuilds all dirty elements.
-func (o *BuildOwner) BuildScope() {
+func (o *buildOwner) BuildScope() {
 	o.building = true
 	defer func() { o.building = false }()
 	for len(o.dirty) > 0 {
@@ -134,7 +134,7 @@ func (o *BuildOwner) BuildScope() {
 }
 
 // UpdateChild reconciles an old child element with next.
-func (o *BuildOwner) UpdateChild(parent Element, old Element, next Widget, slot any) Element {
+func (o *buildOwner) UpdateChild(parent element, old element, next Widget, slot any) element {
 	if next == nil {
 		if old != nil {
 			o.unmount(old)
@@ -159,7 +159,7 @@ func (o *BuildOwner) UpdateChild(parent Element, old Element, next Widget, slot 
 	return child
 }
 
-func (o *BuildOwner) mount(e Element, parent Element, widget Widget) {
+func (o *buildOwner) mount(e element, parent element, widget Widget) {
 	b := e.Base()
 	b.widget = widget
 	b.parent = parent
@@ -170,8 +170,8 @@ func (o *BuildOwner) mount(e Element, parent Element, widget Widget) {
 	}
 }
 
-func (o *BuildOwner) unmount(e Element) {
-	e.VisitChildren(func(child Element) { o.unmount(child) })
+func (o *buildOwner) unmount(e element) {
+	e.VisitChildren(func(child element) { o.unmount(child) })
 	if u, ok := e.(interface{ unmounted() }); ok {
 		u.unmounted()
 	}

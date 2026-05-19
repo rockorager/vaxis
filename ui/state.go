@@ -82,12 +82,12 @@ type (
 )
 
 type statefulElement struct {
-	ElementBase
+	elementBase
 	state State
-	child Element
+	child element
 }
 
-func newStatefulElement(w StatefulWidget) Element {
+func newStatefulElement(w StatefulWidget) element {
 	return &statefulElement{}
 }
 
@@ -110,7 +110,7 @@ func (e *statefulElement) Rebuild() {
 	e.child = e.UpdateChild(e.child, e.state.Build(e.Context()), nil)
 }
 
-func (e *statefulElement) VisitChildren(fn func(Element)) {
+func (e *statefulElement) VisitChildren(fn func(element)) {
 	if e.child != nil {
 		fn(e.child)
 	}
@@ -145,11 +145,11 @@ func (e *statefulElement) dispose() {
 }
 
 type statelessElement struct {
-	ElementBase
-	child Element
+	elementBase
+	child element
 }
 
-func newStatelessElement(w StatelessWidget) Element {
+func newStatelessElement(w StatelessWidget) element {
 	return &statelessElement{}
 }
 
@@ -157,7 +157,7 @@ func (e *statelessElement) Rebuild() {
 	e.child = e.UpdateChild(e.child, e.widget.(StatelessWidget).Build(e.Context()), nil)
 }
 
-func (e *statelessElement) VisitChildren(fn func(Element)) {
+func (e *statelessElement) VisitChildren(fn func(element)) {
 	if e.child != nil {
 		fn(e.child)
 	}

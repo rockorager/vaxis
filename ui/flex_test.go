@@ -62,7 +62,7 @@ func TestFlexDefaultsMatchFlutter(t *testing.T) {
 	if got := p.Cell(0, 2).Grapheme; got != "x" {
 		t.Fatalf("default row cross-axis position = %q at center, want x", got)
 	}
-	row := findRenderObject(app.build.Root()).(*RenderFlex)
+	row := findRenderObject(app.build.Root()).(*renderFlex)
 	if row.Size().Width != 1 || row.Size().Height != 5 {
 		t.Fatalf("default row size = %dx%d, want max constraints 1x5", row.Size().Width, row.Size().Height)
 	}
@@ -119,7 +119,7 @@ func TestFlexCrossAxisStretchTightensCrossAxis(t *testing.T) {
 func TestFlexMainAxisSizeMinShrinksToChildren(t *testing.T) {
 	app := NewApp(Align{Alignment: TopLeft, Child: Flex{Axis: Horizontal, MainAxisSize: MainAxisSizeMin, ChildrenWidget: []Widget{Text{Value: "a"}, Text{Value: "bc"}}}})
 	app.Pump(Size{Width: 10, Height: 1})
-	row := findRenderObject(app.build.Root()).(*RenderAlign).Child().(*RenderFlex)
+	row := findRenderObject(app.build.Root()).(*renderAlign).Child().(*renderFlex)
 	if row.Size().Width != 3 {
 		t.Fatalf("row width = %d, want 3", row.Size().Width)
 	}

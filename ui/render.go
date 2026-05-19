@@ -216,12 +216,12 @@ func (r *MultiChildRenderObject) ChildOffset(child RenderObject) Offset {
 type HitTestResult struct{ Path []RenderObject }
 
 type renderObjectElement struct {
-	ElementBase
+	elementBase
 	renderObject RenderObject
-	children     []Element
+	children     []element
 }
 
-func newRenderObjectElement(w RenderObjectWidget) Element {
+func newRenderObjectElement(w RenderObjectWidget) element {
 	return &renderObjectElement{}
 }
 
@@ -238,7 +238,7 @@ func (e *renderObjectElement) Rebuild() {
 		w.UpdateRenderObject(e.Context(), e.renderObject)
 	}
 	children := widgetChildren(e.widget)
-	next := make([]Element, len(children))
+	next := make([]element, len(children))
 	for i, child := range children {
 		next[i] = e.UpdateChild(oldAt(e.children, i), child, i)
 	}
@@ -249,7 +249,7 @@ func (e *renderObjectElement) Rebuild() {
 	e.syncRenderChildren()
 }
 
-func (e *renderObjectElement) VisitChildren(fn func(Element)) {
+func (e *renderObjectElement) VisitChildren(fn func(element)) {
 	for _, child := range e.children {
 		if child != nil {
 			fn(child)
@@ -257,8 +257,8 @@ func (e *renderObjectElement) VisitChildren(fn func(Element)) {
 	}
 }
 
-func (e *renderObjectElement) Base() *ElementBase {
-	return &e.ElementBase
+func (e *renderObjectElement) Base() *elementBase {
+	return &e.elementBase
 }
 
 func (e *renderObjectElement) FindRenderObject() RenderObject {
@@ -303,7 +303,7 @@ func detachRenderTree(ro RenderObject) {
 	ro.VisitChildren(detachRenderTree)
 }
 
-func oldAt(children []Element, i int) Element {
+func oldAt(children []element, i int) element {
 	if i >= 0 && i < len(children) {
 		return children[i]
 	}
@@ -334,11 +334,11 @@ func widgetChildren(w Widget) []Widget {
 }
 
 type parentDataElement struct {
-	ElementBase
-	child Element
+	elementBase
+	child element
 }
 
-func newParentDataElement(w ParentDataWidget) Element {
+func newParentDataElement(w ParentDataWidget) element {
 	return &parentDataElement{}
 }
 
@@ -352,7 +352,7 @@ func (e *parentDataElement) Rebuild() {
 	}
 }
 
-func (e *parentDataElement) VisitChildren(fn func(Element)) {
+func (e *parentDataElement) VisitChildren(fn func(element)) {
 	if e.child != nil {
 		fn(e.child)
 	}

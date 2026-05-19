@@ -1,7 +1,7 @@
 package ui
 
-// PaddingWidget insets its child by a fixed number of cells.
-type PaddingWidget struct {
+// paddingWidget insets its child by a fixed number of cells.
+type paddingWidget struct {
 	// Insets is the empty space around the child.
 	Insets Insets
 	// ChildWidget is laid out inside the inset space.
@@ -10,36 +10,36 @@ type PaddingWidget struct {
 
 // Padding returns a widget that insets child.
 func Padding(in Insets, child Widget) Widget {
-	return PaddingWidget{Insets: in, ChildWidget: child}
+	return paddingWidget{Insets: in, ChildWidget: child}
 }
 
-func (w PaddingWidget) Child() Widget {
+func (w paddingWidget) Child() Widget {
 	return w.ChildWidget
 }
 
-func (w PaddingWidget) CreateRenderObject(ctx BuildContext) RenderObject {
-	return &RenderPadding{Insets: w.Insets}
+func (w paddingWidget) CreateRenderObject(ctx BuildContext) RenderObject {
+	return &renderPadding{Insets: w.Insets}
 }
 
-func (w PaddingWidget) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
-	ro.(*RenderPadding).Insets = w.Insets
+func (w paddingWidget) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
+	ro.(*renderPadding).Insets = w.Insets
 }
 
-// RenderPadding lays out and paints one inset child.
-type RenderPadding struct {
+// renderPadding lays out and paints one inset child.
+type renderPadding struct {
 	SingleChildRenderObject
 	Insets Insets
 }
 
-func (r *RenderPadding) Layout(ctx LayoutContext, c Constraints) {
+func (r *renderPadding) Layout(ctx LayoutContext, c Constraints) {
 	r.SetSize(r.layout(ctx, c, false))
 }
 
-func (r *RenderPadding) DryLayout(ctx LayoutContext, c Constraints) Size {
+func (r *renderPadding) DryLayout(ctx LayoutContext, c Constraints) Size {
 	return r.layout(ctx, c, true)
 }
 
-func (r *RenderPadding) layout(ctx LayoutContext, c Constraints, dry bool) Size {
+func (r *renderPadding) layout(ctx LayoutContext, c Constraints, dry bool) Size {
 	childSize := Size{}
 	if child := r.Child(); child != nil {
 		childConstraints := c.Deflate(r.Insets)
@@ -53,16 +53,16 @@ func (r *RenderPadding) layout(ctx LayoutContext, c Constraints, dry bool) Size 
 	return c.Constrain(childSize.Inflate(r.Insets))
 }
 
-func (r *RenderPadding) Paint(p *Painter, off Offset) {
+func (r *renderPadding) Paint(p *Painter, off Offset) {
 	if child := r.Child(); child != nil {
 		child.Paint(p, off.Add(Offset{X: r.Insets.Left, Y: r.Insets.Top}))
 	}
 }
 
-func (r *RenderPadding) ChildOffset(RenderObject) Offset {
+func (r *renderPadding) ChildOffset(RenderObject) Offset {
 	return Offset{X: r.Insets.Left, Y: r.Insets.Top}
 }
 
-func (r *RenderPadding) HitTest(*HitTestResult, Point) bool {
+func (r *renderPadding) HitTest(*HitTestResult, Point) bool {
 	return false
 }

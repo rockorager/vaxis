@@ -16,14 +16,14 @@ func (p Provider[T]) Child() Widget {
 	return p.ChildWidget
 }
 
-func (p Provider[T]) CreateElement() Element {
+func (p Provider[T]) CreateElement() element {
 	return &providerElement[T]{}
 }
 
 type providerElement[T any] struct {
-	ElementBase
-	child        Element
-	dependents   map[Element]struct{}
+	elementBase
+	child        element
+	dependents   map[element]struct{}
 	value        T
 	shouldNotify func(T, T) bool
 }
@@ -31,7 +31,7 @@ type providerElement[T any] struct {
 func (e *providerElement[T]) Rebuild() {
 	w := e.widget.(Provider[T])
 	if e.dependents == nil {
-		e.dependents = make(map[Element]struct{})
+		e.dependents = make(map[element]struct{})
 	}
 	if e.child != nil {
 		notify := true
@@ -54,7 +54,7 @@ func (e *providerElement[T]) Rebuild() {
 	e.child = e.UpdateChild(e.child, w.ChildWidget, nil)
 }
 
-func (e *providerElement[T]) VisitChildren(fn func(Element)) {
+func (e *providerElement[T]) VisitChildren(fn func(element)) {
 	if e.child != nil {
 		fn(e.child)
 	}

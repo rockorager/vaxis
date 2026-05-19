@@ -13,24 +13,24 @@ func (w SizedBox) ChildWidget() Widget {
 }
 
 func (w SizedBox) CreateRenderObject(ctx BuildContext) RenderObject {
-	return &RenderSizedBox{Width: w.Width, Height: w.Height}
+	return &renderSizedBox{Width: w.Width, Height: w.Height}
 }
 
 func (w SizedBox) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
-	r := ro.(*RenderSizedBox)
+	r := ro.(*renderSizedBox)
 	if r.Width != w.Width || r.Height != w.Height {
 		r.Width, r.Height = w.Width, w.Height
 		r.MarkNeedsLayout()
 	}
 }
 
-// RenderSizedBox lays out one child with a tight fixed size.
-type RenderSizedBox struct {
+// renderSizedBox lays out one child with a tight fixed size.
+type renderSizedBox struct {
 	SingleChildRenderObject
 	Width, Height int
 }
 
-func (r *RenderSizedBox) Layout(ctx LayoutContext, c Constraints) {
+func (r *renderSizedBox) Layout(ctx LayoutContext, c Constraints) {
 	size := c.Constrain(Size{Width: r.Width, Height: r.Height})
 	if child := r.Child(); child != nil {
 		child.Layout(ctx, Tight(size))
@@ -38,11 +38,11 @@ func (r *RenderSizedBox) Layout(ctx LayoutContext, c Constraints) {
 	r.SetSize(size)
 }
 
-func (r *RenderSizedBox) DryLayout(_ LayoutContext, c Constraints) Size {
+func (r *renderSizedBox) DryLayout(_ LayoutContext, c Constraints) Size {
 	return c.Constrain(Size{Width: r.Width, Height: r.Height})
 }
 
-func (r *RenderSizedBox) Paint(p *Painter, off Offset) {
+func (r *renderSizedBox) Paint(p *Painter, off Offset) {
 	if child := r.Child(); child != nil {
 		p.PushClip(Rect{X: off.X, Y: off.Y, Width: r.Size().Width, Height: r.Size().Height})
 		defer p.PopClip()
@@ -50,6 +50,6 @@ func (r *RenderSizedBox) Paint(p *Painter, off Offset) {
 	}
 }
 
-func (r *RenderSizedBox) HitTest(*HitTestResult, Point) bool {
+func (r *renderSizedBox) HitTest(*HitTestResult, Point) bool {
 	return false
 }

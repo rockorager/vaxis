@@ -23,18 +23,18 @@ type ParentDataWidget interface {
 	ApplyParentData(RenderObject)
 }
 
-// ElementWidget creates a custom element implementation.
-type ElementWidget interface{ CreateElement() Element }
+// elementWidget creates a custom element implementation.
+type elementWidget interface{ CreateElement() element }
 
-func createElement(w Widget) Element {
+func createElement(w Widget) element {
 	if w == nil {
 		panic("ui: nil is not a widget")
 	}
-	if ew, ok := w.(ElementWidget); ok {
+	if ew, ok := w.(elementWidget); ok {
 		return ew.CreateElement()
 	}
 	kinds := 0
-	var e Element
+	var e element
 	if pw, ok := w.(ParentDataWidget); ok {
 		kinds++
 		e = newParentDataElement(pw)

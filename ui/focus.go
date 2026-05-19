@@ -1,7 +1,7 @@
 package ui
 
-// FocusWidget makes its child focusable through a FocusNode.
-type FocusWidget struct {
+// focusWidget makes its child focusable through a FocusNode.
+type focusWidget struct {
 	// Node controls and observes focus for this widget.
 	Node *FocusNode
 	// ChildWidget is the focusable subtree.
@@ -10,20 +10,20 @@ type FocusWidget struct {
 
 // Focus returns a focusable wrapper around child.
 func Focus(node *FocusNode, child Widget) Widget {
-	return FocusWidget{Node: node, ChildWidget: child}
+	return focusWidget{Node: node, ChildWidget: child}
 }
 
-func (w FocusWidget) CreateElement() Element {
+func (w focusWidget) CreateElement() element {
 	return &focusElement{}
 }
 
 type focusElement struct {
-	ElementBase
-	child Element
+	elementBase
+	child element
 }
 
 func (e *focusElement) mounted() {
-	w := e.widget.(FocusWidget)
+	w := e.widget.(focusWidget)
 	if w.Node != nil {
 		w.Node.attach(e.owner.app, e)
 	}
@@ -31,7 +31,7 @@ func (e *focusElement) mounted() {
 }
 
 func (e *focusElement) unmounted() {
-	w := e.widget.(FocusWidget)
+	w := e.widget.(focusWidget)
 	if w.Node != nil {
 		w.Node.detach(e)
 	}
@@ -39,8 +39,8 @@ func (e *focusElement) unmounted() {
 }
 
 func (e *focusElement) update(old Widget) {
-	oldNode := old.(FocusWidget).Node
-	nextNode := e.widget.(FocusWidget).Node
+	oldNode := old.(focusWidget).Node
+	nextNode := e.widget.(focusWidget).Node
 	if oldNode == nextNode {
 		return
 	}
@@ -59,14 +59,14 @@ func (e *focusElement) update(old Widget) {
 }
 
 func (e *focusElement) Rebuild() {
-	w := e.widget.(FocusWidget)
+	w := e.widget.(focusWidget)
 	if w.Node != nil {
 		w.Node.attach(e.owner.app, e)
 	}
 	e.child = e.UpdateChild(e.child, w.ChildWidget, nil)
 }
 
-func (e *focusElement) VisitChildren(fn func(Element)) {
+func (e *focusElement) VisitChildren(fn func(element)) {
 	if e.child != nil {
 		fn(e.child)
 	}
