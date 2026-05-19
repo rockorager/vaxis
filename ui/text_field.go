@@ -18,73 +18,57 @@ func (w TextField) CreateState() State {
 
 type textFieldState struct {
 	StateBase
-	node      FocusNode
-	buffer    TextBuffer
-	scroll    int
-	selecting bool
+	editor textEditorState
+	scroll int
 }
 
 func (s *textFieldState) Build(ctx BuildContext) Widget {
 	w := s.Widget().(TextField)
-	if s.buffer.Text() != w.Value {
-		s.buffer.SetText(w.Value)
-	}
-	s.node.onChange = s.MarkNeedsBuild
-	chars := vaxisCharacters(s.buffer.Text())
-	cursor := s.buffer.CursorOffset()
+	s.editor.SyncValue(w.Value)
+	s.editor.SetFocusChange(s.MarkNeedsBuild)
+	chars := vaxisCharacters(s.editor.Text())
+	cursor := s.editor.CursorOffset()
 	theme := MustDepend[Theme](ctx).TextField
 	padding := textFieldPadding(w, theme)
 	width := textFieldMinWidth(w, theme)
 	contentWidth := max(1, width-padding.Left-padding.Right)
-	displayValue := textFieldDisplayValue(s.buffer.Text(), w.ObscureText)
+	displayValue := textFieldDisplayValue(s.editor.Text(), w.ObscureText)
 	s.scroll = textFieldScroll(s.scroll, cursor, len(chars), contentWidth)
 	style := theme.Normal
-	if s.node.HasFocus() {
+	if s.editor.HasFocus() {
 		style = theme.Focused
 	}
 	content := s.content(w, displayValue, cursor, s.scroll, contentWidth, style, theme)
-	if col, ok := textFieldCursorCell(cursor, s.scroll, len(chars), contentWidth); ok && s.node.HasFocus() {
+	if col, ok := textFieldCursorCell(cursor, s.scroll, len(chars), contentWidth); ok && s.editor.HasFocus() {
 		content = Cursor{Col: col, Shape: CursorBlock, Child: content}
 	}
-	return Focus(&s.node, SizedBox{Width: width, Height: 1 + padding.Top + padding.Bottom, Child: DecoratedBox(
+	return s.editor.Focus(SizedBox{Width: width, Height: 1 + padding.Top + padding.Bottom, Child: DecoratedBox(
 		Decoration{Style: style},
 		Padding(padding, content),
 	)})
 }
 
 func (s *textFieldState) content(w TextField, displayValue string, cursor, scroll, width int, style Style, theme TextFieldTheme) Widget {
-	if s.buffer.Text() == "" && !s.node.HasFocus() && w.Placeholder != "" {
+	if s.editor.Text() == "" && !s.editor.HasFocus() && w.Placeholder != "" {
 		return Text{Value: w.Placeholder, Style: mergeStyle(style, theme.Placeholder), Overflow: TextOverflowClip}
 	}
 	chars := vaxisCharacters(displayValue)
 	selection := TextSelection{}
 	if !w.ObscureText {
-		selection = s.buffer.Selection()
+		selection = s.editor.Selection()
 	}
 	return RichText{Spans: textFieldSpans(chars, selection, cursor, scroll, width, style, mergeStyle(style, theme.Selection)), Overflow: TextOverflowClip}
 }
 
 func (s *textFieldState) HandleEvent(ctx EventContext, ev Event) EventResult {
-	return textEditorEventHandler{
-		buffer:           &s.buffer,
-		selecting:        &s.selecting,
+	w := s.Widget().(TextField)
+	return s.editor.HandleEvent(ctx, ev, textEditorHandleOptions{
 		insertMode:       textEditorSingleLine,
-		requestFocus:     s.node.RequestFocus,
 		markNeedsBuild:   s.MarkNeedsBuild,
-		change:           s.change,
+		onChanged:        w.OnChanged,
 		submit:           s.submit,
 		positionForMouse: s.positionForMouse,
-	}.HandleEvent(ctx, ev)
-}
-
-func (s *textFieldState) change(ctx EventContext) {
-	w := s.Widget().(TextField)
-	value := s.buffer.Text()
-	if w.OnChanged != nil {
-		w.OnChanged(ctx, value)
-		return
-	}
-	s.SetState(func() {})
+	})
 }
 
 func (s *textFieldState) submit(ctx EventContext, value string) {
@@ -102,8 +86,8 @@ func (s *textFieldState) positionForMouse(mouse Mouse) (TextPosition, bool) {
 	if s.scroll > 0 {
 		col--
 	}
-	offset := clampInt(s.scroll+col, 0, s.buffer.Len())
-	return s.buffer.positionForOffset(offset), true
+	offset := clampInt(s.scroll+col, 0, s.editor.Len())
+	return s.editor.PositionForOffset(offset), true
 }
 
 func (s *textFieldState) MouseShape(EventContext, Mouse) MouseShape {

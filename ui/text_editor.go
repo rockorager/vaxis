@@ -7,6 +7,117 @@ const (
 	textEditorMultiline
 )
 
+type textEditorState struct {
+	node      FocusNode
+	buffer    TextBuffer
+	selecting bool
+}
+
+type textEditorHandleOptions struct {
+	insertMode       textEditorInsertMode
+	markNeedsBuild   func()
+	onChanged        TextChangedCallback
+	submit           func(EventContext, string)
+	positionForMouse func(Mouse) (TextPosition, bool)
+	moveUp           func() bool
+	moveDown         func() bool
+	extendUp         func() bool
+	extendDown       func() bool
+}
+
+func (s *textEditorState) SyncValue(value string) {
+	if s.buffer.Text() != value {
+		s.buffer.SetText(value)
+	}
+}
+
+func (s *textEditorState) SetFocusChange(fn func()) {
+	s.node.onChange = fn
+}
+
+func (s *textEditorState) Focus(child Widget) Widget {
+	return Focus(&s.node, child)
+}
+
+func (s *textEditorState) Text() string {
+	return s.buffer.Text()
+}
+
+func (s *textEditorState) Len() int {
+	return s.buffer.Len()
+}
+
+func (s *textEditorState) CursorOffset() int {
+	return s.buffer.CursorOffset()
+}
+
+func (s *textEditorState) Selection() TextSelection {
+	return s.buffer.Selection()
+}
+
+func (s *textEditorState) HasFocus() bool {
+	return s.node.HasFocus()
+}
+
+func (s *textEditorState) PositionForOffset(offset int) TextPosition {
+	return s.buffer.positionForOffset(offset)
+}
+
+func (s *textEditorState) MoveVisualUp(layout TextLayout) bool {
+	if len(layout.Lines) > 0 {
+		return s.buffer.MoveVisualUp(layout)
+	}
+	return s.buffer.MoveLineUp()
+}
+
+func (s *textEditorState) MoveVisualDown(layout TextLayout) bool {
+	if len(layout.Lines) > 0 {
+		return s.buffer.MoveVisualDown(layout)
+	}
+	return s.buffer.MoveLineDown()
+}
+
+func (s *textEditorState) ExtendVisualUp(layout TextLayout) bool {
+	if len(layout.Lines) > 0 {
+		return s.buffer.ExtendVisualUp(layout)
+	}
+	return s.buffer.ExtendLineUp()
+}
+
+func (s *textEditorState) ExtendVisualDown(layout TextLayout) bool {
+	if len(layout.Lines) > 0 {
+		return s.buffer.ExtendVisualDown(layout)
+	}
+	return s.buffer.ExtendLineDown()
+}
+
+func (s *textEditorState) HandleEvent(ctx EventContext, ev Event, opts textEditorHandleOptions) EventResult {
+	return textEditorEventHandler{
+		buffer:           &s.buffer,
+		selecting:        &s.selecting,
+		insertMode:       opts.insertMode,
+		requestFocus:     s.node.RequestFocus,
+		markNeedsBuild:   opts.markNeedsBuild,
+		change:           s.change(opts.onChanged, opts.markNeedsBuild),
+		submit:           opts.submit,
+		positionForMouse: opts.positionForMouse,
+		moveUp:           opts.moveUp,
+		moveDown:         opts.moveDown,
+		extendUp:         opts.extendUp,
+		extendDown:       opts.extendDown,
+	}.HandleEvent(ctx, ev)
+}
+
+func (s *textEditorState) change(onChanged TextChangedCallback, markNeedsBuild func()) func(EventContext) {
+	return func(ctx EventContext) {
+		if onChanged != nil {
+			onChanged(ctx, s.buffer.Text())
+			return
+		}
+		markNeedsBuild()
+	}
+}
+
 type textEditorEventHandler struct {
 	buffer           *TextBuffer
 	selecting        *bool

@@ -16,35 +16,31 @@ func (w TextArea) CreateState() State {
 
 type textAreaState struct {
 	StateBase
-	node      FocusNode
-	buffer    TextBuffer
+	editor    textEditorState
 	layout    TextLayout
 	scrollRow int
 	scrollCol int
-	selecting bool
 }
 
 func (s *textAreaState) Build(ctx BuildContext) Widget {
 	w := s.Widget().(TextArea)
-	if s.buffer.Text() != w.Value {
-		s.buffer.SetText(w.Value)
-	}
-	s.node.onChange = s.MarkNeedsBuild
+	s.editor.SyncValue(w.Value)
+	s.editor.SetFocusChange(s.MarkNeedsBuild)
 	theme := MustDepend[Theme](ctx).TextField
 	padding := textAreaPadding(w, theme)
 	style := theme.Normal
-	if s.node.HasFocus() {
+	if s.editor.HasFocus() {
 		style = theme.Focused
 	}
-	return Focus(&s.node, DecoratedBox(
+	return s.editor.Focus(DecoratedBox(
 		Decoration{Style: style},
 		Padding(padding, textAreaView{
 			State:            s,
-			Value:            s.buffer.Text(),
+			Value:            s.editor.Text(),
 			Placeholder:      w.Placeholder,
-			CursorOffset:     s.buffer.CursorOffset(),
-			Selection:        s.buffer.Selection(),
-			Focused:          s.node.HasFocus(),
+			CursorOffset:     s.editor.CursorOffset(),
+			Selection:        s.editor.Selection(),
+			Focused:          s.editor.HasFocus(),
 			Style:            style,
 			PlaceholderStyle: mergeStyle(style, theme.Placeholder),
 			SelectionStyle:   mergeStyle(style, theme.Selection),
@@ -56,19 +52,17 @@ func (s *textAreaState) Build(ctx BuildContext) Widget {
 }
 
 func (s *textAreaState) HandleEvent(ctx EventContext, ev Event) EventResult {
-	return textEditorEventHandler{
-		buffer:           &s.buffer,
-		selecting:        &s.selecting,
+	w := s.Widget().(TextArea)
+	return s.editor.HandleEvent(ctx, ev, textEditorHandleOptions{
 		insertMode:       textEditorMultiline,
-		requestFocus:     s.node.RequestFocus,
 		markNeedsBuild:   s.MarkNeedsBuild,
-		change:           s.change,
+		onChanged:        w.OnChanged,
 		positionForMouse: s.positionForMouse,
 		moveUp:           s.moveUp,
 		moveDown:         s.moveDown,
 		extendUp:         s.extendUp,
 		extendDown:       s.extendDown,
-	}.HandleEvent(ctx, ev)
+	})
 }
 
 func (s *textAreaState) MouseShape(EventContext, Mouse) MouseShape {
@@ -98,40 +92,19 @@ func (s *textAreaState) positionForMouse(mouse Mouse) (TextPosition, bool) {
 }
 
 func (s *textAreaState) moveUp() bool {
-	if len(s.layout.Lines) > 0 {
-		return s.buffer.MoveVisualUp(s.layout)
-	}
-	return s.buffer.MoveLineUp()
+	return s.editor.MoveVisualUp(s.layout)
 }
 
 func (s *textAreaState) moveDown() bool {
-	if len(s.layout.Lines) > 0 {
-		return s.buffer.MoveVisualDown(s.layout)
-	}
-	return s.buffer.MoveLineDown()
+	return s.editor.MoveVisualDown(s.layout)
 }
 
 func (s *textAreaState) extendUp() bool {
-	if len(s.layout.Lines) > 0 {
-		return s.buffer.ExtendVisualUp(s.layout)
-	}
-	return s.buffer.ExtendLineUp()
+	return s.editor.ExtendVisualUp(s.layout)
 }
 
 func (s *textAreaState) extendDown() bool {
-	if len(s.layout.Lines) > 0 {
-		return s.buffer.ExtendVisualDown(s.layout)
-	}
-	return s.buffer.ExtendLineDown()
-}
-
-func (s *textAreaState) change(ctx EventContext) {
-	w := s.Widget().(TextArea)
-	if w.OnChanged != nil {
-		w.OnChanged(ctx, s.buffer.Text())
-		return
-	}
-	s.SetState(func() {})
+	return s.editor.ExtendVisualDown(s.layout)
 }
 
 func textAreaPadding(w TextArea, theme TextFieldTheme) Insets {
