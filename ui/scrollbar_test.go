@@ -92,6 +92,24 @@ func TestScrollbarClickTrackPagesChild(t *testing.T) {
 	}
 }
 
+func TestScrollbarClickTrackAboveThumbPagesUp(t *testing.T) {
+	app := NewApp(Scrollbar{Child: ScrollView{Child: scrollViewLines(
+		"one", "two", "three", "four", "five", "six", "seven", "eight",
+	)}})
+	app.Pump(Size{Width: 10, Height: 4})
+	app.Send(Key{Keycode: KeyEnd})
+	app.Pump(Size{Width: 10, Height: 4})
+
+	app.Send(Mouse{Col: 9, Row: 0, Button: MouseLeftButton, EventType: EventPress})
+	app.Pump(Size{Width: 10, Height: 4})
+
+	p := NewPainter(Size{Width: 10, Height: 4})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Grapheme; got != "o" {
+		t.Fatalf("first visible row after track page up = %q, want one", got)
+	}
+}
+
 func TestScrollbarDragThumbScrollsWithFractionalMouse(t *testing.T) {
 	app := NewApp(Scrollbar{Child: ScrollView{Child: scrollViewLines(
 		"one", "two", "three", "four", "five", "six", "seven", "eight",

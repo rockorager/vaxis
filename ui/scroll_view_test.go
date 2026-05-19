@@ -95,6 +95,22 @@ func TestScrollViewPreservesOffsetAcrossUpdate(t *testing.T) {
 	}
 }
 
+func TestScrollViewClampsOffsetWhenChildShrinks(t *testing.T) {
+	app := NewApp(ScrollView{Child: scrollViewLines("one", "two", "three", "four", "five")})
+	app.Pump(Size{Width: 10, Height: 2})
+	app.Send(Key{Keycode: KeyEnd})
+	app.Pump(Size{Width: 10, Height: 2})
+
+	app.UpdateRoot(ScrollView{Child: scrollViewLines("one", "two", "three")})
+	app.Pump(Size{Width: 10, Height: 2})
+
+	p := NewPainter(Size{Width: 10, Height: 2})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Grapheme; got != "t" {
+		t.Fatalf("first visible row after shrink = %q, want two", got)
+	}
+}
+
 func TestScrollViewLaysOutChildWithUnboundedHeight(t *testing.T) {
 	r := &renderScrollView{}
 	r.SetChild(&renderText{Text: "one\ntwo\nthree"})
@@ -127,6 +143,45 @@ func TestScrollViewReportsScrollMetrics(t *testing.T) {
 	want := ScrollMetrics{ScrollOffset: 1, MaxScrollOffset: 1, ViewportHeight: 2, ViewportWidth: 5, ContentHeight: 3}
 	if got != want {
 		t.Fatalf("metrics = %#v, want %#v", got, want)
+	}
+}
+
+func TestRenderScrollViewScrollCommandsClampOffset(t *testing.T) {
+	app := NewApp(ScrollView{Child: scrollViewLines("one", "two", "three", "four", "five")})
+	app.Pump(Size{Width: 10, Height: 2})
+	r, ok := app.rootRO.(*renderScrollView)
+	if !ok {
+		t.Fatalf("root render object = %T, want *renderScrollView", app.rootRO)
+	}
+	r.SetChild(&renderText{Text: "one\ntwo\nthree\nfour\nfive"})
+	r.Layout(LayoutContext{}, Constraints{MaxWidth: 10, MaxHeight: 2})
+
+	if !r.ScrollByLines(99) {
+		t.Fatal("ScrollByLines should report a changed offset")
+	}
+	if got := r.State.scrollRow; got != 3 {
+		t.Fatalf("scroll row after large line scroll = %d, want 3", got)
+	}
+	if !r.ScrollByPages(-1) {
+		t.Fatal("ScrollByPages should report a changed offset")
+	}
+	if got := r.State.scrollRow; got != 1 {
+		t.Fatalf("scroll row after page up = %d, want 1", got)
+	}
+	if !r.ScrollToEnd() {
+		t.Fatal("ScrollToEnd should report a changed offset")
+	}
+	if got := r.State.scrollRow; got != 3 {
+		t.Fatalf("scroll row after end = %d, want 3", got)
+	}
+	if !r.ScrollToStart() {
+		t.Fatal("ScrollToStart should report a changed offset")
+	}
+	if got := r.State.scrollRow; got != 0 {
+		t.Fatalf("scroll row after start = %d, want 0", got)
+	}
+	if r.ScrollToStart() {
+		t.Fatal("ScrollToStart should report unchanged at start")
 	}
 }
 

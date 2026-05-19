@@ -1,6 +1,8 @@
 package ui
 
 // ScrollView clips a single child to a vertical viewport and scrolls it.
+// Mouse wheel events scroll by one line. Page Up and Page Down scroll by one
+// viewport. Home and End jump to the start and end.
 //
 // When used inside SelectionArea, selections that start outside the ScrollView
 // include hidden rows, while selections that start inside it initially use the
@@ -38,13 +40,13 @@ func (s *scrollViewState) HandleEvent(ctx EventContext, ev Event) EventResult {
 		}
 		switch ev.Keycode {
 		case KeyPgUp:
-			return s.scrollBy(-s.pageSize())
+			return s.scrollByPages(-1)
 		case KeyPgDown:
-			return s.scrollBy(s.pageSize())
+			return s.scrollByPages(1)
 		case KeyHome:
-			return s.scrollTo(0)
+			return s.scrollToStart()
 		case KeyEnd:
-			return s.scrollTo(s.maxScroll())
+			return s.scrollToEnd()
 		}
 	case Mouse:
 		if ev.EventType != EventPress {
@@ -61,30 +63,35 @@ func (s *scrollViewState) HandleEvent(ctx EventContext, ev Event) EventResult {
 }
 
 func (s *scrollViewState) scrollBy(delta int) EventResult {
-	return s.scrollTo(s.scrollRow + delta)
-}
-
-func (s *scrollViewState) scrollTo(row int) EventResult {
-	next := clampInt(row, 0, s.maxScroll())
-	if next == s.scrollRow {
+	if r := s.renderObject(); r != nil {
+		r.ScrollByLines(delta)
 		return EventHandled
 	}
-	s.SetState(func() { s.scrollRow = next })
-	return EventHandled
+	return EventIgnored
 }
 
-func (s *scrollViewState) pageSize() int {
+func (s *scrollViewState) scrollByPages(pages int) EventResult {
 	if r := s.renderObject(); r != nil {
-		return max(1, r.Size().Height)
+		r.ScrollByPages(pages)
+		return EventHandled
 	}
-	return 1
+	return EventIgnored
 }
 
-func (s *scrollViewState) maxScroll() int {
+func (s *scrollViewState) scrollToStart() EventResult {
 	if r := s.renderObject(); r != nil {
-		return r.maxScroll()
+		r.ScrollToStart()
+		return EventHandled
 	}
-	return 0
+	return EventIgnored
+}
+
+func (s *scrollViewState) scrollToEnd() EventResult {
+	if r := s.renderObject(); r != nil {
+		r.ScrollToEnd()
+		return EventHandled
+	}
+	return EventIgnored
 }
 
 func (s *scrollViewState) renderObject() *renderScrollView {
@@ -191,6 +198,10 @@ func (r *renderScrollView) ScrollByLines(lines int) bool {
 	return r.ScrollToOffset(r.scrollRow() + lines)
 }
 
+func (r *renderScrollView) ScrollByPages(pages int) bool {
+	return r.ScrollByLines(pages * r.pageSize())
+}
+
 func (r *renderScrollView) ScrollToOffset(row int) bool {
 	if r.State == nil {
 		return false
@@ -201,6 +212,18 @@ func (r *renderScrollView) ScrollToOffset(row int) bool {
 	}
 	r.State.SetState(func() { r.State.scrollRow = next })
 	return true
+}
+
+func (r *renderScrollView) ScrollToStart() bool {
+	return r.ScrollToOffset(0)
+}
+
+func (r *renderScrollView) ScrollToEnd() bool {
+	return r.ScrollToOffset(r.maxScroll())
+}
+
+func (r *renderScrollView) pageSize() int {
+	return max(1, r.Size().Height)
 }
 
 func (r *renderScrollView) maxScroll() int {

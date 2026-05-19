@@ -23,7 +23,10 @@ type scrollMetricsProvider interface {
 type scrollOffsetController interface {
 	scrollMetricsProvider
 	ScrollByLines(int) bool
+	ScrollByPages(int) bool
 	ScrollToOffset(int) bool
+	ScrollToStart() bool
+	ScrollToEnd() bool
 }
 
 // Scrollbar paints and handles a vertical scrollbar over a scrollable child.
@@ -76,9 +79,9 @@ func (s *scrollbarState) HandleEvent(ctx EventContext, ev Event) EventResult {
 		thumb := scrollbarThumb(metrics)
 		switch {
 		case row < thumb.Top:
-			return r.scrollByLines(-max(1, metrics.ViewportHeight))
+			return r.scrollByPages(-1)
 		case row >= thumb.Top+thumb.Height:
-			return r.scrollByLines(max(1, metrics.ViewportHeight))
+			return r.scrollByPages(1)
 		default:
 			s.dragging = true
 			s.grabRow = row - thumb.Top
@@ -231,12 +234,12 @@ func (r *renderScrollbar) scrollbarColumn(col int) bool {
 	return r.Size().Width > 0 && col == r.Size().Width-1
 }
 
-func (r *renderScrollbar) scrollByLines(lines int) EventResult {
+func (r *renderScrollbar) scrollByPages(pages int) EventResult {
 	controller, ok := r.controller()
 	if !ok {
 		return EventIgnored
 	}
-	controller.ScrollByLines(lines)
+	controller.ScrollByPages(pages)
 	return EventHandled
 }
 
