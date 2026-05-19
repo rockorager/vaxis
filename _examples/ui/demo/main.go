@@ -152,6 +152,8 @@ func (s *DemoState) textPage() ui.Widget {
 			{Text: ", and normal text while sharing the same selection area."},
 		}, SoftWrap: true},
 		ui.SizedBox{Height: 1},
+		ui.SizedBox{Width: 72, Height: 5, Child: ui.Scrollbar{Child: ui.ScrollView{Child: scrollDemoLines()}}},
+		ui.SizedBox{Height: 1},
 		ui.ConstrainedBox{Constraints: ui.Constraints{MaxWidth: 72}, Child: ui.Text{
 			Value:    "This paragraph is constrained to seventy-two cells so resizing the terminal makes the surrounding layout obvious while the paragraph itself wraps inside a predictable measure.",
 			SoftWrap: true,
@@ -309,4 +311,15 @@ func animationBar(value float64, width int) []ui.TextSpan {
 
 func formatFloat(value float64) string {
 	return strconv.FormatFloat(value, 'f', 2, 64)
+}
+
+func scrollDemoLines() ui.Widget {
+	children := make([]ui.Widget, 0, 24)
+	for i := 1; i <= 24; i++ {
+		children = append(children, ui.RichText{Spans: []ui.TextSpan{
+			{Text: "row " + strconv.Itoa(i), Style: ui.Style{Attribute: ui.AttrBold}},
+			{Text: "  scrollable content for the demo viewport"},
+		}})
+	}
+	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: children}
 }

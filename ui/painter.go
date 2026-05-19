@@ -94,7 +94,7 @@ func (p *Painter) Fill(r Rect, cell Cell) {
 
 // PushClip restricts subsequent drawing to r.
 func (p *Painter) PushClip(r Rect) {
-	p.clips = append(p.clips, r)
+	p.clips = append(p.clips, intersectRect(p.clips[len(p.clips)-1], r))
 }
 
 // PopClip restores the previous clip rectangle.
@@ -111,6 +111,14 @@ func (p *Painter) inClip(pt Point) bool {
 
 func (p *Painter) inBounds(pt Point) bool {
 	return pt.X >= 0 && pt.Y >= 0 && pt.X < p.size.Width && pt.Y < p.size.Height
+}
+
+func intersectRect(a, b Rect) Rect {
+	x0 := max(a.X, b.X)
+	y0 := max(a.Y, b.Y)
+	x1 := min(a.X+a.Width, b.X+b.Width)
+	y1 := min(a.Y+a.Height, b.Y+b.Height)
+	return Rect{X: x0, Y: y0, Width: max(0, x1-x0), Height: max(0, y1-y0)}
 }
 
 func mergeStyle(base, over Style) Style {

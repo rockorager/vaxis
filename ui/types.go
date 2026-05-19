@@ -58,6 +58,8 @@ const (
 	MouseLeftButton   = vaxis.MouseLeftButton
 	MouseMiddleButton = vaxis.MouseMiddleButton
 	MouseRightButton  = vaxis.MouseRightButton
+	MouseWheelUp      = vaxis.MouseWheelUp
+	MouseWheelDown    = vaxis.MouseWheelDown
 	// EventPress aliases vaxis.EventPress.
 	EventPress   = vaxis.EventPress
 	EventRelease = vaxis.EventRelease
@@ -69,6 +71,8 @@ const (
 	KeyUp        = vaxis.KeyUp
 	KeyRight     = vaxis.KeyRight
 	KeyDown      = vaxis.KeyDown
+	KeyPgDown    = vaxis.KeyPgDown
+	KeyPgUp      = vaxis.KeyPgUp
 	KeyHome      = vaxis.KeyHome
 	KeyEnd       = vaxis.KeyEnd
 )

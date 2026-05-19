@@ -17,7 +17,7 @@ func TestDemoExampleNavigationAndControls(t *testing.T) {
 
 	app.Key("n")
 	app.Pump(90, 20)
-	if !app.Contains("Text layout") || !app.Contains("center aligned text") {
+	if !app.Contains("Text layout") || !app.Contains("row 1") {
 		t.Fatalf("text page missing content: %q", app.Text())
 	}
 
@@ -33,7 +33,6 @@ func TestDemoExampleNavigationAndControls(t *testing.T) {
 	}
 	app.Key("p")
 	app.Pump(90, 20)
-
 	app.Tab()
 	app.Tab()
 	app.Tab()
@@ -112,6 +111,22 @@ func TestDemoExampleTextAreaAcceptsMultilineInput(t *testing.T) {
 	app.Pump(90, 20)
 	if !app.Contains("alpha") || !app.Contains("beta") {
 		t.Fatalf("expected textarea to show multiline input: %q", app.Text())
+	}
+}
+
+func TestDemoExampleTextPageScrolls(t *testing.T) {
+	app := uitest.New(Demo{})
+	app.Pump(90, 20)
+	app.Key("n")
+	app.Pump(90, 20)
+	if !app.Contains("row 1") || app.Contains("row 6") {
+		t.Fatalf("expected text page scroll view to start at top: %q", app.Text())
+	}
+
+	app.Send(vaxis.Mouse{Col: 4, Row: 10, Button: vaxis.MouseWheelDown, EventType: vaxis.EventPress})
+	app.Pump(90, 20)
+	if app.Contains("row 1") || !app.Contains("row 6") {
+		t.Fatalf("expected mouse wheel to scroll text page viewport: %q", app.Text())
 	}
 }
 
