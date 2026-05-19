@@ -27,6 +27,8 @@ type DemoState struct {
 	ticks int
 	name  string
 	notes string
+	chat  string
+	logs  []string
 	anim  *ui.AnimationController
 	stop  chan struct{}
 }
@@ -36,6 +38,11 @@ var demoPages = []string{"home", "text", "controls", "lists", "animation"}
 func (s *DemoState) InitState() {
 	rt := s.Context().Runtime()
 	s.anim = s.NewAnimation(ui.AnimationOptions{Duration: 1200 * time.Millisecond, Curve: ui.EaseInOut})
+	s.logs = []string{
+		"Ada: welcome to the echo log",
+		"Linus: submit a message below",
+		"Grace: the viewport follows while you are at the end",
+	}
 	s.stop = make(chan struct{})
 	go func() {
 		ticker := time.NewTicker(time.Second)
@@ -222,10 +229,10 @@ func (s *DemoState) listsPage() ui.Widget {
 	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStretch, ChildrenWidget: []ui.Widget{
 		ui.RichText{Spans: []ui.TextSpan{
 			{Text: "Lists", Style: ui.Style{Attribute: ui.AttrBold}},
-			{Text: "\nThis page uses CustomScrollView with mixed slivers. The section header pins while the list and footer scroll under one scrollbar."},
+			{Text: "  mixed slivers, lazy rows, and follow-output logs"},
 		}, SoftWrap: true},
 		ui.SizedBox{Height: 1},
-		ui.SizedBox{Width: 72, Height: 8, Child: ui.Scrollbar{Child: ui.CustomScrollView{Slivers: []ui.Widget{
+		ui.SizedBox{Width: 72, Height: 5, Child: ui.Scrollbar{Child: ui.CustomScrollView{Slivers: []ui.Widget{
 			ui.SliverToBox{Child: ui.Text{Value: "The intro sliver scrolls away before the pinned header takes over.", SoftWrap: true}},
 			ui.SliverPinnedHeader{Child: ui.Text{
 				Value: " #  target             status",
@@ -246,16 +253,35 @@ func (s *DemoState) listsPage() ui.Widget {
 		}}}},
 		ui.SizedBox{Height: 1},
 		ui.Text{Value: "Variable-height messages", Style: ui.Style{Attribute: ui.AttrBold}},
-		ui.SizedBox{Width: 72, Height: 7, Child: ui.Scrollbar{Child: ui.CustomScrollView{Slivers: []ui.Widget{
+		ui.SizedBox{Width: 72, Height: 3, Child: ui.Scrollbar{Child: ui.CustomScrollView{FollowOutput: true, Slivers: []ui.Widget{
 			ui.SliverListBuilder{
-				Count:               200,
+				Count:               len(s.logs),
 				EstimatedItemExtent: 2,
 				Overscan:            8,
 				Builder: func(ctx ui.BuildContext, i int) ui.Widget {
-					return chatDemoMessage(i)
+					return chatDemoMessage(i, s.logs[i])
 				},
 			},
 		}}}},
+		ui.SizedBox{Height: 1},
+		ui.TextField{
+			Value:       s.chat,
+			Placeholder: "echo a message",
+			MinWidth:    72,
+			OnChanged: func(ctx ui.EventContext, value string) {
+				s.SetState(func() { s.chat = value })
+			},
+			OnSubmitted: func(ctx ui.EventContext, value string) {
+				value = strings.TrimSpace(value)
+				if value == "" {
+					return
+				}
+				s.SetState(func() {
+					s.logs = append(s.logs, "You: "+value, "Echo: "+value)
+					s.chat = ""
+				})
+			},
+		},
 	}}
 }
 
@@ -392,23 +418,10 @@ func listDemoRow(i int) ui.Widget {
 	}}
 }
 
-func chatDemoMessage(i int) ui.Widget {
-	names := []string{"Ada", "Linus", "Grace", "Ken", "Margaret"}
-	body := "short update"
-	switch i % 5 {
-	case 1:
-		body = "wrapped message with enough text to occupy multiple terminal rows in the measured sliver list"
-	case 2:
-		body = "follow-up\nsecond line from the same sender"
-	case 3:
-		body = "status: investigating scroll extent estimates and measured row heights"
-	case 4:
-		body = "ok"
-	}
+func chatDemoMessage(i int, body string) ui.Widget {
 	return ui.RichText{Spans: []ui.TextSpan{
 		{Text: padLeft(strconv.Itoa(i+1), 3), Style: ui.Style{Attribute: ui.AttrDim}},
 		{Text: " "},
-		{Text: names[i%len(names)] + ": ", Style: ui.Style{Attribute: ui.AttrBold}},
 		{Text: body},
 	}, SoftWrap: true}
 }
