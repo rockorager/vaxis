@@ -31,7 +31,7 @@ type DemoState struct {
 	stop  chan struct{}
 }
 
-var demoPages = []string{"home", "text", "controls", "animation"}
+var demoPages = []string{"home", "text", "controls", "lists", "animation"}
 
 func (s *DemoState) InitState() {
 	rt := s.Context().Runtime()
@@ -90,7 +90,9 @@ func (s *DemoState) header() ui.Widget {
 			ui.SizedBox{Width: 1, Height: 1},
 			s.navButton(2, "Controls"),
 			ui.SizedBox{Width: 1, Height: 1},
-			s.navButton(3, "Animation"),
+			s.navButton(3, "Lists"),
+			ui.SizedBox{Width: 1, Height: 1},
+			s.navButton(4, "Animation"),
 		}},
 	}}
 }
@@ -119,6 +121,8 @@ func (s *DemoState) pageContent() ui.Widget {
 	case 2:
 		return s.controlsPage()
 	case 3:
+		return s.listsPage()
+	case 4:
 		return s.animationPage()
 	default:
 		return s.homePage()
@@ -214,6 +218,27 @@ func (s *DemoState) controlsPage() ui.Widget {
 	}}
 }
 
+func (s *DemoState) listsPage() ui.Widget {
+	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStretch, ChildrenWidget: []ui.Widget{
+		ui.RichText{Spans: []ui.TextSpan{
+			{Text: "Lists", Style: ui.Style{Attribute: ui.AttrBold}},
+			{Text: "\nThis page uses CustomScrollView with mixed slivers. The header, list, and footer share one scroll offset and one scrollbar."},
+		}, SoftWrap: true},
+		ui.SizedBox{Height: 1},
+		ui.SizedBox{Width: 72, Height: 12, Child: ui.Scrollbar{Child: ui.CustomScrollView{Slivers: []ui.Widget{
+			ui.SliverToBox{Child: ui.RichText{Spans: []ui.TextSpan{
+				{Text: "Mixed slivers", Style: ui.Style{Attribute: ui.AttrBold}},
+				{Text: "\nThis ordinary box is the first sliver. It scrolls with the list and footer in one viewport."},
+			}, SoftWrap: true}},
+			ui.SliverList{ChildrenWidget: listDemoRows()},
+			ui.SliverToBox{Child: ui.RichText{Spans: []ui.TextSpan{
+				{Text: "Footer sliver", Style: ui.Style{Attribute: ui.AttrBold}},
+				{Text: "\nTrack clicks page the same viewport as Page Up and Page Down. Drag the thumb for proportional scrolling."},
+			}, SoftWrap: true}},
+		}}}},
+	}}
+}
+
 func (s *DemoState) animationPage() ui.Widget {
 	value := s.anim.Value()
 	status := animationStatus(s.anim.Status())
@@ -254,7 +279,7 @@ func (s *DemoState) footer() ui.Widget {
 
 func (s *DemoState) setPage(page int) {
 	s.SetState(func() { s.page = page })
-	if page == 3 {
+	if page == 4 {
 		s.anim.Forward()
 	}
 }
@@ -322,4 +347,38 @@ func scrollDemoLines() ui.Widget {
 		}})
 	}
 	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, ChildrenWidget: children}
+}
+
+func listDemoRows() []ui.Widget {
+	rows := make([]ui.Widget, 0, 36)
+	for i := 1; i <= 36; i++ {
+		status := "ready"
+		style := ui.Style{Attribute: ui.AttrDim}
+		switch {
+		case i%9 == 0:
+			status = "blocked"
+			style = ui.Style{Foreground: ui.RGB(255, 160, 120)}
+		case i%5 == 0:
+			status = "running"
+			style = ui.Style{Foreground: ui.RGB(78, 201, 176)}
+		case i%4 == 0:
+			status = "queued"
+			style = ui.Style{Foreground: ui.RGB(120, 180, 255)}
+		}
+		rows = append(rows, ui.RichText{Spans: []ui.TextSpan{
+			{Text: padLeft(strconv.Itoa(i), 2), Style: ui.Style{Attribute: ui.AttrBold}},
+			{Text: "  "},
+			{Text: "deploy target " + padLeft(strconv.Itoa(100+i), 3)},
+			{Text: "  "},
+			{Text: status, Style: style},
+		}})
+	}
+	return rows
+}
+
+func padLeft(s string, width int) string {
+	if len(s) >= width {
+		return s
+	}
+	return strings.Repeat(" ", width-len(s)) + s
 }

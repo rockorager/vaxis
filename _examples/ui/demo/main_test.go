@@ -28,11 +28,19 @@ func TestDemoExampleNavigationAndControls(t *testing.T) {
 	}
 	app.Key("n")
 	app.Pump(90, 20)
+	if !app.Contains("Lists") || !app.Contains("deploy target 101") {
+		t.Fatalf("lists page missing content: %q", app.Text())
+	}
+	app.Key("n")
+	app.Pump(90, 20)
 	if !app.Contains("Animation") || !app.Contains("status: running") {
 		t.Fatalf("animation page missing content: %q", app.Text())
 	}
 	app.Key("p")
 	app.Pump(90, 20)
+	app.Key("p")
+	app.Pump(90, 20)
+	app.Tab()
 	app.Tab()
 	app.Tab()
 	app.Tab()
@@ -77,6 +85,7 @@ func TestDemoExampleLeavesArrowsForTextField(t *testing.T) {
 	app.Tab()
 	app.Tab()
 	app.Tab()
+	app.Tab()
 	app.Key("a")
 	app.Pump(90, 20)
 	app.Key("b")
@@ -100,6 +109,7 @@ func TestDemoExampleTextAreaAcceptsMultilineInput(t *testing.T) {
 	app.Key("n")
 	app.Pump(90, 20)
 
+	app.Tab()
 	app.Tab()
 	app.Tab()
 	app.Tab()

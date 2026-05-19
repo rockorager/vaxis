@@ -556,6 +556,29 @@ func TestSelectionAreaSelectAllIncludesHiddenScrollViewRows(t *testing.T) {
 	assertCopies(t, h.backend, "one\ntwo\nthree")
 }
 
+func TestSelectionAreaMouseSelectionAcrossCustomScrollViewIncludesHiddenRows(t *testing.T) {
+	h := newSelectionAreaHarness(t, ui.Size{Width: 10, Height: 4}, selectionAreaRoot(ui.Flex{
+		Axis:               ui.Vertical,
+		CrossAxisAlignment: ui.CrossAxisStart,
+		ChildrenWidget: []ui.Widget{
+			ui.Text{Value: "before"},
+			ui.SizedBox{Width: 10, Height: 2, Child: ui.CustomScrollView{Slivers: []ui.Widget{
+				ui.SliverList{ChildrenWidget: []ui.Widget{
+					ui.Text{Value: "one"},
+					ui.Text{Value: "two"},
+					ui.Text{Value: "three"},
+					ui.Text{Value: "four"},
+				}},
+			}}},
+			ui.Text{Value: "after"},
+		},
+	}))
+
+	h.drag(ui.Point{}, ui.Point{X: 5, Y: 3})
+	h.copy()
+	assertCopies(t, h.backend, "before\none\ntwo\nthree\nfour\nafter")
+}
+
 func scrollSelectionLines(n int) ui.Widget {
 	children := make([]ui.Widget, 0, n)
 	for i := 1; i <= n; i++ {
