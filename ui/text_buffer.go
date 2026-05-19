@@ -428,7 +428,7 @@ func (b TextBuffer) Layout(c Constraints, opts TextLayoutOptions) TextLayout {
 }
 
 func (b TextBuffer) CursorCell(layout TextLayout) (row, col int, ok bool) {
-	return layout.CellForPosition(b.Position())
+	return layout.CursorCell(b.Position(), TextCursorCellOptions{})
 }
 
 func (b *TextBuffer) MoveToCell(layout TextLayout, row, col int) bool {

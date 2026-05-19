@@ -20,6 +20,11 @@ type TextSelectionRange struct {
 	Width int
 }
 
+type TextCursorCellOptions struct {
+	SoftWrap bool
+	Width    int
+}
+
 type TextLine struct {
 	Runs   []TextSpan
 	Width  int
@@ -198,6 +203,17 @@ func (l TextLayout) CellForPosition(pos TextPosition) (row, col int, ok bool) {
 		}
 	}
 	return 0, 0, false
+}
+
+func (l TextLayout) CursorCell(pos TextPosition, opts TextCursorCellOptions) (row, col int, ok bool) {
+	row, col, ok = l.CellForPosition(pos)
+	if !ok {
+		return 0, 0, false
+	}
+	if opts.SoftWrap && opts.Width > 0 && col >= opts.Width {
+		return row + 1, 0, true
+	}
+	return row, col, true
 }
 
 func (l TextLayout) SelectionRanges(selection TextSelection) []TextSelectionRange {

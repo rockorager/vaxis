@@ -124,3 +124,31 @@ func TestLayoutTextEllipsisHidesClippedPositions(t *testing.T) {
 		t.Fatal("ellipsis cell should be synthetic")
 	}
 }
+
+func TestTextLayoutCursorCellUsesTextPosition(t *testing.T) {
+	layout := LayoutText([]TextSpan{{Text: "a界b"}}, Constraints{MaxWidth: 10, MaxHeight: 1}, TextLayoutOptions{})
+	row, col, ok := layout.CursorCell(TextPosition{Span: 0, ByteOffset: len("a界"), RuneOffset: 2, GraphemeOffset: 2}, TextCursorCellOptions{})
+	if !ok || row != 0 || col != 3 {
+		t.Fatalf("cursor cell = %d,%d ok=%v, want 0,3 true", row, col, ok)
+	}
+}
+
+func TestTextLayoutCursorCellSoftWrapsAtBoundary(t *testing.T) {
+	layout := LayoutText([]TextSpan{{Text: "abc"}}, Constraints{MaxWidth: 3, MaxHeight: 10}, TextLayoutOptions{SoftWrap: true})
+	row, col, ok := layout.CursorCell(TextPosition{Span: 0, ByteOffset: 3, RuneOffset: 3, GraphemeOffset: 3}, TextCursorCellOptions{SoftWrap: true, Width: 3})
+	if !ok || row != 1 || col != 0 {
+		t.Fatalf("soft-wrapped cursor cell = %d,%d ok=%v, want 1,0 true", row, col, ok)
+	}
+	row, col, ok = layout.CursorCell(TextPosition{Span: 0, ByteOffset: 3, RuneOffset: 3, GraphemeOffset: 3}, TextCursorCellOptions{SoftWrap: true, Width: 10})
+	if !ok || row != 0 || col != 3 {
+		t.Fatalf("wide cursor cell = %d,%d ok=%v, want 0,3 true", row, col, ok)
+	}
+}
+
+func TestTextLayoutCursorCellMapsNewlineToNextLine(t *testing.T) {
+	layout := LayoutText([]TextSpan{{Text: "abc\n"}}, Constraints{MaxWidth: 10, MaxHeight: 10}, TextLayoutOptions{})
+	row, col, ok := layout.CursorCell(TextPosition{Span: 0, ByteOffset: len("abc\n"), RuneOffset: 4, GraphemeOffset: 4}, TextCursorCellOptions{})
+	if !ok || row != 1 || col != 0 {
+		t.Fatalf("newline cursor cell = %d,%d ok=%v, want 1,0 true", row, col, ok)
+	}
+}

@@ -268,7 +268,7 @@ func (r *renderTextArea) Paint(p *Painter, off Offset) {
 		}
 	}
 	if r.Focused && r.Value != "" {
-		if row, col, ok := r.cursorCell(size.Width); ok {
+		if row, col, ok := r.layout.CursorCell(r.cursorPosition(), TextCursorCellOptions{SoftWrap: r.SoftWrap, Width: size.Width}); ok {
 			p.ShowCursor(off.X+col-r.scrollCol(), off.Y+row-r.scrollRow(), CursorBlock)
 		}
 	} else if r.Focused && r.Value == "" {
@@ -333,7 +333,7 @@ func (r *renderTextArea) keepCursorVisible(size Size) {
 	if r.State == nil || size.Width <= 0 || size.Height <= 0 {
 		return
 	}
-	row, col, ok := r.cursorCell(size.Width)
+	row, col, ok := r.layout.CursorCell(r.cursorPosition(), TextCursorCellOptions{SoftWrap: r.SoftWrap, Width: size.Width})
 	if !ok {
 		row, col = 0, 0
 	}
@@ -355,14 +355,10 @@ func (r *renderTextArea) keepCursorVisible(size Size) {
 	}
 }
 
-func (r *renderTextArea) cursorCell(width int) (row, col int, ok bool) {
+func (r *renderTextArea) cursorPosition() TextPosition {
 	buffer := NewTextBuffer(r.Value)
 	buffer.SetCursorOffset(r.CursorOffset)
-	row, col, ok = buffer.CursorCell(r.layout)
-	if ok && r.SoftWrap && width > 0 && col >= width {
-		return row + 1, 0, true
-	}
-	return row, col, ok
+	return buffer.Position()
 }
 
 func (r *renderTextArea) scrollRow() int {
