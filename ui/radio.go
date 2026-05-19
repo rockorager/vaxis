@@ -24,82 +24,28 @@ func (w Radio[T]) CreateState() State {
 }
 
 type radioState[T comparable] struct {
-	StateBase
-	node    FocusNode
-	hovered bool
+	selectControlState
 }
 
 func (s *radioState[T]) Build(ctx BuildContext) Widget {
 	w := s.Widget().(Radio[T])
-	s.node.onChange = s.MarkNeedsBuild
-	theme := MustDepend[Theme](ctx).Button
-	labelStyle := theme.Normal
-	boxStyle := theme.Normal
-	if s.node.HasFocus() {
-		boxStyle = theme.Focused
-	}
-	if s.hovered {
-		boxStyle = theme.Hovered
-	}
-	return Focus(&s.node, RichText{Spans: radioSpans(w, boxStyle, labelStyle, s.node.HasFocus())})
+	return Focus(&s.node, RichText{Spans: radioSpans(w, s.styles(ctx))})
 }
 
-func radioSpans[T comparable](w Radio[T], boxStyle, labelStyle Style, focused bool) []TextSpan {
+func radioSpans[T comparable](w Radio[T], styles selectControlStyles) []TextSpan {
 	mark := " "
 	if w.Value == w.GroupValue {
 		mark = "•"
 	}
-	markStyle := boxStyle
-	if focused {
-		markStyle.UnderlineStyle = UnderlineSingle
-	}
-	spans := []TextSpan{
-		{Text: "(", Style: boxStyle},
-		{Text: mark, Style: markStyle},
-		{Text: ")", Style: boxStyle},
-	}
-	if w.Label == "" {
-		return spans
-	}
-	return append(spans, TextSpan{Text: " " + w.Label, Style: labelStyle})
+	return selectControlSpans("(", mark, ")", w.Label, styles)
 }
 
 func (s *radioState[T]) MouseShape(ctx EventContext, mouse Mouse) MouseShape {
-	shape := MustDepend[Theme](s.Context()).Button.Mouse
-	if shape == "" {
-		return MouseShapeClickable
-	}
-	return shape
+	return s.mouseShape()
 }
 
 func (s *radioState[T]) HandleEvent(ctx EventContext, ev Event) EventResult {
-	if ctx.Phase() != TargetPhase && ctx.Phase() != BubblePhase {
-		return EventIgnored
-	}
-	switch ev := ev.(type) {
-	case Key:
-		if keyIsRelease(ev) {
-			return EventIgnored
-		}
-		if !ev.MatchString("Enter") && !ev.MatchString("Space") {
-			return EventIgnored
-		}
-	case hoverExit:
-		if s.hovered {
-			s.SetState(func() { s.hovered = false })
-		}
-		return EventIgnored
-	case Mouse:
-		if ev.EventType == EventMotion {
-			if !s.hovered {
-				s.SetState(func() { s.hovered = true })
-			}
-			return EventIgnored
-		}
-		if ev.EventType != EventPress || ev.Button != MouseLeftButton {
-			return EventIgnored
-		}
-	default:
+	if s.handleEvent(ctx, ev) == EventIgnored {
 		return EventIgnored
 	}
 	w := s.Widget().(Radio[T])
