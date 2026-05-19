@@ -188,10 +188,14 @@ func (r *renderScrollView) SelectionSize() Size {
 }
 
 func (r *renderScrollView) ScrollByLines(lines int) bool {
+	return r.ScrollToOffset(r.scrollRow() + lines)
+}
+
+func (r *renderScrollView) ScrollToOffset(row int) bool {
 	if r.State == nil {
 		return false
 	}
-	next := clampInt(r.scrollRow()+lines, 0, r.maxScroll())
+	next := clampInt(row, 0, r.maxScroll())
 	if next == r.scrollRow() {
 		return false
 	}

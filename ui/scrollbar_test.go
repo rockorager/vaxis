@@ -1,8 +1,29 @@
 package ui
 
-import "testing"
+import (
+	"math"
+	"testing"
+)
 
 func TestScrollbarPaintsVerticalThumbForOverflow(t *testing.T) {
+	thumbStyle := Style{Background: RGB(200, 200, 200)}
+	trackStyle := Style{Background: RGB(30, 30, 30)}
+	app := NewApp(Scrollbar{Child: ScrollView{Child: scrollViewLines(
+		"one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+	)}, ThumbStyle: thumbStyle, TrackStyle: trackStyle})
+	app.Pump(Size{Width: 10, Height: 4})
+
+	p := NewPainter(Size{Width: 10, Height: 4})
+	app.Paint(p)
+	if got := p.Cell(9, 0); got.Grapheme != " " || got.Background != thumbStyle.Background {
+		t.Fatalf("top thumb cell = %#v, want filled thumb", got)
+	}
+	if got := p.Cell(9, 1); got.Grapheme != "▃" || got.Foreground != trackStyle.Background || got.Background != thumbStyle.Background {
+		t.Fatalf("partial thumb cell = %#v, want upper thumb and lower track", got)
+	}
+}
+
+func TestScrollbarDefaultStylesDistinguishThumbAndTrack(t *testing.T) {
 	app := NewApp(Scrollbar{Child: ScrollView{Child: scrollViewLines(
 		"one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
 	)}})
@@ -10,11 +31,10 @@ func TestScrollbarPaintsVerticalThumbForOverflow(t *testing.T) {
 
 	p := NewPainter(Size{Width: 10, Height: 4})
 	app.Paint(p)
-	if got := p.Cell(9, 0).Grapheme; got != "█" {
-		t.Fatalf("top thumb cell = %q, want block", got)
-	}
-	if got := p.Cell(9, 1).Grapheme; got != "│" {
-		t.Fatalf("track cell = %q, want track", got)
+	thumb := p.Cell(9, 0)
+	track := p.Cell(9, 3)
+	if thumb.Background == 0 || track.Background == 0 || thumb.Background == track.Background {
+		t.Fatalf("default thumb/track backgrounds = %#v/%#v, want distinct non-zero colors", thumb.Background, track.Background)
 	}
 }
 
@@ -28,8 +48,8 @@ func TestScrollbarMovesThumbWithScrollOffset(t *testing.T) {
 
 	p := NewPainter(Size{Width: 10, Height: 4})
 	app.Paint(p)
-	if got := p.Cell(9, 3).Grapheme; got != "█" {
-		t.Fatalf("bottom thumb cell = %q, want block", got)
+	if got := p.Cell(9, 3).Grapheme; got != " " {
+		t.Fatalf("bottom thumb cell = %q, want filled space", got)
 	}
 }
 
@@ -45,13 +65,84 @@ func TestScrollbarHidesWhenChildDoesNotOverflow(t *testing.T) {
 }
 
 func TestScrollbarThumbUsesViewportRatio(t *testing.T) {
-	top, height := scrollbarThumb(ScrollMetrics{
+	thumb := scrollbarThumb(ScrollMetrics{
 		ScrollOffset:    2,
 		MaxScrollOffset: 6,
 		ViewportHeight:  4,
 		ContentHeight:   10,
 	})
-	if top != 1 || height != 1 {
-		t.Fatalf("thumb = top %d height %d, want top 1 height 1", top, height)
+	if math.Abs(thumb.Top-0.8) > 0.001 || math.Abs(thumb.Height-1.6) > 0.001 {
+		t.Fatalf("thumb = top %.2f height %.2f, want top 0.80 height 1.60", thumb.Top, thumb.Height)
+	}
+}
+
+func TestScrollbarClickTrackPagesChild(t *testing.T) {
+	app := NewApp(Scrollbar{Child: ScrollView{Child: scrollViewLines(
+		"one", "two", "three", "four", "five", "six", "seven", "eight",
+	)}})
+	app.Pump(Size{Width: 10, Height: 4})
+
+	app.Send(Mouse{Col: 9, Row: 3, Button: MouseLeftButton, EventType: EventPress})
+	app.Pump(Size{Width: 10, Height: 4})
+
+	p := NewPainter(Size{Width: 10, Height: 4})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Grapheme; got != "f" {
+		t.Fatalf("first visible row after track click = %q, want five", got)
+	}
+}
+
+func TestScrollbarDragThumbScrollsWithFractionalMouse(t *testing.T) {
+	app := NewApp(Scrollbar{Child: ScrollView{Child: scrollViewLines(
+		"one", "two", "three", "four", "five", "six", "seven", "eight",
+	)}})
+	app.Pump(Size{Width: 10, Height: 4})
+	app.Send(Resize{Cols: 10, Rows: 4, XPixel: 100, YPixel: 400})
+
+	app.Send(Mouse{Col: 9, Row: 0, XPixel: 95, YPixel: 50, Button: MouseLeftButton, EventType: EventPress})
+	app.Send(Mouse{Col: 9, Row: 2, XPixel: 95, YPixel: 250, Button: MouseLeftButton, EventType: EventMotion})
+	app.Send(Mouse{Col: 9, Row: 2, XPixel: 95, YPixel: 250, Button: MouseLeftButton, EventType: EventRelease})
+	app.Pump(Size{Width: 10, Height: 4})
+
+	p := NewPainter(Size{Width: 10, Height: 4})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Grapheme; got != "f" {
+		t.Fatalf("first visible row after thumb drag = %q, want five", got)
+	}
+}
+
+func TestScrollbarCapturedDragUsesVerticalPositionOutsideColumn(t *testing.T) {
+	app := NewApp(Scrollbar{Child: ScrollView{Child: scrollViewLines(
+		"one", "two", "three", "four", "five", "six", "seven", "eight",
+	)}})
+	app.Pump(Size{Width: 10, Height: 4})
+
+	app.Send(Mouse{Col: 9, Row: 0, Button: MouseLeftButton, EventType: EventPress})
+	app.Send(Mouse{Col: 0, Row: 2, Button: MouseLeftButton, EventType: EventMotion})
+	app.Send(Mouse{Col: 0, Row: 2, Button: MouseLeftButton, EventType: EventRelease})
+	app.Pump(Size{Width: 10, Height: 4})
+
+	p := NewPainter(Size{Width: 10, Height: 4})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Grapheme; got != "f" {
+		t.Fatalf("first visible row after off-column thumb drag = %q, want five", got)
+	}
+}
+
+func TestScrollbarCapturedReleaseOutsideStopsDrag(t *testing.T) {
+	app := NewApp(Scrollbar{Child: ScrollView{Child: scrollViewLines(
+		"one", "two", "three", "four", "five", "six", "seven", "eight",
+	)}})
+	app.Pump(Size{Width: 10, Height: 4})
+
+	app.Send(Mouse{Col: 9, Row: 0, Button: MouseLeftButton, EventType: EventPress})
+	app.Send(Mouse{Col: 9, Row: 2, Button: MouseLeftButton, EventType: EventRelease})
+	app.Send(Mouse{Col: 9, Row: 3, Button: MouseLeftButton, EventType: EventMotion})
+	app.Pump(Size{Width: 10, Height: 4})
+
+	p := NewPainter(Size{Width: 10, Height: 4})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Grapheme; got != "o" {
+		t.Fatalf("first visible row after released drag motion = %q, want one", got)
 	}
 }

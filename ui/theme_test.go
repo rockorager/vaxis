@@ -42,6 +42,12 @@ func TestThemeFromTerminalDerivesRGBTheme(t *testing.T) {
 	if got := theme.Button.Pressed.Background; got != RGB(57, 67, 77) {
 		t.Fatalf("pressed button background = %#v, want blended pressed background", got)
 	}
+	if got := theme.Scrollbar.Track.Background; got != RGB(44, 54, 64) {
+		t.Fatalf("scrollbar track background = %#v, want blended track background", got)
+	}
+	if got := theme.Scrollbar.Thumb.Background; got != RGB(95, 105, 115) {
+		t.Fatalf("scrollbar thumb background = %#v, want blended thumb background", got)
+	}
 }
 
 func TestThemeFromTerminalFallsBackForMissingColors(t *testing.T) {

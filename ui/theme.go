@@ -10,6 +10,8 @@ type Theme struct {
 	Button ButtonTheme
 	// TextField contains defaults used by TextField and TextArea.
 	TextField TextFieldTheme
+	// Scrollbar contains defaults used by Scrollbar.
+	Scrollbar ScrollbarTheme
 }
 
 // ButtonTheme contains styling and sizing defaults for Button.
@@ -52,6 +54,14 @@ type TextFieldTheme struct {
 	MinWidth int
 }
 
+// ScrollbarTheme contains styling defaults for Scrollbar.
+type ScrollbarTheme struct {
+	// Thumb paints the draggable scrollbar thumb.
+	Thumb Style
+	// Track paints the scrollbar track.
+	Track Style
+}
+
 // DefaultTheme returns the built-in fallback theme.
 func DefaultTheme() Theme {
 	return Theme{
@@ -75,6 +85,10 @@ func DefaultTheme() Theme {
 			Selection:   Style{Background: RGB(48, 96, 160)},
 			Padding:     Symmetric(1, 0),
 			MinWidth:    10,
+		},
+		Scrollbar: ScrollbarTheme{
+			Thumb: Style{Background: RGB(128, 128, 128)},
+			Track: Style{Background: RGB(48, 48, 48)},
 		},
 	}
 }
@@ -113,6 +127,12 @@ func themeFromTerminal(ctx context.Context, q terminalColorQuerier) Theme {
 	}
 	if selection, ok := blendColor(bg, RGB(80, 150, 255), 45); ok {
 		theme.TextField.Selection.Background = selection
+	}
+	if track, ok := blendColor(bg, fg, 18); ok {
+		theme.Scrollbar.Track.Background = track
+	}
+	if thumb, ok := blendColor(bg, fg, 45); ok {
+		theme.Scrollbar.Thumb.Background = thumb
 	}
 	if fg != 0 {
 		theme.Button.Hovered.Foreground = fg
