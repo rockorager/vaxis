@@ -17,7 +17,7 @@ import (
 	"git.sr.ht/~rockorager/vaxis"
 	"git.sr.ht/~rockorager/vaxis/ansi"
 	"git.sr.ht/~rockorager/vaxis/log"
-	"github.com/creack/pty"
+	"git.sr.ht/~rockorager/vaxis/widgets/term/pty"
 	"github.com/rockorager/go-uucode"
 )
 
