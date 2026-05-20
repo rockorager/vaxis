@@ -23,10 +23,17 @@ type scrollViewState struct {
 }
 
 func (s *scrollViewState) Build(BuildContext) Widget {
+	s.node.onChange = s.markNeedsFocusPaint
 	return Focus(&s.node, scrollViewViewport{
 		State: s,
 		Child: s.Widget().(ScrollView).Child,
 	})
+}
+
+func (s *scrollViewState) markNeedsFocusPaint() {
+	if r := s.renderObject(); r != nil {
+		r.MarkNeedsPaint()
+	}
 }
 
 func (s *scrollViewState) HandleEvent(ctx EventContext, ev Event) EventResult {
@@ -35,18 +42,8 @@ func (s *scrollViewState) HandleEvent(ctx EventContext, ev Event) EventResult {
 	}
 	switch ev := ev.(type) {
 	case Key:
-		if keyIsRelease(ev) {
-			return EventIgnored
-		}
-		switch ev.Keycode {
-		case KeyPgUp:
-			return s.scrollByPages(-1)
-		case KeyPgDown:
-			return s.scrollByPages(1)
-		case KeyHome:
-			return s.scrollToStart()
-		case KeyEnd:
-			return s.scrollToEnd()
+		if r := s.renderObject(); r != nil {
+			return handleScrollKey(ev, r)
 		}
 	case Mouse:
 		if ev.EventType != EventPress {
@@ -65,30 +62,6 @@ func (s *scrollViewState) HandleEvent(ctx EventContext, ev Event) EventResult {
 func (s *scrollViewState) scrollBy(delta int) EventResult {
 	if r := s.renderObject(); r != nil {
 		r.ScrollByLines(delta)
-		return EventHandled
-	}
-	return EventIgnored
-}
-
-func (s *scrollViewState) scrollByPages(pages int) EventResult {
-	if r := s.renderObject(); r != nil {
-		r.ScrollByPages(pages)
-		return EventHandled
-	}
-	return EventIgnored
-}
-
-func (s *scrollViewState) scrollToStart() EventResult {
-	if r := s.renderObject(); r != nil {
-		r.ScrollToStart()
-		return EventHandled
-	}
-	return EventIgnored
-}
-
-func (s *scrollViewState) scrollToEnd() EventResult {
-	if r := s.renderObject(); r != nil {
-		r.ScrollToEnd()
 		return EventHandled
 	}
 	return EventIgnored

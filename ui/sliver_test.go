@@ -3,6 +3,8 @@ package ui
 import (
 	"strconv"
 	"testing"
+
+	"git.sr.ht/~rockorager/vaxis"
 )
 
 func TestCustomScrollViewComposesSlivers(t *testing.T) {
@@ -53,12 +55,44 @@ func TestCustomScrollViewWheelAndKeyboardScroll(t *testing.T) {
 		t.Fatalf("first visible row after wheel = %q, want one", got)
 	}
 
-	app.Send(Key{Keycode: KeyPgDown})
+	app.Send(Key{Keycode: KeyDown})
 	app.Pump(Size{Width: 10, Height: 2})
 	p = NewPainter(Size{Width: 10, Height: 2})
 	app.Paint(p)
 	if got := p.Cell(0, 0).Grapheme; got != "t" {
-		t.Fatalf("first visible row after page down = %q, want three", got)
+		t.Fatalf("first visible row after down = %q, want two", got)
+	}
+
+	app.Send(Key{Text: "k", Keycode: 'k'})
+	app.Pump(Size{Width: 10, Height: 2})
+	p = NewPainter(Size{Width: 10, Height: 2})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Grapheme; got != "o" {
+		t.Fatalf("first visible row after k = %q, want one", got)
+	}
+
+	app.Send(Key{Text: "j", Keycode: 'j'})
+	app.Pump(Size{Width: 10, Height: 2})
+	p = NewPainter(Size{Width: 10, Height: 2})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Grapheme; got != "t" {
+		t.Fatalf("first visible row after j = %q, want two", got)
+	}
+
+	app.Send(Key{Keycode: vaxis.KeySpace})
+	app.Pump(Size{Width: 10, Height: 2})
+	p = NewPainter(Size{Width: 10, Height: 2})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Grapheme; got != "t" {
+		t.Fatalf("first visible row after space = %q, want three", got)
+	}
+
+	app.Send(Key{Keycode: vaxis.KeySpace, Modifiers: vaxis.ModShift})
+	app.Pump(Size{Width: 10, Height: 2})
+	p = NewPainter(Size{Width: 10, Height: 2})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Grapheme; got != "o" {
+		t.Fatalf("first visible row after shift+space = %q, want one", got)
 	}
 
 	app.Send(Key{Keycode: KeyEnd})

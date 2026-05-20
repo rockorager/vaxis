@@ -37,6 +37,10 @@ type Scrollbar struct {
 	ThumbStyle Style
 	// TrackStyle overrides Theme.Scrollbar.Track when non-zero.
 	TrackStyle Style
+	// FocusedThumbStyle overrides Theme.Scrollbar.FocusedThumb when non-zero.
+	FocusedThumbStyle Style
+	// FocusedTrackStyle overrides Theme.Scrollbar.FocusedTrack when non-zero.
+	FocusedTrackStyle Style
 }
 
 func (w Scrollbar) CreateState() State {
@@ -129,9 +133,11 @@ func (s *scrollbarState) stopDragging(ctx EventContext) {
 }
 
 type scrollbarView struct {
-	Child      Widget
-	ThumbStyle Style
-	TrackStyle Style
+	Child             Widget
+	ThumbStyle        Style
+	TrackStyle        Style
+	FocusedThumbStyle Style
+	FocusedTrackStyle Style
 }
 
 func (w scrollbarView) WidgetChild() Widget {
@@ -140,35 +146,61 @@ func (w scrollbarView) WidgetChild() Widget {
 
 func (w scrollbarView) CreateRenderObject(ctx BuildContext) RenderObject {
 	theme := MustDepend[Theme](ctx)
-	thumb, track := scrollbarStyles(theme, w.ThumbStyle, w.TrackStyle)
-	return &renderScrollbar{ThumbStyle: thumb, TrackStyle: track}
+	thumb, track, focusedThumb, focusedTrack := scrollbarStyles(theme, w.ThumbStyle, w.TrackStyle, w.FocusedThumbStyle, w.FocusedTrackStyle)
+	return &renderScrollbar{ThumbStyle: thumb, TrackStyle: track, FocusedThumbStyle: focusedThumb, FocusedTrackStyle: focusedTrack}
 }
 
 func (w scrollbarView) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
 	theme := MustDepend[Theme](ctx)
-	thumb, track := scrollbarStyles(theme, w.ThumbStyle, w.TrackStyle)
+	thumb, track, focusedThumb, focusedTrack := scrollbarStyles(theme, w.ThumbStyle, w.TrackStyle, w.FocusedThumbStyle, w.FocusedTrackStyle)
 	r := ro.(*renderScrollbar)
-	if r.ThumbStyle != thumb || r.TrackStyle != track {
+	if r.ThumbStyle != thumb || r.TrackStyle != track || r.FocusedThumbStyle != focusedThumb || r.FocusedTrackStyle != focusedTrack {
 		r.ThumbStyle = thumb
 		r.TrackStyle = track
+		r.FocusedThumbStyle = focusedThumb
+		r.FocusedTrackStyle = focusedTrack
 		r.MarkNeedsPaint()
 	}
 }
 
-func scrollbarStyles(theme Theme, thumb, track Style) (Style, Style) {
+func scrollbarStyles(theme Theme, thumb, track, focusedThumb, focusedTrack Style) (Style, Style, Style, Style) {
+	thumbOverride := thumb != (Style{})
+	trackOverride := track != (Style{})
 	if thumb == (Style{}) {
 		thumb = theme.Scrollbar.Thumb
 	}
 	if track == (Style{}) {
 		track = theme.Scrollbar.Track
 	}
-	return thumb, track
+	if focusedThumb == (Style{}) {
+		if thumbOverride {
+			focusedThumb = thumb
+		} else {
+			focusedThumb = theme.Scrollbar.FocusedThumb
+		}
+	}
+	if focusedTrack == (Style{}) {
+		if trackOverride {
+			focusedTrack = track
+		} else {
+			focusedTrack = theme.Scrollbar.FocusedTrack
+		}
+	}
+	if focusedThumb == (Style{}) {
+		focusedThumb = thumb
+	}
+	if focusedTrack == (Style{}) {
+		focusedTrack = track
+	}
+	return thumb, track, focusedThumb, focusedTrack
 }
 
 type renderScrollbar struct {
 	SingleChildRenderObject
-	ThumbStyle Style
-	TrackStyle Style
+	ThumbStyle        Style
+	TrackStyle        Style
+	FocusedThumbStyle Style
+	FocusedTrackStyle Style
 }
 
 func (r *renderScrollbar) Layout(ctx LayoutContext, c Constraints) {
@@ -195,10 +227,28 @@ func (r *renderScrollbar) Paint(p *Painter, off Offset) {
 		return
 	}
 	thumb := scrollbarThumb(metrics)
+	thumbStyle, trackStyle := r.ThumbStyle, r.TrackStyle
+	if r.childHasFocus() {
+		thumbStyle, trackStyle = r.FocusedThumbStyle, r.FocusedTrackStyle
+	}
 	x := off.X + r.Size().Width - 1
 	for y := 0; y < metrics.ViewportHeight; y++ {
-		p.DrawCell(Point{X: x, Y: off.Y + y}, scrollbarCell(float64(y), thumb, r.ThumbStyle, r.TrackStyle))
+		p.DrawCell(Point{X: x, Y: off.Y + y}, scrollbarCell(float64(y), thumb, thumbStyle, trackStyle))
 	}
+}
+
+func (r *renderScrollbar) childHasFocus() bool {
+	if r.owner == nil || r.owner.focused.element == nil || r.Child() == nil {
+		return false
+	}
+	focused := findRenderObject(r.owner.focused.element)
+	for focused != nil {
+		if focused == r.Child() {
+			return true
+		}
+		focused = focused.Base().parent
+	}
+	return false
 }
 
 func (r *renderScrollbar) HitTest(*HitTestResult, Point) bool {

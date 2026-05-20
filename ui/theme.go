@@ -60,6 +60,10 @@ type ScrollbarTheme struct {
 	Thumb Style
 	// Track paints the scrollbar track.
 	Track Style
+	// FocusedThumb paints the thumb when the wrapped scrollable has focus.
+	FocusedThumb Style
+	// FocusedTrack paints the track when the wrapped scrollable has focus.
+	FocusedTrack Style
 }
 
 // DefaultTheme returns the built-in fallback theme.
@@ -87,8 +91,10 @@ func DefaultTheme() Theme {
 			MinWidth:    10,
 		},
 		Scrollbar: ScrollbarTheme{
-			Thumb: Style{Background: RGB(128, 128, 128)},
-			Track: Style{Background: RGB(48, 48, 48)},
+			Thumb:        Style{Background: RGB(128, 128, 128)},
+			Track:        Style{Background: RGB(48, 48, 48)},
+			FocusedThumb: Style{Background: RGB(170, 170, 170)},
+			FocusedTrack: Style{Background: RGB(72, 72, 72)},
 		},
 	}
 }
@@ -130,9 +136,17 @@ func themeFromTerminal(ctx context.Context, q terminalColorQuerier) Theme {
 	}
 	if track, ok := blendColor(bg, fg, 18); ok {
 		theme.Scrollbar.Track.Background = track
+		theme.Scrollbar.FocusedTrack.Background = track
 	}
 	if thumb, ok := blendColor(bg, fg, 45); ok {
 		theme.Scrollbar.Thumb.Background = thumb
+		theme.Scrollbar.FocusedThumb.Background = thumb
+	}
+	if focusedTrack, ok := blendColor(bg, fg, 28); ok {
+		theme.Scrollbar.FocusedTrack.Background = focusedTrack
+	}
+	if focusedThumb, ok := blendColor(bg, fg, 62); ok {
+		theme.Scrollbar.FocusedThumb.Background = focusedThumb
 	}
 	if fg != 0 {
 		theme.Button.Hovered.Foreground = fg

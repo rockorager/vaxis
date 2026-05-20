@@ -38,6 +38,33 @@ func TestScrollbarDefaultStylesDistinguishThumbAndTrack(t *testing.T) {
 	}
 }
 
+func TestScrollbarUsesFocusedStylesWhenScrollViewFocused(t *testing.T) {
+	theme := DefaultTheme()
+	theme.Scrollbar.Track = Style{Background: RGB(10, 10, 10)}
+	theme.Scrollbar.FocusedTrack = Style{Background: RGB(20, 20, 20)}
+	app := NewApp(Column(
+		Button{Label: "before"},
+		SizedBox{Width: 10, Height: 4, Child: Scrollbar{Child: ScrollView{Child: scrollViewLines(
+			"one", "two", "three", "four", "five", "six", "seven", "eight",
+		)}}},
+	), WithTheme(theme))
+	app.Pump(Size{Width: 10, Height: 5})
+
+	p := NewPainter(Size{Width: 10, Height: 5})
+	app.Paint(p)
+	if got := p.Cell(9, 4).Background; got != theme.Scrollbar.Track.Background {
+		t.Fatalf("unfocused track background = %#v, want %#v", got, theme.Scrollbar.Track.Background)
+	}
+
+	app.focusNext()
+	app.Pump(Size{Width: 10, Height: 5})
+	p = NewPainter(Size{Width: 10, Height: 5})
+	app.Paint(p)
+	if got := p.Cell(9, 4).Background; got != theme.Scrollbar.FocusedTrack.Background {
+		t.Fatalf("focused track background = %#v, want %#v", got, theme.Scrollbar.FocusedTrack.Background)
+	}
+}
+
 func TestScrollbarMovesThumbWithScrollOffset(t *testing.T) {
 	app := NewApp(Scrollbar{Child: ScrollView{Child: scrollViewLines(
 		"one", "two", "three", "four", "five", "six", "seven", "eight",
