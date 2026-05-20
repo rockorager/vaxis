@@ -80,6 +80,67 @@ func TestScrollbarMovesThumbWithScrollOffset(t *testing.T) {
 	}
 }
 
+func TestScrollbarPaintsHorizontalThumbForOverflow(t *testing.T) {
+	thumbStyle := Style{Background: RGB(200, 200, 200)}
+	trackStyle := Style{Background: RGB(30, 30, 30)}
+	app := NewApp(SizedBox{Width: 4, Height: 2, Child: Scrollbar{
+		Axis:       ScrollHorizontal,
+		ThumbStyle: thumbStyle,
+		TrackStyle: trackStyle,
+		Child:      ScrollView{Axis: ScrollHorizontal, Child: Text{Value: "abcdefghij"}},
+	}})
+	app.Pump(Size{Width: 4, Height: 2})
+
+	p := NewPainter(Size{Width: 4, Height: 2})
+	app.Paint(p)
+	if got := p.Cell(0, 1); got.Grapheme != "▄" || got.Foreground != thumbStyle.Background {
+		t.Fatalf("left thumb cell = %#v, want lower-half thumb", got)
+	}
+	if got := p.Cell(3, 1); got.Grapheme != "▄" || got.Foreground != trackStyle.Background {
+		t.Fatalf("right track cell = %#v, want lower-half track", got)
+	}
+}
+
+func TestScrollbarHorizontalKeepsUpperBackground(t *testing.T) {
+	baseStyle := Style{Background: RGB(9, 9, 9)}
+	thumbStyle := Style{Background: RGB(200, 200, 200)}
+	app := NewApp(SizedBox{Width: 4, Height: 2, Child: Scrollbar{
+		Axis:       ScrollHorizontal,
+		ThumbStyle: thumbStyle,
+		Child: ScrollView{
+			Axis: ScrollHorizontal,
+			Child: ConstrainedBox{Constraints: Constraints{MinHeight: 2}, Child: DecoratedBox(
+				Decoration{Style: baseStyle},
+				Text{Value: "abcdefghij"},
+			)},
+		},
+	}})
+	app.Pump(Size{Width: 4, Height: 2})
+
+	p := NewPainter(Size{Width: 4, Height: 2})
+	app.Paint(p)
+	if got := p.Cell(0, 1); got.Grapheme != "▄" || got.Foreground != thumbStyle.Background || got.Background != baseStyle.Background {
+		t.Fatalf("horizontal scrollbar cell = %#v, want lower thumb over base background", got)
+	}
+}
+
+func TestScrollbarClickHorizontalTrackPagesChild(t *testing.T) {
+	app := NewApp(SizedBox{Width: 4, Height: 2, Child: Scrollbar{
+		Axis:  ScrollHorizontal,
+		Child: ScrollView{Axis: ScrollHorizontal, Child: Text{Value: "abcdefghij"}},
+	}})
+	app.Pump(Size{Width: 4, Height: 2})
+
+	app.Send(Mouse{Col: 3, Row: 1, Button: MouseLeftButton, EventType: EventPress})
+	app.Pump(Size{Width: 4, Height: 2})
+
+	p := NewPainter(Size{Width: 4, Height: 2})
+	app.Paint(p)
+	if got := debugRenderedText(p); got[:4] != "efgh" {
+		t.Fatalf("visible text after horizontal track click = %q, want efgh prefix", got)
+	}
+}
+
 func TestScrollbarHidesWhenChildDoesNotOverflow(t *testing.T) {
 	app := NewApp(Scrollbar{Child: ScrollView{Child: scrollViewLines("one", "two")}})
 	app.Pump(Size{Width: 10, Height: 4})
@@ -92,7 +153,7 @@ func TestScrollbarHidesWhenChildDoesNotOverflow(t *testing.T) {
 }
 
 func TestScrollbarThumbUsesViewportRatio(t *testing.T) {
-	thumb := scrollbarThumb(ScrollMetrics{
+	thumb := scrollbarThumb(ScrollVertical, ScrollMetrics{
 		ScrollOffset:    2,
 		MaxScrollOffset: 6,
 		ViewportHeight:  4,

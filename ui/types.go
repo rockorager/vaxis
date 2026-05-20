@@ -63,6 +63,8 @@ const (
 	MouseRightButton  = vaxis.MouseRightButton
 	MouseWheelUp      = vaxis.MouseWheelUp
 	MouseWheelDown    = vaxis.MouseWheelDown
+	MouseWheelLeft    = vaxis.MouseWheelLeft
+	MouseWheelRight   = vaxis.MouseWheelRight
 	// EventPress aliases vaxis.EventPress.
 	EventPress   = vaxis.EventPress
 	EventRelease = vaxis.EventRelease
@@ -177,6 +179,11 @@ type (
 // Add returns the sum of two offsets.
 func (o Offset) Add(other Offset) Offset {
 	return Offset{X: o.X + other.X, Y: o.Y + other.Y}
+}
+
+// Negate returns the opposite offset.
+func (o Offset) Negate() Offset {
+	return Offset{X: -o.X, Y: -o.Y}
 }
 
 // Unbounded marks an unconstrained maximum size.

@@ -2,9 +2,9 @@ package ui
 
 import "math"
 
-// ScrollMetrics describes the vertical scroll state of a render object.
+// ScrollMetrics describes the scroll state of a render object.
 type ScrollMetrics struct {
-	// ScrollOffset is the current top visible row.
+	// ScrollOffset is the current visible row or column on the active axis.
 	ScrollOffset int
 	// MaxScrollOffset is the largest valid scroll offset.
 	MaxScrollOffset int
@@ -14,6 +14,8 @@ type ScrollMetrics struct {
 	ViewportWidth int
 	// ContentHeight is the total scrollable row count.
 	ContentHeight int
+	// ContentWidth is the total scrollable column count.
+	ContentWidth int
 }
 
 type scrollMetricsProvider interface {
@@ -29,8 +31,11 @@ type scrollOffsetController interface {
 	ScrollToEnd() bool
 }
 
-// Scrollbar paints and handles a vertical scrollbar over a scrollable child.
+// Scrollbar paints and handles a scrollbar over a scrollable child.
 type Scrollbar struct {
+	// Axis controls which edge the scrollbar occupies. The zero value is
+	// vertical.
+	Axis ScrollAxis
 	// Child is expected to expose ScrollMetrics from its render object.
 	Child Widget
 	// ThumbStyle overrides Theme.Scrollbar.Thumb when non-zero.
@@ -50,7 +55,7 @@ func (w Scrollbar) CreateState() State {
 type scrollbarState struct {
 	StateBase
 	dragging bool
-	grabRow  float64
+	grabPos  float64
 }
 
 func (s *scrollbarState) Build(BuildContext) Widget {
@@ -72,23 +77,23 @@ func (s *scrollbarState) HandleEvent(ctx EventContext, ev Event) EventResult {
 	}
 	switch mouse.EventType {
 	case EventPress:
-		if mouse.Button != MouseLeftButton || !r.scrollbarColumn(mouse.Col) {
+		if mouse.Button != MouseLeftButton || !r.scrollbarHit(mouse) {
 			return EventIgnored
 		}
 		metrics, ok := r.metrics()
 		if !ok || metrics.MaxScrollOffset <= 0 {
 			return EventIgnored
 		}
-		row := s.fractionalRow(ctx, mouse)
-		thumb := scrollbarThumb(metrics)
+		pos := s.fractionalPosition(ctx, mouse, r.Axis)
+		thumb := scrollbarThumb(r.Axis, metrics)
 		switch {
-		case row < thumb.Top:
+		case pos < thumb.Top:
 			return r.scrollByPages(-1)
-		case row >= thumb.Top+thumb.Height:
+		case pos >= thumb.Top+thumb.Height:
 			return r.scrollByPages(1)
 		default:
 			s.dragging = true
-			s.grabRow = row - thumb.Top
+			s.grabPos = pos - thumb.Top
 			if ctx.app != nil {
 				ctx.app.captureMouse(s.element)
 			}
@@ -102,7 +107,7 @@ func (s *scrollbarState) HandleEvent(ctx EventContext, ev Event) EventResult {
 			s.stopDragging(ctx)
 			return EventHandled
 		}
-		return r.scrollThumbTo(s.fractionalRow(ctx, mouse) - s.grabRow)
+		return r.scrollThumbTo(s.fractionalPosition(ctx, mouse, r.Axis) - s.grabPos)
 	case EventRelease:
 		if s.dragging {
 			s.stopDragging(ctx)
@@ -120,8 +125,11 @@ func (s *scrollbarState) renderObject() *renderScrollbar {
 	return nil
 }
 
-func (s *scrollbarState) fractionalRow(ctx EventContext, mouse Mouse) float64 {
+func (s *scrollbarState) fractionalPosition(ctx EventContext, mouse Mouse, axis ScrollAxis) float64 {
 	fractional := ctx.FractionalMousePoint(mouse)
+	if axis == ScrollHorizontal {
+		return float64(mouse.Col) + fractional.Col - math.Floor(fractional.Col)
+	}
 	return float64(mouse.Row) + fractional.Row - math.Floor(fractional.Row)
 }
 
@@ -133,6 +141,7 @@ func (s *scrollbarState) stopDragging(ctx EventContext) {
 }
 
 type scrollbarView struct {
+	Axis              ScrollAxis
 	Child             Widget
 	ThumbStyle        Style
 	TrackStyle        Style
@@ -147,14 +156,15 @@ func (w scrollbarView) WidgetChild() Widget {
 func (w scrollbarView) CreateRenderObject(ctx BuildContext) RenderObject {
 	theme := MustDepend[Theme](ctx)
 	thumb, track, focusedThumb, focusedTrack := scrollbarStyles(theme, w.ThumbStyle, w.TrackStyle, w.FocusedThumbStyle, w.FocusedTrackStyle)
-	return &renderScrollbar{ThumbStyle: thumb, TrackStyle: track, FocusedThumbStyle: focusedThumb, FocusedTrackStyle: focusedTrack}
+	return &renderScrollbar{Axis: w.Axis, ThumbStyle: thumb, TrackStyle: track, FocusedThumbStyle: focusedThumb, FocusedTrackStyle: focusedTrack}
 }
 
 func (w scrollbarView) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
 	theme := MustDepend[Theme](ctx)
 	thumb, track, focusedThumb, focusedTrack := scrollbarStyles(theme, w.ThumbStyle, w.TrackStyle, w.FocusedThumbStyle, w.FocusedTrackStyle)
 	r := ro.(*renderScrollbar)
-	if r.ThumbStyle != thumb || r.TrackStyle != track || r.FocusedThumbStyle != focusedThumb || r.FocusedTrackStyle != focusedTrack {
+	if r.Axis != w.Axis || r.ThumbStyle != thumb || r.TrackStyle != track || r.FocusedThumbStyle != focusedThumb || r.FocusedTrackStyle != focusedTrack {
+		r.Axis = w.Axis
 		r.ThumbStyle = thumb
 		r.TrackStyle = track
 		r.FocusedThumbStyle = focusedThumb
@@ -197,6 +207,7 @@ func scrollbarStyles(theme Theme, thumb, track, focusedThumb, focusedTrack Style
 
 type renderScrollbar struct {
 	SingleChildRenderObject
+	Axis              ScrollAxis
 	ThumbStyle        Style
 	TrackStyle        Style
 	FocusedThumbStyle Style
@@ -226,14 +237,22 @@ func (r *renderScrollbar) Paint(p *Painter, off Offset) {
 	if !ok || metrics.MaxScrollOffset <= 0 || r.Size().Width <= 0 || r.Size().Height <= 0 {
 		return
 	}
-	thumb := scrollbarThumb(metrics)
+	thumb := scrollbarThumb(r.Axis, metrics)
 	thumbStyle, trackStyle := r.ThumbStyle, r.TrackStyle
 	if r.childHasFocus() {
 		thumbStyle, trackStyle = r.FocusedThumbStyle, r.FocusedTrackStyle
 	}
+	if r.Axis == ScrollHorizontal {
+		y := off.Y + r.Size().Height - 1
+		for x := 0; x < metrics.ViewportWidth; x++ {
+			pt := Point{X: off.X + x, Y: y}
+			p.DrawCell(pt, horizontalScrollbarCell(p.Cell(pt.X, pt.Y), float64(x), thumb, thumbStyle, trackStyle))
+		}
+		return
+	}
 	x := off.X + r.Size().Width - 1
 	for y := 0; y < metrics.ViewportHeight; y++ {
-		p.DrawCell(Point{X: x, Y: off.Y + y}, scrollbarCell(float64(y), thumb, thumbStyle, trackStyle))
+		p.DrawCell(Point{X: x, Y: off.Y + y}, scrollbarCell(r.Axis, float64(y), thumb, thumbStyle, trackStyle))
 	}
 }
 
@@ -268,6 +287,9 @@ func (r *renderScrollbar) metrics() (ScrollMetrics, bool) {
 	if metrics.ViewportHeight > r.Size().Height {
 		metrics.ViewportHeight = r.Size().Height
 	}
+	if metrics.ViewportWidth > r.Size().Width {
+		metrics.ViewportWidth = r.Size().Width
+	}
 	return metrics, true
 }
 
@@ -278,6 +300,13 @@ func (r *renderScrollbar) controller() (scrollOffsetController, bool) {
 	}
 	controller, ok := child.(scrollOffsetController)
 	return controller, ok
+}
+
+func (r *renderScrollbar) scrollbarHit(mouse Mouse) bool {
+	if r.Axis == ScrollHorizontal {
+		return r.Size().Height > 0 && mouse.Row == r.Size().Height-1
+	}
+	return r.scrollbarColumn(mouse.Col)
 }
 
 func (r *renderScrollbar) scrollbarColumn(col int) bool {
@@ -299,8 +328,8 @@ func (r *renderScrollbar) scrollThumbTo(top float64) EventResult {
 		return EventIgnored
 	}
 	metrics := controller.ScrollMetrics()
-	thumb := scrollbarThumb(metrics)
-	trackRange := float64(metrics.ViewportHeight) - thumb.Height
+	thumb := scrollbarThumb(r.Axis, metrics)
+	trackRange := float64(scrollbarViewportLength(r.Axis, metrics)) - thumb.Height
 	if metrics.MaxScrollOffset <= 0 || trackRange <= 0 {
 		return EventHandled
 	}
@@ -315,14 +344,16 @@ type scrollbarThumbGeometry struct {
 	Height float64
 }
 
-func scrollbarThumb(metrics ScrollMetrics) scrollbarThumbGeometry {
-	if metrics.ViewportHeight <= 0 || metrics.ContentHeight <= 0 {
+func scrollbarThumb(axis ScrollAxis, metrics ScrollMetrics) scrollbarThumbGeometry {
+	viewport := scrollbarViewportLength(axis, metrics)
+	content := scrollbarContentLength(axis, metrics)
+	if viewport <= 0 || content <= 0 {
 		return scrollbarThumbGeometry{}
 	}
-	viewport := float64(metrics.ViewportHeight)
-	thumbHeight := viewport * viewport / float64(metrics.ContentHeight)
-	thumbHeight = clampFloat(thumbHeight, 1, viewport)
-	trackRange := viewport - thumbHeight
+	viewportFloat := float64(viewport)
+	thumbHeight := viewportFloat * viewportFloat / float64(content)
+	thumbHeight = clampFloat(thumbHeight, 1, viewportFloat)
+	trackRange := viewportFloat - thumbHeight
 	if trackRange <= 0 || metrics.MaxScrollOffset <= 0 {
 		return scrollbarThumbGeometry{Height: thumbHeight}
 	}
@@ -331,9 +362,23 @@ func scrollbarThumb(metrics ScrollMetrics) scrollbarThumbGeometry {
 	return scrollbarThumbGeometry{Top: top, Height: thumbHeight}
 }
 
-func scrollbarCell(row float64, thumb scrollbarThumbGeometry, thumbStyle, trackStyle Style) Cell {
-	coverageStart := maxFloat(row, thumb.Top)
-	coverageEnd := minFloat(row+1, thumb.Top+thumb.Height)
+func scrollbarViewportLength(axis ScrollAxis, metrics ScrollMetrics) int {
+	if axis == ScrollHorizontal {
+		return metrics.ViewportWidth
+	}
+	return metrics.ViewportHeight
+}
+
+func scrollbarContentLength(axis ScrollAxis, metrics ScrollMetrics) int {
+	if axis == ScrollHorizontal {
+		return metrics.ContentWidth
+	}
+	return metrics.ContentHeight
+}
+
+func scrollbarCell(axis ScrollAxis, pos float64, thumb scrollbarThumbGeometry, thumbStyle, trackStyle Style) Cell {
+	coverageStart := maxFloat(pos, thumb.Top)
+	coverageEnd := minFloat(pos+1, thumb.Top+thumb.Height)
 	coverage := clampFloat(coverageEnd-coverageStart, 0, 1)
 	thumbColor := scrollbarColor(thumbStyle)
 	trackColor := scrollbarColor(trackStyle)
@@ -342,7 +387,17 @@ func scrollbarCell(row float64, thumb scrollbarThumbGeometry, thumbStyle, trackS
 		return scrollbarFillCell(trackStyle, trackColor)
 	case coverage >= 1:
 		return scrollbarFillCell(thumbStyle, thumbColor)
-	case coverageStart > row:
+	case axis == ScrollHorizontal && coverageStart > pos:
+		return Cell{
+			Character: Character{Grapheme: leftBlock(1 - coverage), Width: 1},
+			Style:     Style{Foreground: trackColor, Background: thumbColor, Attribute: thumbStyle.Attribute},
+		}
+	case axis == ScrollHorizontal:
+		return Cell{
+			Character: Character{Grapheme: leftBlock(coverage), Width: 1},
+			Style:     Style{Foreground: thumbColor, Background: trackColor, Attribute: thumbStyle.Attribute},
+		}
+	case coverageStart > pos:
 		return Cell{
 			Character: Character{Grapheme: lowerBlock(coverage), Width: 1},
 			Style:     Style{Foreground: thumbColor, Background: trackColor, Attribute: thumbStyle.Attribute},
@@ -352,6 +407,44 @@ func scrollbarCell(row float64, thumb scrollbarThumbGeometry, thumbStyle, trackS
 			Character: Character{Grapheme: lowerBlock(1 - coverage), Width: 1},
 			Style:     Style{Foreground: trackColor, Background: thumbColor, Attribute: thumbStyle.Attribute},
 		}
+	}
+}
+
+func horizontalScrollbarCell(base Cell, pos float64, thumb scrollbarThumbGeometry, thumbStyle, trackStyle Style) Cell {
+	coverageStart := maxFloat(pos, thumb.Top)
+	coverageEnd := minFloat(pos+1, thumb.Top+thumb.Height)
+	coverage := clampFloat(coverageEnd-coverageStart, 0, 1)
+	style := trackStyle
+	fill := scrollbarColor(trackStyle)
+	if coverage > 0 {
+		style = thumbStyle
+		fill = scrollbarColor(thumbStyle)
+	}
+	style.Foreground = fill
+	style.Background = base.Background
+	return Cell{Character: Character{Grapheme: "▄", Width: 1}, Style: style}
+}
+
+func leftBlock(fraction float64) string {
+	switch int(math.Round(clampFloat(fraction, 0, 1) * 8)) {
+	case 1:
+		return "▏"
+	case 2:
+		return "▎"
+	case 3:
+		return "▍"
+	case 4:
+		return "▌"
+	case 5:
+		return "▋"
+	case 6:
+		return "▊"
+	case 7:
+		return "▉"
+	case 8:
+		return "█"
+	default:
+		return " "
 	}
 }
 

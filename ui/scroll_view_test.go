@@ -116,6 +116,108 @@ func TestScrollViewKeyboardScrolls(t *testing.T) {
 	}
 }
 
+func TestScrollViewHorizontalScrolls(t *testing.T) {
+	app := NewApp(SizedBox{Width: 3, Height: 1, Child: ScrollView{
+		Axis:  ScrollHorizontal,
+		Child: Text{Value: "abcdef"},
+	}})
+	app.Pump(Size{Width: 3, Height: 1})
+
+	p := NewPainter(Size{Width: 3, Height: 1})
+	app.Paint(p)
+	if got := debugRenderedText(p); got != "abc" {
+		t.Fatalf("rendered text = %q, want abc", got)
+	}
+
+	app.Send(Key{Keycode: KeyRight})
+	app.Pump(Size{Width: 3, Height: 1})
+	p = NewPainter(Size{Width: 3, Height: 1})
+	app.Paint(p)
+	if got := debugRenderedText(p); got != "bcd" {
+		t.Fatalf("after right = %q, want bcd", got)
+	}
+
+	app.Send(Key{Text: "l", Keycode: 'l'})
+	app.Pump(Size{Width: 3, Height: 1})
+	p = NewPainter(Size{Width: 3, Height: 1})
+	app.Paint(p)
+	if got := debugRenderedText(p); got != "cde" {
+		t.Fatalf("after l = %q, want cde", got)
+	}
+
+	app.Send(Key{Text: "h", Keycode: 'h'})
+	app.Pump(Size{Width: 3, Height: 1})
+	p = NewPainter(Size{Width: 3, Height: 1})
+	app.Paint(p)
+	if got := debugRenderedText(p); got != "bcd" {
+		t.Fatalf("after h = %q, want bcd", got)
+	}
+
+	app.Send(Key{Keycode: vaxis.KeySpace})
+	app.Pump(Size{Width: 3, Height: 1})
+	p = NewPainter(Size{Width: 3, Height: 1})
+	app.Paint(p)
+	if got := debugRenderedText(p); got != "def" {
+		t.Fatalf("after space = %q, want def", got)
+	}
+
+	app.Send(Key{Keycode: vaxis.KeySpace, Modifiers: vaxis.ModShift})
+	app.Pump(Size{Width: 3, Height: 1})
+	p = NewPainter(Size{Width: 3, Height: 1})
+	app.Paint(p)
+	if got := debugRenderedText(p); got != "abc" {
+		t.Fatalf("after shift+space = %q, want abc", got)
+	}
+
+	app.Send(Key{Keycode: KeyEnd})
+	app.Pump(Size{Width: 3, Height: 1})
+	p = NewPainter(Size{Width: 3, Height: 1})
+	app.Paint(p)
+	if got := debugRenderedText(p); got != "def" {
+		t.Fatalf("after end = %q, want def", got)
+	}
+
+	app.Send(Key{Keycode: KeyHome})
+	app.Pump(Size{Width: 3, Height: 1})
+	p = NewPainter(Size{Width: 3, Height: 1})
+	app.Paint(p)
+	if got := debugRenderedText(p); got != "abc" {
+		t.Fatalf("after home = %q, want abc", got)
+	}
+}
+
+func TestScrollViewHorizontalMouseWheelScrolls(t *testing.T) {
+	app := NewApp(SizedBox{Width: 3, Height: 1, Child: ScrollView{
+		Axis:  ScrollHorizontal,
+		Child: Text{Value: "abcdef"},
+	}})
+	app.Pump(Size{Width: 3, Height: 1})
+
+	app.Send(Mouse{Button: MouseWheelDown, EventType: EventPress})
+	app.Pump(Size{Width: 3, Height: 1})
+	p := NewPainter(Size{Width: 3, Height: 1})
+	app.Paint(p)
+	if got := debugRenderedText(p); got != "abc" {
+		t.Fatalf("vertical wheel changed horizontal scroll = %q, want abc", got)
+	}
+
+	app.Send(Mouse{Button: MouseWheelRight, EventType: EventPress})
+	app.Pump(Size{Width: 3, Height: 1})
+	p = NewPainter(Size{Width: 3, Height: 1})
+	app.Paint(p)
+	if got := debugRenderedText(p); got != "bcd" {
+		t.Fatalf("after wheel right = %q, want bcd", got)
+	}
+
+	app.Send(Mouse{Button: MouseWheelLeft, EventType: EventPress})
+	app.Pump(Size{Width: 3, Height: 1})
+	p = NewPainter(Size{Width: 3, Height: 1})
+	app.Paint(p)
+	if got := debugRenderedText(p); got != "abc" {
+		t.Fatalf("after wheel left = %q, want abc", got)
+	}
+}
+
 func TestScrollViewPreservesOffsetAcrossUpdate(t *testing.T) {
 	app := NewApp(ScrollView{Child: scrollViewLines("one", "two", "three")})
 	app.Pump(Size{Width: 10, Height: 2})
@@ -176,7 +278,7 @@ func TestScrollViewReportsScrollMetrics(t *testing.T) {
 	r.State = &scrollViewState{scrollRow: 1}
 
 	got := r.ScrollMetrics()
-	want := ScrollMetrics{ScrollOffset: 1, MaxScrollOffset: 1, ViewportHeight: 2, ViewportWidth: 5, ContentHeight: 3}
+	want := ScrollMetrics{ScrollOffset: 1, MaxScrollOffset: 1, ViewportHeight: 2, ViewportWidth: 5, ContentHeight: 3, ContentWidth: 5}
 	if got != want {
 		t.Fatalf("metrics = %#v, want %#v", got, want)
 	}

@@ -194,6 +194,15 @@ func (s *DemoState) textPage() ui.Widget {
 		ui.SizedBox{Height: 1},
 		ui.SizedBox{Width: 72, Height: 5, Child: ui.Scrollbar{Child: ui.ScrollView{Child: scrollDemoLines()}}},
 		ui.SizedBox{Height: 1},
+		ui.Text{Value: "Horizontal scroll"},
+		ui.SizedBox{Width: 48, Height: 2, Child: ui.Scrollbar{
+			Axis: ui.ScrollHorizontal,
+			Child: ui.ScrollView{
+				Axis:  ui.ScrollHorizontal,
+				Child: ui.Text{Value: horizontalScrollDemoLine()},
+			},
+		}},
+		ui.SizedBox{Height: 1},
 		ui.ConstrainedBox{Constraints: ui.Constraints{MaxWidth: 72}, Child: ui.Text{
 			Value:    "This paragraph is constrained to seventy-two cells so resizing the terminal makes the surrounding layout obvious while the paragraph itself wraps inside a predictable measure.",
 			SoftWrap: true,
@@ -479,6 +488,18 @@ func scrollDemoLines() ui.Widget {
 		}})
 	}
 	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, Children: children}
+}
+
+func horizontalScrollDemoLine() string {
+	return strings.Join([]string{
+		"col-001 alpha",
+		"col-002 beta",
+		"col-003 gamma",
+		"col-004 delta",
+		"col-005 epsilon",
+		"col-006 zeta",
+		"col-007 eta",
+	}, "  |  ")
 }
 
 func listDemoRow(i int) ui.Widget {
