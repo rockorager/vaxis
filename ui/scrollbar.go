@@ -22,6 +22,10 @@ type scrollMetricsProvider interface {
 	ScrollMetrics() ScrollMetrics
 }
 
+type scrollAxisMetricsProvider interface {
+	ScrollMetricsForAxis(ScrollAxis) ScrollMetrics
+}
+
 type scrollOffsetController interface {
 	scrollMetricsProvider
 	ScrollByLines(int) bool
@@ -29,6 +33,15 @@ type scrollOffsetController interface {
 	ScrollToOffset(int) bool
 	ScrollToStart() bool
 	ScrollToEnd() bool
+}
+
+type scrollAxisOffsetController interface {
+	scrollAxisMetricsProvider
+	ScrollByLinesAxis(ScrollAxis, int) bool
+	ScrollByPagesAxis(ScrollAxis, int) bool
+	ScrollToOffsetAxis(ScrollAxis, int) bool
+	ScrollToStartAxis(ScrollAxis) bool
+	ScrollToEndAxis(ScrollAxis) bool
 }
 
 // Scrollbar paints and handles a scrollbar over a scrollable child.
@@ -274,23 +287,98 @@ func (r *renderScrollbar) HitTest(*HitTestResult, Point) bool {
 	return false
 }
 
+func (r *renderScrollbar) ScrollMetrics() ScrollMetrics {
+	metrics, _ := r.metrics()
+	return metrics
+}
+
+func (r *renderScrollbar) ScrollMetricsForAxis(axis ScrollAxis) ScrollMetrics {
+	child := r.Child()
+	if child == nil {
+		return ScrollMetrics{}
+	}
+	if provider, ok := child.(scrollAxisMetricsProvider); ok {
+		return r.constrainMetrics(provider.ScrollMetricsForAxis(axis))
+	}
+	if provider, ok := child.(scrollMetricsProvider); ok {
+		return r.constrainMetrics(provider.ScrollMetrics())
+	}
+	return ScrollMetrics{}
+}
+
+func (r *renderScrollbar) ScrollByLinesAxis(axis ScrollAxis, lines int) bool {
+	if controller, ok := r.axisController(); ok {
+		return controller.ScrollByLinesAxis(axis, lines)
+	}
+	if controller, ok := r.controller(); ok {
+		return controller.ScrollByLines(lines)
+	}
+	return false
+}
+
+func (r *renderScrollbar) ScrollByPagesAxis(axis ScrollAxis, pages int) bool {
+	if controller, ok := r.axisController(); ok {
+		return controller.ScrollByPagesAxis(axis, pages)
+	}
+	if controller, ok := r.controller(); ok {
+		return controller.ScrollByPages(pages)
+	}
+	return false
+}
+
+func (r *renderScrollbar) ScrollToOffsetAxis(axis ScrollAxis, offset int) bool {
+	if controller, ok := r.axisController(); ok {
+		return controller.ScrollToOffsetAxis(axis, offset)
+	}
+	if controller, ok := r.controller(); ok {
+		return controller.ScrollToOffset(offset)
+	}
+	return false
+}
+
+func (r *renderScrollbar) ScrollToStartAxis(axis ScrollAxis) bool {
+	if controller, ok := r.axisController(); ok {
+		return controller.ScrollToStartAxis(axis)
+	}
+	if controller, ok := r.controller(); ok {
+		return controller.ScrollToStart()
+	}
+	return false
+}
+
+func (r *renderScrollbar) ScrollToEndAxis(axis ScrollAxis) bool {
+	if controller, ok := r.axisController(); ok {
+		return controller.ScrollToEndAxis(axis)
+	}
+	if controller, ok := r.controller(); ok {
+		return controller.ScrollToEnd()
+	}
+	return false
+}
+
 func (r *renderScrollbar) metrics() (ScrollMetrics, bool) {
 	child := r.Child()
 	if child == nil {
 		return ScrollMetrics{}, false
 	}
+	if provider, ok := child.(scrollAxisMetricsProvider); ok {
+		return r.constrainMetrics(provider.ScrollMetricsForAxis(r.Axis)), true
+	}
 	provider, ok := child.(scrollMetricsProvider)
 	if !ok {
 		return ScrollMetrics{}, false
 	}
-	metrics := provider.ScrollMetrics()
+	return r.constrainMetrics(provider.ScrollMetrics()), true
+}
+
+func (r *renderScrollbar) constrainMetrics(metrics ScrollMetrics) ScrollMetrics {
 	if metrics.ViewportHeight > r.Size().Height {
 		metrics.ViewportHeight = r.Size().Height
 	}
 	if metrics.ViewportWidth > r.Size().Width {
 		metrics.ViewportWidth = r.Size().Width
 	}
-	return metrics, true
+	return metrics
 }
 
 func (r *renderScrollbar) controller() (scrollOffsetController, bool) {
@@ -299,6 +387,15 @@ func (r *renderScrollbar) controller() (scrollOffsetController, bool) {
 		return nil, false
 	}
 	controller, ok := child.(scrollOffsetController)
+	return controller, ok
+}
+
+func (r *renderScrollbar) axisController() (scrollAxisOffsetController, bool) {
+	child := r.Child()
+	if child == nil {
+		return nil, false
+	}
+	controller, ok := child.(scrollAxisOffsetController)
 	return controller, ok
 }
 
@@ -314,6 +411,12 @@ func (r *renderScrollbar) scrollbarColumn(col int) bool {
 }
 
 func (r *renderScrollbar) scrollByPages(pages int) EventResult {
+	if child := r.Child(); child != nil {
+		if controller, ok := child.(scrollAxisOffsetController); ok {
+			controller.ScrollByPagesAxis(r.Axis, pages)
+			return EventHandled
+		}
+	}
 	controller, ok := r.controller()
 	if !ok {
 		return EventIgnored
@@ -323,6 +426,20 @@ func (r *renderScrollbar) scrollByPages(pages int) EventResult {
 }
 
 func (r *renderScrollbar) scrollThumbTo(top float64) EventResult {
+	if child := r.Child(); child != nil {
+		if controller, ok := child.(scrollAxisOffsetController); ok {
+			metrics := controller.ScrollMetricsForAxis(r.Axis)
+			thumb := scrollbarThumb(r.Axis, metrics)
+			trackRange := float64(scrollbarViewportLength(r.Axis, metrics)) - thumb.Height
+			if metrics.MaxScrollOffset <= 0 || trackRange <= 0 {
+				return EventHandled
+			}
+			top = clampFloat(top, 0, trackRange)
+			offset := int(math.Round(top * float64(metrics.MaxScrollOffset) / trackRange))
+			controller.ScrollToOffsetAxis(r.Axis, offset)
+			return EventHandled
+		}
+	}
 	controller, ok := r.controller()
 	if !ok {
 		return EventIgnored

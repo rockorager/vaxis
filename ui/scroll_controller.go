@@ -78,6 +78,84 @@ func (c *ScrollController) Metrics() ScrollMetrics {
 	return c.target.ScrollMetrics()
 }
 
+// ScrollPaneController controls a mounted ScrollPane.
+//
+// Methods return false when the controller is not attached to a mounted pane or
+// when the requested scroll command does not change the current offset. Metrics
+// returns zero values until the controlled pane has been laid out.
+type ScrollPaneController struct {
+	target scrollAxisOffsetController
+	owner  any
+}
+
+func (c *ScrollPaneController) attach(owner any) {
+	c.owner = owner
+	if target, ok := owner.(scrollAxisOffsetController); ok {
+		c.target = target
+	}
+}
+
+func (c *ScrollPaneController) detach(owner any) {
+	if c.owner != owner {
+		return
+	}
+	c.owner = nil
+	c.target = nil
+}
+
+// Attached reports whether the controller is attached to a mounted pane.
+func (c *ScrollPaneController) Attached() bool {
+	return c != nil && c.target != nil
+}
+
+// ScrollBy scrolls by columns and rows.
+func (c *ScrollPaneController) ScrollBy(cols, rows int) bool {
+	if !c.Attached() {
+		return false
+	}
+	colChanged := c.target.ScrollByLinesAxis(ScrollHorizontal, cols)
+	rowChanged := c.target.ScrollByLinesAxis(ScrollVertical, rows)
+	return colChanged || rowChanged
+}
+
+// ScrollTo scrolls to column and row.
+func (c *ScrollPaneController) ScrollTo(col, row int) bool {
+	if !c.Attached() {
+		return false
+	}
+	colChanged := c.target.ScrollToOffsetAxis(ScrollHorizontal, col)
+	rowChanged := c.target.ScrollToOffsetAxis(ScrollVertical, row)
+	return colChanged || rowChanged
+}
+
+// ScrollToStart scrolls both axes to the start.
+func (c *ScrollPaneController) ScrollToStart() bool {
+	if !c.Attached() {
+		return false
+	}
+	colChanged := c.target.ScrollToStartAxis(ScrollHorizontal)
+	rowChanged := c.target.ScrollToStartAxis(ScrollVertical)
+	return colChanged || rowChanged
+}
+
+// ScrollToEnd scrolls both axes to the end.
+func (c *ScrollPaneController) ScrollToEnd() bool {
+	if !c.Attached() {
+		return false
+	}
+	colChanged := c.target.ScrollToEndAxis(ScrollHorizontal)
+	rowChanged := c.target.ScrollToEndAxis(ScrollVertical)
+	return colChanged || rowChanged
+}
+
+// Metrics returns the current scroll metrics for axis.
+func (c *ScrollPaneController) Metrics(axis ScrollAxis) ScrollMetrics {
+	if !c.Attached() {
+		return ScrollMetrics{}
+	}
+	return c.target.ScrollMetricsForAxis(axis)
+}
+
 // ScrollAlign controls how a scrolled-to item is placed in the viewport.
 type ScrollAlign int
 

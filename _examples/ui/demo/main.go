@@ -203,6 +203,14 @@ func (s *DemoState) textPage() ui.Widget {
 			},
 		}},
 		ui.SizedBox{Height: 1},
+		ui.Text{Value: "Scroll pane"},
+		ui.SizedBox{Width: 48, Height: 6, Child: ui.Scrollbar{
+			Axis: ui.ScrollHorizontal,
+			Child: ui.Scrollbar{
+				Child: ui.ScrollPane{Child: ui.Text{Value: scrollPaneDemoText()}},
+			},
+		}},
+		ui.SizedBox{Height: 1},
 		ui.ConstrainedBox{Constraints: ui.Constraints{MaxWidth: 72}, Child: ui.Text{
 			Value:    "This paragraph is constrained to seventy-two cells so resizing the terminal makes the surrounding layout obvious while the paragraph itself wraps inside a predictable measure.",
 			SoftWrap: true,
@@ -500,6 +508,18 @@ func horizontalScrollDemoLine() string {
 		"col-006 zeta",
 		"col-007 eta",
 	}, "  |  ")
+}
+
+func scrollPaneDemoText() string {
+	rows := make([]string, 0, 18)
+	for row := 1; row <= 18; row++ {
+		cols := make([]string, 0, 10)
+		for col := 1; col <= 10; col++ {
+			cols = append(cols, "r"+padLeft(strconv.Itoa(row), 2)+"c"+padLeft(strconv.Itoa(col), 2))
+		}
+		rows = append(rows, strings.Join(cols, "  "))
+	}
+	return strings.Join(rows, "\n")
 }
 
 func listDemoRow(i int) ui.Widget {
