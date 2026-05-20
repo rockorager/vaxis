@@ -1,19 +1,19 @@
 package vaxis
 
-import "github.com/containerd/console"
-
 type consoleTTY struct {
-	console.Console
+	Console
 }
 
 func (t consoleTTY) Size() (Resize, error) {
-	ws, err := t.Console.Size()
+	cols, rows, xPixels, yPixels, err := t.Console.Size()
 	if err != nil {
 		return Resize{}, err
 	}
 	return Resize{
-		Cols: int(ws.Width),
-		Rows: int(ws.Height),
+		Cols:   cols,
+		Rows:   rows,
+		XPixel: xPixels,
+		YPixel: yPixels,
 	}, nil
 }
 

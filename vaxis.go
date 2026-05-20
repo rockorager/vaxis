@@ -13,8 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/containerd/console"
-
 	"git.sr.ht/~rockorager/vaxis/ansi"
 	"git.sr.ht/~rockorager/vaxis/log"
 )
@@ -53,6 +51,18 @@ type sizeReport struct {
 	pixels bool
 }
 
+// Console provides a terminal-like device for Vaxis to read from and draw to.
+type Console interface {
+	io.Reader
+	io.Writer
+
+	Fd() uintptr
+	SetRaw() error
+	Reset() error
+	Size() (cols int, rows int, xPixels int, yPixels int, err error)
+	Close() error
+}
+
 // Options are the runtime options which must be supplied to a new [Vaxis]
 // object at instantiation
 type Options struct {
@@ -80,7 +90,7 @@ type Options struct {
 	CSIuBitMask CSIuBitMask
 
 	// WithConsole provides the ability to use a custom console.
-	WithConsole console.Console
+	WithConsole Console
 
 	// EnableSGRPixels provides pixel level precision of mouse movement. This has
 	// no effect if DisableMouse is true
@@ -142,7 +152,7 @@ type Vaxis struct {
 	xtwinops bool
 
 	withTty     string
-	withConsole console.Console
+	withConsole Console
 
 	termID terminalID
 
