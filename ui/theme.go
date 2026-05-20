@@ -12,6 +12,8 @@ type Theme struct {
 	ListTile ListTileTheme
 	// SegmentedControl contains defaults used by SegmentedControl.
 	SegmentedControl SegmentedControlTheme
+	// ProgressBar contains defaults used by ProgressBar.
+	ProgressBar ProgressBarTheme
 	// TextField contains defaults used by TextField and TextArea.
 	TextField TextFieldTheme
 	// Scrollbar contains defaults used by Scrollbar.
@@ -38,6 +40,14 @@ type ButtonTheme struct {
 	FocusLeft Character
 	// FocusRight is painted after the label while focused.
 	FocusRight Character
+}
+
+// ProgressBarTheme contains styling defaults for ProgressBar.
+type ProgressBarTheme struct {
+	// Filled paints the completed portion of the bar.
+	Filled Style
+	// Empty paints the remaining portion of the bar.
+	Empty Style
 }
 
 // SegmentedControlTheme contains styling defaults for SegmentedControl.
@@ -145,6 +155,10 @@ func DefaultTheme() Theme {
 			Separator: Style{Foreground: RGB(128, 128, 128), Background: RGB(32, 32, 32)},
 			Mouse:     MouseShapeClickable,
 		},
+		ProgressBar: ProgressBarTheme{
+			Filled: Style{Foreground: RGB(78, 201, 176), Background: RGB(32, 32, 32)},
+			Empty:  Style{Foreground: RGB(80, 80, 80), Background: RGB(32, 32, 32)},
+		},
 		TextField: TextFieldTheme{
 			Normal:      Style{Foreground: RGB(238, 238, 238), Background: RGB(32, 32, 32)},
 			Focused:     Style{Foreground: RGB(238, 238, 238), Background: RGB(48, 48, 48)},
@@ -195,6 +209,8 @@ func themeFromTerminal(ctx context.Context, q terminalColorQuerier) Theme {
 		theme.ListTile.Focused.Background = surface
 		theme.SegmentedControl.Normal.Background = surface
 		theme.SegmentedControl.Separator.Background = surface
+		theme.ProgressBar.Filled.Background = surface
+		theme.ProgressBar.Empty.Background = surface
 		theme.TextField.Normal.Background = surface
 	}
 	if hovered, ok := blendColor(bg, fg, 18); ok {
@@ -207,6 +223,12 @@ func themeFromTerminal(ctx context.Context, q terminalColorQuerier) Theme {
 	if selected, ok := blendColor(bg, RGB(80, 150, 255), 30); ok {
 		theme.ListTile.Selected.Background = selected
 		theme.SegmentedControl.Selected.Background = selected
+	}
+	if progress, ok := blendColor(bg, RGB(78, 201, 176), 80); ok {
+		theme.ProgressBar.Filled.Foreground = progress
+	}
+	if empty, ok := blendColor(bg, fg, 30); ok {
+		theme.ProgressBar.Empty.Foreground = empty
 	}
 	if selection, ok := blendColor(bg, RGB(80, 150, 255), 45); ok {
 		theme.TextField.Selection.Background = selection

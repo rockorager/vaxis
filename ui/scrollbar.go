@@ -506,12 +506,12 @@ func scrollbarCell(axis ScrollAxis, pos float64, thumb scrollbarThumbGeometry, t
 		return scrollbarFillCell(thumbStyle, thumbColor)
 	case axis == ScrollHorizontal && coverageStart > pos:
 		return Cell{
-			Character: Character{Grapheme: leftBlock(1 - coverage), Width: 1},
+			Character: Character{Grapheme: horizontalBlock(1 - coverage), Width: 1},
 			Style:     Style{Foreground: trackColor, Background: thumbColor, Attribute: thumbStyle.Attribute},
 		}
 	case axis == ScrollHorizontal:
 		return Cell{
-			Character: Character{Grapheme: leftBlock(coverage), Width: 1},
+			Character: Character{Grapheme: horizontalBlock(coverage), Width: 1},
 			Style:     Style{Foreground: thumbColor, Background: trackColor, Attribute: thumbStyle.Attribute},
 		}
 	case coverageStart > pos:
@@ -542,7 +542,7 @@ func horizontalScrollbarCell(base Cell, pos float64, thumb scrollbarThumbGeometr
 	return Cell{Character: Character{Grapheme: "▄", Width: 1}, Style: style}
 }
 
-func leftBlock(fraction float64) string {
+func horizontalBlock(fraction float64) string {
 	switch int(math.Round(clampFloat(fraction, 0, 1) * 8)) {
 	case 1:
 		return "▏"

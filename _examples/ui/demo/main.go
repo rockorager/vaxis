@@ -418,8 +418,14 @@ func (s *DemoState) animationPage() ui.Widget {
 			{Text: "   status: "},
 			{Text: status, Style: ui.Style{Attribute: ui.AttrBold}},
 		}},
-		ui.Text{Value: animationTrack(value, 48)},
-		ui.RichText{Spans: animationBar(value, 48)},
+		ui.ConstrainedBox{
+			Constraints: ui.Constraints{MaxWidth: 120},
+			Child:       ui.Text{Value: animationTrack(value, 120), Overflow: ui.TextOverflowClip},
+		},
+		ui.ConstrainedBox{
+			Constraints: ui.Constraints{MaxWidth: 120},
+			Child:       ui.ProgressBar{Value: value, GradientStart: ui.RGB(78, 201, 176), GradientEnd: ui.RGB(120, 180, 255)},
+		},
 		ui.SizedBox{Height: 1},
 		ui.Flex{Axis: ui.Horizontal, CrossAxisAlignment: ui.CrossAxisCenter, Children: []ui.Widget{
 			ui.Button{Label: "Replay", OnPressed: func(ctx ui.EventContext) { s.anim.Forward() }},
@@ -479,23 +485,6 @@ func animationTrack(value float64, width int) string {
 		pos = width - 1
 	}
 	return "|" + strings.Repeat(" ", pos) + "◆" + strings.Repeat(" ", width-pos-1) + "|"
-}
-
-func animationBar(value float64, width int) []ui.TextSpan {
-	if width <= 0 {
-		return nil
-	}
-	filled := int(value * float64(width))
-	if filled < 0 {
-		filled = 0
-	}
-	if filled > width {
-		filled = width
-	}
-	return []ui.TextSpan{
-		{Text: strings.Repeat("█", filled), Style: ui.Style{Foreground: ui.RGB(78, 201, 176)}},
-		{Text: strings.Repeat("░", width-filled), Style: ui.Style{Attribute: ui.AttrDim}},
-	}
 }
 
 func formatFloat(value float64) string {
