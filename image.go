@@ -13,8 +13,6 @@ import (
 	"git.sr.ht/~rockorager/vaxis/log"
 	"git.sr.ht/~rockorager/vaxis/octreequant"
 	"git.sr.ht/~rockorager/vaxis/sixel"
-
-	"golang.org/x/image/draw"
 )
 
 // Alpha value that we consider to be transparent enough to use default
@@ -462,8 +460,74 @@ func resizeImage(img image.Image, w int, h int, cellPixW int, cellPixH int) imag
 		newPixelHeight = int(sfY * float64(hPix))
 	}
 	dst := image.NewRGBA(image.Rect(0, 0, newPixelWidth, newPixelHeight))
-	draw.NearestNeighbor.Scale(dst, dst.Rect, img, img.Bounds(), draw.Over, nil)
+	scaleNearest(dst, img)
 	return dst
+}
+
+func scaleNearest(dst *image.RGBA, src image.Image) {
+	switch src := src.(type) {
+	case *image.RGBA:
+		scaleNearestRGBA(dst, src)
+		return
+	case *image.NRGBA:
+		scaleNearestNRGBA(dst, src)
+		return
+	}
+	db := dst.Bounds()
+	sb := src.Bounds()
+	dx := db.Dx()
+	dy := db.Dy()
+	sx := sb.Dx()
+	sy := sb.Dy()
+	for y := 0; y < dy; y++ {
+		srcY := sb.Min.Y + y*sy/dy
+		for x := 0; x < dx; x++ {
+			srcX := sb.Min.X + x*sx/dx
+			dst.Set(x+db.Min.X, y+db.Min.Y, src.At(srcX, srcY))
+		}
+	}
+}
+
+func scaleNearestRGBA(dst *image.RGBA, src *image.RGBA) {
+	db := dst.Bounds()
+	sb := src.Bounds()
+	dx := db.Dx()
+	dy := db.Dy()
+	sx := sb.Dx()
+	sy := sb.Dy()
+	for y := 0; y < dy; y++ {
+		srcY := sb.Min.Y + y*sy/dy
+		dstOffset := dst.PixOffset(db.Min.X, db.Min.Y+y)
+		for x := 0; x < dx; x++ {
+			srcX := sb.Min.X + x*sx/dx
+			srcOffset := src.PixOffset(srcX, srcY)
+			copy(dst.Pix[dstOffset:dstOffset+4], src.Pix[srcOffset:srcOffset+4])
+			dstOffset += 4
+		}
+	}
+}
+
+func scaleNearestNRGBA(dst *image.RGBA, src *image.NRGBA) {
+	db := dst.Bounds()
+	sb := src.Bounds()
+	dx := db.Dx()
+	dy := db.Dy()
+	sx := sb.Dx()
+	sy := sb.Dy()
+	for y := 0; y < dy; y++ {
+		srcY := sb.Min.Y + y*sy/dy
+		dstOffset := dst.PixOffset(db.Min.X, db.Min.Y+y)
+		for x := 0; x < dx; x++ {
+			srcX := sb.Min.X + x*sx/dx
+			srcOffset := src.PixOffset(srcX, srcY)
+			a := uint32(src.Pix[srcOffset+3])
+			dst.Pix[dstOffset+0] = uint8(uint32(src.Pix[srcOffset+0]) * a / 0xff)
+			dst.Pix[dstOffset+1] = uint8(uint32(src.Pix[srcOffset+1]) * a / 0xff)
+			dst.Pix[dstOffset+2] = uint8(uint32(src.Pix[srcOffset+2]) * a / 0xff)
+			dst.Pix[dstOffset+3] = uint8(a)
+			dstOffset += 4
+		}
+	}
 }
 
 // FullBlockImage is an image composed of 0x20 characters. This is the most
