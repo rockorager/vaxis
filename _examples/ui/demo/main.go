@@ -328,6 +328,33 @@ func (s *DemoState) listsPage() ui.Widget {
 			{Text: "  mixed slivers, lazy rows, and follow-output logs"},
 		}, SoftWrap: true},
 		ui.SizedBox{Height: 1},
+		ui.SizedBox{Width: 72, Height: 5, Child: ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStretch, Children: []ui.Widget{
+			ui.ListTile{
+				Leading:  ui.Text{Value: "•"},
+				Title:    ui.Text{Value: "Deploy queue"},
+				Subtitle: ui.Text{Value: "2 running, 4 queued"},
+				Trailing: ui.Text{Value: "open"},
+				Selected: true,
+				OnPressed: func(ctx ui.EventContext) {
+					ctx.Notify("List tile", "Deploy queue")
+				},
+			},
+			ui.ListTile{
+				Leading:  ui.Text{Value: "✓", Style: ui.Style{Foreground: ui.RGB(78, 201, 176)}},
+				Title:    ui.Text{Value: "Checks passing"},
+				Trailing: ui.Text{Value: "12/12"},
+				OnPressed: func(ctx ui.EventContext) {
+					ctx.Notify("List tile", "Checks passing")
+				},
+			},
+			ui.ListTile{
+				Leading:  ui.Text{Value: "·"},
+				Title:    ui.Text{Value: "Archived target"},
+				Subtitle: ui.Text{Value: "disabled row"},
+				Disabled: true,
+			},
+		}}},
+		ui.SizedBox{Height: 1},
 		ui.SizedBox{Width: 72, Height: 5, Child: ui.Scrollbar{Child: ui.CustomScrollView{Slivers: []ui.Widget{
 			ui.SliverToBox{Child: ui.Text{Value: "The intro sliver scrolls away before the pinned header takes over.", SoftWrap: true}},
 			ui.SliverPinnedHeader{Child: ui.Text{

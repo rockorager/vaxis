@@ -8,6 +8,8 @@ type Theme struct {
 	Text Style
 	// Button contains defaults used by Button.
 	Button ButtonTheme
+	// ListTile contains defaults used by ListTile.
+	ListTile ListTileTheme
 	// TextField contains defaults used by TextField and TextArea.
 	TextField TextFieldTheme
 	// Scrollbar contains defaults used by Scrollbar.
@@ -34,6 +36,28 @@ type ButtonTheme struct {
 	FocusLeft Character
 	// FocusRight is painted after the label while focused.
 	FocusRight Character
+}
+
+// ListTileTheme contains styling and sizing defaults for ListTile.
+type ListTileTheme struct {
+	// Normal is the default tile style.
+	Normal Style
+	// Focused is used while the tile has keyboard focus.
+	Focused Style
+	// Hovered is used while the mouse is over the tile.
+	Hovered Style
+	// Selected is used when the tile is selected.
+	Selected Style
+	// Disabled is merged over the tile style when disabled.
+	Disabled Style
+	// Padding is the default interior spacing.
+	Padding Insets
+	// Gap is the default spacing between leading, content, and trailing slots.
+	Gap int
+	// MinHeight is the minimum tile height.
+	MinHeight int
+	// Mouse is the pointer shape used while hovering an enabled tile.
+	Mouse MouseShape
 }
 
 // TextFieldTheme contains styling and sizing defaults for TextField and TextArea.
@@ -81,6 +105,17 @@ func DefaultTheme() Theme {
 			FocusLeft:  Character{Grapheme: "[", Width: 1},
 			FocusRight: Character{Grapheme: "]", Width: 1},
 		},
+		ListTile: ListTileTheme{
+			Normal:    Style{Foreground: RGB(238, 238, 238)},
+			Focused:   Style{Foreground: RGB(238, 238, 238), Background: RGB(48, 48, 48)},
+			Hovered:   Style{Foreground: RGB(238, 238, 238), Background: RGB(40, 40, 40)},
+			Selected:  Style{Foreground: RGB(238, 238, 238), Background: RGB(36, 72, 120)},
+			Disabled:  Style{Attribute: AttrDim},
+			Padding:   Symmetric(1, 0),
+			Gap:       1,
+			MinHeight: 1,
+			Mouse:     MouseShapeClickable,
+		},
 		TextField: TextFieldTheme{
 			Normal:      Style{Foreground: RGB(238, 238, 238), Background: RGB(32, 32, 32)},
 			Focused:     Style{Foreground: RGB(238, 238, 238), Background: RGB(48, 48, 48)},
@@ -115,6 +150,8 @@ func themeFromTerminal(ctx context.Context, q terminalColorQuerier) Theme {
 		theme.Text.Foreground = fg
 		theme.Button.Normal.Foreground = fg
 		theme.Button.Focused.Foreground = fg
+		theme.ListTile.Normal.Foreground = fg
+		theme.ListTile.Focused.Foreground = fg
 		theme.TextField.Normal.Foreground = fg
 		theme.TextField.Focused.Foreground = fg
 	}
@@ -124,12 +161,17 @@ func themeFromTerminal(ctx context.Context, q terminalColorQuerier) Theme {
 	if surface, ok := blendColor(bg, fg, 12); ok {
 		theme.Button.Normal.Background = surface
 		theme.Button.Focused.Background = surface
+		theme.ListTile.Focused.Background = surface
 		theme.TextField.Normal.Background = surface
 	}
 	if hovered, ok := blendColor(bg, fg, 18); ok {
 		theme.Button.Hovered.Background = hovered
+		theme.ListTile.Hovered.Background = hovered
 		theme.TextField.Focused.Background = hovered
 		theme.TextField.Placeholder.Background = hovered
+	}
+	if selected, ok := blendColor(bg, RGB(80, 150, 255), 30); ok {
+		theme.ListTile.Selected.Background = selected
 	}
 	if selection, ok := blendColor(bg, RGB(80, 150, 255), 45); ok {
 		theme.TextField.Selection.Background = selection
@@ -150,6 +192,8 @@ func themeFromTerminal(ctx context.Context, q terminalColorQuerier) Theme {
 	}
 	if fg != 0 {
 		theme.Button.Hovered.Foreground = fg
+		theme.ListTile.Hovered.Foreground = fg
+		theme.ListTile.Selected.Foreground = fg
 	}
 	if pressed, ok := blendColor(bg, fg, 25); ok {
 		theme.Button.Pressed.Background = pressed
