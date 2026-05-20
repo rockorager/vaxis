@@ -10,6 +10,8 @@ type Theme struct {
 	Button ButtonTheme
 	// ListTile contains defaults used by ListTile.
 	ListTile ListTileTheme
+	// SegmentedControl contains defaults used by SegmentedControl.
+	SegmentedControl SegmentedControlTheme
 	// TextField contains defaults used by TextField and TextArea.
 	TextField TextFieldTheme
 	// Scrollbar contains defaults used by Scrollbar.
@@ -36,6 +38,24 @@ type ButtonTheme struct {
 	FocusLeft Character
 	// FocusRight is painted after the label while focused.
 	FocusRight Character
+}
+
+// SegmentedControlTheme contains styling defaults for SegmentedControl.
+type SegmentedControlTheme struct {
+	// Normal is the default segment style.
+	Normal Style
+	// Focused is merged over the active segment while the control has focus.
+	Focused Style
+	// Hovered is merged over the segment under the mouse.
+	Hovered Style
+	// Selected is merged over the selected segment.
+	Selected Style
+	// Disabled is merged over disabled segments.
+	Disabled Style
+	// Separator is used for separators between segments.
+	Separator Style
+	// Mouse is the pointer shape used while hovering enabled segments.
+	Mouse MouseShape
 }
 
 // ListTileTheme contains styling and sizing defaults for ListTile.
@@ -116,6 +136,15 @@ func DefaultTheme() Theme {
 			MinHeight: 1,
 			Mouse:     MouseShapeClickable,
 		},
+		SegmentedControl: SegmentedControlTheme{
+			Normal:    Style{Foreground: RGB(238, 238, 238), Background: RGB(32, 32, 32)},
+			Focused:   Style{UnderlineStyle: UnderlineSingle},
+			Hovered:   Style{Background: RGB(48, 48, 48)},
+			Selected:  Style{Foreground: RGB(238, 238, 238), Background: RGB(36, 72, 120)},
+			Disabled:  Style{Attribute: AttrDim},
+			Separator: Style{Foreground: RGB(128, 128, 128), Background: RGB(32, 32, 32)},
+			Mouse:     MouseShapeClickable,
+		},
 		TextField: TextFieldTheme{
 			Normal:      Style{Foreground: RGB(238, 238, 238), Background: RGB(32, 32, 32)},
 			Focused:     Style{Foreground: RGB(238, 238, 238), Background: RGB(48, 48, 48)},
@@ -152,6 +181,8 @@ func themeFromTerminal(ctx context.Context, q terminalColorQuerier) Theme {
 		theme.Button.Focused.Foreground = fg
 		theme.ListTile.Normal.Foreground = fg
 		theme.ListTile.Focused.Foreground = fg
+		theme.SegmentedControl.Normal.Foreground = fg
+		theme.SegmentedControl.Selected.Foreground = fg
 		theme.TextField.Normal.Foreground = fg
 		theme.TextField.Focused.Foreground = fg
 	}
@@ -162,16 +193,20 @@ func themeFromTerminal(ctx context.Context, q terminalColorQuerier) Theme {
 		theme.Button.Normal.Background = surface
 		theme.Button.Focused.Background = surface
 		theme.ListTile.Focused.Background = surface
+		theme.SegmentedControl.Normal.Background = surface
+		theme.SegmentedControl.Separator.Background = surface
 		theme.TextField.Normal.Background = surface
 	}
 	if hovered, ok := blendColor(bg, fg, 18); ok {
 		theme.Button.Hovered.Background = hovered
 		theme.ListTile.Hovered.Background = hovered
+		theme.SegmentedControl.Hovered.Background = hovered
 		theme.TextField.Focused.Background = hovered
 		theme.TextField.Placeholder.Background = hovered
 	}
 	if selected, ok := blendColor(bg, RGB(80, 150, 255), 30); ok {
 		theme.ListTile.Selected.Background = selected
+		theme.SegmentedControl.Selected.Background = selected
 	}
 	if selection, ok := blendColor(bg, RGB(80, 150, 255), 45); ok {
 		theme.TextField.Selection.Background = selection
@@ -194,6 +229,8 @@ func themeFromTerminal(ctx context.Context, q terminalColorQuerier) Theme {
 		theme.Button.Hovered.Foreground = fg
 		theme.ListTile.Hovered.Foreground = fg
 		theme.ListTile.Selected.Foreground = fg
+		theme.SegmentedControl.Hovered.Foreground = fg
+		theme.SegmentedControl.Selected.Foreground = fg
 	}
 	if pressed, ok := blendColor(bg, fg, 25); ok {
 		theme.Button.Pressed.Background = pressed

@@ -120,25 +120,20 @@ func (s *DemoState) header() ui.Widget {
 			{Text: "  —  n/p to switch pages, Tab to move focus, q to quit"},
 		}},
 		ui.Flex{Axis: ui.Horizontal, MainAxisAlignment: ui.MainAxisCenter, CrossAxisAlignment: ui.CrossAxisCenter, Children: []ui.Widget{
-			s.navButton(0, "Home"),
-			ui.SizedBox{Width: 1, Height: 1},
-			s.navButton(1, "Text"),
-			ui.SizedBox{Width: 1, Height: 1},
-			s.navButton(2, "Controls"),
-			ui.SizedBox{Width: 1, Height: 1},
-			s.navButton(3, "Lists"),
-			ui.SizedBox{Width: 1, Height: 1},
-			s.navButton(4, "Animation"),
+			ui.SegmentedControl[int]{
+				Value: s.page,
+				Segments: []ui.SegmentedItem[int]{
+					{Value: 0, Label: "Home"},
+					{Value: 1, Label: "Text"},
+					{Value: 2, Label: "Controls"},
+					{Value: 3, Label: "Lists"},
+					{Value: 4, Label: "Animation"},
+				},
+				OnChanged: func(ctx ui.EventContext, page int) {
+					s.setPage(page)
+				},
+			},
 		}},
-	}}
-}
-
-func (s *DemoState) navButton(page int, label string) ui.Widget {
-	if s.page == page {
-		label = "• " + label
-	}
-	return ui.Button{Label: label, OnPressed: func(ctx ui.EventContext) {
-		s.setPage(page)
 	}}
 }
 
