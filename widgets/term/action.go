@@ -9,7 +9,7 @@ import (
 	"git.sr.ht/~rockorager/vaxis"
 	"git.sr.ht/~rockorager/vaxis/ansi"
 	"git.sr.ht/~rockorager/vaxis/log"
-	"github.com/mattn/go-sixel"
+	"git.sr.ht/~rockorager/vaxis/sixel"
 )
 
 func applySequence(vt *Model, seq ansi.Sequence) {

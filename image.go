@@ -12,8 +12,8 @@ import (
 
 	"git.sr.ht/~rockorager/vaxis/log"
 	"git.sr.ht/~rockorager/vaxis/octreequant"
+	"git.sr.ht/~rockorager/vaxis/sixel"
 
-	"github.com/mattn/go-sixel"
 	"golang.org/x/image/draw"
 )
 
