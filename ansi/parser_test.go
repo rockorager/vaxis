@@ -2,14 +2,35 @@ package ansi
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/assert"
 )
+
+func requireEqual(t *testing.T, want any, got any, msgAndArgs ...any) {
+	t.Helper()
+	if reflect.DeepEqual(want, got) {
+		return
+	}
+	if msg := testMessage(msgAndArgs); msg != "" {
+		t.Fatalf("%s: got %#v, want %#v", msg, got, want)
+	}
+	t.Fatalf("got %#v, want %#v", got, want)
+}
+
+func testMessage(msgAndArgs []any) string {
+	if len(msgAndArgs) == 0 {
+		return ""
+	}
+	format, ok := msgAndArgs[0].(string)
+	if ok && len(msgAndArgs) > 1 {
+		return fmt.Sprintf(format, msgAndArgs[1:]...)
+	}
+	return fmt.Sprint(msgAndArgs...)
+}
 
 func escSeq(final rune, intermediates string) ESC {
 	seq := ESC{Final: final, NumIntermediate: len([]rune(intermediates))}
@@ -148,11 +169,11 @@ func TestUTF8(t *testing.T) {
 			for {
 				seq := <-parse.Next()
 				if _, ok := seq.(EOF); ok {
-					assert.Equal(t, len(test.expected), i, "wrong amount of sequences")
+					requireEqual(t, len(test.expected), i, "wrong amount of sequences")
 					break
 				}
 				if i < len(test.expected) {
-					assert.Equal(t, test.expected[i], seq)
+					requireEqual(t, test.expected[i], seq)
 				}
 				i += 1
 			}
@@ -257,11 +278,11 @@ func TestC1Controls(t *testing.T) {
 			for {
 				seq := <-parse.Next()
 				if _, ok := seq.(EOF); ok {
-					assert.Equal(t, len(test.expected), i, "wrong amount of sequences")
+					requireEqual(t, len(test.expected), i, "wrong amount of sequences")
 					break
 				}
 				if i < len(test.expected) {
-					assert.Equal(t, test.expected[i], seq)
+					requireEqual(t, test.expected[i], seq)
 				}
 				i += 1
 			}
@@ -304,11 +325,11 @@ func TestSOSPMControlStringsAreIgnored(t *testing.T) {
 			for {
 				seq := <-parse.Next()
 				if _, ok := seq.(EOF); ok {
-					assert.Equal(t, len(expected), i, "wrong amount of sequences")
+					requireEqual(t, len(expected), i, "wrong amount of sequences")
 					break
 				}
 				if i < len(expected) {
-					assert.Equal(t, expected[i], seq)
+					requireEqual(t, expected[i], seq)
 				}
 				i += 1
 			}
@@ -501,7 +522,7 @@ func TestCSIGhosttyParserShapes(t *testing.T) {
 			if !ok {
 				t.Fatalf("sequence = %#v, want CSI", seq)
 			}
-			assert.Equal(t, test.expected, csi)
+			requireEqual(t, test.expected, csi)
 		})
 	}
 }
@@ -541,7 +562,7 @@ func TestIn(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			actual := in(test.input, test.inRange[0], test.inRange[1])
-			assert.Equal(t, test.expected, actual)
+			requireEqual(t, test.expected, actual)
 		})
 	}
 }
@@ -585,9 +606,11 @@ func TestAnywhere(t *testing.T) {
 			actual := anywhere(test.input, parse)
 			act := reflect.ValueOf(actual).Pointer()
 			exp := reflect.ValueOf(test.expected).Pointer()
-			assert.Equal(t, exp, act, "wrong return function")
+			requireEqual(t, exp, act, "wrong return function")
 			if test.expected != nil {
-				assert.True(t, called, "exit function not called")
+				if !called {
+					t.Fatal("exit function not called")
+				}
 			}
 		})
 	}
@@ -831,12 +854,12 @@ func TestCSI(t *testing.T) {
 			for {
 				seq := <-parse.Next()
 				if _, ok := seq.(EOF); ok {
-					assert.Equal(t, len(test.expected), i, "wrong amount of sequences")
+					requireEqual(t, len(test.expected), i, "wrong amount of sequences")
 					break
 				}
 				t.Logf("%T", seq)
 				if i < len(test.expected) {
-					assert.Equal(t, test.expected[i], seq)
+					requireEqual(t, test.expected[i], seq)
 				}
 				i += 1
 			}
@@ -892,11 +915,11 @@ func TestDCS(t *testing.T) {
 			for {
 				seq := <-parse.Next()
 				if _, ok := seq.(EOF); ok {
-					assert.Equal(t, len(test.expected), i, "wrong amount of sequences")
+					requireEqual(t, len(test.expected), i, "wrong amount of sequences")
 					break
 				}
 				if i < len(test.expected) {
-					assert.Equal(t, test.expected[i], seq)
+					requireEqual(t, test.expected[i], seq)
 				}
 				i += 1
 			}
@@ -946,7 +969,7 @@ func TestDCSGhosttyParserShapes(t *testing.T) {
 			if !ok {
 				t.Fatalf("sequence = %#v, want DCS", seq)
 			}
-			assert.Equal(t, test.expected, dcs)
+			requireEqual(t, test.expected, dcs)
 		})
 	}
 }
@@ -1003,12 +1026,14 @@ func TestEscape(t *testing.T) {
 			for {
 				seq := <-parse.Next()
 				if _, ok := seq.(EOF); ok {
-					assert.Equal(t, len(test.expected), i, "fewer sequences than expected")
+					requireEqual(t, len(test.expected), i, "fewer sequences than expected")
 					break
 				}
-				assert.Equal(t, test.expected[i], seq)
+				requireEqual(t, test.expected[i], seq)
 				i += 1
-				assert.LessOrEqual(t, i, len(test.expected), "more sequences than expected")
+				if i > len(test.expected) {
+					t.Fatalf("more sequences than expected: got %d, want <= %d", i, len(test.expected))
+				}
 			}
 		})
 	}
@@ -1076,11 +1101,11 @@ func TestEscapeIntermediate(t *testing.T) {
 			for {
 				seq := <-parse.Next()
 				if _, ok := seq.(EOF); ok {
-					assert.Equal(t, len(test.expected), i, "wrong amount of sequences")
+					requireEqual(t, len(test.expected), i, "wrong amount of sequences")
 					break
 				}
 				if i < len(test.expected) {
-					assert.Equal(t, test.expected[i], seq)
+					requireEqual(t, test.expected[i], seq)
 				}
 				i += 1
 			}
@@ -1124,7 +1149,7 @@ func TestGround(t *testing.T) {
 				if _, ok := seq.(EOF); ok {
 					break
 				}
-				assert.Equal(t, test.expected[i], seq)
+				requireEqual(t, test.expected[i], seq)
 				i += 1
 			}
 		})
@@ -1233,11 +1258,11 @@ func TestOSC(t *testing.T) {
 			for {
 				seq := <-parse.Next()
 				if _, ok := seq.(EOF); ok {
-					assert.Equal(t, len(test.expected), i, "wrong amount of sequences")
+					requireEqual(t, len(test.expected), i, "wrong amount of sequences")
 					break
 				}
 				if i < len(test.expected) {
-					assert.Equal(t, test.expected[i], seq)
+					requireEqual(t, test.expected[i], seq)
 				}
 				i += 1
 			}

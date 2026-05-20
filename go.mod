@@ -6,15 +6,9 @@ require (
 	github.com/creack/pty v1.1.18
 	github.com/mattn/go-sixel v0.0.5
 	github.com/rockorager/go-uucode v1.1.0
-	github.com/stretchr/testify v1.8.3
 	golang.org/x/image v0.9.0
 	golang.org/x/sys v0.10.0
 	golang.org/x/term v0.10.0
 )
 
-require (
-	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/soniakeys/quant v1.0.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
-)
+require github.com/soniakeys/quant v1.0.0 // indirect

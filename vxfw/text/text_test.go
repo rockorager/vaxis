@@ -1,11 +1,11 @@
 package text
 
 import (
+	"slices"
 	"testing"
 
 	"git.sr.ht/~rockorager/vaxis"
 	"git.sr.ht/~rockorager/vaxis/vxfw"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestText(t *testing.T) {
@@ -97,7 +97,9 @@ func TestText(t *testing.T) {
 			for scanner.Scan(ctx) {
 				lines = append(lines, scanner.Text())
 			}
-			assert.Equal(t, test.expected, lines)
+			if !slices.Equal(lines, test.expected) {
+				t.Fatalf("lines = %#v, want %#v", lines, test.expected)
+			}
 		})
 	}
 }

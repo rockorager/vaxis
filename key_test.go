@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"git.sr.ht/~rockorager/vaxis/ansi"
-	"github.com/stretchr/testify/assert"
 )
 
 func testCSI(final rune, params []int, colonAfter ...int) ansi.CSI {
@@ -90,9 +89,12 @@ func TestKey(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			actual := test.key.String()
-			assert.Equal(t, test.name, actual)
-			assert.True(t, test.key.Matches(test.matchRune, test.matchMods))
+			if got := test.key.String(); got != test.name {
+				t.Fatalf("String() = %q, want %q", got, test.name)
+			}
+			if !test.key.Matches(test.matchRune, test.matchMods) {
+				t.Fatalf("Matches(%q, %v) = false, want true", test.matchRune, test.matchMods)
+			}
 		})
 	}
 }
@@ -276,9 +278,13 @@ func TestKeyMatches(t *testing.T) {
 			parser := ansi.NewParser(strings.NewReader(test.sequence))
 			seq := <-parser.Next()
 			key := decodeKey(seq)
-			assert.True(t, key.Matches(test.matchRune, test.matchMods), "got %s %#v", key.String(), key)
+			if !key.Matches(test.matchRune, test.matchMods) {
+				t.Fatalf("got %s %#v", key.String(), key)
+			}
 			if test.matchString != "" {
-				assert.True(t, key.MatchString(test.matchString), "got %s %#v", key.String(), key)
+				if !key.MatchString(test.matchString) {
+					t.Fatalf("got %s %#v", key.String(), key)
+				}
 			}
 		})
 	}
@@ -303,9 +309,13 @@ func TestKeyMatches(t *testing.T) {
 			parser := ansi.NewParser(strings.NewReader(test.sequence))
 			seq := <-parser.Next()
 			key := decodeKey(seq)
-			assert.False(t, key.Matches(test.matchRune, test.matchMods), "got %s %#v", key.String(), key)
+			if key.Matches(test.matchRune, test.matchMods) {
+				t.Fatalf("got %s %#v", key.String(), key)
+			}
 			if test.matchString != "" {
-				assert.False(t, key.MatchString(test.matchString), "got %s %#v", key.String(), key)
+				if key.MatchString(test.matchString) {
+					t.Fatalf("got %s %#v", key.String(), key)
+				}
 			}
 		})
 	}
@@ -387,8 +397,9 @@ func TestKeyDecode(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			act := decodeKey(test.sequence)
-			assert.Equal(t, test.expected, act)
+			if got := decodeKey(test.sequence); got != test.expected {
+				t.Fatalf("decodeKey() = %#v, want %#v", got, test.expected)
+			}
 		})
 	}
 }

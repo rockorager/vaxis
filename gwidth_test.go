@@ -2,8 +2,6 @@ package vaxis
 
 import (
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestRenderedWidth(t *testing.T) {
@@ -47,9 +45,15 @@ func TestRenderedWidth(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			assert.Equal(t, test.unicodeWidth, gwidth(test.input, unicodeStd))
-			assert.Equal(t, test.wcwidthWidth, gwidth(test.input, wcwidth))
-			assert.Equal(t, test.noZWJWidth, gwidth(test.input, noZWJ))
+			if got := gwidth(test.input, unicodeStd); got != test.unicodeWidth {
+				t.Fatalf("unicode width = %d, want %d", got, test.unicodeWidth)
+			}
+			if got := gwidth(test.input, wcwidth); got != test.wcwidthWidth {
+				t.Fatalf("wcwidth width = %d, want %d", got, test.wcwidthWidth)
+			}
+			if got := gwidth(test.input, noZWJ); got != test.noZWJWidth {
+				t.Fatalf("no ZWJ width = %d, want %d", got, test.noZWJWidth)
+			}
 		})
 	}
 }

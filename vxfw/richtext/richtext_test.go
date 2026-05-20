@@ -1,12 +1,12 @@
 package richtext
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
 	"git.sr.ht/~rockorager/vaxis"
 	"git.sr.ht/~rockorager/vaxis/vxfw"
-	"github.com/stretchr/testify/assert"
 )
 
 var testDrawContext = vxfw.DrawContext{
@@ -62,7 +62,9 @@ func TestHardwrapScanner(t *testing.T) {
 			for scanner.Scan() {
 				lines = append(lines, cellsString(scanner.Line(testDrawContext)))
 			}
-			assert.Equal(t, test.expected, lines)
+			if !slices.Equal(lines, test.expected) {
+				t.Fatalf("lines = %#v, want %#v", lines, test.expected)
+			}
 		})
 	}
 }
@@ -76,11 +78,21 @@ func TestLayoutStylesGraphemeFromStartOffset(t *testing.T) {
 	})
 
 	cells := layout.cells(testDrawContext, 0, len(layout.text))
-	assert.Len(t, cells, 2)
-	assert.Equal(t, "e\u0301", cells[0].Grapheme)
-	assert.Equal(t, bold, cells[0].Style)
-	assert.Equal(t, "x", cells[1].Grapheme)
-	assert.Equal(t, italic, cells[1].Style)
+	if len(cells) != 2 {
+		t.Fatalf("len(cells) = %d, want 2", len(cells))
+	}
+	if got := cells[0].Grapheme; got != "e\u0301" {
+		t.Fatalf("cells[0].Grapheme = %q, want %q", got, "e\u0301")
+	}
+	if got := cells[0].Style; got != bold {
+		t.Fatalf("cells[0].Style = %#v, want %#v", got, bold)
+	}
+	if got := cells[1].Grapheme; got != "x" {
+		t.Fatalf("cells[1].Grapheme = %q, want %q", got, "x")
+	}
+	if got := cells[1].Style; got != italic {
+		t.Fatalf("cells[1].Style = %#v, want %#v", got, italic)
+	}
 }
 
 func TestSoftWrapScanner(t *testing.T) {
@@ -179,7 +191,9 @@ func TestSoftWrapScanner(t *testing.T) {
 				lines = append(lines, cellsString(scanner.Text(testDrawContext)))
 			}
 
-			assert.Equal(t, test.expected, lines)
+			if !slices.Equal(lines, test.expected) {
+				t.Fatalf("lines = %#v, want %#v", lines, test.expected)
+			}
 		})
 	}
 }
