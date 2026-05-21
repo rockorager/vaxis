@@ -25,6 +25,12 @@ type notice struct {
 	body  string
 }
 
+type runnerQuitIntent struct{}
+
+func (runnerQuitIntent) IntentType() ui.IntentType {
+	return "test.runner.quit"
+}
+
 func newFakeBackend(size ui.Size) *fakeBackend {
 	return &fakeBackend{size: size, events: make(chan ui.Event, 8)}
 }
@@ -233,7 +239,18 @@ func TestRunnerSyncFuncRunsAndSchedulesFrame(t *testing.T) {
 func TestRunnerQuitEventStopsRunner(t *testing.T) {
 	now := time.Unix(10, 0)
 	backend := newFakeBackend(ui.Size{Width: 20, Height: 1})
-	runner := ui.NewRunner(ui.NewApp(ui.Keymap{Bindings: map[string]ui.VoidCallback{"q": func(ctx ui.EventContext) { ctx.Quit() }}, Child: ui.Button{Label: "x"}}), backend, ui.NewFrameScheduler(time.Second/60))
+	runner := ui.NewRunner(ui.NewApp(ui.Actions{
+		Bindings: map[ui.IntentType]ui.ActionFunc{
+			runnerQuitIntent{}.IntentType(): func(ctx ui.EventContext, intent ui.Intent) ui.EventResult {
+				ctx.Quit()
+				return ui.EventHandled
+			},
+		},
+		Child: ui.Shortcuts{
+			Bindings: map[string]ui.Intent{"q": runnerQuitIntent{}},
+			Child:    ui.Button{Label: "x"},
+		},
+	}), backend, ui.NewFrameScheduler(time.Second/60))
 	runner.Start(now)
 	if err := runner.HandleFrame(now); err != nil {
 		t.Fatal(err)

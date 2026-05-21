@@ -10,6 +10,12 @@ import (
 	"git.sr.ht/~rockorager/vaxis/ui/uitest"
 )
 
+type callbackIntent string
+
+func (i callbackIntent) IntentType() ui.IntentType {
+	return ui.IntentType(i)
+}
+
 func TestTextPaints(t *testing.T) {
 	app := uitest.New(ui.Text{Value: "hello"})
 	app.Pump(10, 1)
@@ -270,43 +276,64 @@ func TestFocusNodeRequestFocus(t *testing.T) {
 	}
 }
 
-func TestKeymapCaptureHandlesBeforeFocusedButton(t *testing.T) {
+func TestShortcutActionHandlesBeforeFocusedButton(t *testing.T) {
+	intent := callbackIntent("test.capture")
 	called := false
 	button := false
-	app := ui.NewApp(ui.Keymap{Bindings: map[string]ui.VoidCallback{
-		"Enter": func(ctx ui.EventContext) { called = true },
-	}, Child: ui.Button{Label: "button", OnPressed: func(ctx ui.EventContext) { button = true }}})
+	app := ui.NewApp(ui.Actions{
+		Bindings: map[ui.IntentType]ui.ActionFunc{
+			intent.IntentType(): func(ctx ui.EventContext, intent ui.Intent) ui.EventResult {
+				called = true
+				return ui.EventHandled
+			},
+		},
+		Child: ui.Shortcuts{
+			Bindings: map[string]ui.Intent{"Enter": intent},
+			Child:    ui.Button{Label: "button", OnPressed: func(ctx ui.EventContext) { button = true }},
+		},
+	})
 	app.Pump(ui.Size{Width: 20, Height: 1})
 	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
 	if !called {
-		t.Fatal("expected keymap callback")
+		t.Fatal("expected shortcut action")
 	}
 	if button {
-		t.Fatal("button should not run after capture keymap handled event")
+		t.Fatal("button should not run after shortcut action handled event")
 	}
 }
 
-func TestKeymapIgnoresKeyRelease(t *testing.T) {
+func TestShortcutIgnoresKeyRelease(t *testing.T) {
+	intent := callbackIntent("test.release")
 	called := false
-	app := ui.NewApp(ui.Keymap{Bindings: map[string]ui.VoidCallback{
-		"Enter": func(ctx ui.EventContext) { called = true },
-	}, Child: ui.Text{Value: "x"}})
+	app := ui.NewApp(ui.Actions{
+		Bindings: map[ui.IntentType]ui.ActionFunc{
+			intent.IntentType(): func(ctx ui.EventContext, intent ui.Intent) ui.EventResult {
+				called = true
+				return ui.EventHandled
+			},
+		},
+		Child: ui.Shortcuts{
+			Bindings: map[string]ui.Intent{"Enter": intent},
+			Child:    ui.Text{Value: "x"},
+		},
+	})
 	app.Pump(ui.Size{Width: 20, Height: 1})
 	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter, EventType: vaxis.EventRelease})
 	if called {
-		t.Fatal("keymap should ignore key release")
+		t.Fatal("shortcut should ignore key release")
 	}
 }
 
-func TestKeymapIgnoredEventContinuesToFocusedButton(t *testing.T) {
+func TestUnhandledShortcutIntentContinuesToFocusedButton(t *testing.T) {
 	button := false
-	app := ui.NewApp(ui.Keymap{Bindings: map[string]ui.VoidCallback{
-		"Ctrl+x": func(ctx ui.EventContext) {},
-	}, Child: ui.Button{Label: "button", OnPressed: func(ctx ui.EventContext) { button = true }}})
+	app := ui.NewApp(ui.Shortcuts{
+		Bindings: map[string]ui.Intent{"Ctrl+x": callbackIntent("test.unhandled")},
+		Child:    ui.Button{Label: "button", OnPressed: func(ctx ui.EventContext) { button = true }},
+	})
 	app.Pump(ui.Size{Width: 20, Height: 1})
 	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
 	if !button {
-		t.Fatal("expected button to receive event after keymap ignored it")
+		t.Fatal("expected button to receive event after shortcut intent was ignored")
 	}
 }
 

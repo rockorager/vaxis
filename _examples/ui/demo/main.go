@@ -20,6 +20,18 @@ func (Demo) CreateState() ui.State {
 	return &DemoState{}
 }
 
+type demoIntent string
+
+const (
+	demoQuitIntent         demoIntent = "demo.quit"
+	demoNextPageIntent     demoIntent = "demo.next-page"
+	demoPreviousPageIntent demoIntent = "demo.previous-page"
+)
+
+func (i demoIntent) IntentType() ui.IntentType {
+	return ui.IntentType(i)
+}
+
 type DemoState struct {
 	ui.StateBase
 	page   int
@@ -109,19 +121,27 @@ func (s *DemoState) Build(ctx ui.BuildContext) ui.Widget {
 				ctx.ToggleProfileOverlay()
 				return ui.EventHandled
 			},
+			demoQuitIntent.IntentType(): func(ctx ui.EventContext, intent ui.Intent) ui.EventResult {
+				ctx.Quit()
+				return ui.EventHandled
+			},
+			demoNextPageIntent.IntentType(): func(ctx ui.EventContext, intent ui.Intent) ui.EventResult {
+				s.nextPage()
+				return ui.EventHandled
+			},
+			demoPreviousPageIntent.IntentType(): func(ctx ui.EventContext, intent ui.Intent) ui.EventResult {
+				s.previousPage()
+				return ui.EventHandled
+			},
 		},
 		Child: ui.Shortcuts{
 			Bindings: map[string]ui.Intent{
 				"Alt+p": ui.ToggleProfileOverlayIntent{},
+				"q":     demoQuitIntent,
+				"n":     demoNextPageIntent,
+				"p":     demoPreviousPageIntent,
 			},
-			Child: ui.Keymap{
-				Bindings: map[string]ui.VoidCallback{
-					"q": func(ctx ui.EventContext) { ctx.Quit() },
-					"n": func(ctx ui.EventContext) { s.nextPage() },
-					"p": func(ctx ui.EventContext) { s.previousPage() },
-				},
-				Child: body,
-			},
+			Child: body,
 		},
 	}
 }
@@ -177,7 +197,7 @@ func (s *DemoState) homePage() ui.Widget {
 	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, Children: []ui.Widget{
 		ui.RichText{Spans: []ui.TextSpan{
 			{Text: "Home", Style: ui.Style{Attribute: ui.AttrBold}},
-			{Text: "\nThis example is intentionally larger than the counter. It uses state, focus, buttons, keymaps, rich text, wrapping text, alignment, themed borders, and runtime dispatch from a goroutine."},
+			{Text: "\nThis example is intentionally larger than the counter. It uses state, focus, buttons, shortcuts, rich text, wrapping text, alignment, themed borders, and runtime dispatch from a goroutine."},
 		}, SoftWrap: true},
 		ui.SizedBox{Height: 1},
 		ui.Text{Value: "The ticker below is updated through BuildContext.Runtime().Dispatch, then SetState marks this widget dirty.", SoftWrap: true},
