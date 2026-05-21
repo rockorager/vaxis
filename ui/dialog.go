@@ -55,31 +55,27 @@ func (s *dialogState) Build(ctx BuildContext) Widget {
 	if w.Width > 0 {
 		child = ConstrainedBox{Constraints: Constraints{MinWidth: w.Width, MaxWidth: w.Width}, Child: child}
 	}
-	return FocusScope{
-		Trap:      true,
-		AutoFocus: true,
-		Child: DecoratedBox(
-			Decoration{
-				Style:  theme.Button.Normal,
-				Border: BorderAll(theme.Text),
+	return Actions{
+		Bindings: map[Intent]ActionFunc{
+			IntentDismiss: func(ctx EventContext) EventResult {
+				if cb := w.OnDismiss; cb != nil {
+					cb(ctx)
+				}
+				return EventHandled
 			},
-			Padding(All(1), child),
-		),
+		},
+		Child: FocusScope{
+			Trap:      true,
+			AutoFocus: true,
+			Child: DecoratedBox(
+				Decoration{
+					Style:  theme.Button.Normal,
+					Border: BorderAll(theme.Text),
+				},
+				Padding(All(1), child),
+			),
+		},
 	}
-}
-
-func (s *dialogState) HandleEvent(ctx EventContext, ev Event) EventResult {
-	if ctx.Phase() != CapturePhase && ctx.Phase() != TargetPhase {
-		return EventIgnored
-	}
-	key, ok := ev.(Key)
-	if !ok || keyIsRelease(key) || !key.MatchString("Escape") {
-		return EventIgnored
-	}
-	if cb := s.Widget().(Dialog).OnDismiss; cb != nil {
-		cb(ctx)
-	}
-	return EventHandled
 }
 
 func intersperseWidgets(children []Widget, separator Widget) []Widget {

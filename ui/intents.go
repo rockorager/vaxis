@@ -4,6 +4,8 @@ package ui
 type Intent string
 
 const (
+	// IntentDismiss dismisses the nearest dismissible UI surface.
+	IntentDismiss Intent = "vaxis.dismiss"
 	// IntentNextFocus moves focus to the next focusable widget.
 	IntentNextFocus Intent = "vaxis.next-focus"
 	// IntentPreviousFocus moves focus to the previous focusable widget.

@@ -332,6 +332,7 @@ func (a *App) rootWidget(root Widget) Widget {
 		},
 		Child: Shortcuts{
 			Bindings: map[string]Intent{
+				"Escape":    IntentDismiss,
 				"Tab":       IntentNextFocus,
 				"Shift+Tab": IntentPreviousFocus,
 			},

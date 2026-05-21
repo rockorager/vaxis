@@ -85,3 +85,22 @@ func TestDefaultFocusShortcutCanBeOverriddenByLocalAction(t *testing.T) {
 		t.Fatalf("pressed = %d, want first button to keep focus", pressed)
 	}
 }
+
+func TestDefaultDismissShortcutCanBeOverriddenByLocalAction(t *testing.T) {
+	called := false
+	app := ui.NewApp(ui.Actions{
+		Bindings: map[ui.Intent]ui.ActionFunc{
+			ui.IntentDismiss: func(ctx ui.EventContext) ui.EventResult {
+				called = true
+				return ui.EventHandled
+			},
+		},
+		Child: ui.Button{Label: "dismissible"},
+	})
+	app.Pump(ui.Size{Width: 20, Height: 1})
+
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEsc})
+	if !called {
+		t.Fatal("expected local dismiss action")
+	}
+}
