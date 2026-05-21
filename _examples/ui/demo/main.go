@@ -105,9 +105,10 @@ func (s *DemoState) Build(ctx ui.BuildContext) ui.Widget {
 	}
 	return ui.Keymap{
 		Bindings: map[string]ui.VoidCallback{
-			"q": func(ctx ui.EventContext) { ctx.Quit() },
-			"n": func(ctx ui.EventContext) { s.nextPage() },
-			"p": func(ctx ui.EventContext) { s.previousPage() },
+			"q":     func(ctx ui.EventContext) { ctx.Quit() },
+			"n":     func(ctx ui.EventContext) { s.nextPage() },
+			"p":     func(ctx ui.EventContext) { s.previousPage() },
+			"Alt+p": func(ctx ui.EventContext) { ctx.ToggleProfileOverlay() },
 		},
 		Child: body,
 	}

@@ -49,15 +49,3 @@ func TestProfileOverlayDrawsTopRightTable(t *testing.T) {
 		t.Fatalf("key row prefix = %q, want key", got)
 	}
 }
-
-func TestProfileOverlayFromEnv(t *testing.T) {
-	t.Setenv("VAXIS_UI_PROFILE_OVERLAY", "1")
-	if !profileOverlayFromEnv() {
-		t.Fatal("expected profile overlay env to be enabled")
-	}
-
-	t.Setenv("VAXIS_UI_PROFILE_OVERLAY", "false")
-	if profileOverlayFromEnv() {
-		t.Fatal("expected false profile overlay env to be disabled")
-	}
-}

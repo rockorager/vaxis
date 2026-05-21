@@ -71,6 +71,26 @@ func (a *App) FrameRequested() bool {
 	return a.frameRequested
 }
 
+// ProfileOverlay reports whether the profiling overlay is visible.
+func (a *App) ProfileOverlay() bool {
+	return a.profileOverlay
+}
+
+// SetProfileOverlay shows or hides the profiling overlay.
+func (a *App) SetProfileOverlay(visible bool) {
+	if a.profileOverlay == visible {
+		return
+	}
+	a.profileOverlay = visible
+	a.RequestFrame()
+}
+
+// ToggleProfileOverlay toggles the profiling overlay and returns its new state.
+func (a *App) ToggleProfileOverlay() bool {
+	a.SetProfileOverlay(!a.profileOverlay)
+	return a.profileOverlay
+}
+
 func (a *App) registerAnimation(controller *AnimationController) {
 	if a.animations == nil {
 		a.animations = make(map[*AnimationController]struct{})

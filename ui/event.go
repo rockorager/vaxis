@@ -116,6 +116,21 @@ func (c EventContext) SetMouseShape(shape MouseShape) {
 	c.app.setMouseShape(shape)
 }
 
+// ProfileOverlay reports whether the profiling overlay is visible.
+func (c EventContext) ProfileOverlay() bool {
+	return c.app.ProfileOverlay()
+}
+
+// SetProfileOverlay shows or hides the profiling overlay.
+func (c EventContext) SetProfileOverlay(visible bool) {
+	c.app.SetProfileOverlay(visible)
+}
+
+// ToggleProfileOverlay toggles the profiling overlay and returns its new state.
+func (c EventContext) ToggleProfileOverlay() bool {
+	return c.app.ToggleProfileOverlay()
+}
+
 // EventHandler receives events during capture, target, or bubble dispatch.
 type EventHandler interface {
 	HandleEvent(EventContext, Event) EventResult

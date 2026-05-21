@@ -5,6 +5,7 @@ golangci-lint = "2.12.2"
 
 [env]
 GOFLAGS = "-ldflags=-linkmode=external"
+VAXIS_UI_DEBUG = "dev"
 
 [tasks.check]
 description = "Run formatting checks and tests"

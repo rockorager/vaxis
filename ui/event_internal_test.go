@@ -46,3 +46,25 @@ func TestAppPumpDropsStalePixelResize(t *testing.T) {
 		t.Fatalf("fractional point with stale pixels = %#v, want %#v", got, want)
 	}
 }
+
+func TestEventContextTogglesProfileOverlay(t *testing.T) {
+	app := NewApp(Text{Value: "x"})
+	ctx := EventContext{app: app}
+	if ctx.ProfileOverlay() {
+		t.Fatal("profile overlay should start hidden")
+	}
+	if !ctx.ToggleProfileOverlay() {
+		t.Fatal("toggle should return visible state")
+	}
+	if !app.ProfileOverlay() {
+		t.Fatal("expected context toggle to enable profile overlay")
+	}
+	if !app.FrameRequested() {
+		t.Fatal("toggling profile overlay should request a frame")
+	}
+
+	ctx.SetProfileOverlay(false)
+	if app.ProfileOverlay() {
+		t.Fatal("expected SetProfileOverlay(false) to hide overlay")
+	}
+}

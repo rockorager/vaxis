@@ -2,8 +2,6 @@ package ui
 
 import (
 	"context"
-	"os"
-	"strings"
 	"time"
 
 	"git.sr.ht/~rockorager/vaxis"
@@ -31,9 +29,6 @@ func runWithBackend(root Widget, backend Backend, opts ...Option) error {
 		cancel()
 	}
 	opts = append(append([]Option{}, opts...), WithTheme(options.theme))
-	if profileOverlayFromEnv() && !options.profileOverlay {
-		opts = append(opts, WithProfileOverlay())
-	}
 	app := NewApp(root, opts...)
 	runner := NewRunner(app, backend, NewFrameScheduler(DefaultFrameInterval))
 	submitDebugEvent := func(ev Event) {
@@ -88,15 +83,5 @@ func runWithBackend(root Widget, backend Backend, opts ...Option) error {
 			}
 			schedule()
 		}
-	}
-}
-
-func profileOverlayFromEnv() bool {
-	value := strings.TrimSpace(os.Getenv("VAXIS_UI_PROFILE_OVERLAY"))
-	switch value {
-	case "", "0", "false", "FALSE":
-		return false
-	default:
-		return true
 	}
 }
