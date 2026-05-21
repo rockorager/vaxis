@@ -9,6 +9,7 @@ type Runner struct {
 	scheduler *FrameScheduler
 	done      bool
 	lastFrame *Painter
+	profile   *profileStore
 }
 
 // NewRunner creates a runner for app and backend.
@@ -26,7 +27,7 @@ func NewRunner(app *App, backend Backend, scheduler *FrameScheduler) *Runner {
 	if b, ok := backend.(interface{ Notify(string, string) }); ok {
 		app.notify = b.Notify
 	}
-	return &Runner{app: app, backend: backend, scheduler: scheduler}
+	return &Runner{app: app, backend: backend, scheduler: scheduler, profile: &profileStore{}}
 }
 
 // Start schedules the initial frame.
@@ -55,6 +56,20 @@ func (r *Runner) RequestFrame(now time.Time) {
 
 // HandleEvent dispatches one backend event to the app.
 func (r *Runner) HandleEvent(ev Event, now time.Time) {
+	var metric profileMetric
+	var profiled bool
+	switch ev.(type) {
+	case Key:
+		metric, profiled = profileKey, true
+	case Mouse:
+		metric, profiled = profileMouse, true
+	}
+	start := time.Now()
+	defer func() {
+		if profiled {
+			r.profile.record(metric, time.Since(start))
+		}
+	}()
 	if fn, ok := ev.(SyncFunc); ok {
 		fn()
 		r.RequestFrame(now)
@@ -84,6 +99,7 @@ func (r *Runner) HandleEvent(ev Event, now time.Time) {
 
 // HandleFrame rebuilds, lays out, paints, and renders one frame if needed.
 func (r *Runner) HandleFrame(now time.Time) error {
+	frameStart := time.Now()
 	r.app.tickAnimations(now)
 	activeFrameTicks := r.app.tickFrameCallbacks(now)
 	if !r.app.FrameRequested() {
@@ -94,13 +110,27 @@ func (r *Runner) HandleFrame(now time.Time) error {
 		return nil
 	}
 	size := r.backend.Size()
-	r.app.Pump(size)
+	build, layout := r.app.pumpProfiled(size)
 	painter := NewPainter(size)
+	start := time.Now()
 	r.app.Paint(painter)
+	paint := time.Since(start)
+	if r.app.profileOverlay {
+		drawProfileOverlay(painter, r.profile.snapshot())
+	}
 	r.backend.SetMouseShape(r.app.MouseShape())
+	start = time.Now()
 	if err := r.backend.Render(painter); err != nil {
 		return err
 	}
+	render := time.Since(start)
+	r.profile.recordFrame(frameProfileTimings{
+		build:  build,
+		layout: layout,
+		paint:  paint,
+		render: render,
+		frame:  time.Since(frameStart),
+	})
 	r.lastFrame = painter.clone()
 	r.scheduler.DidFrame(now)
 	if r.app.FrameRequested() || r.app.hasActiveAnimations() || activeFrameTicks {
@@ -114,4 +144,8 @@ func (r *Runner) debugRenderedSnapshot() (DebugRenderedSnapshot, bool) {
 		return DebugRenderedSnapshot{}, false
 	}
 	return debugRenderedSnapshot(r.lastFrame), true
+}
+
+func (r *Runner) debugProfileSnapshot() (DebugProfileSnapshot, bool) {
+	return r.profile.snapshot(), true
 }

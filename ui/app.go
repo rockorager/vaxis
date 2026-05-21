@@ -23,6 +23,7 @@ type App struct {
 	pendingFocus    []focusTarget
 	hoverPath       []element
 	animations      map[*AnimationController]struct{}
+	profileOverlay  bool
 }
 
 // NewApp creates an app mounted with root.
@@ -32,7 +33,7 @@ func NewApp(root Widget, opts ...Option) *App {
 	for _, opt := range opts {
 		opt(&options)
 	}
-	app := &App{build: owner, theme: options.theme}
+	app := &App{build: owner, theme: options.theme, profileOverlay: options.profileOverlay}
 	app.dispatch = func(fn func()) { fn() }
 	app.setTitle = func(string) {}
 	app.copyToClipboard = func(string) {}
@@ -143,18 +144,27 @@ func (a *App) setResize(size Resize) {
 
 // Pump rebuilds and lays out the widget tree for size.
 func (a *App) Pump(size Size) {
+	a.pumpProfiled(size)
+}
+
+func (a *App) pumpProfiled(size Size) (build, layout time.Duration) {
 	a.frameRequested = false
 	a.size = size
 	if a.window.Cols != size.Width || a.window.Rows != size.Height {
 		a.window = Resize{Cols: size.Width, Rows: size.Height}
 	}
+	start := time.Now()
 	a.build.BuildScope()
 	a.flushFocusNotifications()
 	a.rootRO = findRenderObject(a.build.Root())
+	build = time.Since(start)
 	if a.rootRO != nil {
+		start = time.Now()
 		a.rootRO.Layout(LayoutContext{}, Tight(size))
 		clearNeedsLayout(a.rootRO)
+		layout = time.Since(start)
 	}
+	return build, layout
 }
 
 func (a *App) dispatchEvent(ev Event) EventResult {
@@ -614,12 +624,18 @@ type (
 	// Option configures an App or Run invocation.
 	Option  func(*options)
 	options struct {
-		theme    Theme
-		hasTheme bool
+		theme          Theme
+		hasTheme       bool
+		profileOverlay bool
 	}
 )
 
 // WithTheme sets the theme used by built-in widgets.
 func WithTheme(theme Theme) Option {
 	return func(o *options) { o.theme, o.hasTheme = theme, true }
+}
+
+// WithProfileOverlay draws recent UI profiling stats in the top-right corner.
+func WithProfileOverlay() Option {
+	return func(o *options) { o.profileOverlay = true }
 }

@@ -72,7 +72,7 @@ func TestDebugSnapshotViaDispatch(t *testing.T) {
 func TestDebugServerRequiresToken(t *testing.T) {
 	app := NewApp(Text{Value: "debug"})
 	app.Pump(Size{Width: 10, Height: 1})
-	handler := newDebugServerHandler(app, "secret", func(fn func()) { fn() }, nil, nil, nil)
+	handler := newDebugServerHandler(app, "secret", func(fn func()) { fn() }, nil, nil, nil, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/debug/ui", nil)
 	rec := httptest.NewRecorder()
@@ -96,7 +96,7 @@ func TestDebugServerSubmitsEvents(t *testing.T) {
 	app.Pump(Size{Width: 10, Height: 1})
 	handler := newDebugServerHandler(app, "secret", func(fn func()) { fn() }, func(ev Event) {
 		app.Send(ev)
-	}, nil, nil)
+	}, nil, nil, nil)
 	req := httptest.NewRequest(http.MethodPost, "/debug/ui/events", bytes.NewBufferString(`{"type":"key","key":"Enter"}`))
 	req.Header.Set("Authorization", "Bearer secret")
 	rec := httptest.NewRecorder()
@@ -120,7 +120,7 @@ func TestDebugServerPerformsActions(t *testing.T) {
 	app.Pump(Size{Width: 30, Height: 1})
 	handler := newDebugServerHandler(app, "secret", func(fn func()) { fn() }, func(ev Event) {
 		app.Send(ev)
-	}, nil, nil)
+	}, nil, nil, nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/debug/ui/actions", bytes.NewBufferString(`{"action":"focus","label":"second"}`))
 	req.Header.Set("Authorization", "Bearer secret")
@@ -153,7 +153,7 @@ func TestDebugServerRenderedEndpoints(t *testing.T) {
 		return debugRenderedSnapshot(painter), true
 	}, func() (string, bool) {
 		return debugRenderedText(painter), true
-	})
+	}, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/debug/ui/rendered", nil)
 	req.Header.Set("Authorization", "Bearer secret")
@@ -175,6 +175,28 @@ func TestDebugServerRenderedEndpoints(t *testing.T) {
 	}
 	if got := rec.Body.String(); !strings.HasPrefix(got, "hi\n") {
 		t.Fatalf("rendered text = %q, want hi prefix", got)
+	}
+}
+
+func TestDebugServerProfileEndpoint(t *testing.T) {
+	app := NewApp(Text{Value: "unused"})
+	handler := newDebugServerHandler(app, "secret", func(fn func()) { fn() }, nil, nil, nil, func() (DebugProfileSnapshot, bool) {
+		return DebugProfileSnapshot{
+			Window: 1000,
+			Key:    DebugProfileSample{Count: 1, LastMS: 1.25, P95MS: 1.25, P99MS: 1.25},
+		}, true
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/debug/ui/profile", nil)
+	req.Header.Set("Authorization", "Bearer secret")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want ok: %s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, `"window": 1000`) || !strings.Contains(body, `"last_ms": 1.25`) {
+		t.Fatalf("profile response = %s, want profile stats", body)
 	}
 }
 

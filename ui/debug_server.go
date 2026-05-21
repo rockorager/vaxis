@@ -16,7 +16,7 @@ import (
 	"git.sr.ht/~rockorager/vaxis"
 )
 
-func startDebugServer(app *App, dispatch func(func()), submitEvent func(Event), rendered func() (DebugRenderedSnapshot, bool), renderedText func() (string, bool)) (func(), error) {
+func startDebugServer(app *App, dispatch func(func()), submitEvent func(Event), rendered func() (DebugRenderedSnapshot, bool), renderedText func() (string, bool), profile func() (DebugProfileSnapshot, bool)) (func(), error) {
 	token, ok := debugServerToken()
 	if !ok {
 		return func() {}, nil
@@ -29,7 +29,7 @@ func startDebugServer(app *App, dispatch func(func()), submitEvent func(Event), 
 	if err != nil {
 		return nil, err
 	}
-	server := &http.Server{Handler: newDebugServerHandler(app, token, dispatch, submitEvent, rendered, renderedText), ReadHeaderTimeout: 2 * time.Second}
+	server := &http.Server{Handler: newDebugServerHandler(app, token, dispatch, submitEvent, rendered, renderedText, profile), ReadHeaderTimeout: 2 * time.Second}
 	go func() {
 		if err := server.Serve(ln); err != nil && err != http.ErrServerClosed {
 			fmt.Fprintf(os.Stderr, "vaxis ui debug server error: %v\n", err)
@@ -43,7 +43,7 @@ func startDebugServer(app *App, dispatch func(func()), submitEvent func(Event), 
 	}, nil
 }
 
-func newDebugServerHandler(app *App, token string, dispatch func(func()), submitEvent func(Event), rendered func() (DebugRenderedSnapshot, bool), renderedText func() (string, bool)) http.Handler {
+func newDebugServerHandler(app *App, token string, dispatch func(func()), submitEvent func(Event), rendered func() (DebugRenderedSnapshot, bool), renderedText func() (string, bool), profile func() (DebugProfileSnapshot, bool)) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/debug/ui", func(w http.ResponseWriter, r *http.Request) {
 		if !debugAuthenticated(r, token) {
@@ -99,6 +99,25 @@ func newDebugServerHandler(app *App, token string, dispatch func(func()), submit
 		}
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		_, _ = w.Write([]byte(text))
+	})
+	mux.HandleFunc("/debug/ui/profile", func(w http.ResponseWriter, r *http.Request) {
+		if !debugAuthenticated(r, token) {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		snapshot, ok := debugProfileViaDispatch(r.Context(), dispatch, profile)
+		if !ok {
+			http.Error(w, "profile is unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		enc := json.NewEncoder(w)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(snapshot)
 	})
 	mux.HandleFunc("/debug/ui/events", func(w http.ResponseWriter, r *http.Request) {
 		if !debugAuthenticated(r, token) {
@@ -257,6 +276,29 @@ func debugRenderedTextViaDispatch(ctx context.Context, dispatch func(func()), re
 		return "", false
 	case <-timer.C:
 		return "", false
+	}
+}
+
+func debugProfileViaDispatch(ctx context.Context, dispatch func(func()), profile func() (DebugProfileSnapshot, bool)) (DebugProfileSnapshot, bool) {
+	if profile == nil {
+		return DebugProfileSnapshot{}, false
+	}
+	done := make(chan DebugProfileSnapshot, 1)
+	var ok bool
+	dispatch(func() {
+		var snapshot DebugProfileSnapshot
+		snapshot, ok = profile()
+		done <- snapshot
+	})
+	timer := time.NewTimer(2 * time.Second)
+	defer timer.Stop()
+	select {
+	case snapshot := <-done:
+		return snapshot, ok
+	case <-ctx.Done():
+		return DebugProfileSnapshot{}, false
+	case <-timer.C:
+		return DebugProfileSnapshot{}, false
 	}
 }
 
