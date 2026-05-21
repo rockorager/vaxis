@@ -58,6 +58,33 @@ func TestDialogEscapeDismisses(t *testing.T) {
 	}
 }
 
+func TestDialogDismissCanBeOverridden(t *testing.T) {
+	overridden := false
+	dismissed := false
+	app := NewApp(Actions{
+		Bindings: map[IntentType]ActionFunc{
+			DismissIntentType: func(ctx EventContext, intent Intent) EventResult {
+				overridden = true
+				return EventHandled
+			},
+		},
+		Child: Dialog{
+			Title:     "Confirm",
+			Actions:   []Widget{Button{Label: "OK"}},
+			OnDismiss: func(EventContext) { dismissed = true },
+		},
+	})
+	app.Pump(Size{Width: 30, Height: 5})
+
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEsc})
+	if !overridden {
+		t.Fatal("expected ancestor action to override dialog dismiss")
+	}
+	if dismissed {
+		t.Fatal("dialog default dismiss ran despite ancestor override")
+	}
+}
+
 func focusedDebugLabel(app *App) string {
 	snapshot := app.DebugSnapshot()
 	for _, target := range snapshot.Focusables {

@@ -55,7 +55,7 @@ func (s *dialogState) Build(ctx BuildContext) Widget {
 	if w.Width > 0 {
 		child = ConstrainedBox{Constraints: Constraints{MinWidth: w.Width, MaxWidth: w.Width}, Child: child}
 	}
-	return Actions{
+	return DefaultActions{
 		Bindings: map[IntentType]ActionFunc{
 			DismissIntentType: func(ctx EventContext, intent Intent) EventResult {
 				if cb := w.OnDismiss; cb != nil {
