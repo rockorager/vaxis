@@ -39,13 +39,13 @@ func NewApp(root Widget, opts ...Option) *App {
 	app.copyToClipboard = func(string) {}
 	app.notify = func(string, string) {}
 	owner.app = app
-	owner.Mount(Provider[Theme]{Value: app.theme, Child: root})
+	owner.Mount(app.rootWidget(root))
 	return app
 }
 
 // UpdateRoot replaces the root widget while preserving compatible elements.
 func (a *App) UpdateRoot(root Widget) {
-	a.build.UpdateRoot(Provider[Theme]{Value: a.theme, Child: root})
+	a.build.UpdateRoot(a.rootWidget(root))
 }
 
 // Send dispatches ev through the widget tree.
@@ -211,16 +211,6 @@ func (a *App) dispatchEvent(ev Event) EventResult {
 			return a.dispatchPath(path, ev)
 		}
 	}
-	if key, ok := ev.(Key); ok {
-		if !keyIsRelease(key) && key.MatchString("Tab") {
-			a.focusNext()
-			return EventHandled
-		}
-		if !keyIsRelease(key) && key.MatchString("Shift+Tab") {
-			a.focusPrevious()
-			return EventHandled
-		}
-	}
 	target := a.focused.element
 	if target == nil {
 		target = a.build.Root()
@@ -326,6 +316,28 @@ func (a *App) handleWithTarget(e element, target element, phase EventPhase, ev E
 		return EventIgnored
 	}
 	return h.HandleEvent(ctx, ev)
+}
+
+func (a *App) rootWidget(root Widget) Widget {
+	return Actions{
+		Bindings: map[Intent]ActionFunc{
+			IntentNextFocus: func(ctx EventContext) EventResult {
+				ctx.FocusNext()
+				return EventHandled
+			},
+			IntentPreviousFocus: func(ctx EventContext) EventResult {
+				ctx.FocusPrevious()
+				return EventHandled
+			},
+		},
+		Child: Shortcuts{
+			Bindings: map[string]Intent{
+				"Tab":       IntentNextFocus,
+				"Shift+Tab": IntentPreviousFocus,
+			},
+			Child: Provider[Theme]{Value: a.theme, Child: root},
+		},
+	}
 }
 
 func pathMousePoints(path []element, ev Event) []Point {

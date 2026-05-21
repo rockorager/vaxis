@@ -58,3 +58,30 @@ func TestShortcutsIgnoreUnhandledIntent(t *testing.T) {
 		t.Fatal("shortcut without action should leave event for focused button")
 	}
 }
+
+func TestDefaultFocusShortcutCanBeOverriddenByLocalAction(t *testing.T) {
+	called := false
+	pressed := 0
+	app := ui.NewApp(ui.Actions{
+		Bindings: map[ui.Intent]ui.ActionFunc{
+			ui.IntentNextFocus: func(ctx ui.EventContext) ui.EventResult {
+				called = true
+				return ui.EventHandled
+			},
+		},
+		Child: ui.Row(
+			ui.Button{Label: "one", OnPressed: func(ctx ui.EventContext) { pressed = 1 }},
+			ui.Button{Label: "two", OnPressed: func(ctx ui.EventContext) { pressed = 2 }},
+		),
+	})
+	app.Pump(ui.Size{Width: 20, Height: 1})
+
+	app.Send(vaxis.Key{Keycode: vaxis.KeyTab})
+	if !called {
+		t.Fatal("expected local next-focus action")
+	}
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
+	if pressed != 1 {
+		t.Fatalf("pressed = %d, want first button to keep focus", pressed)
+	}
+}
