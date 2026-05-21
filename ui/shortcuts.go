@@ -4,6 +4,9 @@ package ui
 type ShortcutMap map[string]Intent
 
 // DefaultShortcuts returns the default app-level key-to-intent bindings.
+//
+// The returned map is a fresh copy that callers may modify before passing it
+// to WithShortcuts.
 func DefaultShortcuts() ShortcutMap {
 	return ShortcutMap{
 		"Escape":    DismissIntent{},
@@ -24,6 +27,10 @@ func cloneShortcuts(shortcuts ShortcutMap) ShortcutMap {
 }
 
 // Shortcuts maps key bindings to intents.
+//
+// Shortcuts only handles a key when invoking the mapped intent is handled by an
+// Actions or DefaultActions provider. Otherwise, the key event continues down
+// the normal event path.
 type Shortcuts struct {
 	// Bindings maps Key.MatchString patterns to intents.
 	Bindings ShortcutMap

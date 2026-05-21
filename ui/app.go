@@ -687,6 +687,9 @@ func WithProfileOverlay() Option {
 }
 
 // WithShortcuts replaces the default app-level key-to-intent bindings.
+//
+// Start from DefaultShortcuts when you want to keep the built-in bindings and
+// add or change only a few keys.
 func WithShortcuts(shortcuts ShortcutMap) Option {
 	return func(o *options) { o.shortcuts = cloneShortcuts(shortcuts) }
 }

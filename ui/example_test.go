@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"git.sr.ht/~rockorager/vaxis"
 	"git.sr.ht/~rockorager/vaxis/ui"
 	"git.sr.ht/~rockorager/vaxis/ui/uitest"
 )
@@ -23,6 +24,49 @@ func ExampleTextField() {
 	}
 
 	_ = field
+}
+
+type exampleSaveIntent struct{}
+
+func (exampleSaveIntent) IntentType() ui.IntentType {
+	return "example.save"
+}
+
+func ExampleShortcuts() {
+	saved := false
+	app := ui.NewApp(ui.Actions{
+		Bindings: map[ui.IntentType]ui.ActionFunc{
+			exampleSaveIntent{}.IntentType(): func(ctx ui.EventContext, intent ui.Intent) ui.EventResult {
+				saved = true
+				return ui.EventHandled
+			},
+		},
+		Child: ui.Shortcuts{
+			Bindings: ui.ShortcutMap{"s": exampleSaveIntent{}},
+			Child:    ui.Button{Label: "save"},
+		},
+	})
+	app.Pump(ui.Size{Width: 10, Height: 1})
+	app.Send(vaxis.Key{Text: "s", Keycode: 's'})
+
+	fmt.Println(saved)
+	// Output: true
+}
+
+func ExampleWithShortcuts() {
+	pressed := ""
+	app := ui.NewApp(ui.Row(
+		ui.Button{Label: "one", OnPressed: func(ctx ui.EventContext) { pressed = "one" }},
+		ui.Button{Label: "two", OnPressed: func(ctx ui.EventContext) { pressed = "two" }},
+	), ui.WithShortcuts(ui.ShortcutMap{
+		"x": ui.NextFocusIntent{},
+	}))
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	app.Send(vaxis.Key{Text: "x", Keycode: 'x'})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
+
+	fmt.Println(pressed)
+	// Output: two
 }
 
 func ExampleTextBuffer() {

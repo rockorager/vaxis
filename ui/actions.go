@@ -11,7 +11,10 @@ type defaultActionProvider interface {
 	defaultAction(IntentType) (ActionFunc, bool)
 }
 
-// Actions provides intent handlers for its subtree.
+// Actions provides overridable intent handlers for its subtree.
+//
+// When a descendant invokes an intent, the nearest matching Actions handler
+// wins over any DefaultActions handler provided by the widget itself.
 type Actions struct {
 	// Bindings maps intent types to handlers.
 	Bindings map[IntentType]ActionFunc
@@ -44,6 +47,9 @@ func (e *actionsElement) action(intent IntentType) (ActionFunc, bool) {
 }
 
 // DefaultActions provides fallback intent handlers for its subtree.
+//
+// Widgets use DefaultActions for their built-in behavior, so callers can
+// override that behavior by placing Actions above them.
 type DefaultActions struct {
 	// Bindings maps intent types to fallback handlers.
 	Bindings map[IntentType]ActionFunc
