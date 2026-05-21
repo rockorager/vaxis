@@ -37,14 +37,22 @@ func (s *buttonState) Build(ctx BuildContext) Widget {
 	if s.hovered {
 		style = theme.Hovered
 	}
-	return Focus(&s.node, SizedBox{Width: buttonWidthFor(w.Label, padding, buttonMinWidth(w, theme)), Height: buttonHeightFor(padding), Child: DecoratedBox(
-		Decoration{Style: style},
-		Padding(padding, Align{Alignment: CenterAlign, Child: RichText{Spans: []TextSpan{
-			{Text: left, Style: style},
-			{Text: w.Label, Style: style},
-			{Text: right, Style: style},
-		}}}),
-	)})
+	return Actions{
+		Bindings: map[Intent]ActionFunc{
+			IntentActivate: func(ctx EventContext) EventResult {
+				s.activate(ctx)
+				return EventHandled
+			},
+		},
+		Child: Focus(&s.node, SizedBox{Width: buttonWidthFor(w.Label, padding, buttonMinWidth(w, theme)), Height: buttonHeightFor(padding), Child: DecoratedBox(
+			Decoration{Style: style},
+			Padding(padding, Align{Alignment: CenterAlign, Child: RichText{Spans: []TextSpan{
+				{Text: left, Style: style},
+				{Text: w.Label, Style: style},
+				{Text: right, Style: style},
+			}}}),
+		)}),
+	}
 }
 
 func buttonWidthFor(label string, padding Insets, minWidth int) int {
@@ -113,6 +121,7 @@ func (s *buttonState) HandleEvent(ctx EventContext, ev Event) EventResult {
 		if !ev.MatchString("Enter") && !ev.MatchString("Space") {
 			return EventIgnored
 		}
+		return ctx.Invoke(IntentActivate)
 	case hoverExit:
 		if s.hovered {
 			s.SetState(func() { s.hovered = false })
@@ -128,11 +137,14 @@ func (s *buttonState) HandleEvent(ctx EventContext, ev Event) EventResult {
 		if ev.EventType != EventPress || ev.Button != MouseLeftButton {
 			return EventIgnored
 		}
+		return ctx.Invoke(IntentActivate)
 	default:
 		return EventIgnored
 	}
+}
+
+func (s *buttonState) activate(ctx EventContext) {
 	if cb := s.Widget().(Button).OnPressed; cb != nil {
 		cb(ctx)
 	}
-	return EventHandled
 }

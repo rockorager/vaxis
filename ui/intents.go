@@ -4,6 +4,8 @@ package ui
 type Intent string
 
 const (
+	// IntentActivate activates the focused control.
+	IntentActivate Intent = "vaxis.activate"
 	// IntentDismiss dismisses the nearest dismissible UI surface.
 	IntentDismiss Intent = "vaxis.dismiss"
 	// IntentNextFocus moves focus to the next focusable widget.
