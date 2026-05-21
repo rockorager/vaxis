@@ -44,10 +44,21 @@ type selectionAreaState struct {
 }
 
 func (s *selectionAreaState) Build(BuildContext) Widget {
-	return FocusWithOptions(&s.node, FocusOptions{SkipTraversal: true}, selectionAreaView{
+	child := FocusWithOptions(&s.node, FocusOptions{SkipTraversal: true}, selectionAreaView{
 		State: s,
 		Child: s.Widget().(SelectionArea).Child,
 	})
+	return DefaultActions{
+		Bindings: map[IntentType]ActionFunc{
+			SelectAllTextIntentType: func(ctx EventContext, intent Intent) EventResult {
+				return s.selectAllText()
+			},
+			CopySelectionTextIntentType: func(ctx EventContext, intent Intent) EventResult {
+				return s.copySelection(ctx)
+			},
+		},
+		Child: child,
+	}
 }
 
 func (s *selectionAreaState) HandleEvent(ctx EventContext, ev Event) EventResult {
@@ -60,25 +71,35 @@ func (s *selectionAreaState) HandleEvent(ctx EventContext, ev Event) EventResult
 			return EventIgnored
 		}
 		if ev.MatchString("Ctrl+c") {
-			if s.hasSelection {
-				if area := s.areaRender(); area != nil {
-					ctx.Copy(area.SelectedText(s.anchor, s.extent, s.visibleOnly))
-				}
-			}
-			return EventHandled
+			return ctx.Invoke(CopySelectionTextIntent{})
 		}
 		if ev.MatchString("Ctrl+a") {
-			if area := s.areaRender(); area != nil {
-				if anchor, extent, ok := area.selectAllEndpoints(); ok {
-					s.setSelection(anchor, extent, false)
-				}
-				return EventHandled
-			}
+			return ctx.Invoke(SelectAllTextIntent{})
 		}
 	case Mouse:
 		return s.handleMouse(ctx, ev)
 	}
 	return EventIgnored
+}
+
+func (s *selectionAreaState) copySelection(ctx EventContext) EventResult {
+	if s.hasSelection {
+		if area := s.areaRender(); area != nil {
+			ctx.Copy(area.SelectedText(s.anchor, s.extent, s.visibleOnly))
+		}
+	}
+	return EventHandled
+}
+
+func (s *selectionAreaState) selectAllText() EventResult {
+	area := s.areaRender()
+	if area == nil {
+		return EventIgnored
+	}
+	if anchor, extent, ok := area.selectAllEndpoints(); ok {
+		s.setSelection(anchor, extent, false)
+	}
+	return EventHandled
 }
 
 func (s *selectionAreaState) handleMouse(ctx EventContext, mouse Mouse) EventResult {
