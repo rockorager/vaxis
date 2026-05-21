@@ -43,6 +43,67 @@ func TestSegmentedControlKeyboardSelectsEnabledSegments(t *testing.T) {
 	}
 }
 
+func TestSegmentedControlActivateCanBeInvokedByShortcut(t *testing.T) {
+	var selected string
+	app := NewApp(Shortcuts{
+		Bindings: map[string]Intent{"x": ActivateIntent{}},
+		Child: SegmentedControl[string]{
+			Value: "compact",
+			Segments: []SegmentedItem[string]{
+				{Value: "compact", Label: "Compact"},
+				{Value: "cozy", Label: "Cozy"},
+				{Value: "wide", Label: "Wide"},
+			},
+			OnChanged: func(ctx EventContext, value string) {
+				selected = value
+			},
+		},
+	})
+	app.Pump(Size{Width: 40, Height: 1})
+	app.focusNext()
+
+	app.Send(Key{Keycode: KeyRight})
+	app.Send(Key{Text: "x", Keycode: 'x'})
+	if selected != "cozy" {
+		t.Fatalf("selected = %q, want cozy", selected)
+	}
+}
+
+func TestSegmentedControlActivateCanBeOverridden(t *testing.T) {
+	overridden := false
+	selected := ""
+	app := NewApp(Actions{
+		Bindings: map[IntentType]ActionFunc{
+			ActivateIntentType: func(ctx EventContext, intent Intent) EventResult {
+				overridden = true
+				return EventHandled
+			},
+		},
+		Child: SegmentedControl[string]{
+			Value: "compact",
+			Segments: []SegmentedItem[string]{
+				{Value: "compact", Label: "Compact"},
+				{Value: "cozy", Label: "Cozy"},
+				{Value: "wide", Label: "Wide"},
+			},
+			OnChanged: func(ctx EventContext, value string) {
+				selected = value
+			},
+		},
+	})
+	app.Pump(Size{Width: 40, Height: 1})
+	app.focusNext()
+
+	app.Send(Key{Keycode: KeyRight})
+	app.Send(Key{Keycode: '\r'})
+	if !overridden {
+		t.Fatal("expected ancestor action to override segmented control activate")
+	}
+	if selected != "" {
+		t.Fatalf("selected = %q, want no default activation", selected)
+	}
+}
+
 func TestSegmentedControlMouseSelectsSegment(t *testing.T) {
 	var selected string
 	app := NewApp(SegmentedControl[string]{

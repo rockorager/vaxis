@@ -54,7 +54,14 @@ func (s *segmentedControlState[T]) Build(ctx BuildContext) Widget {
 	if w.Disabled || len(w.Segments) == 0 {
 		return render
 	}
-	return Focus(&s.node, render)
+	return DefaultActions{
+		Bindings: map[IntentType]ActionFunc{
+			ActivateIntentType: func(ctx EventContext, intent Intent) EventResult {
+				return s.selectActive(ctx, s.Widget().(SegmentedControl[T]))
+			},
+		},
+		Child: Focus(&s.node, render),
+	}
 }
 
 func (s *segmentedControlState[T]) activeIndex(w SegmentedControl[T]) int {
@@ -98,7 +105,7 @@ func (s *segmentedControlState[T]) HandleEvent(ctx EventContext, ev Event) Event
 		case ev.Keycode == KeyRight || ev.MatchString("l"):
 			return s.moveActive(w, 1)
 		case ev.MatchString("Enter") || ev.MatchString("Space"):
-			return s.selectActive(ctx, w)
+			return ctx.Invoke(ActivateIntent{})
 		default:
 			return EventIgnored
 		}
@@ -118,7 +125,7 @@ func (s *segmentedControlState[T]) HandleEvent(ctx EventContext, ev Event) Event
 		if ev.EventType != EventPress || ev.Button != MouseLeftButton || index < 0 {
 			return EventIgnored
 		}
-		return s.selectIndex(ctx, w, index)
+		return s.activateIndex(ctx, index)
 	default:
 		return EventIgnored
 	}
@@ -136,6 +143,11 @@ func (s *segmentedControlState[T]) moveActive(w SegmentedControl[T], delta int) 
 
 func (s *segmentedControlState[T]) selectActive(ctx EventContext, w SegmentedControl[T]) EventResult {
 	return s.selectIndex(ctx, w, s.activeIndex(w))
+}
+
+func (s *segmentedControlState[T]) activateIndex(ctx EventContext, index int) EventResult {
+	s.SetState(func() { s.active = index })
+	return ctx.Invoke(ActivateIntent{})
 }
 
 func (s *segmentedControlState[T]) selectIndex(ctx EventContext, w SegmentedControl[T], index int) EventResult {
