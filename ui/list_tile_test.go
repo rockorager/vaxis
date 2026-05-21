@@ -36,6 +36,55 @@ func TestListTileActivatesWithKeyboardAndMouse(t *testing.T) {
 	}
 }
 
+func TestListTileActivateCanBeInvokedByShortcut(t *testing.T) {
+	activated := false
+	app := NewApp(Shortcuts{
+		Bindings: map[string]Intent{"x": ActivateIntent{}},
+		Child: SizedBox{Width: 12, Height: 1, Child: ListTile{
+			Title: Text{Value: "Open"},
+			OnPressed: func(EventContext) {
+				activated = true
+			},
+		}},
+	})
+	app.Pump(Size{Width: 12, Height: 1})
+	app.focusNext()
+
+	app.Send(Key{Text: "x", Keycode: 'x'})
+	if !activated {
+		t.Fatal("expected shortcut to invoke list tile default activate action")
+	}
+}
+
+func TestListTileActivateCanBeOverridden(t *testing.T) {
+	overridden := false
+	activated := false
+	app := NewApp(Actions{
+		Bindings: map[IntentType]ActionFunc{
+			ActivateIntentType: func(ctx EventContext, intent Intent) EventResult {
+				overridden = true
+				return EventHandled
+			},
+		},
+		Child: SizedBox{Width: 12, Height: 1, Child: ListTile{
+			Title: Text{Value: "Open"},
+			OnPressed: func(EventContext) {
+				activated = true
+			},
+		}},
+	})
+	app.Pump(Size{Width: 12, Height: 1})
+	app.focusNext()
+
+	app.Send(Key{Keycode: '\r'})
+	if !overridden {
+		t.Fatal("expected ancestor action to override list tile activate")
+	}
+	if activated {
+		t.Fatal("list tile default activation ran despite ancestor override")
+	}
+}
+
 func TestListTileUsesStateStyles(t *testing.T) {
 	theme := DefaultTheme()
 	theme.ListTile.Normal = Style{Foreground: RGB(1, 1, 1)}

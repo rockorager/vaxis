@@ -53,7 +53,17 @@ func (s *listTileState) Build(ctx BuildContext) Widget {
 	}
 	if !w.Disabled && w.OnPressed != nil {
 		s.node.onChange = s.MarkNeedsBuild
-		return Focus(&s.node, tile)
+		return DefaultActions{
+			Bindings: map[IntentType]ActionFunc{
+				ActivateIntentType: func(ctx EventContext, intent Intent) EventResult {
+					if cb := s.Widget().(ListTile).OnPressed; cb != nil {
+						cb(ctx)
+					}
+					return EventHandled
+				},
+			},
+			Child: Focus(&s.node, tile),
+		}
 	}
 	return tile
 }
@@ -183,8 +193,7 @@ func (s *listTileState) HandleEvent(ctx EventContext, ev Event) EventResult {
 	default:
 		return EventIgnored
 	}
-	w.OnPressed(ctx)
-	return EventHandled
+	return ctx.Invoke(ActivateIntent{})
 }
 
 type listTileSurface struct {
