@@ -270,16 +270,20 @@ type frameTicker interface {
 
 func (a *App) dispatchPath(path []element, ev Event) EventResult {
 	points := pathMousePoints(path, ev)
+	var target element
+	if len(path) > 0 {
+		target = path[len(path)-1]
+	}
 	for i := 0; i < len(path)-1; i++ {
-		if a.handle(path[i], CapturePhase, eventForPathElement(ev, points, i)) == EventHandled {
+		if a.handleWithTarget(path[i], target, CapturePhase, eventForPathElement(ev, points, i)) == EventHandled {
 			return EventHandled
 		}
 	}
-	if len(path) > 0 && a.handle(path[len(path)-1], TargetPhase, eventForPathElement(ev, points, len(path)-1)) == EventHandled {
+	if len(path) > 0 && a.handleWithTarget(path[len(path)-1], target, TargetPhase, eventForPathElement(ev, points, len(path)-1)) == EventHandled {
 		return EventHandled
 	}
 	for i := len(path) - 2; i >= 0; i-- {
-		if a.handle(path[i], BubblePhase, eventForPathElement(ev, points, i)) == EventHandled {
+		if a.handleWithTarget(path[i], target, BubblePhase, eventForPathElement(ev, points, i)) == EventHandled {
 			return EventHandled
 		}
 	}
@@ -287,7 +291,11 @@ func (a *App) dispatchPath(path []element, ev Event) EventResult {
 }
 
 func (a *App) applyMouseShape(path []element, mouse Mouse) {
-	ctx := EventContext{app: a, phase: TargetPhase}
+	var target element
+	if len(path) > 0 {
+		target = path[len(path)-1]
+	}
+	ctx := EventContext{app: a, phase: TargetPhase, target: target}
 	points := pathMousePoints(path, mouse)
 	for i := len(path) - 1; i >= 0; i-- {
 		mh, ok := path[i].(MouseShapeHandler)
@@ -308,7 +316,11 @@ func (a *App) applyMouseShape(path []element, mouse Mouse) {
 }
 
 func (a *App) handle(e element, phase EventPhase, ev Event) EventResult {
-	ctx := EventContext{app: a, phase: phase}
+	return a.handleWithTarget(e, e, phase, ev)
+}
+
+func (a *App) handleWithTarget(e element, target element, phase EventPhase, ev Event) EventResult {
+	ctx := EventContext{app: a, phase: phase, element: e, target: target}
 	h, ok := e.(EventHandler)
 	if !ok {
 		return EventIgnored

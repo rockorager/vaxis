@@ -24,8 +24,10 @@ const (
 
 // EventContext exposes the current event phase and runtime side effects.
 type EventContext struct {
-	app   *App
-	phase EventPhase
+	app     *App
+	phase   EventPhase
+	element element
+	target  element
 }
 
 // FractionalMousePoint is a mouse location in terminal cell coordinates.
@@ -74,6 +76,31 @@ func (c EventContext) FractionalMousePoint(mouse Mouse) FractionalMousePoint {
 // Runtime returns a dispatcher for scheduling work on the UI event loop.
 func (c EventContext) Runtime() Runtime {
 	return appRuntime{app: c.app}
+}
+
+// Invoke runs the nearest action for intent, resolving from the current event target.
+func (c EventContext) Invoke(intent Intent) EventResult {
+	target := c.target
+	if target == nil {
+		target = c.element
+	}
+	for e := target; e != nil; e = e.Base().parent {
+		actions, ok := e.(interface {
+			action(Intent) (ActionFunc, bool)
+		})
+		if !ok {
+			continue
+		}
+		action, ok := actions.action(intent)
+		if !ok {
+			continue
+		}
+		if action == nil {
+			return EventHandled
+		}
+		return action(c)
+	}
+	return EventIgnored
 }
 
 // Quit requests that the current runner stop.

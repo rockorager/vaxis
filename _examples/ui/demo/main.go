@@ -103,14 +103,26 @@ func (s *DemoState) Build(ctx ui.BuildContext) ui.Widget {
 			}},
 		}}
 	}
-	return ui.Keymap{
-		Bindings: map[string]ui.VoidCallback{
-			"q":     func(ctx ui.EventContext) { ctx.Quit() },
-			"n":     func(ctx ui.EventContext) { s.nextPage() },
-			"p":     func(ctx ui.EventContext) { s.previousPage() },
-			"Alt+p": func(ctx ui.EventContext) { ctx.ToggleProfileOverlay() },
+	return ui.Actions{
+		Bindings: map[ui.Intent]ui.ActionFunc{
+			ui.IntentToggleProfileOverlay: func(ctx ui.EventContext) ui.EventResult {
+				ctx.ToggleProfileOverlay()
+				return ui.EventHandled
+			},
 		},
-		Child: body,
+		Child: ui.Shortcuts{
+			Bindings: map[string]ui.Intent{
+				"Alt+p": ui.IntentToggleProfileOverlay,
+			},
+			Child: ui.Keymap{
+				Bindings: map[string]ui.VoidCallback{
+					"q": func(ctx ui.EventContext) { ctx.Quit() },
+					"n": func(ctx ui.EventContext) { s.nextPage() },
+					"p": func(ctx ui.EventContext) { s.previousPage() },
+				},
+				Child: body,
+			},
+		},
 	}
 }
 
