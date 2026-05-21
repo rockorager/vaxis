@@ -1,9 +1,32 @@
 package ui
 
+// ShortcutMap maps Key.MatchString patterns to intents.
+type ShortcutMap map[string]Intent
+
+// DefaultShortcuts returns the default app-level key-to-intent bindings.
+func DefaultShortcuts() ShortcutMap {
+	return ShortcutMap{
+		"Escape":    IntentDismiss,
+		"Tab":       IntentNextFocus,
+		"Shift+Tab": IntentPreviousFocus,
+	}
+}
+
+func cloneShortcuts(shortcuts ShortcutMap) ShortcutMap {
+	if shortcuts == nil {
+		return nil
+	}
+	clone := make(ShortcutMap, len(shortcuts))
+	for binding, intent := range shortcuts {
+		clone[binding] = intent
+	}
+	return clone
+}
+
 // Shortcuts maps key bindings to intents.
 type Shortcuts struct {
 	// Bindings maps Key.MatchString patterns to intents.
-	Bindings map[string]Intent
+	Bindings ShortcutMap
 	// Child is the subtree that receives events after unhandled shortcuts.
 	Child Widget
 }

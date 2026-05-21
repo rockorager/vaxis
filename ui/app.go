@@ -24,6 +24,7 @@ type App struct {
 	hoverPath       []element
 	animations      map[*AnimationController]struct{}
 	profileOverlay  bool
+	shortcuts       ShortcutMap
 }
 
 // NewApp creates an app mounted with root.
@@ -33,7 +34,10 @@ func NewApp(root Widget, opts ...Option) *App {
 	for _, opt := range opts {
 		opt(&options)
 	}
-	app := &App{build: owner, theme: options.theme, profileOverlay: options.profileOverlay}
+	if options.shortcuts == nil {
+		options.shortcuts = DefaultShortcuts()
+	}
+	app := &App{build: owner, theme: options.theme, profileOverlay: options.profileOverlay, shortcuts: cloneShortcuts(options.shortcuts)}
 	app.dispatch = func(fn func()) { fn() }
 	app.setTitle = func(string) {}
 	app.copyToClipboard = func(string) {}
@@ -331,12 +335,8 @@ func (a *App) rootWidget(root Widget) Widget {
 			},
 		},
 		Child: Shortcuts{
-			Bindings: map[string]Intent{
-				"Escape":    IntentDismiss,
-				"Tab":       IntentNextFocus,
-				"Shift+Tab": IntentPreviousFocus,
-			},
-			Child: Provider[Theme]{Value: a.theme, Child: root},
+			Bindings: cloneShortcuts(a.shortcuts),
+			Child:    Provider[Theme]{Value: a.theme, Child: root},
 		},
 	}
 }
@@ -672,6 +672,7 @@ type (
 		theme          Theme
 		hasTheme       bool
 		profileOverlay bool
+		shortcuts      ShortcutMap
 	}
 )
 
@@ -683,4 +684,9 @@ func WithTheme(theme Theme) Option {
 // WithProfileOverlay draws recent UI profiling stats in the top-right corner.
 func WithProfileOverlay() Option {
 	return func(o *options) { o.profileOverlay = true }
+}
+
+// WithShortcuts replaces the default app-level key-to-intent bindings.
+func WithShortcuts(shortcuts ShortcutMap) Option {
+	return func(o *options) { o.shortcuts = cloneShortcuts(shortcuts) }
 }

@@ -104,3 +104,51 @@ func TestDefaultDismissShortcutCanBeOverriddenByLocalAction(t *testing.T) {
 		t.Fatal("expected local dismiss action")
 	}
 }
+
+func TestWithShortcutsRemapsDefaultShortcut(t *testing.T) {
+	pressed := 0
+	app := ui.NewApp(ui.Row(
+		ui.Button{Label: "one", OnPressed: func(ctx ui.EventContext) { pressed = 1 }},
+		ui.Button{Label: "two", OnPressed: func(ctx ui.EventContext) { pressed = 2 }},
+	), ui.WithShortcuts(ui.ShortcutMap{
+		"Ctrl+n": ui.IntentNextFocus,
+	}))
+	app.Pump(ui.Size{Width: 20, Height: 1})
+
+	app.Send(vaxis.Key{Keycode: vaxis.KeyTab})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
+	if pressed != 1 {
+		t.Fatalf("pressed after Tab = %d, want first button", pressed)
+	}
+
+	app.Send(vaxis.Key{Text: "n", Keycode: 'n', Modifiers: vaxis.ModCtrl})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
+	if pressed != 2 {
+		t.Fatalf("pressed after Ctrl+n = %d, want second button", pressed)
+	}
+}
+
+func TestWithShortcutsClonesBindings(t *testing.T) {
+	shortcuts := ui.DefaultShortcuts()
+	app := ui.NewApp(ui.Row(
+		ui.Button{Label: "one"},
+		ui.Button{Label: "two"},
+	), ui.WithShortcuts(shortcuts))
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	delete(shortcuts, "Tab")
+
+	app.Send(vaxis.Key{Keycode: vaxis.KeyTab})
+	snapshot := app.DebugSnapshot()
+	if !debugSnapshotHasFocusedLabel(snapshot, "two") {
+		t.Fatalf("focus did not move after mutating caller shortcuts: %#v", snapshot.Focusables)
+	}
+}
+
+func debugSnapshotHasFocusedLabel(snapshot ui.DebugSnapshot, label string) bool {
+	for _, target := range snapshot.Focusables {
+		if target.Focused && target.Label == label {
+			return true
+		}
+	}
+	return false
+}
