@@ -324,12 +324,12 @@ func (a *App) handleWithTarget(e element, target element, phase EventPhase, ev E
 
 func (a *App) rootWidget(root Widget) Widget {
 	return Actions{
-		Bindings: map[Intent]ActionFunc{
-			IntentNextFocus: func(ctx EventContext) EventResult {
+		Bindings: map[IntentType]ActionFunc{
+			NextFocusIntentType: func(ctx EventContext, intent Intent) EventResult {
 				ctx.FocusNext()
 				return EventHandled
 			},
-			IntentPreviousFocus: func(ctx EventContext) EventResult {
+			PreviousFocusIntentType: func(ctx EventContext, intent Intent) EventResult {
 				ctx.FocusPrevious()
 				return EventHandled
 			},

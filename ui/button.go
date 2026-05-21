@@ -37,9 +37,9 @@ func (s *buttonState) Build(ctx BuildContext) Widget {
 	if s.hovered {
 		style = theme.Hovered
 	}
-	return Actions{
-		Bindings: map[Intent]ActionFunc{
-			IntentActivate: func(ctx EventContext) EventResult {
+	return DefaultActions{
+		Bindings: map[IntentType]ActionFunc{
+			ActivateIntentType: func(ctx EventContext, intent Intent) EventResult {
 				s.activate(ctx)
 				return EventHandled
 			},
@@ -121,7 +121,7 @@ func (s *buttonState) HandleEvent(ctx EventContext, ev Event) EventResult {
 		if !ev.MatchString("Enter") && !ev.MatchString("Space") {
 			return EventIgnored
 		}
-		return ctx.Invoke(IntentActivate)
+		return ctx.Invoke(ActivateIntent{})
 	case hoverExit:
 		if s.hovered {
 			s.SetState(func() { s.hovered = false })
@@ -137,7 +137,7 @@ func (s *buttonState) HandleEvent(ctx EventContext, ev Event) EventResult {
 		if ev.EventType != EventPress || ev.Button != MouseLeftButton {
 			return EventIgnored
 		}
-		return ctx.Invoke(IntentActivate)
+		return ctx.Invoke(ActivateIntent{})
 	default:
 		return EventIgnored
 	}

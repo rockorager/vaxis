@@ -6,9 +6,9 @@ type ShortcutMap map[string]Intent
 // DefaultShortcuts returns the default app-level key-to-intent bindings.
 func DefaultShortcuts() ShortcutMap {
 	return ShortcutMap{
-		"Escape":    IntentDismiss,
-		"Tab":       IntentNextFocus,
-		"Shift+Tab": IntentPreviousFocus,
+		"Escape":    DismissIntent{},
+		"Tab":       NextFocusIntent{},
+		"Shift+Tab": PreviousFocusIntent{},
 	}
 }
 

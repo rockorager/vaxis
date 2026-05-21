@@ -78,29 +78,48 @@ func (c EventContext) Runtime() Runtime {
 	return appRuntime{app: c.app}
 }
 
-// Invoke runs the nearest action for intent, resolving from the current event target.
+// Invoke runs the nearest action for intent, resolving from the current event
+// target. Default actions are used only when no regular action is found.
 func (c EventContext) Invoke(intent Intent) EventResult {
+	if intent == nil {
+		return EventIgnored
+	}
 	target := c.target
 	if target == nil {
 		target = c.element
 	}
+	intentType := intent.IntentType()
+	var fallback ActionFunc
+	var fallbackOK bool
 	for e := target; e != nil; e = e.Base().parent {
-		actions, ok := e.(interface {
-			action(Intent) (ActionFunc, bool)
-		})
-		if !ok {
-			continue
+		if actions, ok := e.(actionProvider); ok {
+			action, ok := actions.action(intentType)
+			if ok {
+				return runAction(action, c, intent)
+			}
 		}
-		action, ok := actions.action(intent)
-		if !ok {
-			continue
+		if !fallbackOK {
+			defaults, ok := e.(defaultActionProvider)
+			if ok {
+				action, ok := defaults.defaultAction(intentType)
+				if ok {
+					fallback = action
+					fallbackOK = true
+				}
+			}
 		}
-		if action == nil {
-			return EventHandled
-		}
-		return action(c)
+	}
+	if fallbackOK {
+		return runAction(fallback, c, intent)
 	}
 	return EventIgnored
+}
+
+func runAction(action ActionFunc, ctx EventContext, intent Intent) EventResult {
+	if action == nil {
+		return EventHandled
+	}
+	return action(ctx, intent)
 }
 
 // Quit requests that the current runner stop.

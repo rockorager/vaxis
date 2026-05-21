@@ -104,15 +104,15 @@ func (s *DemoState) Build(ctx ui.BuildContext) ui.Widget {
 		}}
 	}
 	return ui.Actions{
-		Bindings: map[ui.Intent]ui.ActionFunc{
-			ui.IntentToggleProfileOverlay: func(ctx ui.EventContext) ui.EventResult {
+		Bindings: map[ui.IntentType]ui.ActionFunc{
+			ui.ToggleProfileOverlayIntentType: func(ctx ui.EventContext, intent ui.Intent) ui.EventResult {
 				ctx.ToggleProfileOverlay()
 				return ui.EventHandled
 			},
 		},
 		Child: ui.Shortcuts{
 			Bindings: map[string]ui.Intent{
-				"Alt+p": ui.IntentToggleProfileOverlay,
+				"Alt+p": ui.ToggleProfileOverlayIntent{},
 			},
 			Child: ui.Keymap{
 				Bindings: map[string]ui.VoidCallback{

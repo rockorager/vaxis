@@ -7,12 +7,21 @@ import (
 	"git.sr.ht/~rockorager/vaxis/ui"
 )
 
+type testIntent struct {
+	intentType ui.IntentType
+	Value      string
+}
+
+func (i testIntent) IntentType() ui.IntentType {
+	return i.intentType
+}
+
 func TestShortcutsInvokeNearestActionFromFocusedTarget(t *testing.T) {
-	intent := ui.Intent("test.invoke")
+	intent := testIntent{intentType: "test.invoke"}
 	called := ""
 	app := ui.NewApp(ui.Actions{
-		Bindings: map[ui.Intent]ui.ActionFunc{
-			intent: func(ctx ui.EventContext) ui.EventResult {
+		Bindings: map[ui.IntentType]ui.ActionFunc{
+			intent.IntentType(): func(ctx ui.EventContext, intent ui.Intent) ui.EventResult {
 				called = "global"
 				return ui.EventHandled
 			},
@@ -21,8 +30,8 @@ func TestShortcutsInvokeNearestActionFromFocusedTarget(t *testing.T) {
 			Bindings: map[string]ui.Intent{"x": intent},
 			Child: ui.Row(
 				ui.Actions{
-					Bindings: map[ui.Intent]ui.ActionFunc{
-						intent: func(ctx ui.EventContext) ui.EventResult {
+					Bindings: map[ui.IntentType]ui.ActionFunc{
+						intent.IntentType(): func(ctx ui.EventContext, intent ui.Intent) ui.EventResult {
 							called = "local"
 							return ui.EventHandled
 						},
@@ -41,8 +50,31 @@ func TestShortcutsInvokeNearestActionFromFocusedTarget(t *testing.T) {
 	}
 }
 
+func TestActionsReceiveIntentPayload(t *testing.T) {
+	intent := testIntent{intentType: "test.payload", Value: "open"}
+	payload := ""
+	app := ui.NewApp(ui.Shortcuts{
+		Bindings: map[string]ui.Intent{"x": intent},
+		Child: ui.Actions{
+			Bindings: map[ui.IntentType]ui.ActionFunc{
+				intent.IntentType(): func(ctx ui.EventContext, intent ui.Intent) ui.EventResult {
+					payload = intent.(testIntent).Value
+					return ui.EventHandled
+				},
+			},
+			Child: ui.Button{Label: "go"},
+		},
+	})
+	app.Pump(ui.Size{Width: 20, Height: 1})
+
+	app.Send(vaxis.Key{Text: "x", Keycode: 'x'})
+	if payload != "open" {
+		t.Fatalf("payload = %q, want open", payload)
+	}
+}
+
 func TestShortcutsIgnoreUnhandledIntent(t *testing.T) {
-	intent := ui.Intent("test.unhandled")
+	intent := testIntent{intentType: "test.unhandled"}
 	button := false
 	app := ui.NewApp(ui.Shortcuts{
 		Bindings: map[string]ui.Intent{"Enter": intent},
@@ -59,12 +91,55 @@ func TestShortcutsIgnoreUnhandledIntent(t *testing.T) {
 	}
 }
 
+func TestShortcutCanInvokeButtonDefaultAction(t *testing.T) {
+	pressed := false
+	app := ui.NewApp(ui.Shortcuts{
+		Bindings: map[string]ui.Intent{"x": ui.ActivateIntent{}},
+		Child: ui.Button{
+			Label:     "go",
+			OnPressed: func(ctx ui.EventContext) { pressed = true },
+		},
+	})
+	app.Pump(ui.Size{Width: 20, Height: 1})
+
+	app.Send(vaxis.Key{Text: "x", Keycode: 'x'})
+	if !pressed {
+		t.Fatal("expected shortcut to invoke button default activate action")
+	}
+}
+
+func TestActionsOverrideButtonDefaultAction(t *testing.T) {
+	override := false
+	pressed := false
+	app := ui.NewApp(ui.Actions{
+		Bindings: map[ui.IntentType]ui.ActionFunc{
+			ui.ActivateIntentType: func(ctx ui.EventContext, intent ui.Intent) ui.EventResult {
+				override = true
+				return ui.EventHandled
+			},
+		},
+		Child: ui.Button{
+			Label:     "go",
+			OnPressed: func(ctx ui.EventContext) { pressed = true },
+		},
+	})
+	app.Pump(ui.Size{Width: 20, Height: 1})
+
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
+	if !override {
+		t.Fatal("expected ancestor action to override button default activate action")
+	}
+	if pressed {
+		t.Fatal("button default action ran despite ancestor override")
+	}
+}
+
 func TestDefaultFocusShortcutCanBeOverriddenByLocalAction(t *testing.T) {
 	called := false
 	pressed := 0
 	app := ui.NewApp(ui.Actions{
-		Bindings: map[ui.Intent]ui.ActionFunc{
-			ui.IntentNextFocus: func(ctx ui.EventContext) ui.EventResult {
+		Bindings: map[ui.IntentType]ui.ActionFunc{
+			ui.NextFocusIntentType: func(ctx ui.EventContext, intent ui.Intent) ui.EventResult {
 				called = true
 				return ui.EventHandled
 			},
@@ -89,8 +164,8 @@ func TestDefaultFocusShortcutCanBeOverriddenByLocalAction(t *testing.T) {
 func TestDefaultDismissShortcutCanBeOverriddenByLocalAction(t *testing.T) {
 	called := false
 	app := ui.NewApp(ui.Actions{
-		Bindings: map[ui.Intent]ui.ActionFunc{
-			ui.IntentDismiss: func(ctx ui.EventContext) ui.EventResult {
+		Bindings: map[ui.IntentType]ui.ActionFunc{
+			ui.DismissIntentType: func(ctx ui.EventContext, intent ui.Intent) ui.EventResult {
 				called = true
 				return ui.EventHandled
 			},
@@ -111,7 +186,7 @@ func TestWithShortcutsRemapsDefaultShortcut(t *testing.T) {
 		ui.Button{Label: "one", OnPressed: func(ctx ui.EventContext) { pressed = 1 }},
 		ui.Button{Label: "two", OnPressed: func(ctx ui.EventContext) { pressed = 2 }},
 	), ui.WithShortcuts(ui.ShortcutMap{
-		"Ctrl+n": ui.IntentNextFocus,
+		"Ctrl+n": ui.NextFocusIntent{},
 	}))
 	app.Pump(ui.Size{Width: 20, Height: 1})
 
