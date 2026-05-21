@@ -67,6 +67,47 @@ func TestRadioActivatesWithKeyboard(t *testing.T) {
 	}
 }
 
+func TestRadioActivateCanBeInvokedByShortcut(t *testing.T) {
+	value := ""
+	app := ui.NewApp(ui.Shortcuts{
+		Bindings: map[string]ui.Intent{"x": ui.ActivateIntent{}},
+		Child: ui.Radio[string]{Value: "a", OnChanged: func(ctx ui.EventContext, next string) {
+			value = next
+		}},
+	})
+	app.Pump(ui.Size{Width: 20, Height: 1})
+
+	app.Send(vaxis.Key{Text: "x", Keycode: 'x'})
+	if value != "a" {
+		t.Fatalf("radio value = %q, want a", value)
+	}
+}
+
+func TestRadioActivateCanBeOverridden(t *testing.T) {
+	overridden := false
+	changed := false
+	app := ui.NewApp(ui.Actions{
+		Bindings: map[ui.IntentType]ui.ActionFunc{
+			ui.ActivateIntentType: func(ctx ui.EventContext, intent ui.Intent) ui.EventResult {
+				overridden = true
+				return ui.EventHandled
+			},
+		},
+		Child: ui.Radio[string]{Value: "a", OnChanged: func(ctx ui.EventContext, next string) {
+			changed = true
+		}},
+	})
+	app.Pump(ui.Size{Width: 20, Height: 1})
+
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
+	if !overridden {
+		t.Fatal("expected ancestor action to override radio activate")
+	}
+	if changed {
+		t.Fatal("radio default activation ran despite ancestor override")
+	}
+}
+
 func TestRadioIgnoresKeyRelease(t *testing.T) {
 	called := false
 	app := ui.NewApp(ui.Radio[string]{Value: "a", OnChanged: func(ctx ui.EventContext, value string) {

@@ -31,7 +31,22 @@ type radioState[T comparable] struct {
 
 func (s *radioState[T]) Build(ctx BuildContext) Widget {
 	w := s.Widget().(Radio[T])
-	return s.build(ctx, w.Disabled, radioSpans(w, s.styles(ctx, w.Disabled)))
+	child := s.build(ctx, w.Disabled, radioSpans(w, s.styles(ctx, w.Disabled)))
+	if w.Disabled {
+		return child
+	}
+	return DefaultActions{
+		Bindings: map[IntentType]ActionFunc{
+			ActivateIntentType: func(ctx EventContext, intent Intent) EventResult {
+				w := s.Widget().(Radio[T])
+				if w.OnChanged != nil {
+					w.OnChanged(ctx, w.Value)
+				}
+				return EventHandled
+			},
+		},
+		Child: child,
+	}
 }
 
 func radioSpans[T comparable](w Radio[T], styles selectControlStyles) []TextSpan {
@@ -51,8 +66,5 @@ func (s *radioState[T]) HandleEvent(ctx EventContext, ev Event) EventResult {
 	if s.handleEvent(ctx, ev, w.Disabled) == EventIgnored {
 		return EventIgnored
 	}
-	if w.OnChanged != nil {
-		w.OnChanged(ctx, w.Value)
-	}
-	return EventHandled
+	return ctx.Invoke(ActivateIntent{})
 }

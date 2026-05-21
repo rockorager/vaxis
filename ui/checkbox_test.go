@@ -67,6 +67,47 @@ func TestCheckboxActivatesWithKeyboard(t *testing.T) {
 	}
 }
 
+func TestCheckboxActivateCanBeInvokedByShortcut(t *testing.T) {
+	checked := false
+	app := ui.NewApp(ui.Shortcuts{
+		Bindings: map[string]ui.Intent{"x": ui.ActivateIntent{}},
+		Child: ui.Checkbox{OnChanged: func(ctx ui.EventContext, next bool) {
+			checked = next
+		}},
+	})
+	app.Pump(ui.Size{Width: 20, Height: 1})
+
+	app.Send(vaxis.Key{Text: "x", Keycode: 'x'})
+	if !checked {
+		t.Fatal("expected shortcut to invoke checkbox default activate action")
+	}
+}
+
+func TestCheckboxActivateCanBeOverridden(t *testing.T) {
+	overridden := false
+	changed := false
+	app := ui.NewApp(ui.Actions{
+		Bindings: map[ui.IntentType]ui.ActionFunc{
+			ui.ActivateIntentType: func(ctx ui.EventContext, intent ui.Intent) ui.EventResult {
+				overridden = true
+				return ui.EventHandled
+			},
+		},
+		Child: ui.Checkbox{OnChanged: func(ctx ui.EventContext, next bool) {
+			changed = true
+		}},
+	})
+	app.Pump(ui.Size{Width: 20, Height: 1})
+
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
+	if !overridden {
+		t.Fatal("expected ancestor action to override checkbox activate")
+	}
+	if changed {
+		t.Fatal("checkbox default activation ran despite ancestor override")
+	}
+}
+
 func TestCheckboxIgnoresKeyRelease(t *testing.T) {
 	called := false
 	app := ui.NewApp(ui.Checkbox{OnChanged: func(ctx ui.EventContext, checked bool) {

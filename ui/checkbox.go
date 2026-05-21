@@ -28,7 +28,22 @@ type checkboxState struct {
 
 func (s *checkboxState) Build(ctx BuildContext) Widget {
 	w := s.Widget().(Checkbox)
-	return s.build(ctx, w.Disabled, checkboxSpans(w, s.styles(ctx, w.Disabled)))
+	child := s.build(ctx, w.Disabled, checkboxSpans(w, s.styles(ctx, w.Disabled)))
+	if w.Disabled {
+		return child
+	}
+	return DefaultActions{
+		Bindings: map[IntentType]ActionFunc{
+			ActivateIntentType: func(ctx EventContext, intent Intent) EventResult {
+				w := s.Widget().(Checkbox)
+				if w.OnChanged != nil {
+					w.OnChanged(ctx, !w.Checked)
+				}
+				return EventHandled
+			},
+		},
+		Child: child,
+	}
 }
 
 func checkboxSpans(w Checkbox, styles selectControlStyles) []TextSpan {
@@ -48,8 +63,5 @@ func (s *checkboxState) HandleEvent(ctx EventContext, ev Event) EventResult {
 	if s.handleEvent(ctx, ev, w.Disabled) == EventIgnored {
 		return EventIgnored
 	}
-	if w.OnChanged != nil {
-		w.OnChanged(ctx, !w.Checked)
-	}
-	return EventHandled
+	return ctx.Invoke(ActivateIntent{})
 }
