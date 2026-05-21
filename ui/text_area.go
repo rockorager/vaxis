@@ -40,7 +40,7 @@ func (s *textAreaState) Build(ctx BuildContext) Widget {
 	if s.editor.HasFocus() {
 		style = theme.Focused
 	}
-	return s.editor.Focus(DecoratedBox(
+	child := s.editor.Focus(DecoratedBox(
 		Decoration{Style: style},
 		Padding(padding, textAreaView{
 			State:            s,
@@ -57,11 +57,16 @@ func (s *textAreaState) Build(ctx BuildContext) Widget {
 			SoftWrap:         w.SoftWrap,
 		}),
 	))
+	return s.editor.DefaultActions(s.handleOptions(w), child)
 }
 
 func (s *textAreaState) HandleEvent(ctx EventContext, ev Event) EventResult {
 	w := s.Widget().(TextArea)
-	return s.editor.HandleEvent(ctx, ev, textEditorHandleOptions{
+	return s.editor.HandleEvent(ctx, ev, s.handleOptions(w))
+}
+
+func (s *textAreaState) handleOptions(w TextArea) textEditorHandleOptions {
+	return textEditorHandleOptions{
 		insertMode:       textEditorMultiline,
 		markNeedsBuild:   s.MarkNeedsBuild,
 		onChanged:        w.OnChanged,
@@ -70,7 +75,7 @@ func (s *textAreaState) HandleEvent(ctx EventContext, ev Event) EventResult {
 		moveDown:         s.moveDown,
 		extendUp:         s.extendUp,
 		extendDown:       s.extendDown,
-	})
+	}
 }
 
 func (s *textAreaState) MouseShape(EventContext, Mouse) MouseShape {

@@ -43,6 +43,49 @@ func TestTextFieldCursorMovementAndDelete(t *testing.T) {
 	}
 }
 
+func TestTextFieldTextIntentCanBeInvokedByShortcut(t *testing.T) {
+	value := ""
+	app := ui.NewApp(ui.Shortcuts{
+		Bindings: map[string]ui.Intent{
+			"Ctrl+d": ui.DeleteTextIntent{Direction: ui.TextDeleteForward, Unit: ui.TextMotionCharacter},
+		},
+		Child: ui.TextField{Value: "abc", OnChanged: func(ctx ui.EventContext, next string) {
+			value = next
+		}},
+	})
+	app.Pump(ui.Size{Width: 12, Height: 1})
+
+	app.Send(vaxis.Key{Text: "d", Keycode: 'd', Modifiers: vaxis.ModCtrl})
+	if value != "bc" {
+		t.Fatalf("value = %q, want bc", value)
+	}
+}
+
+func TestTextFieldTextIntentCanBeOverridden(t *testing.T) {
+	overridden := false
+	value := ""
+	app := ui.NewApp(ui.Actions{
+		Bindings: map[ui.IntentType]ui.ActionFunc{
+			ui.InsertTextIntentType: func(ctx ui.EventContext, intent ui.Intent) ui.EventResult {
+				overridden = true
+				return ui.EventHandled
+			},
+		},
+		Child: ui.TextField{OnChanged: func(ctx ui.EventContext, next string) {
+			value = next
+		}},
+	})
+	app.Pump(ui.Size{Width: 12, Height: 1})
+
+	app.Send(vaxis.Key{Text: "a", Keycode: 'a'})
+	if !overridden {
+		t.Fatal("expected ancestor action to override text insert")
+	}
+	if value != "" {
+		t.Fatalf("value = %q, want no default insertion", value)
+	}
+}
+
 func TestTextFieldWordMovementAndDelete(t *testing.T) {
 	h := &textFieldHarness{value: "alpha beta, gamma"}
 	app := ui.NewApp(ui.TextField{

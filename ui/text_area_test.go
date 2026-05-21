@@ -55,6 +55,49 @@ func TestTextAreaEditsControlledMultilineValue(t *testing.T) {
 	}
 }
 
+func TestTextAreaTextIntentCanBeInvokedByShortcut(t *testing.T) {
+	value := ""
+	app := ui.NewApp(ui.Shortcuts{
+		Bindings: map[string]ui.Intent{
+			"Ctrl+j": ui.InsertLineBreakIntent{},
+		},
+		Child: ui.TextArea{Value: "a", SoftWrap: true, OnChanged: func(ctx ui.EventContext, next string) {
+			value = next
+		}},
+	})
+	app.Pump(ui.Size{Width: 12, Height: 4})
+
+	app.Send(vaxis.Key{Text: "j", Keycode: 'j', Modifiers: vaxis.ModCtrl})
+	if value != "\na" {
+		t.Fatalf("value = %q, want newline before a", value)
+	}
+}
+
+func TestTextAreaTextIntentCanBeOverridden(t *testing.T) {
+	overridden := false
+	value := ""
+	app := ui.NewApp(ui.Actions{
+		Bindings: map[ui.IntentType]ui.ActionFunc{
+			ui.InsertLineBreakIntentType: func(ctx ui.EventContext, intent ui.Intent) ui.EventResult {
+				overridden = true
+				return ui.EventHandled
+			},
+		},
+		Child: ui.TextArea{SoftWrap: true, OnChanged: func(ctx ui.EventContext, next string) {
+			value = next
+		}},
+	})
+	app.Pump(ui.Size{Width: 12, Height: 4})
+
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
+	if !overridden {
+		t.Fatal("expected ancestor action to override line break insertion")
+	}
+	if value != "" {
+		t.Fatalf("value = %q, want no default insertion", value)
+	}
+}
+
 func TestTextAreaPlaceholderUsesPlaceholderStyleWhenUnfocused(t *testing.T) {
 	theme := ui.DefaultTheme()
 	theme.TextField.Placeholder = ui.Style{Foreground: vaxis.ColorGray, Background: vaxis.ColorBlack}

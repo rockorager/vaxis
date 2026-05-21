@@ -52,10 +52,11 @@ func (s *textFieldState) Build(ctx BuildContext) Widget {
 	if col, ok := textFieldCursorCell(cursor, s.scroll, len(chars), contentWidth); ok && s.editor.HasFocus() {
 		content = Cursor{Col: col, Shape: CursorBlock, Child: content}
 	}
-	return s.editor.Focus(SizedBox{Width: width, Height: 1 + padding.Top + padding.Bottom, Child: DecoratedBox(
+	child := s.editor.Focus(SizedBox{Width: width, Height: 1 + padding.Top + padding.Bottom, Child: DecoratedBox(
 		Decoration{Style: style},
 		Padding(padding, content),
 	)})
+	return s.editor.DefaultActions(s.handleOptions(w), child)
 }
 
 func (s *textFieldState) content(w TextField, displayValue string, cursor, scroll, width int, style Style, theme TextFieldTheme) Widget {
@@ -72,13 +73,17 @@ func (s *textFieldState) content(w TextField, displayValue string, cursor, scrol
 
 func (s *textFieldState) HandleEvent(ctx EventContext, ev Event) EventResult {
 	w := s.Widget().(TextField)
-	return s.editor.HandleEvent(ctx, ev, textEditorHandleOptions{
+	return s.editor.HandleEvent(ctx, ev, s.handleOptions(w))
+}
+
+func (s *textFieldState) handleOptions(w TextField) textEditorHandleOptions {
+	return textEditorHandleOptions{
 		insertMode:       textEditorSingleLine,
 		markNeedsBuild:   s.MarkNeedsBuild,
 		onChanged:        w.OnChanged,
 		submit:           s.submit,
 		positionForMouse: s.positionForMouse,
-	})
+	}
 }
 
 func (s *textFieldState) submit(ctx EventContext, value string) {

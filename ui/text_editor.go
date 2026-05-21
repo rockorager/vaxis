@@ -48,6 +48,33 @@ func (s *textEditorState) Focus(child Widget) Widget {
 	return Focus(&s.node, child)
 }
 
+func (s *textEditorState) DefaultActions(opts textEditorHandleOptions, child Widget) Widget {
+	h := s.eventHandler(opts)
+	return DefaultActions{
+		Bindings: map[IntentType]ActionFunc{
+			MoveCaretIntentType: func(ctx EventContext, intent Intent) EventResult {
+				return h.moveCaret(ctx, intent)
+			},
+			DeleteTextIntentType: func(ctx EventContext, intent Intent) EventResult {
+				return h.deleteText(ctx, intent)
+			},
+			InsertTextIntentType: func(ctx EventContext, intent Intent) EventResult {
+				return h.insertText(ctx, intent)
+			},
+			InsertLineBreakIntentType: func(ctx EventContext, intent Intent) EventResult {
+				return h.insertLineBreak(ctx, intent)
+			},
+			SelectAllTextIntentType: func(ctx EventContext, intent Intent) EventResult {
+				return h.selectAll(ctx, intent)
+			},
+			CopySelectionTextIntentType: func(ctx EventContext, intent Intent) EventResult {
+				return h.copySelection(ctx, intent)
+			},
+		},
+		Child: child,
+	}
+}
+
 func (s *textEditorState) Text() string {
 	return s.buffer.Text()
 }
@@ -101,6 +128,10 @@ func (s *textEditorState) ExtendVisualDown(layout TextLayout) bool {
 }
 
 func (s *textEditorState) HandleEvent(ctx EventContext, ev Event, opts textEditorHandleOptions) EventResult {
+	return s.eventHandler(opts).HandleEvent(ctx, ev)
+}
+
+func (s *textEditorState) eventHandler(opts textEditorHandleOptions) textEditorEventHandler {
 	return textEditorEventHandler{
 		buffer:           &s.buffer,
 		selecting:        &s.selecting,
@@ -115,7 +146,7 @@ func (s *textEditorState) HandleEvent(ctx EventContext, ev Event, opts textEdito
 		moveDown:         opts.moveDown,
 		extendUp:         opts.extendUp,
 		extendDown:       opts.extendDown,
-	}.HandleEvent(ctx, ev)
+	}
 }
 
 func (s *textEditorState) change(onChanged TextChangedCallback, markNeedsBuild func()) func(EventContext) {
@@ -178,93 +209,208 @@ func (h textEditorEventHandler) handleKey(ctx EventContext, key Key) EventResult
 	if keyIsRelease(key) {
 		return EventIgnored
 	}
-	changed := false
-	handled := true
 	switch {
 	case key.MatchString("Ctrl+a"):
-		handled = h.buffer.SelectAll()
+		return ctx.Invoke(SelectAllTextIntent{})
 	case key.MatchString("Ctrl+c"):
-		if h.buffer.HasSelection() {
-			ctx.Copy(h.buffer.SelectedText())
-		}
+		return ctx.Invoke(CopySelectionTextIntent{})
 	case key.MatchString("Ctrl+Shift+Left"):
-		handled = h.buffer.ExtendWordLeft()
+		return ctx.Invoke(MoveCaretIntent{Motion: TextMotionLeft, Unit: TextMotionWord, ExtendSelection: true})
 	case key.MatchString("Ctrl+Shift+Right"):
-		handled = h.buffer.ExtendWordRight()
+		return ctx.Invoke(MoveCaretIntent{Motion: TextMotionRight, Unit: TextMotionWord, ExtendSelection: true})
 	case key.MatchString("Ctrl+Left"):
-		handled = h.buffer.MoveWordLeft()
+		return ctx.Invoke(MoveCaretIntent{Motion: TextMotionLeft, Unit: TextMotionWord})
 	case key.MatchString("Ctrl+Right"):
-		handled = h.buffer.MoveWordRight()
+		return ctx.Invoke(MoveCaretIntent{Motion: TextMotionRight, Unit: TextMotionWord})
 	case key.MatchString("Shift+Left"):
-		handled = h.buffer.ExtendLeft()
+		return ctx.Invoke(MoveCaretIntent{Motion: TextMotionLeft, Unit: TextMotionCharacter, ExtendSelection: true})
 	case key.MatchString("Shift+Right"):
-		handled = h.buffer.ExtendRight()
+		return ctx.Invoke(MoveCaretIntent{Motion: TextMotionRight, Unit: TextMotionCharacter, ExtendSelection: true})
 	case key.MatchString("Shift+Up"):
-		if h.extendUp == nil {
-			return EventIgnored
-		}
-		handled = h.extendUp()
+		return ctx.Invoke(MoveCaretIntent{Motion: TextMotionUp, ExtendSelection: true})
 	case key.MatchString("Shift+Down"):
-		if h.extendDown == nil {
-			return EventIgnored
-		}
-		handled = h.extendDown()
+		return ctx.Invoke(MoveCaretIntent{Motion: TextMotionDown, ExtendSelection: true})
 	case key.MatchString("Shift+Home"):
-		handled = h.buffer.ExtendHome()
+		return ctx.Invoke(MoveCaretIntent{Motion: TextMotionLineStart, ExtendSelection: true})
 	case key.MatchString("Shift+End"):
-		handled = h.buffer.ExtendEnd()
+		return ctx.Invoke(MoveCaretIntent{Motion: TextMotionLineEnd, ExtendSelection: true})
 	case key.Keycode == KeyLeft:
-		handled = h.buffer.MoveLeft()
+		return ctx.Invoke(MoveCaretIntent{Motion: TextMotionLeft, Unit: TextMotionCharacter})
 	case key.Keycode == KeyRight:
-		handled = h.buffer.MoveRight()
+		return ctx.Invoke(MoveCaretIntent{Motion: TextMotionRight, Unit: TextMotionCharacter})
 	case key.Keycode == KeyUp:
-		if h.moveUp == nil {
-			return EventIgnored
-		}
-		handled = h.moveUp()
+		return ctx.Invoke(MoveCaretIntent{Motion: TextMotionUp})
 	case key.Keycode == KeyDown:
-		if h.moveDown == nil {
-			return EventIgnored
-		}
-		handled = h.moveDown()
+		return ctx.Invoke(MoveCaretIntent{Motion: TextMotionDown})
 	case key.Keycode == KeyHome:
-		handled = h.buffer.MoveHome()
+		return ctx.Invoke(MoveCaretIntent{Motion: TextMotionLineStart})
 	case key.Keycode == KeyEnd:
-		handled = h.buffer.MoveEnd()
+		return ctx.Invoke(MoveCaretIntent{Motion: TextMotionLineEnd})
 	case key.Keycode == KeyBackspace:
 		if key.MatchString("Ctrl+Backspace") {
-			changed = h.buffer.DeleteWordBackward()
-		} else {
-			changed = h.buffer.DeleteBackward()
+			return ctx.Invoke(DeleteTextIntent{Direction: TextDeleteBackward, Unit: TextMotionWord})
 		}
+		return ctx.Invoke(DeleteTextIntent{Direction: TextDeleteBackward, Unit: TextMotionCharacter})
 	case key.Keycode == KeyDelete:
 		if key.MatchString("Ctrl+Delete") {
-			changed = h.buffer.DeleteWordForward()
-		} else {
-			changed = h.buffer.DeleteForward()
+			return ctx.Invoke(DeleteTextIntent{Direction: TextDeleteForward, Unit: TextMotionWord})
 		}
+		return ctx.Invoke(DeleteTextIntent{Direction: TextDeleteForward, Unit: TextMotionCharacter})
 	case key.MatchString("Enter"):
-		if h.insertMode == textEditorMultiline {
-			changed = h.buffer.Insert("\n")
-		} else if h.submit != nil {
-			h.submit(ctx, h.buffer.Text())
-			return EventHandled
-		} else {
-			return EventHandled
-		}
+		return ctx.Invoke(InsertLineBreakIntent{})
 	case key.Text != "":
-		if h.insertMode == textEditorMultiline {
-			changed = h.buffer.Insert(key.Text)
+		return ctx.Invoke(InsertTextIntent{Text: key.Text})
+	default:
+		return EventIgnored
+	}
+}
+
+func (h textEditorEventHandler) moveCaret(ctx EventContext, intent Intent) EventResult {
+	move, ok := intent.(MoveCaretIntent)
+	if !ok {
+		return EventIgnored
+	}
+	handled := false
+	switch move.Motion {
+	case TextMotionLeft:
+		if move.ExtendSelection {
+			if move.Unit == TextMotionWord {
+				handled = h.buffer.ExtendWordLeft()
+			} else {
+				handled = h.buffer.ExtendLeft()
+			}
+		} else if move.Unit == TextMotionWord {
+			handled = h.buffer.MoveWordLeft()
 		} else {
-			changed = h.buffer.InsertSingleLine(key.Text)
+			handled = h.buffer.MoveLeft()
+		}
+	case TextMotionRight:
+		if move.ExtendSelection {
+			if move.Unit == TextMotionWord {
+				handled = h.buffer.ExtendWordRight()
+			} else {
+				handled = h.buffer.ExtendRight()
+			}
+		} else if move.Unit == TextMotionWord {
+			handled = h.buffer.MoveWordRight()
+		} else {
+			handled = h.buffer.MoveRight()
+		}
+	case TextMotionUp:
+		handled = h.moveVertical(move.ExtendSelection, true)
+	case TextMotionDown:
+		handled = h.moveVertical(move.ExtendSelection, false)
+	case TextMotionLineStart:
+		if move.ExtendSelection {
+			handled = h.buffer.ExtendHome()
+		} else {
+			handled = h.buffer.MoveHome()
+		}
+	case TextMotionLineEnd:
+		if move.ExtendSelection {
+			handled = h.buffer.ExtendEnd()
+		} else {
+			handled = h.buffer.MoveEnd()
 		}
 	default:
 		return EventIgnored
 	}
+	return h.finishUnchanged(handled)
+}
+
+func (h textEditorEventHandler) moveVertical(extend, up bool) bool {
+	switch {
+	case extend && up && h.extendUp != nil:
+		return h.extendUp()
+	case extend && !up && h.extendDown != nil:
+		return h.extendDown()
+	case !extend && up && h.moveUp != nil:
+		return h.moveUp()
+	case !extend && !up && h.moveDown != nil:
+		return h.moveDown()
+	default:
+		return false
+	}
+}
+
+func (h textEditorEventHandler) deleteText(ctx EventContext, intent Intent) EventResult {
+	deleteIntent, ok := intent.(DeleteTextIntent)
+	if !ok {
+		return EventIgnored
+	}
+	changed := false
+	switch deleteIntent.Direction {
+	case TextDeleteBackward:
+		if deleteIntent.Unit == TextMotionWord {
+			changed = h.buffer.DeleteWordBackward()
+		} else {
+			changed = h.buffer.DeleteBackward()
+		}
+	case TextDeleteForward:
+		if deleteIntent.Unit == TextMotionWord {
+			changed = h.buffer.DeleteWordForward()
+		} else {
+			changed = h.buffer.DeleteForward()
+		}
+	default:
+		return EventIgnored
+	}
+	return h.finishChanged(ctx, changed)
+}
+
+func (h textEditorEventHandler) insertText(ctx EventContext, intent Intent) EventResult {
+	insert, ok := intent.(InsertTextIntent)
+	if !ok {
+		return EventIgnored
+	}
+	changed := false
+	if h.insertMode == textEditorMultiline {
+		changed = h.buffer.Insert(insert.Text)
+	} else {
+		changed = h.buffer.InsertSingleLine(insert.Text)
+	}
+	return h.finishChanged(ctx, changed)
+}
+
+func (h textEditorEventHandler) insertLineBreak(ctx EventContext, intent Intent) EventResult {
+	if _, ok := intent.(InsertLineBreakIntent); !ok {
+		return EventIgnored
+	}
+	if h.insertMode == textEditorMultiline {
+		return h.finishChanged(ctx, h.buffer.Insert("\n"))
+	}
+	if h.submit != nil {
+		h.submit(ctx, h.buffer.Text())
+	}
+	return EventHandled
+}
+
+func (h textEditorEventHandler) selectAll(ctx EventContext, intent Intent) EventResult {
+	if _, ok := intent.(SelectAllTextIntent); !ok {
+		return EventIgnored
+	}
+	return h.finishUnchanged(h.buffer.SelectAll())
+}
+
+func (h textEditorEventHandler) copySelection(ctx EventContext, intent Intent) EventResult {
+	if _, ok := intent.(CopySelectionTextIntent); !ok {
+		return EventIgnored
+	}
+	if h.buffer.HasSelection() {
+		ctx.Copy(h.buffer.SelectedText())
+	}
+	return EventHandled
+}
+
+func (h textEditorEventHandler) finishChanged(ctx EventContext, changed bool) EventResult {
 	if changed {
 		h.change(ctx)
 		return EventHandled
 	}
+	return EventHandled
+}
+
+func (h textEditorEventHandler) finishUnchanged(handled bool) EventResult {
 	if handled {
 		h.markNeedsBuild()
 		return EventHandled
