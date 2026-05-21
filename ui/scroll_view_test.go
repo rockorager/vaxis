@@ -116,6 +116,51 @@ func TestScrollViewKeyboardScrolls(t *testing.T) {
 	}
 }
 
+func TestScrollViewScrollIntentCanBeInvokedByShortcut(t *testing.T) {
+	app := NewApp(Shortcuts{
+		Bindings: map[string]Intent{
+			"x": ScrollIntent{Axis: ScrollVertical, Direction: ScrollForward, Unit: ScrollUnitLine},
+		},
+		Child: ScrollView{Child: scrollViewLines("one", "two", "three")},
+	})
+	app.Pump(Size{Width: 10, Height: 2})
+
+	app.Send(Key{Text: "x", Keycode: 'x'})
+	app.Pump(Size{Width: 10, Height: 2})
+
+	p := NewPainter(Size{Width: 10, Height: 2})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Grapheme; got != "t" {
+		t.Fatalf("first visible row after shortcut = %q, want two", got)
+	}
+}
+
+func TestScrollViewScrollIntentCanBeOverridden(t *testing.T) {
+	overridden := false
+	app := NewApp(Actions{
+		Bindings: map[IntentType]ActionFunc{
+			ScrollIntentType: func(ctx EventContext, intent Intent) EventResult {
+				overridden = true
+				return EventHandled
+			},
+		},
+		Child: ScrollView{Child: scrollViewLines("one", "two", "three")},
+	})
+	app.Pump(Size{Width: 10, Height: 2})
+
+	app.Send(Key{Keycode: KeyDown})
+	app.Pump(Size{Width: 10, Height: 2})
+
+	if !overridden {
+		t.Fatal("expected ancestor action to override scroll")
+	}
+	p := NewPainter(Size{Width: 10, Height: 2})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Grapheme; got != "o" {
+		t.Fatalf("first visible row after override = %q, want one", got)
+	}
+}
+
 func TestScrollViewHorizontalScrolls(t *testing.T) {
 	app := NewApp(SizedBox{Width: 3, Height: 1, Child: ScrollView{
 		Axis:  ScrollHorizontal,

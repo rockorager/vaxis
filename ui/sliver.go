@@ -77,10 +77,11 @@ func (s *customScrollViewState) Build(BuildContext) Widget {
 	w := s.Widget().(CustomScrollView)
 	s.node.onChange = s.markNeedsFocusPaint
 	s.attachController(w.Controller)
-	return Focus(&s.node, customScrollViewport{
+	child := Focus(&s.node, customScrollViewport{
 		State:   s,
 		Slivers: w.Slivers,
 	})
+	return scrollDefaultActions(s, child)
 }
 
 func (s *customScrollViewState) markNeedsFocusPaint() {
@@ -116,9 +117,7 @@ func (s *customScrollViewState) HandleEvent(ctx EventContext, ev Event) EventRes
 	}
 	switch ev := ev.(type) {
 	case Key:
-		if r := s.renderObject(); r != nil {
-			return handleScrollKey(ev, r)
-		}
+		return handleScrollKeyWithInvoke(ctx, ev)
 	case Mouse:
 		if ev.EventType != EventPress {
 			return EventIgnored
@@ -131,6 +130,34 @@ func (s *customScrollViewState) HandleEvent(ctx EventContext, ev Event) EventRes
 		}
 	}
 	return EventIgnored
+}
+
+func (s *customScrollViewState) ScrollByLinesAxis(axis ScrollAxis, lines int) bool {
+	if axis != ScrollVertical {
+		return false
+	}
+	return s.ScrollByLines(lines)
+}
+
+func (s *customScrollViewState) ScrollByPagesAxis(axis ScrollAxis, pages int) bool {
+	if axis != ScrollVertical {
+		return false
+	}
+	return s.ScrollByPages(pages)
+}
+
+func (s *customScrollViewState) ScrollToStartAxis(axis ScrollAxis) bool {
+	if axis != ScrollVertical {
+		return false
+	}
+	return s.ScrollToStart()
+}
+
+func (s *customScrollViewState) ScrollToEndAxis(axis ScrollAxis) bool {
+	if axis != ScrollVertical {
+		return false
+	}
+	return s.ScrollToEnd()
 }
 
 func (s *customScrollViewState) scrollBy(delta int) EventResult {

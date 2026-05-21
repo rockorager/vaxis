@@ -29,10 +29,11 @@ func (s *scrollPaneState) Build(BuildContext) Widget {
 	w := s.Widget().(ScrollPane)
 	s.attachController(w.Controller)
 	s.node.onChange = s.markNeedsFocusPaint
-	return Focus(&s.node, scrollPaneViewport{
+	child := Focus(&s.node, scrollPaneViewport{
 		State: s,
 		Child: w.Child,
 	})
+	return scrollDefaultActions(s, child)
 }
 
 func (s *scrollPaneState) DidUpdateWidget(old Widget) {
@@ -71,9 +72,7 @@ func (s *scrollPaneState) HandleEvent(ctx EventContext, ev Event) EventResult {
 	}
 	switch ev := ev.(type) {
 	case Key:
-		if r := s.renderObject(); r != nil {
-			return r.HandleKey(ev)
-		}
+		return handleScrollPaneKeyWithInvoke(ctx, ev)
 	case Mouse:
 		if ev.EventType != EventPress {
 			return EventIgnored
@@ -307,37 +306,7 @@ func (r *renderScrollPane) ScrollToEndAxis(axis ScrollAxis) bool {
 }
 
 func (r *renderScrollPane) HandleKey(key Key) EventResult {
-	if keyIsRelease(key) {
-		return EventIgnored
-	}
-	switch {
-	case key.Keycode == KeyUp || key.MatchString("k"):
-		r.ScrollByLinesAxis(ScrollVertical, -1)
-		return EventHandled
-	case key.Keycode == KeyDown || key.MatchString("j"):
-		r.ScrollByLinesAxis(ScrollVertical, 1)
-		return EventHandled
-	case key.Keycode == KeyLeft || key.MatchString("h"):
-		r.ScrollByLinesAxis(ScrollHorizontal, -1)
-		return EventHandled
-	case key.Keycode == KeyRight || key.MatchString("l"):
-		r.ScrollByLinesAxis(ScrollHorizontal, 1)
-		return EventHandled
-	case key.Keycode == KeyPgUp || keyIsShiftSpace(key):
-		r.ScrollByPagesAxis(ScrollVertical, -1)
-		return EventHandled
-	case key.Keycode == KeyPgDown || keyIsSpace(key):
-		r.ScrollByPagesAxis(ScrollVertical, 1)
-		return EventHandled
-	case key.Keycode == KeyHome:
-		r.ScrollToStartAxis(ScrollVertical)
-		return EventHandled
-	case key.Keycode == KeyEnd:
-		r.ScrollToEndAxis(ScrollVertical)
-		return EventHandled
-	default:
-		return EventIgnored
-	}
+	return handleScrollPaneKey(key, r)
 }
 
 func (r *renderScrollPane) scrollOffset() Offset {

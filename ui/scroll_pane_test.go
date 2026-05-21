@@ -31,6 +31,27 @@ func TestScrollPaneScrollsBothAxes(t *testing.T) {
 	}
 }
 
+func TestScrollPaneScrollIntentCanScrollHorizontally(t *testing.T) {
+	app := NewApp(SizedBox{Width: 3, Height: 2, Child: Shortcuts{
+		Bindings: map[string]Intent{
+			"x": ScrollIntent{Axis: ScrollHorizontal, Direction: ScrollForward, Unit: ScrollUnitLine},
+		},
+		Child: ScrollPane{
+			Child: Text{Value: "abcde\nfghij\nklmno"},
+		},
+	}})
+	app.Pump(Size{Width: 3, Height: 2})
+
+	app.Send(Key{Text: "x", Keycode: 'x'})
+	app.Pump(Size{Width: 3, Height: 2})
+
+	p := NewPainter(Size{Width: 3, Height: 2})
+	app.Paint(p)
+	if got := debugRenderedText(p); got != "bcd\nghi" {
+		t.Fatalf("after horizontal scroll shortcut = %q, want bcd/ghi", got)
+	}
+}
+
 func TestScrollPaneMouseWheelsScrollBothAxes(t *testing.T) {
 	app := NewApp(SizedBox{Width: 3, Height: 2, Child: ScrollPane{
 		Child: Text{Value: "abcde\nfghij\nklmno"},

@@ -39,11 +39,12 @@ type scrollViewState struct {
 
 func (s *scrollViewState) Build(BuildContext) Widget {
 	s.node.onChange = s.markNeedsFocusPaint
-	return Focus(&s.node, scrollViewViewport{
+	child := Focus(&s.node, scrollViewViewport{
 		State: s,
 		Axis:  s.Widget().(ScrollView).Axis,
 		Child: s.Widget().(ScrollView).Child,
 	})
+	return scrollDefaultActions(s, child)
 }
 
 func (s *scrollViewState) markNeedsFocusPaint() {
@@ -59,7 +60,7 @@ func (s *scrollViewState) HandleEvent(ctx EventContext, ev Event) EventResult {
 	switch ev := ev.(type) {
 	case Key:
 		if r := s.renderObject(); r != nil {
-			return r.HandleKey(ev)
+			return handleScrollKeyForAxis(ctx, ev, r.Axis)
 		}
 	case Mouse:
 		if ev.EventType != EventPress {
@@ -89,6 +90,34 @@ func (s *scrollViewState) HandleEvent(ctx EventContext, ev Event) EventResult {
 		}
 	}
 	return EventIgnored
+}
+
+func (s *scrollViewState) ScrollByLinesAxis(axis ScrollAxis, lines int) bool {
+	if r := s.renderObject(); r != nil && r.Axis == axis {
+		return r.ScrollByLines(lines)
+	}
+	return false
+}
+
+func (s *scrollViewState) ScrollByPagesAxis(axis ScrollAxis, pages int) bool {
+	if r := s.renderObject(); r != nil && r.Axis == axis {
+		return r.ScrollByPages(pages)
+	}
+	return false
+}
+
+func (s *scrollViewState) ScrollToStartAxis(axis ScrollAxis) bool {
+	if r := s.renderObject(); r != nil && r.Axis == axis {
+		return r.ScrollToStart()
+	}
+	return false
+}
+
+func (s *scrollViewState) ScrollToEndAxis(axis ScrollAxis) bool {
+	if r := s.renderObject(); r != nil && r.Axis == axis {
+		return r.ScrollToEnd()
+	}
+	return false
 }
 
 func (s *scrollViewState) scrollBy(delta int) EventResult {
