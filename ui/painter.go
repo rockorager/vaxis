@@ -108,6 +108,30 @@ func (p *Painter) Fill(r Rect, cell Cell) {
 	}
 }
 
+// Scrim blends every visible cell in r toward color by opacity.
+//
+// Opacity ranges from 0, no effect, to 255, replace RGB colors with color.
+// Non-RGB colors are left unchanged because their terminal palette values are
+// not known to the painter.
+func (p *Painter) Scrim(r Rect, color Color, opacity uint8) {
+	if opacity == 0 {
+		return
+	}
+	for y := r.Y; y < r.Y+r.Height; y++ {
+		for x := r.X; x < r.X+r.Width; x++ {
+			pt := Point{x, y}
+			if !p.inClip(pt) || !p.inBounds(pt) {
+				continue
+			}
+			cell := p.Cell(x, y)
+			cell.Foreground = scrimColor(cell.Foreground, color, opacity)
+			cell.Background = scrimColor(cell.Background, color, opacity)
+			cell.UnderlineColor = scrimColor(cell.UnderlineColor, color, opacity)
+			p.cells[y*p.size.Width+x] = cell
+		}
+	}
+}
+
 // PushClip restricts subsequent drawing to r.
 func (p *Painter) PushClip(r Rect) {
 	p.clips = append(p.clips, intersectRect(p.clips[len(p.clips)-1], r))
@@ -160,4 +184,24 @@ func mergeStyle(base, over Style) Style {
 		base.Attribute = over.Attribute
 	}
 	return base
+}
+
+func scrimColor(src, dst Color, opacity uint8) Color {
+	if src == 0 || dst == 0 || opacity == 0 {
+		return src
+	}
+	s := src.Params()
+	d := dst.Params()
+	if len(s) != 3 || len(d) != 3 {
+		return src
+	}
+	return RGB(
+		blendChannel(s[0], d[0], opacity),
+		blendChannel(s[1], d[1], opacity),
+		blendChannel(s[2], d[2], opacity),
+	)
+}
+
+func blendChannel(src, dst, opacity uint8) uint8 {
+	return uint8((int(src)*(255-int(opacity)) + int(dst)*int(opacity)) / 255)
 }

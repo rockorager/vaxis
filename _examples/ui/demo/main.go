@@ -96,6 +96,7 @@ func (s *DemoState) Build(ctx ui.BuildContext) ui.Widget {
 	if s.dialog {
 		body = ui.Stack{Alignment: ui.CenterAlign, Children: []ui.Widget{
 			body,
+			ui.ModalBarrier{},
 			ui.Align{Alignment: ui.CenterAlign, Child: ui.Dialog{
 				Title: "Demo dialog",
 				Child: ui.Text{
