@@ -410,6 +410,38 @@ func TestSliverListControllerScrollAlignEnd(t *testing.T) {
 	}
 }
 
+func TestSliverListControllerRevealIndexMaterializesTarget(t *testing.T) {
+	controller := &SliverListController{}
+	built := map[int]bool{}
+	app := NewApp(CustomScrollView{Slivers: []Widget{
+		SliverListBuilder{
+			Controller:          controller,
+			Count:               100,
+			EstimatedItemExtent: 1,
+			Overscan:            1,
+			Builder: func(ctx BuildContext, i int) Widget {
+				built[i] = true
+				return Text{Value: "row " + padTestInt(i, 2)}
+			},
+		},
+	}})
+	app.Pump(Size{Width: 10, Height: 3})
+	app.Pump(Size{Width: 10, Height: 3})
+	if !controller.RevealIndex(50) {
+		t.Fatal("list controller did not reveal index")
+	}
+	app.Pump(Size{Width: 10, Height: 3})
+	if !built[50] {
+		t.Fatal("pending reveal did not materialize target index")
+	}
+	app.Pump(Size{Width: 10, Height: 3})
+	p := NewPainter(Size{Width: 10, Height: 3})
+	app.Paint(p)
+	if got := p.Cell(4, 2).Grapheme + p.Cell(5, 2).Grapheme; got != "50" {
+		t.Fatalf("revealed row suffix = %q, want row 50 at bottom", got)
+	}
+}
+
 func TestSliverListControllerUsesMeasuredOffsets(t *testing.T) {
 	controller := &SliverListController{}
 	heights := []int{1, 3, 2, 1}

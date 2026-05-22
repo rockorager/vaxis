@@ -282,11 +282,12 @@ func (w SliverTableBuilder) CreateState() State {
 
 type sliverTableBuilderState struct {
 	StateBase
-	first     int
-	last      int
-	width     int
-	extents   map[int]int
-	intrinsic []int
+	first         int
+	last          int
+	width         int
+	extents       map[int]int
+	intrinsic     []int
+	pendingReveal pendingSliverReveal
 }
 
 func (s *sliverTableBuilderState) Build(ctx BuildContext) Widget {
@@ -416,6 +417,18 @@ func (s *sliverTableBuilderState) updateLayout(width, first, last int, measured 
 	})
 }
 
+func (s *sliverTableBuilderState) setPendingReveal(row int, align ScrollAlign, first, last int) {
+	s.SetState(func() {
+		s.pendingReveal = pendingSliverReveal{Index: row, Align: align, Active: true}
+		s.first = first
+		s.last = last
+	})
+}
+
+func (s *sliverTableBuilderState) clearPendingReveal() {
+	s.pendingReveal = pendingSliverReveal{}
+}
+
 type sliverTableBuilderCell struct {
 	Key   KeyValue
 	Child Widget
@@ -509,6 +522,9 @@ func (r *renderSliverTableBuilder) layoutVariable(ctx LayoutContext, c SliverCon
 		first = clampInt(anchorRow-r.Overscan, 0, model.ItemCount())
 		last = clampInt(anchorRow+(paintExtent+model.EstimatedExtent()-1)/model.EstimatedExtent()+r.Overscan+1, first, model.ItemCount())
 	}
+	if r.State != nil && r.State.pendingReveal.Active {
+		first, last = pendingSliverRevealRange(r.State.pendingReveal.Index, r.Overscan, model, c, first, last)
+	}
 	columnWidths, intrinsic := r.columnWidths(ctx, c)
 	children := r.Children()
 	measured := make(map[int]int, len(r.RowLengths))
@@ -536,6 +552,13 @@ func (r *renderSliverTableBuilder) layoutVariable(ctx LayoutContext, c SliverCon
 	correction := 0
 	if anchorScrollOffset > 0 && anchorRow < model.ItemCount() {
 		correction = model.OffsetForIndex(anchorRow) + anchorDelta - anchorScrollOffset
+	}
+	if r.State != nil && r.State.pendingReveal.Active {
+		pendingCorrection, done := pendingSliverRevealCorrection(r.State.pendingReveal, model, c)
+		correction = pendingCorrection
+		if done {
+			r.State.clearPendingReveal()
+		}
 	}
 	r.Extents = model.Extents
 	if r.State != nil {
@@ -671,6 +694,10 @@ func (r *renderSliverTableBuilder) ScrollToRow(row int, align ScrollAlign) bool 
 	offset, ok := r.OffsetForRow(row)
 	if !ok {
 		return false
+	}
+	if r.State != nil {
+		first, last := pendingSliverRevealRange(row, r.Overscan, r.extentModel(), r.constraints, r.First, r.First+len(r.RowLengths))
+		r.State.setPendingReveal(row, align, first, last)
 	}
 	extent := r.extentForRow(row)
 	target := parent.SelectionChildOffset(r).Y + offset

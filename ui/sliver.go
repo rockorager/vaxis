@@ -813,10 +813,11 @@ func (w SliverListBuilder) CreateState() State {
 
 type sliverListBuilderState struct {
 	StateBase
-	first   int
-	last    int
-	width   int
-	extents map[int]int
+	first         int
+	last          int
+	width         int
+	extents       map[int]int
+	pendingReveal pendingSliverReveal
 }
 
 func (s *sliverListBuilderState) Build(ctx BuildContext) Widget {
@@ -886,6 +887,10 @@ func (s *sliverListBuilderState) ScrollToIndex(index int, align ScrollAlign) boo
 	return false
 }
 
+func (s *sliverListBuilderState) RevealIndex(index int) bool {
+	return s.ScrollToIndex(index, ScrollAlignNearest)
+}
+
 func (s *sliverListBuilderState) OffsetForIndex(index int) (int, bool) {
 	if r := s.renderObject(); r != nil {
 		return r.OffsetForIndex(index)
@@ -932,6 +937,18 @@ func (s *sliverListBuilderState) updateLayout(width, first, last int, measured m
 		s.first = first
 		s.last = last
 	})
+}
+
+func (s *sliverListBuilderState) setPendingReveal(index int, align ScrollAlign, first, last int) {
+	s.SetState(func() {
+		s.pendingReveal = pendingSliverReveal{Index: index, Align: align, Active: true}
+		s.first = first
+		s.last = last
+	})
+}
+
+func (s *sliverListBuilderState) clearPendingReveal() {
+	s.pendingReveal = pendingSliverReveal{}
 }
 
 type sliverListBuilderChild struct {
@@ -1066,6 +1083,9 @@ func (r *renderSliverListBuilder) layoutVariable(ctx LayoutContext, c SliverCons
 		first = clampInt(anchorIndex-r.Overscan, 0, model.ItemCount())
 		last = clampInt(anchorIndex+(paintExtent+model.EstimatedExtent()-1)/model.EstimatedExtent()+r.Overscan+1, first, model.ItemCount())
 	}
+	if r.State != nil && r.State.pendingReveal.Active {
+		first, last = pendingSliverRevealRange(r.State.pendingReveal.Index, r.Overscan, model, c, first, last)
+	}
 	width := c.ViewportWidth
 	children := r.Children()
 	measured := make(map[int]int, len(children))
@@ -1088,6 +1108,13 @@ func (r *renderSliverListBuilder) layoutVariable(ctx LayoutContext, c SliverCons
 	correction := 0
 	if anchorScrollOffset > 0 && anchorIndex < model.ItemCount() {
 		correction = model.OffsetForIndex(anchorIndex) + anchorDelta - anchorScrollOffset
+	}
+	if r.State != nil && r.State.pendingReveal.Active {
+		pendingCorrection, done := pendingSliverRevealCorrection(r.State.pendingReveal, model, c)
+		correction = pendingCorrection
+		if done {
+			r.State.clearPendingReveal()
+		}
 	}
 	r.Extents = model.Extents
 	if r.State != nil {
@@ -1145,6 +1172,10 @@ func (r *renderSliverListBuilder) ScrollToIndex(index int, align ScrollAlign) bo
 	if !ok {
 		return false
 	}
+	if r.State != nil && r.ItemExtent <= 0 {
+		first, last := pendingSliverRevealRange(index, r.Overscan, r.extentModel(), r.constraints, r.First, r.First+len(r.Children()))
+		r.State.setPendingReveal(index, align, first, last)
+	}
 	extent := r.extentForIndex(index)
 	childOffset := parent.SelectionChildOffset(r).Y
 	target := childOffset + offset
@@ -1165,6 +1196,10 @@ func (r *renderSliverListBuilder) ScrollToIndex(index int, align ScrollAlign) bo
 		target += extent - metrics.ViewportHeight
 	}
 	return parent.ScrollToOffset(target)
+}
+
+func (r *renderSliverListBuilder) RevealIndex(index int) bool {
+	return r.ScrollToIndex(index, ScrollAlignNearest)
 }
 
 func (r *renderSliverListBuilder) OffsetForIndex(index int) (int, bool) {
@@ -1215,11 +1250,18 @@ func normalizeSliverBuilderEstimate(w SliverListBuilder) int {
 }
 
 type sliverExtentModel interface {
+	ItemCount() int
 	ScrollExtent() int
 	OffsetForIndex(int) int
 	IndexForOffset(int) int
 	ExtentForIndex(int) int
 	VisibleRange(int, SliverConstraints) (int, int)
+}
+
+type pendingSliverReveal struct {
+	Index  int
+	Align  ScrollAlign
+	Active bool
 }
 
 type fixedSliverExtentModel struct {
@@ -1348,4 +1390,42 @@ func visibleSliverExtent(c SliverConstraints, scrollExtent int) int {
 		return 0
 	}
 	return min(c.ViewportHeight, scrollExtent-c.ScrollOffset)
+}
+
+func pendingSliverRevealRange(index, overscan int, model sliverExtentModel, c SliverConstraints, first, last int) (int, int) {
+	count := model.ItemCount()
+	if index < 0 || index >= count {
+		return first, last
+	}
+	if index < first || index >= last {
+		paintExtent := max(0, min(c.ViewportHeight, c.RemainingPaintExtent))
+		estimate := max(1, model.ExtentForIndex(index))
+		visible := max(1, (paintExtent+estimate-1)/estimate)
+		first = max(0, index-max(0, overscan))
+		last = clampInt(index+visible+max(0, overscan), first, count)
+	}
+	return first, last
+}
+
+func pendingSliverRevealCorrection(pending pendingSliverReveal, model sliverExtentModel, c SliverConstraints) (int, bool) {
+	target := model.OffsetForIndex(pending.Index)
+	extent := model.ExtentForIndex(pending.Index)
+	viewport := max(0, min(c.ViewportHeight, c.RemainingPaintExtent))
+	switch pending.Align {
+	case ScrollAlignCenter:
+		target += extent/2 - viewport/2
+	case ScrollAlignEnd:
+		target += extent - viewport
+	case ScrollAlignNearest:
+		current := c.ScrollOffset
+		if target >= current && target+extent <= current+viewport {
+			return 0, true
+		}
+		if target >= current {
+			target += extent - viewport
+		}
+	}
+	target = clampInt(target, 0, max(0, model.ScrollExtent()-viewport))
+	correction := target - c.ScrollOffset
+	return correction, correction == 0
 }

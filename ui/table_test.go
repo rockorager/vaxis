@@ -125,6 +125,39 @@ func TestSliverTableBuilderAlignsColumnsAndScrollsRows(t *testing.T) {
 	}
 }
 
+func TestSliverTableControllerRevealRowMaterializesTarget(t *testing.T) {
+	controller := &SliverTableController{}
+	built := map[int]bool{}
+	app := NewApp(CustomScrollView{Slivers: []Widget{
+		SliverTableBuilder{
+			Controller:         controller,
+			Columns:            []TableColumn{IntrinsicColumn(), FlexColumn(1)},
+			RowCount:           100,
+			EstimatedRowExtent: 1,
+			Overscan:           1,
+			Builder: func(ctx BuildContext, row int) TableRow {
+				built[row] = true
+				return TableRow{Children: []Widget{Text{Value: padTestInt(row, 2)}, Text{Value: "code"}}}
+			},
+		},
+	}})
+	app.Pump(Size{Width: 10, Height: 3})
+	app.Pump(Size{Width: 10, Height: 3})
+	if !controller.RevealRow(50) {
+		t.Fatal("table controller did not reveal row")
+	}
+	app.Pump(Size{Width: 10, Height: 3})
+	if !built[50] {
+		t.Fatal("pending reveal did not materialize target row")
+	}
+	app.Pump(Size{Width: 10, Height: 3})
+	p := NewPainter(Size{Width: 10, Height: 3})
+	app.Paint(p)
+	if got := p.Cell(0, 2).Grapheme + p.Cell(1, 2).Grapheme; got != "50" {
+		t.Fatalf("revealed table row = %q, want row 50 at bottom", got)
+	}
+}
+
 func TestSliverTableBuilderVariableHeightsUpdateMetrics(t *testing.T) {
 	heights := []int{1, 3, 2, 1}
 	app := NewApp(CustomScrollView{Slivers: []Widget{

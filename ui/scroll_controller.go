@@ -172,6 +172,7 @@ const (
 
 type sliverListScrollTarget interface {
 	ScrollToIndex(int, ScrollAlign) bool
+	RevealIndex(int) bool
 	OffsetForIndex(int) (int, bool)
 	VisibleRange() (int, int, bool)
 }
@@ -219,6 +220,14 @@ func (c *SliverListController) ScrollToIndex(index int, align ScrollAlign) bool 
 		return false
 	}
 	return c.target.ScrollToIndex(index, align)
+}
+
+// RevealIndex scrolls only enough to reveal index.
+func (c *SliverListController) RevealIndex(index int) bool {
+	if !c.Attached() {
+		return false
+	}
+	return c.target.RevealIndex(index)
 }
 
 // OffsetForIndex returns the list-local row offset for index.
