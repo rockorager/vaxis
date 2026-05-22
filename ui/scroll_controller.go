@@ -176,6 +176,13 @@ type sliverListScrollTarget interface {
 	VisibleRange() (int, int, bool)
 }
 
+type sliverTableScrollTarget interface {
+	ScrollToRow(int, ScrollAlign) bool
+	RevealRow(int) bool
+	OffsetForRow(int) (int, bool)
+	VisibleRange() (int, int, bool)
+}
+
 // SliverListController controls a mounted SliverListBuilder by item index.
 //
 // The list must be mounted inside a CustomScrollView for ScrollToIndex to move
@@ -224,6 +231,68 @@ func (c *SliverListController) OffsetForIndex(index int) (int, bool) {
 
 // VisibleRange returns the first and exclusive-last visible item indices.
 func (c *SliverListController) VisibleRange() (int, int, bool) {
+	if !c.Attached() {
+		return 0, 0, false
+	}
+	return c.target.VisibleRange()
+}
+
+// SliverTableController controls a mounted SliverTableBuilder by row index.
+//
+// The table must be mounted inside a CustomScrollView for ScrollToRow and
+// RevealRow to move the viewport. Variable-height rows use measured extents for
+// rows that have been laid out and EstimatedRowExtent for unknown rows.
+type SliverTableController struct {
+	target sliverTableScrollTarget
+	owner  any
+}
+
+func (c *SliverTableController) attach(owner any) {
+	c.owner = owner
+	if target, ok := owner.(sliverTableScrollTarget); ok {
+		c.target = target
+	}
+}
+
+func (c *SliverTableController) detach(owner any) {
+	if c.owner != owner {
+		return
+	}
+	c.owner = nil
+	c.target = nil
+}
+
+// Attached reports whether the controller is attached to a mounted table.
+func (c *SliverTableController) Attached() bool {
+	return c != nil && c.target != nil
+}
+
+// ScrollToRow scrolls the containing CustomScrollView to row.
+func (c *SliverTableController) ScrollToRow(row int, align ScrollAlign) bool {
+	if !c.Attached() {
+		return false
+	}
+	return c.target.ScrollToRow(row, align)
+}
+
+// RevealRow scrolls only enough to reveal row.
+func (c *SliverTableController) RevealRow(row int) bool {
+	if !c.Attached() {
+		return false
+	}
+	return c.target.RevealRow(row)
+}
+
+// OffsetForRow returns the table-local row offset for row.
+func (c *SliverTableController) OffsetForRow(row int) (int, bool) {
+	if !c.Attached() {
+		return 0, false
+	}
+	return c.target.OffsetForRow(row)
+}
+
+// VisibleRange returns the first and exclusive-last visible row indices.
+func (c *SliverTableController) VisibleRange() (int, int, bool) {
 	if !c.Attached() {
 		return 0, 0, false
 	}
