@@ -42,6 +42,34 @@ func TestCommandPaletteUsesCustomFilter(t *testing.T) {
 	}
 }
 
+func TestFuzzySelectFiltersAndActivatesGenericItems(t *testing.T) {
+	type file struct {
+		Name string
+		Path string
+	}
+	var selected file
+	app := NewApp(FuzzySelect[file]{
+		Items: []file{
+			{Name: "main.go", Path: "cmd/app/main.go"},
+			{Name: "theme.go", Path: "ui/theme.go"},
+		},
+		Item: func(f file) FuzzySelectItem {
+			return FuzzySelectItem{Title: f.Name, Description: f.Path, Aliases: []string{f.Path}}
+		},
+		OnSelected: func(_ EventContext, f file) { selected = f },
+	})
+	app.Pump(Size{Width: 80, Height: 24})
+	app.Send(Key{Text: "t", Keycode: 't'})
+	app.Pump(Size{Width: 80, Height: 24})
+	app.Send(Key{Text: "h", Keycode: 'h'})
+	app.Pump(Size{Width: 80, Height: 24})
+	app.Send(Key{Keycode: vaxis.KeyEnter})
+
+	if selected.Name != "theme.go" {
+		t.Fatalf("selected = %#v, want theme.go", selected)
+	}
+}
+
 func TestCommandPalettePaintsPanelBackground(t *testing.T) {
 	theme := DefaultTheme()
 	theme.Background = RGB(1, 2, 3)
@@ -88,7 +116,7 @@ func TestCommandPaletteTopEdgeIsOneQuarterDown(t *testing.T) {
 		t.Fatalf("rendered command palette search placeholder not found")
 	}
 	topEdge := y - 1
-	want := size.Height / commandPaletteTopDivisor
+	want := size.Height / fuzzySelectTopDivisor
 	if topEdge != want {
 		t.Fatalf("command palette top edge = %d, want %d", topEdge, want)
 	}
@@ -165,20 +193,20 @@ func TestCommandPaletteActivatesSelectedItem(t *testing.T) {
 
 func TestCommandPaletteSelectedTextStyles(t *testing.T) {
 	theme := DefaultTheme()
-	if got := commandPalettePrimaryTextStyle(theme, false).Attribute; got&AttrBold != 0 {
+	if got := fuzzySelectPrimaryTextStyle(theme, false).Attribute; got&AttrBold != 0 {
 		t.Fatalf("unselected primary text was bold: %#v", got)
 	}
-	if got := commandPalettePrimaryTextStyle(theme, true).Attribute; got&AttrBold == 0 {
+	if got := fuzzySelectPrimaryTextStyle(theme, true).Attribute; got&AttrBold == 0 {
 		t.Fatalf("selected primary text was not bold: %#v", got)
 	}
-	if got := commandPaletteSecondaryTextStyle(theme, false).Foreground; got != theme.MutedForeground {
+	if got := fuzzySelectSecondaryTextStyle(theme, false).Foreground; got != theme.MutedForeground {
 		t.Fatalf("unselected secondary foreground = %#v, want muted foreground %#v", got, theme.MutedForeground)
 	}
 	want, ok := blendColor(theme.Primary, theme.Foreground, 75)
 	if !ok {
 		t.Fatalf("default theme primary/foreground colors were not blendable")
 	}
-	if got := commandPaletteSecondaryTextStyle(theme, true).Foreground; got != want {
+	if got := fuzzySelectSecondaryTextStyle(theme, true).Foreground; got != want {
 		t.Fatalf("selected secondary foreground = %#v, want primary/foreground blend %#v", got, want)
 	}
 }
