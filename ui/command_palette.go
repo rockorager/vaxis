@@ -9,7 +9,7 @@ const (
 	defaultCommandPaletteWidth          = 54
 	defaultCommandPaletteMaxVisibleRows = 5
 	commandPaletteRowHeight             = 2
-	commandPaletteTopDivisor            = 3
+	commandPaletteTopDivisor            = 4
 
 	commandPaletteSelectionIntentType IntentType = "ui.command-palette.selection"
 )
@@ -114,8 +114,8 @@ func (s *commandPaletteState) view(ctx BuildContext, w CommandPalette, items []C
 			rows = append(rows, ListTile{
 				Leading:  item.Leading,
 				Trailing: item.Trailing,
-				Title:    Text{Value: item.Title, MaxLines: 1, Overflow: TextOverflowEllipsis},
-				Subtitle: Text{Value: item.Description, Style: Style{Foreground: theme.MutedForeground}, MaxLines: 1, Overflow: TextOverflowEllipsis},
+				Title:    Text{Value: item.Title, Style: commandPalettePrimaryTextStyle(theme, isSelected), MaxLines: 1, Overflow: TextOverflowEllipsis},
+				Subtitle: Text{Value: item.Description, Style: commandPaletteSecondaryTextStyle(theme, isSelected), MaxLines: 1, Overflow: TextOverflowEllipsis},
 				Selected: isSelected,
 				Disabled: item.Disabled,
 				OnPressed: func(ctx EventContext) {
@@ -142,8 +142,10 @@ func (s *commandPaletteState) view(ctx BuildContext, w CommandPalette, items []C
 		},
 		Child: Shortcuts{
 			Bindings: ShortcutMap{
-				"Down": commandPaletteSelectionIntent{Delta: 1},
-				"Up":   commandPaletteSelectionIntent{Delta: -1},
+				"Down":   commandPaletteSelectionIntent{Delta: 1},
+				"Ctrl+n": commandPaletteSelectionIntent{Delta: 1},
+				"Up":     commandPaletteSelectionIntent{Delta: -1},
+				"Ctrl+p": commandPaletteSelectionIntent{Delta: -1},
 			},
 			Child: commandPalettePositioner{Child: FocusScope{Trap: true, AutoFocus: true, Child: DecoratedBox(
 				Decoration{Style: panelStyle},
@@ -326,6 +328,31 @@ func commandPaletteWordBoundary(s string, index int) bool {
 	previous := s[index-1]
 	current := s[index]
 	return previous == ' ' || previous == '-' || previous == '_' || previous == ':' || previous == '/' || previous == '.' || previous == '+' || previous == '#' || previous == '@' || previous == '\t' || ('a' <= previous && previous <= 'z' && 'A' <= current && current <= 'Z')
+}
+
+func commandPalettePrimaryTextStyle(theme Theme, selected bool) Style {
+	style := Style{Foreground: theme.Foreground}
+	if selected {
+		style.Attribute = AttrBold
+	}
+	return style
+}
+
+func commandPaletteSecondaryTextStyle(theme Theme, selected bool) Style {
+	if selected {
+		return Style{Foreground: commandPaletteMutedPrimaryText(theme)}
+	}
+	return Style{Foreground: theme.MutedForeground}
+}
+
+func commandPaletteMutedPrimaryText(theme Theme) Color {
+	if c, ok := blendColor(theme.Primary, theme.Foreground, 75); ok {
+		return c
+	}
+	if theme.Foreground != 0 {
+		return theme.Foreground
+	}
+	return theme.PrimaryText
 }
 
 func commandPaletteWidth(w CommandPalette) int {

@@ -26,6 +26,7 @@ const (
 	demoQuitIntent         demoIntent = "demo.quit"
 	demoNextPageIntent     demoIntent = "demo.next-page"
 	demoPreviousPageIntent demoIntent = "demo.previous-page"
+	demoCommandPalette     demoIntent = "demo.command-palette"
 )
 
 func (i demoIntent) IntentType() ui.IntentType {
@@ -34,18 +35,19 @@ func (i demoIntent) IntentType() ui.IntentType {
 
 type DemoState struct {
 	ui.StateBase
-	page   int
-	count  int
-	ticks  int
-	name   string
-	notes  string
-	done   bool
-	mode   string
-	chat   string
-	logs   []string
-	anim   *ui.AnimationController
-	stop   chan struct{}
-	dialog bool
+	page    int
+	count   int
+	ticks   int
+	name    string
+	notes   string
+	done    bool
+	mode    string
+	chat    string
+	logs    []string
+	anim    *ui.AnimationController
+	stop    chan struct{}
+	dialog  bool
+	palette bool
 }
 
 var demoPages = []string{"home", "text", "controls", "lists", "table", "animation", "theme"}
@@ -93,6 +95,18 @@ func (s *DemoState) Build(ctx ui.BuildContext) ui.Widget {
 		}},
 	)
 	body = ui.DecoratedBox(ui.Decoration{Style: ui.Style{Foreground: theme.Foreground, Background: theme.Background}}, body)
+	if s.palette {
+		body = ui.Stack{Children: []ui.Widget{
+			body,
+			ui.ModalBarrier{},
+			ui.CommandPalette{
+				Items: s.commandPaletteItems(),
+				OnDismiss: func(ctx ui.EventContext) {
+					s.SetState(func() { s.palette = false })
+				},
+			},
+		}}
+	}
 	if s.dialog {
 		body = ui.Stack{Alignment: ui.CenterAlign, Children: []ui.Widget{
 			body,
@@ -136,24 +150,37 @@ func (s *DemoState) Build(ctx ui.BuildContext) ui.Widget {
 				s.previousPage()
 				return ui.EventHandled
 			},
+			demoCommandPalette.IntentType(): func(ctx ui.EventContext, intent ui.Intent) ui.EventResult {
+				s.SetState(func() { s.palette = true })
+				return ui.EventHandled
+			},
 		},
 		Child: ui.Shortcuts{
-			Bindings: map[string]ui.Intent{
-				"Alt+p": ui.ToggleProfileOverlayIntent{},
-				"q":     demoQuitIntent,
-				"n":     demoNextPageIntent,
-				"p":     demoPreviousPageIntent,
-			},
-			Child: body,
+			Bindings: s.shortcuts(),
+			Child:    body,
 		},
 	}
+}
+
+func (s *DemoState) shortcuts() map[string]ui.Intent {
+	bindings := map[string]ui.Intent{
+		"Alt+p":   ui.ToggleProfileOverlayIntent{},
+		"Super+k": demoCommandPalette,
+		"Meta+k":  demoCommandPalette,
+	}
+	if !s.palette {
+		bindings["q"] = demoQuitIntent
+		bindings["n"] = demoNextPageIntent
+		bindings["p"] = demoPreviousPageIntent
+	}
+	return bindings
 }
 
 func (s *DemoState) header(theme ui.Theme) ui.Widget {
 	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStretch, Children: []ui.Widget{
 		ui.RichText{Spans: []ui.TextSpan{
 			{Text: "Vaxis UI demo", Style: ui.Style{Attribute: ui.AttrBold}},
-			{Text: "  —  n/p to switch pages, Tab to move focus, q to quit"},
+			{Text: "  —  Cmd+K commands, n/p pages, Tab focus, q quit"},
 		}},
 		ui.Flex{
 			Axis:               ui.Horizontal,
@@ -183,6 +210,71 @@ func (s *DemoState) pageTabs(theme ui.Theme) []ui.Widget {
 		children = append(children, ui.Provider[ui.Theme]{Value: tabTheme, Child: tab})
 	}
 	return children
+}
+
+func (s *DemoState) commandPaletteItems() []ui.CommandPaletteItem {
+	items := make([]ui.CommandPaletteItem, 0, len(demoPages)+4)
+	for page, name := range demoPages {
+		page := page
+		label := demoPageLabel(name)
+		items = append(items, ui.CommandPaletteItem{
+			Title:       "Go to " + label,
+			Description: "Open the " + name + " demo page",
+			Aliases:     []string{name, "page"},
+			OnSelected: func(ctx ui.EventContext) {
+				s.SetState(func() {
+					s.page = page
+					s.palette = false
+				})
+			},
+		})
+	}
+	items = append(
+		items,
+		ui.CommandPaletteItem{
+			Title:       "Open dialog",
+			Description: "Show the modal dialog example",
+			Aliases:     []string{"modal"},
+			OnSelected: func(ctx ui.EventContext) {
+				s.SetState(func() {
+					s.palette = false
+					s.dialog = true
+				})
+			},
+		},
+		ui.CommandPaletteItem{
+			Title:       "Replay animation",
+			Description: "Start the animation controller",
+			Aliases:     []string{"play"},
+			OnSelected: func(ctx ui.EventContext) {
+				s.anim.Forward()
+				s.SetState(func() { s.palette = false })
+			},
+		},
+		ui.CommandPaletteItem{
+			Title:       "Send notification",
+			Description: "Show a demo notification",
+			Aliases:     []string{"notify"},
+			OnSelected: func(ctx ui.EventContext) {
+				ctx.Notify("Vaxis UI demo", "Command palette action")
+				s.SetState(func() { s.palette = false })
+			},
+		},
+		ui.CommandPaletteItem{
+			Title:       "Quit",
+			Description: "Exit the demo",
+			Aliases:     []string{"exit"},
+			OnSelected:  func(ctx ui.EventContext) { ctx.Quit() },
+		},
+	)
+	return items
+}
+
+func demoPageLabel(name string) string {
+	if name == "" {
+		return ""
+	}
+	return strings.ToUpper(name[:1]) + name[1:]
 }
 
 func (s *DemoState) pageBody(ctx ui.BuildContext) ui.Widget {

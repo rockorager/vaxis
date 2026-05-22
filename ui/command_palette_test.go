@@ -70,6 +70,33 @@ func TestCommandPalettePaintsPanelBackground(t *testing.T) {
 	}
 }
 
+func TestCommandPaletteTopEdgeIsOneQuarterDown(t *testing.T) {
+	theme := DefaultTheme()
+	theme.Background = RGB(1, 2, 3)
+	theme.SurfaceHovered = RGB(40, 50, 60)
+	root := DecoratedBox(
+		Decoration{Style: Style{Background: theme.Background}},
+		CommandPalette{Items: commandPaletteTestItems(2)},
+	)
+	app := NewApp(root, WithTheme(theme))
+	size := Size{Width: 80, Height: 30}
+	app.Pump(size)
+	p := NewPainter(size)
+	app.Paint(p)
+	x, y, ok := commandPaletteFindText(p, "Search commands")
+	if !ok {
+		t.Fatalf("rendered command palette search placeholder not found")
+	}
+	topEdge := y - 1
+	want := size.Height / commandPaletteTopDivisor
+	if topEdge != want {
+		t.Fatalf("command palette top edge = %d, want %d", topEdge, want)
+	}
+	if got := p.Cell(x-3, topEdge).Background; got != theme.SurfaceHovered {
+		t.Fatalf("command palette top edge background = %#v, want %#v", got, theme.SurfaceHovered)
+	}
+}
+
 func TestCommandPaletteScrollsOverflowingCommandsToSelection(t *testing.T) {
 	app := NewApp(CommandPalette{Items: commandPaletteTestItems(8)})
 	app.Pump(Size{Width: 80, Height: 30})
@@ -84,6 +111,29 @@ func TestCommandPaletteScrollsOverflowingCommandsToSelection(t *testing.T) {
 	}
 	if _, _, ok := commandPaletteFindText(p, "Command 01"); ok {
 		t.Fatal("first command remained visible after scrolling to the sixth command")
+	}
+}
+
+func TestCommandPaletteCtrlNAndCtrlPMoveSelection(t *testing.T) {
+	selected := ""
+	app := NewApp(CommandPalette{
+		Items: []CommandPaletteItem{
+			{Title: "First", OnSelected: func(EventContext) { selected = "First" }},
+			{Title: "Second", OnSelected: func(EventContext) { selected = "Second" }},
+			{Title: "Third", OnSelected: func(EventContext) { selected = "Third" }},
+		},
+	})
+	app.Pump(Size{Width: 80, Height: 24})
+	app.Send(Key{Text: "n", Keycode: 'n', Modifiers: vaxis.ModCtrl})
+	app.Pump(Size{Width: 80, Height: 24})
+	app.Send(Key{Text: "n", Keycode: 'n', Modifiers: vaxis.ModCtrl})
+	app.Pump(Size{Width: 80, Height: 24})
+	app.Send(Key{Text: "p", Keycode: 'p', Modifiers: vaxis.ModCtrl})
+	app.Pump(Size{Width: 80, Height: 24})
+	app.Send(Key{Keycode: vaxis.KeyEnter})
+
+	if selected != "Second" {
+		t.Fatalf("selected = %q, want Second", selected)
 	}
 }
 
@@ -110,6 +160,26 @@ func TestCommandPaletteActivatesSelectedItem(t *testing.T) {
 	}
 	if selected != "item:Second" {
 		t.Fatalf("selected = %q, want item:Second", selected)
+	}
+}
+
+func TestCommandPaletteSelectedTextStyles(t *testing.T) {
+	theme := DefaultTheme()
+	if got := commandPalettePrimaryTextStyle(theme, false).Attribute; got&AttrBold != 0 {
+		t.Fatalf("unselected primary text was bold: %#v", got)
+	}
+	if got := commandPalettePrimaryTextStyle(theme, true).Attribute; got&AttrBold == 0 {
+		t.Fatalf("selected primary text was not bold: %#v", got)
+	}
+	if got := commandPaletteSecondaryTextStyle(theme, false).Foreground; got != theme.MutedForeground {
+		t.Fatalf("unselected secondary foreground = %#v, want muted foreground %#v", got, theme.MutedForeground)
+	}
+	want, ok := blendColor(theme.Primary, theme.Foreground, 75)
+	if !ok {
+		t.Fatalf("default theme primary/foreground colors were not blendable")
+	}
+	if got := commandPaletteSecondaryTextStyle(theme, true).Foreground; got != want {
+		t.Fatalf("selected secondary foreground = %#v, want primary/foreground blend %#v", got, want)
 	}
 }
 

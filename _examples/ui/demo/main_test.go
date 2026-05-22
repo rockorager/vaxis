@@ -96,6 +96,27 @@ func TestDemoExampleCanNavigateAwayFromFocusedButton(t *testing.T) {
 	}
 }
 
+func TestDemoExampleCommandPaletteOpensFromCmdK(t *testing.T) {
+	app := uitest.New(Demo{})
+	app.Pump(90, 20)
+
+	app.Send(vaxis.Key{Text: "k", Keycode: 'k', Modifiers: vaxis.ModSuper})
+	app.Pump(90, 20)
+	if !app.Contains("Search commands") || !app.Contains("Go to Table") || !app.Contains("Open the table demo page") {
+		t.Fatalf("command palette did not open: %q", app.Text())
+	}
+
+	for _, key := range []string{"t", "a", "b", "l", "e"} {
+		app.Key(key)
+		app.Pump(90, 20)
+	}
+	app.Enter()
+	app.Pump(90, 20)
+	if !app.Contains("Table") || !app.Contains("running tests") || app.Contains("Search commands") {
+		t.Fatalf("command palette did not activate table command: %q", app.Text())
+	}
+}
+
 func TestDemoExampleLeavesArrowsForTextField(t *testing.T) {
 	app := uitest.New(Demo{})
 	app.Pump(90, 20)
