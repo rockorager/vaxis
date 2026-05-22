@@ -56,18 +56,22 @@ type renderAlign struct {
 }
 
 func (r *renderAlign) Layout(ctx LayoutContext, c Constraints) {
-	size := c.Constrain(Size{Width: maxFinite(c.MaxWidth), Height: maxFinite(c.MaxHeight)})
 	child := r.Child()
+	size := alignOuterSize(c, Size{})
 	if child != nil {
-		child.Layout(ctx, Loose(size))
+		child.Layout(ctx, alignChildConstraints(c))
 		cs := child.Base().Size()
+		size = alignOuterSize(c, cs)
 		r.offset = alignOffset(size, cs, r.Alignment)
 	}
 	r.SetSize(size)
 }
 
-func (r *renderAlign) DryLayout(_ LayoutContext, c Constraints) Size {
-	return c.Constrain(Size{Width: maxFinite(c.MaxWidth), Height: maxFinite(c.MaxHeight)})
+func (r *renderAlign) DryLayout(ctx LayoutContext, c Constraints) Size {
+	if child := r.Child(); child != nil {
+		return alignOuterSize(c, DryLayout(ctx, child, alignChildConstraints(c)))
+	}
+	return alignOuterSize(c, Size{})
 }
 
 func (r *renderAlign) Paint(p *Painter, off Offset) {
@@ -82,6 +86,21 @@ func (r *renderAlign) ChildOffset(RenderObject) Offset {
 
 func (r *renderAlign) HitTest(*HitTestResult, Point) bool {
 	return false
+}
+
+func alignChildConstraints(c Constraints) Constraints {
+	return Constraints{MaxWidth: c.MaxWidth, MaxHeight: c.MaxHeight}
+}
+
+func alignOuterSize(c Constraints, child Size) Size {
+	size := child
+	if c.HasBoundedWidth() {
+		size.Width = c.MaxWidth
+	}
+	if c.HasBoundedHeight() {
+		size.Height = c.MaxHeight
+	}
+	return c.Constrain(size)
 }
 
 func alignOffset(parent, child Size, a Alignment) Offset {

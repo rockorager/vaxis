@@ -370,13 +370,6 @@ func applyFlexParentData(ro RenderObject, flex int, fit FlexFit) {
 	}
 }
 
-func maxFinite(v int) int {
-	if v == Unbounded {
-		return 0
-	}
-	return v
-}
-
 func mainSize(axis Axis, s Size) int {
 	if axis == Horizontal {
 		return s.Width

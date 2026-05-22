@@ -26,18 +26,22 @@ type renderCenter struct {
 }
 
 func (r *renderCenter) Layout(ctx LayoutContext, c Constraints) {
-	size := c.Constrain(Size{Width: maxFinite(c.MaxWidth), Height: maxFinite(c.MaxHeight)})
 	child := r.Child()
+	size := alignOuterSize(c, Size{})
 	if child != nil {
-		child.Layout(ctx, Loose(size))
+		child.Layout(ctx, alignChildConstraints(c))
 		cs := child.Base().Size()
+		size = alignOuterSize(c, cs)
 		r.offset = Offset{X: max(0, (size.Width-cs.Width)/2), Y: max(0, (size.Height-cs.Height)/2)}
 	}
 	r.SetSize(size)
 }
 
-func (r *renderCenter) DryLayout(_ LayoutContext, c Constraints) Size {
-	return c.Constrain(Size{Width: maxFinite(c.MaxWidth), Height: maxFinite(c.MaxHeight)})
+func (r *renderCenter) DryLayout(ctx LayoutContext, c Constraints) Size {
+	if child := r.Child(); child != nil {
+		return alignOuterSize(c, DryLayout(ctx, child, alignChildConstraints(c)))
+	}
+	return alignOuterSize(c, Size{})
 }
 
 func (r *renderCenter) Paint(p *Painter, off Offset) {

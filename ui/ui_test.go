@@ -828,6 +828,48 @@ func TestAlignPositionsChild(t *testing.T) {
 	}
 }
 
+func TestAlignShrinkWrapsUnboundedAxis(t *testing.T) {
+	app := ui.NewApp(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStretch, Children: []ui.Widget{
+		ui.Align{Alignment: ui.TopCenter, Child: ui.DecoratedBox(
+			ui.Decoration{Style: ui.Style{Background: ui.RGB(1, 2, 3)}},
+			ui.Padding(ui.All(1), ui.Text{Value: "x"}),
+		)},
+	}})
+	app.Pump(ui.Size{Width: 5, Height: 5})
+	p := ui.NewPainter(ui.Size{Width: 5, Height: 5})
+	app.Paint(p)
+	if got := p.Cell(2, 0).Background; got != ui.RGB(1, 2, 3) {
+		t.Fatalf("aligned panel top padding background = %#v, want decorated background", got)
+	}
+	if got := p.Cell(2, 1).Grapheme; got != "x" {
+		t.Fatalf("aligned panel text = %q, want x", got)
+	}
+	if got := p.Cell(2, 2).Background; got != ui.RGB(1, 2, 3) {
+		t.Fatalf("aligned panel bottom padding background = %#v, want decorated background", got)
+	}
+}
+
+func TestCenterShrinkWrapsUnboundedAxis(t *testing.T) {
+	app := ui.NewApp(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStretch, Children: []ui.Widget{
+		ui.Center(ui.DecoratedBox(
+			ui.Decoration{Style: ui.Style{Background: ui.RGB(4, 5, 6)}},
+			ui.Padding(ui.All(1), ui.Text{Value: "x"}),
+		)),
+	}})
+	app.Pump(ui.Size{Width: 5, Height: 5})
+	p := ui.NewPainter(ui.Size{Width: 5, Height: 5})
+	app.Paint(p)
+	if got := p.Cell(2, 0).Background; got != ui.RGB(4, 5, 6) {
+		t.Fatalf("centered panel top padding background = %#v, want decorated background", got)
+	}
+	if got := p.Cell(2, 1).Grapheme; got != "x" {
+		t.Fatalf("centered panel text = %q, want x", got)
+	}
+	if got := p.Cell(2, 2).Background; got != ui.RGB(4, 5, 6) {
+		t.Fatalf("centered panel bottom padding background = %#v, want decorated background", got)
+	}
+}
+
 func TestAlignHitTestingUsesRelayoutOffset(t *testing.T) {
 	pressed := false
 	app := ui.NewApp(ui.Align{Alignment: ui.BottomRight, Child: ui.Button{Label: "x", OnPressed: func(ctx ui.EventContext) { pressed = true }}})
