@@ -50,7 +50,7 @@ func (s *textFieldState) Build(ctx BuildContext) Widget {
 	content := s.content(w, displayValue, cursor, s.scroll, contentWidth, style, theme)
 	content = SelectionContainer{Disabled: true, Child: content}
 	if col, ok := textFieldCursorCell(cursor, s.scroll, len(chars), contentWidth); ok && s.editor.HasFocus() {
-		content = Cursor{Col: col, Shape: CursorBlock, Child: content}
+		content = Cursor{Col: col, Shape: CursorBeam, Child: content}
 	}
 	child := s.editor.Focus(SizedBox{Width: width, Height: 1 + padding.Top + padding.Bottom, Child: DecoratedBox(
 		Decoration{Style: style},
@@ -60,8 +60,10 @@ func (s *textFieldState) Build(ctx BuildContext) Widget {
 }
 
 func (s *textFieldState) content(w TextField, displayValue string, cursor, scroll, width int, style Style, theme TextFieldTheme) Widget {
-	if s.editor.Text() == "" && !s.editor.HasFocus() && w.Placeholder != "" {
-		return Text{Value: w.Placeholder, Style: mergeStyle(style, theme.Placeholder), Overflow: TextOverflowClip}
+	if s.editor.Text() == "" && w.Placeholder != "" {
+		placeholder := mergeStyle(style, theme.Placeholder)
+		placeholder.Background = style.Background
+		return Text{Value: w.Placeholder, Style: placeholder, Overflow: TextOverflowClip}
 	}
 	chars := vaxisCharacters(displayValue)
 	selection := TextSelection{}

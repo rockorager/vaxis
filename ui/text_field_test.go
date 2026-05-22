@@ -276,7 +276,7 @@ func TestTextFieldPlaceholderAndHardwareCursor(t *testing.T) {
 	theme.MutedForeground = vaxis.ColorGray
 	theme.Surface = vaxis.ColorBlack
 	placeholder := ui.Style{Foreground: theme.MutedForeground, Background: theme.Surface}
-	focused := ui.Style{Foreground: theme.Foreground, Background: theme.SurfaceHovered}
+	focusedPlaceholder := ui.Style{Foreground: theme.MutedForeground, Background: theme.SurfaceHovered}
 	app := ui.NewApp(ui.Row(ui.Button{Label: "x"}, ui.TextField{Placeholder: "name"}), ui.WithTheme(theme))
 	app.Pump(ui.Size{Width: 20, Height: 1})
 	p := ui.NewPainter(ui.Size{Width: 20, Height: 1})
@@ -291,11 +291,14 @@ func TestTextFieldPlaceholderAndHardwareCursor(t *testing.T) {
 	app.Pump(ui.Size{Width: 20, Height: 1})
 	p = ui.NewPainter(ui.Size{Width: 20, Height: 1})
 	app.Paint(p)
-	if got := p.Cell(6, 0).Style; got != focused {
-		t.Fatalf("focused field style = %#v, want %#v", got, focused)
+	if got := p.Cell(6, 0).Grapheme; got != "n" {
+		t.Fatalf("focused placeholder = %q, want n", got)
 	}
-	if cursor, ok := p.Cursor(); !ok || cursor.Col != 6 || cursor.Row != 0 || cursor.Shape != ui.CursorBlock {
-		t.Fatalf("cursor = %#v, ok = %v; want block at 6,0", cursor, ok)
+	if got := p.Cell(6, 0).Style; got != focusedPlaceholder {
+		t.Fatalf("focused placeholder style = %#v, want %#v", got, focusedPlaceholder)
+	}
+	if cursor, ok := p.Cursor(); !ok || cursor.Col != 6 || cursor.Row != 0 || cursor.Shape != ui.CursorBeam {
+		t.Fatalf("cursor = %#v, ok = %v; want beam at 6,0", cursor, ok)
 	}
 }
 
