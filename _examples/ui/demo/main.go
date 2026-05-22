@@ -48,7 +48,7 @@ type DemoState struct {
 	dialog bool
 }
 
-var demoPages = []string{"home", "text", "controls", "lists", "animation", "theme"}
+var demoPages = []string{"home", "text", "controls", "lists", "table", "animation", "theme"}
 
 func (s *DemoState) InitState() {
 	rt := s.Context().Runtime()
@@ -164,7 +164,7 @@ func (s *DemoState) header(theme ui.Theme) ui.Widget {
 }
 
 func (s *DemoState) pageTabs(theme ui.Theme) []ui.Widget {
-	labels := []string{"Home", "Text", "Controls", "Lists", "Animation", "Theme"}
+	labels := []string{"Home", "Text", "Controls", "Lists", "Table", "Animation", "Theme"}
 	children := make([]ui.Widget, 0, len(labels)*2-1)
 	for page, label := range labels {
 		page := page
@@ -198,8 +198,10 @@ func (s *DemoState) pageContent(theme ui.Theme) ui.Widget {
 	case 3:
 		return s.listsPage(theme)
 	case 4:
-		return s.animationPage(theme)
+		return s.tablePage(theme)
 	case 5:
+		return s.animationPage(theme)
+	case 6:
 		return s.themePage(theme)
 	default:
 		return s.homePage()
@@ -218,6 +220,29 @@ func (s *DemoState) homePage() ui.Widget {
 			{Text: "ticks: "},
 			{Text: strconv.Itoa(s.ticks), Style: ui.Style{Attribute: ui.AttrBold}},
 		}},
+	}}
+}
+
+func (s *DemoState) tablePage(theme ui.Theme) ui.Widget {
+	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStretch, Children: []ui.Widget{
+		ui.RichText{Spans: []ui.TextSpan{
+			{Text: "Table", Style: ui.Style{Attribute: ui.AttrBold}},
+			{Text: "\nColumns can size to content, take a fixed width, or share the remaining space proportionally."},
+		}, SoftWrap: true},
+		ui.SizedBox{Height: 1},
+		ui.Table{
+			Columns:   []ui.TableColumn{ui.IntrinsicColumn(), ui.FlexColumn(1), ui.FixedColumn(8)},
+			ColumnGap: 2,
+			RowGap:    1,
+			Rows: []ui.TableRow{
+				{Children: []ui.Widget{tableHeader("job"), tableHeader("status"), tableHeader("id")}},
+				{Children: []ui.Widget{ui.Text{Value: "build"}, ui.Text{Value: "running tests"}, ui.Text{Value: "1024"}}},
+				{Children: []ui.Widget{ui.Text{Value: "lint"}, ui.Text{Value: "waiting for worker"}, ui.Text{Value: "7"}}},
+				{Children: []ui.Widget{ui.Text{Value: "deploy"}, ui.Text{Value: "blocked on approval"}, ui.Text{Value: "23"}}},
+			},
+		},
+		ui.SizedBox{Height: 1},
+		ui.Text{Value: "The first column is intrinsic, the middle column flexes, and the id column stays fixed at eight cells.", SoftWrap: true},
 	}}
 }
 
@@ -575,6 +600,10 @@ func themeGroup(name string, children []ui.Widget) ui.Widget {
 			{Text: name, Style: ui.Style{Attribute: ui.AttrBold}},
 		}},
 	}, children...)}
+}
+
+func tableHeader(value string) ui.Widget {
+	return ui.Text{Value: value, Style: ui.Style{Attribute: ui.AttrBold}}
 }
 
 func themeSwatchRow(spans ...ui.TextSpan) ui.Widget {

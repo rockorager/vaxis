@@ -34,6 +34,11 @@ func TestDemoExampleNavigationAndControls(t *testing.T) {
 	}
 	app.Key("n")
 	app.Pump(90, 20)
+	if !app.Contains("Table") || !app.Contains("running tests") || !app.Contains("blocked on approval") {
+		t.Fatalf("table page missing content: %q", app.Text())
+	}
+	app.Key("n")
+	app.Pump(90, 20)
 	if !app.Contains("Animation") || !app.Contains("status: running") {
 		t.Fatalf("animation page missing content: %q", app.Text())
 	}
@@ -42,6 +47,8 @@ func TestDemoExampleNavigationAndControls(t *testing.T) {
 	if !app.Contains("Theme") || !app.Contains("Semantic colors") || !app.Contains("Theme.Background") {
 		t.Fatalf("theme page missing content: %q", app.Text())
 	}
+	app.Key("p")
+	app.Pump(90, 20)
 	app.Key("p")
 	app.Pump(90, 20)
 	app.Key("p")
