@@ -800,6 +800,24 @@ func TestSizedBoxTightensChild(t *testing.T) {
 	}
 }
 
+func TestSizedBoxUnspecifiedAxisFollowsChild(t *testing.T) {
+	app := ui.NewApp(ui.Align{Alignment: ui.TopLeft, Child: ui.SizedBox{Width: 4, Child: ui.Text{Value: "x"}}})
+	app.Pump(ui.Size{Width: 10, Height: 3})
+	p := ui.NewPainter(ui.Size{Width: 10, Height: 3})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Grapheme; got != "x" {
+		t.Fatalf("width-only sized box painted child = %q, want x", got)
+	}
+
+	app = ui.NewApp(ui.Align{Alignment: ui.TopLeft, Child: ui.SizedBox{Height: 1, Child: ui.Text{Value: "xy"}}})
+	app.Pump(ui.Size{Width: 10, Height: 3})
+	p = ui.NewPainter(ui.Size{Width: 10, Height: 3})
+	app.Paint(p)
+	if got := p.Cell(1, 0).Grapheme; got != "y" {
+		t.Fatalf("height-only sized box painted child = %q, want y", got)
+	}
+}
+
 func TestAlignPositionsChild(t *testing.T) {
 	app := ui.NewApp(ui.Align{Alignment: ui.BottomRight, Child: ui.Text{Value: "x"}})
 	app.Pump(ui.Size{Width: 4, Height: 3})

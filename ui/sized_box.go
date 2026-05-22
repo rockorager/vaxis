@@ -1,10 +1,11 @@
 package ui
 
-// SizedBox forces its child to a fixed cell size.
+// SizedBox forces its child to a fixed cell size on specified axes.
 type SizedBox struct {
-	// Width and Height are the fixed size requested for the child.
+	// Width and Height are the fixed size requested for the child. Values less
+	// than or equal to zero leave that axis unconstrained by the SizedBox.
 	Width, Height int
-	// Child is laid out with tight constraints for Width and Height.
+	// Child is laid out with tight constraints for specified axes.
 	Child Widget
 }
 
@@ -24,22 +25,44 @@ func (w SizedBox) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
 	}
 }
 
-// renderSizedBox lays out one child with a tight fixed size.
+// renderSizedBox lays out one child with tight constraints on specified axes.
 type renderSizedBox struct {
 	SingleChildRenderObject
 	Width, Height int
 }
 
 func (r *renderSizedBox) Layout(ctx LayoutContext, c Constraints) {
-	size := c.Constrain(Size{Width: r.Width, Height: r.Height})
 	if child := r.Child(); child != nil {
-		child.Layout(ctx, Tight(size))
+		child.Layout(ctx, r.childConstraints(c))
+		r.SetSize(c.Constrain(child.Base().Size()))
+		return
 	}
-	r.SetSize(size)
+	r.SetSize(c.Constrain(r.emptySize()))
 }
 
-func (r *renderSizedBox) DryLayout(_ LayoutContext, c Constraints) Size {
-	return c.Constrain(Size{Width: r.Width, Height: r.Height})
+func (r *renderSizedBox) DryLayout(ctx LayoutContext, c Constraints) Size {
+	if child := r.Child(); child != nil {
+		return c.Constrain(DryLayout(ctx, child, r.childConstraints(c)))
+	}
+	return c.Constrain(r.emptySize())
+}
+
+func (r *renderSizedBox) childConstraints(c Constraints) Constraints {
+	if r.Width > 0 {
+		width := clamp(r.Width, c.MinWidth, c.MaxWidth)
+		c.MinWidth = width
+		c.MaxWidth = width
+	}
+	if r.Height > 0 {
+		height := clamp(r.Height, c.MinHeight, c.MaxHeight)
+		c.MinHeight = height
+		c.MaxHeight = height
+	}
+	return c
+}
+
+func (r *renderSizedBox) emptySize() Size {
+	return Size{Width: max(0, r.Width), Height: max(0, r.Height)}
 }
 
 func (r *renderSizedBox) Paint(p *Painter, off Offset) {
