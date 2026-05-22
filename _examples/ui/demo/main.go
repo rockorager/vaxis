@@ -95,23 +95,22 @@ func (s *DemoState) Build(ctx ui.BuildContext) ui.Widget {
 		}},
 	)
 	body = ui.DecoratedBox(ui.Decoration{Style: ui.Style{Foreground: theme.Foreground, Background: theme.Background}}, body)
+	overlays := []ui.OverlayEntry{}
 	if s.palette {
-		body = ui.Stack{Children: []ui.Widget{
-			body,
-			ui.ModalBarrier{},
-			ui.CommandPalette{
+		overlays = append(overlays, ui.OverlayEntry{
+			Modal: true,
+			Child: ui.CommandPalette{
 				Items: s.commandPaletteItems(),
 				OnDismiss: func(ctx ui.EventContext) {
 					s.SetState(func() { s.palette = false })
 				},
 			},
-		}}
+		})
 	}
 	if s.dialog {
-		body = ui.Stack{Alignment: ui.CenterAlign, Children: []ui.Widget{
-			body,
-			ui.ModalBarrier{},
-			ui.Align{Alignment: ui.CenterAlign, Child: ui.Dialog{
+		overlays = append(overlays, ui.OverlayEntry{
+			Modal: true,
+			Child: ui.Dialog{
 				Title: "Demo dialog",
 				Child: ui.Text{
 					Value:    "Focus stays inside this dialog. Press Escape or choose Close to dismiss it.",
@@ -129,9 +128,10 @@ func (s *DemoState) Build(ctx ui.BuildContext) ui.Widget {
 				OnDismiss: func(ctx ui.EventContext) {
 					s.SetState(func() { s.dialog = false })
 				},
-			}},
-		}}
+			},
+		})
 	}
+	body = ui.Overlay{Child: body, Entries: overlays}
 	return ui.Actions{
 		Bindings: map[ui.IntentType]ui.ActionFunc{
 			ui.ToggleProfileOverlayIntentType: func(ctx ui.EventContext, intent ui.Intent) ui.EventResult {
