@@ -123,6 +123,22 @@ func TestSliverTableBuilderAlignsColumnsAndScrollsRows(t *testing.T) {
 	if got := p.Cell(3, 0).Grapheme; got != "c" {
 		t.Fatalf("code column start = %q, want c", got)
 	}
+	row, col, ok := controller.CellAt(Point{X: 3, Y: 0})
+	if !ok || row != 10 || col != 2 {
+		t.Fatalf("cell at 3,0 = %d,%d,%v, want 10,2,true", row, col, ok)
+	}
+	rowRect, ok := controller.RowRect(10)
+	if !ok || rowRect != (Rect{X: 0, Y: 0, Width: 12, Height: 1}) {
+		t.Fatalf("row rect = %#v,%v, want row 10 at top", rowRect, ok)
+	}
+	cellRect, ok := controller.CellRect(10, 2)
+	if !ok || cellRect != (Rect{X: 3, Y: 0, Width: 9, Height: 1}) {
+		t.Fatalf("cell rect = %#v,%v, want code cell rect", cellRect, ok)
+	}
+	visible := controller.VisibleRows()
+	if len(visible) != 3 || visible[0].Row != 10 || visible[0].Rect.Y != 0 || visible[2].Row != 12 || visible[2].Rect.Y != 2 {
+		t.Fatalf("visible rows = %#v, want rows 10-12", visible)
+	}
 }
 
 func TestSliverTableControllerRevealRowMaterializesTarget(t *testing.T) {

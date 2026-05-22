@@ -381,6 +381,34 @@ func (s *sliverTableBuilderState) VisibleRange() (int, int, bool) {
 	return 0, 0, false
 }
 
+func (s *sliverTableBuilderState) CellAt(pt Point) (int, int, bool) {
+	if r := s.renderObject(); r != nil {
+		return r.CellAt(pt)
+	}
+	return 0, 0, false
+}
+
+func (s *sliverTableBuilderState) RowRect(row int) (Rect, bool) {
+	if r := s.renderObject(); r != nil {
+		return r.RowRect(row)
+	}
+	return Rect{}, false
+}
+
+func (s *sliverTableBuilderState) CellRect(row, col int) (Rect, bool) {
+	if r := s.renderObject(); r != nil {
+		return r.CellRect(row, col)
+	}
+	return Rect{}, false
+}
+
+func (s *sliverTableBuilderState) VisibleRows() []VisibleTableRow {
+	if r := s.renderObject(); r != nil {
+		return r.VisibleRows()
+	}
+	return nil
+}
+
 func (s *sliverTableBuilderState) extentsForWidth() map[int]int {
 	if s.extents == nil {
 		return nil
@@ -479,18 +507,20 @@ func (w sliverTableBuilderView) UpdateRenderObject(_ BuildContext, ro RenderObje
 
 type renderSliverTableBuilder struct {
 	MultiChildRenderObject
-	State        *sliverTableBuilderState
-	Columns      []TableColumn
-	RowCount     int
-	Estimate     int
-	Overscan     int
-	First        int
-	Extents      map[int]int
-	Intrinsic    []int
-	RowLengths   []int
-	geometry     SliverGeometry
-	childOffsets []Offset
-	constraints  SliverConstraints
+	State             *sliverTableBuilderState
+	Columns           []TableColumn
+	RowCount          int
+	Estimate          int
+	Overscan          int
+	First             int
+	Extents           map[int]int
+	Intrinsic         []int
+	RowLengths        []int
+	geometry          SliverGeometry
+	childOffsets      []Offset
+	tableColumnWidths []int
+	rowHeights        map[int]int
+	constraints       SliverConstraints
 }
 
 func (r *renderSliverTableBuilder) Layout(ctx LayoutContext, c Constraints) {
@@ -526,9 +556,11 @@ func (r *renderSliverTableBuilder) layoutVariable(ctx LayoutContext, c SliverCon
 		first, last = pendingSliverRevealRange(r.State.pendingReveal.Index, r.Overscan, model, c, first, last)
 	}
 	columnWidths, intrinsic := r.columnWidths(ctx, c)
+	r.tableColumnWidths = columnWidths
 	children := r.Children()
 	measured := make(map[int]int, len(r.RowLengths))
 	r.childOffsets = make([]Offset, len(children))
+	r.rowHeights = make(map[int]int, len(r.RowLengths))
 	childIndex := 0
 	width := tableUsedWidth(columnWidths, 0)
 	for rowOffset, rowLength := range r.RowLengths {
@@ -546,6 +578,7 @@ func (r *renderSliverTableBuilder) layoutVariable(ctx LayoutContext, c SliverCon
 			childIndex++
 		}
 		measured[row] = rowHeight
+		r.rowHeights[row] = rowHeight
 		model.Update(row, rowHeight)
 	}
 	scrollExtent := model.ScrollExtent()
@@ -738,12 +771,98 @@ func (r *renderSliverTableBuilder) VisibleRange() (int, int, bool) {
 	return first, last, true
 }
 
+func (r *renderSliverTableBuilder) CellAt(pt Point) (int, int, bool) {
+	parent, ok := r.Base().parent.(*renderCustomScrollView)
+	if !ok || pt.X < 0 || pt.Y < 0 || pt.X >= parent.Size().Width || pt.Y >= parent.Size().Height {
+		return 0, 0, false
+	}
+	baseY := parent.SelectionChildOffset(r).Y
+	localY := parent.ScrollMetrics().ScrollOffset + pt.Y - baseY
+	if localY < 0 || localY >= r.geometry.ScrollExtent {
+		return 0, 0, false
+	}
+	row := r.extentModel().IndexForOffset(localY)
+	if row < 0 || row >= r.RowCount {
+		return 0, 0, false
+	}
+	col, ok := r.columnAt(pt.X)
+	if !ok || col >= r.rowLength(row) {
+		return 0, 0, false
+	}
+	return row, col, true
+}
+
+func (r *renderSliverTableBuilder) RowRect(row int) (Rect, bool) {
+	parent, ok := r.Base().parent.(*renderCustomScrollView)
+	if !ok || row < 0 || row >= r.RowCount {
+		return Rect{}, false
+	}
+	y := parent.SelectionChildOffset(r).Y + r.extentModel().OffsetForIndex(row) - parent.ScrollMetrics().ScrollOffset
+	return Rect{X: 0, Y: y, Width: r.Size().Width, Height: r.extentForRow(row)}, true
+}
+
+func (r *renderSliverTableBuilder) CellRect(row, col int) (Rect, bool) {
+	if col < 0 || col >= len(r.tableColumnWidths) || col >= r.rowLength(row) {
+		return Rect{}, false
+	}
+	rowRect, ok := r.RowRect(row)
+	if !ok {
+		return Rect{}, false
+	}
+	return Rect{X: r.columnOffset(col), Y: rowRect.Y, Width: r.tableColumnWidths[col], Height: rowRect.Height}, true
+}
+
+func (r *renderSliverTableBuilder) VisibleRows() []VisibleTableRow {
+	first, last, ok := r.VisibleRange()
+	if !ok || first == last {
+		return nil
+	}
+	rows := make([]VisibleTableRow, 0, last-first)
+	for row := first; row < last; row++ {
+		rect, ok := r.RowRect(row)
+		if !ok || rect.Y+rect.Height <= 0 || rect.Y >= r.constraints.ViewportHeight {
+			continue
+		}
+		rows = append(rows, VisibleTableRow{Row: row, Rect: rect})
+	}
+	return rows
+}
+
 func (r *renderSliverTableBuilder) extentForRow(row int) int {
 	return r.extentModel().ExtentForIndex(row)
 }
 
 func (r *renderSliverTableBuilder) extentModel() sliverExtentModel {
 	return measuredSliverExtentModel{Count: r.RowCount, Estimate: r.Estimate, Extents: r.Extents}
+}
+
+func (r *renderSliverTableBuilder) columnAt(x int) (int, bool) {
+	if x < 0 {
+		return 0, false
+	}
+	left := 0
+	for col, width := range r.tableColumnWidths {
+		if x >= left && x < left+width {
+			return col, true
+		}
+		left += width
+	}
+	return 0, false
+}
+
+func (r *renderSliverTableBuilder) columnOffset(col int) int {
+	off := 0
+	for i := 0; i < col && i < len(r.tableColumnWidths); i++ {
+		off += r.tableColumnWidths[i]
+	}
+	return off
+}
+
+func (r *renderSliverTableBuilder) rowLength(row int) int {
+	if row < r.First || row >= r.First+len(r.RowLengths) {
+		return 0
+	}
+	return r.RowLengths[row-r.First]
 }
 
 func cloneIntSlice(v []int) []int {

@@ -182,6 +182,18 @@ type sliverTableScrollTarget interface {
 	RevealRow(int) bool
 	OffsetForRow(int) (int, bool)
 	VisibleRange() (int, int, bool)
+	CellAt(Point) (int, int, bool)
+	RowRect(int) (Rect, bool)
+	CellRect(int, int) (Rect, bool)
+	VisibleRows() []VisibleTableRow
+}
+
+// VisibleTableRow describes a visible SliverTableBuilder row.
+type VisibleTableRow struct {
+	// Row is the logical row index.
+	Row int
+	// Rect is the row rectangle in the containing viewport's coordinates.
+	Rect Rect
 }
 
 // SliverListController controls a mounted SliverListBuilder by item index.
@@ -306,4 +318,36 @@ func (c *SliverTableController) VisibleRange() (int, int, bool) {
 		return 0, 0, false
 	}
 	return c.target.VisibleRange()
+}
+
+// CellAt returns the table cell at pt in the containing viewport's coordinates.
+func (c *SliverTableController) CellAt(pt Point) (int, int, bool) {
+	if !c.Attached() {
+		return 0, 0, false
+	}
+	return c.target.CellAt(pt)
+}
+
+// RowRect returns row's rectangle in the containing viewport's coordinates.
+func (c *SliverTableController) RowRect(row int) (Rect, bool) {
+	if !c.Attached() {
+		return Rect{}, false
+	}
+	return c.target.RowRect(row)
+}
+
+// CellRect returns a cell rectangle in the containing viewport's coordinates.
+func (c *SliverTableController) CellRect(row, col int) (Rect, bool) {
+	if !c.Attached() {
+		return Rect{}, false
+	}
+	return c.target.CellRect(row, col)
+}
+
+// VisibleRows returns visible rows with viewport-relative rectangles.
+func (c *SliverTableController) VisibleRows() []VisibleTableRow {
+	if !c.Attached() {
+		return nil
+	}
+	return c.target.VisibleRows()
 }

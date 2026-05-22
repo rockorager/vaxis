@@ -11,6 +11,13 @@
 // the source of truth, and OnChanged is responsible for storing the next value
 // in application state.
 //
+// Build methods and lazy row builders should stay cheap. Cache expensive
+// derived data, such as syntax-highlighted lines or parsed document structure,
+// in State and invalidate that cache from StateUpdater.DidUpdateWidget or when
+// theme-dependent inputs change. Builders may run often during scrolling,
+// layout correction, and resize handling, so they should usually select from
+// already-prepared data rather than recomputing whole-document results.
+//
 // Layout flows through render objects using Constraints and Size in terminal
 // cells. A widget that needs custom measurement or painting can implement
 // RenderObjectWidget and produce a RenderObject; ordinary applications usually
