@@ -50,6 +50,33 @@ func TestRenderFrameAlwaysHidesCursorBeforeDrawing(t *testing.T) {
 	}
 }
 
+func TestRenderUsesPlainSGRForSingleUnderlineAfterDouble(t *testing.T) {
+	var out bytes.Buffer
+	vx := newWriterTestVaxis(&out)
+	vx.caps.styledUnderlines = true
+	vx.screenNext.setCell(0, 0, Cell{
+		Character: Character{Grapheme: "x", Width: 1},
+		Style:     Style{UnderlineStyle: UnderlineDouble},
+	})
+	vx.screenNext.setCell(1, 0, Cell{
+		Character: Character{Grapheme: "y", Width: 1},
+		Style:     Style{UnderlineStyle: UnderlineSingle},
+	})
+
+	vx.render()
+	if _, err := vx.tw.Flush(); err != nil {
+		t.Fatal(err)
+	}
+
+	got := out.String()
+	if !strings.Contains(got, "\x1b[4:2mx\x1b[4my") {
+		t.Fatalf("render output = %q, want double underline followed by plain single underline", got)
+	}
+	if strings.Contains(got, "\x1b[4:1m") {
+		t.Fatalf("render output used extended SGR for single underline: %q", got)
+	}
+}
+
 func TestControlWriteBypassesRenderFrame(t *testing.T) {
 	var out bytes.Buffer
 	vx := newWriterTestVaxis(&out)

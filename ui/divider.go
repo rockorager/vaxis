@@ -9,20 +9,20 @@ type Divider struct {
 	Axis Axis
 	// Character overrides the line character.
 	Character Character
-	// Style overrides Theme.Text when non-zero fields are set.
+	// Style overrides Theme foreground when non-zero fields are set.
 	Style Style
 }
 
 func (w Divider) CreateRenderObject(ctx BuildContext) RenderObject {
 	if w.Style == (Style{}) {
-		w.Style = MustDepend[Theme](ctx).Text
+		w.Style = textStyle(MustDepend[Theme](ctx))
 	}
 	return &renderDivider{Axis: w.Axis, Character: dividerCharacter(w), Style: w.Style}
 }
 
 func (w Divider) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
 	if w.Style == (Style{}) {
-		w.Style = MustDepend[Theme](ctx).Text
+		w.Style = textStyle(MustDepend[Theme](ctx))
 	}
 	r := ro.(*renderDivider)
 	next := dividerCharacter(w)

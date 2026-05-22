@@ -40,8 +40,10 @@ func TestScrollbarDefaultStylesDistinguishThumbAndTrack(t *testing.T) {
 
 func TestScrollbarUsesFocusedStylesWhenScrollViewFocused(t *testing.T) {
 	theme := DefaultTheme()
-	theme.Scrollbar.Track = Style{Background: RGB(10, 10, 10)}
-	theme.Scrollbar.FocusedTrack = Style{Background: RGB(20, 20, 20)}
+	theme.Accent = RGB(30, 30, 30)
+	theme.AccentText = RGB(40, 40, 40)
+	theme.Surface = RGB(10, 10, 10)
+	theme.SurfaceHovered = RGB(20, 20, 20)
 	app := NewApp(Column(
 		Button{Label: "before"},
 		SizedBox{Width: 10, Height: 4, Child: Scrollbar{Child: ScrollView{Child: scrollViewLines(
@@ -52,17 +54,40 @@ func TestScrollbarUsesFocusedStylesWhenScrollViewFocused(t *testing.T) {
 
 	p := NewPainter(Size{Width: 10, Height: 5})
 	app.Paint(p)
-	if got := p.Cell(9, 4).Background; got != theme.Scrollbar.Track.Background {
-		t.Fatalf("unfocused track background = %#v, want %#v", got, theme.Scrollbar.Track.Background)
+	if got := p.Cell(9, 4).Background; got != theme.Surface {
+		t.Fatalf("unfocused track background = %#v, want %#v", got, theme.Surface)
 	}
 
 	app.focusNext()
 	app.Pump(Size{Width: 10, Height: 5})
 	p = NewPainter(Size{Width: 10, Height: 5})
 	app.Paint(p)
-	if got := p.Cell(9, 4).Background; got != theme.Scrollbar.FocusedTrack.Background {
-		t.Fatalf("focused track background = %#v, want %#v", got, theme.Scrollbar.FocusedTrack.Background)
+	if got := p.Cell(9, 1).Background; got != theme.AccentText {
+		t.Fatalf("focused thumb background = %#v, want %#v", got, theme.AccentText)
 	}
+	if got := p.Cell(9, 4).Background; got != theme.SurfaceHovered {
+		t.Fatalf("focused track background = %#v, want %#v", got, theme.SurfaceHovered)
+	}
+}
+
+func TestScrollbarIgnoresDetachedFocusedElement(t *testing.T) {
+	app := NewApp(Column(
+		Button{Label: "before"},
+		SizedBox{Width: 10, Height: 4, Child: Scrollbar{Child: ScrollView{Child: scrollViewLines(
+			"one", "two", "three", "four", "five", "six", "seven", "eight",
+		)}}},
+	))
+	app.Pump(Size{Width: 10, Height: 5})
+	app.focusNext()
+	detached := app.focused.element
+	app.UpdateRoot(SizedBox{Width: 10, Height: 4, Child: Scrollbar{Child: ScrollView{Child: scrollViewLines(
+		"one", "two", "three", "four", "five", "six", "seven", "eight",
+	)}}})
+	app.Pump(Size{Width: 10, Height: 4})
+	app.focused = focusTarget{element: detached, index: elementFocusIndex}
+
+	p := NewPainter(Size{Width: 10, Height: 4})
+	app.Paint(p)
 }
 
 func TestScrollbarMovesThumbWithScrollOffset(t *testing.T) {

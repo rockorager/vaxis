@@ -77,6 +77,14 @@ func (w *writer) writeExplicitWidth(width int, grapheme string) {
 }
 
 func (w *writer) writeUnderlineStyle(style UnderlineStyle) {
+	switch style {
+	case UnderlineOff:
+		_, _ = w.WriteString(underlineReset)
+		return
+	case UnderlineSingle:
+		_, _ = w.WriteString(underlineSet)
+		return
+	}
 	buf := [24]byte{}
 	b := buf[:0]
 	b = append(b, '\x1b', '[', '4', sgrParamSeparator)

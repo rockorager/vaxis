@@ -31,7 +31,7 @@ type radioState[T comparable] struct {
 
 func (s *radioState[T]) Build(ctx BuildContext) Widget {
 	w := s.Widget().(Radio[T])
-	child := s.build(ctx, w.Disabled, radioSpans(w, s.styles(ctx, w.Disabled)))
+	child := s.build(ctx, w.Disabled, radioSpans(w, s.styles(ctx, w.Disabled, w.Value == w.GroupValue)))
 	if w.Disabled {
 		return child
 	}

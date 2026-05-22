@@ -35,10 +35,10 @@ func TestCheckboxPaintsUnchecked(t *testing.T) {
 
 func TestCheckboxFocusUnderlinesMarkOnly(t *testing.T) {
 	normal := ui.Style{Foreground: vaxis.ColorWhite, Background: vaxis.ColorBlack}
-	focused := ui.Style{Foreground: vaxis.ColorWhite, Background: vaxis.ColorBlue}
 	theme := ui.DefaultTheme()
-	theme.Button.Normal = normal
-	theme.Button.Focused = focused
+	theme.Foreground = normal.Foreground
+	theme.Surface = normal.Background
+	theme.SurfaceHovered = vaxis.ColorYellow
 	app := ui.NewApp(ui.Checkbox{Checked: true, Label: "Enabled"}, ui.WithTheme(theme))
 	app.Pump(ui.Size{Width: 20, Height: 1})
 	p := ui.NewPainter(ui.Size{Width: 20, Height: 1})
@@ -145,9 +145,11 @@ func TestCheckboxHoverStyleOnlyAppliesToBox(t *testing.T) {
 	normal := ui.Style{Foreground: vaxis.ColorWhite, Background: vaxis.ColorBlack}
 	hovered := ui.Style{Foreground: vaxis.ColorWhite, Background: vaxis.ColorBlue}
 	theme := ui.DefaultTheme()
-	theme.Button.Normal = normal
-	theme.Button.Focused = normal
-	theme.Button.Hovered = hovered
+	theme.Foreground = normal.Foreground
+	theme.Surface = normal.Background
+	theme.Primary = normal.Background
+	theme.PrimaryHovered = hovered.Background
+	theme.SurfaceHovered = hovered.Background
 	app := ui.NewApp(ui.Align{Alignment: ui.TopLeft, Child: ui.Checkbox{Label: "Enabled"}}, ui.WithTheme(theme))
 	app.Pump(ui.Size{Width: 20, Height: 1})
 	app.Send(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseNoButton, EventType: vaxis.EventMotion})
@@ -162,14 +164,36 @@ func TestCheckboxHoverStyleOnlyAppliesToBox(t *testing.T) {
 	}
 }
 
-func TestDisabledCheckboxIsDimmed(t *testing.T) {
-	app := uitest.New(ui.Checkbox{Disabled: true, Label: "Disabled"})
-	app.Pump(20, 1)
-	if got := app.Cell(1, 0).Attribute; got&ui.AttrDim == 0 {
-		t.Fatalf("disabled checkbox mark attribute = %#v, want dim", got)
+func TestCheckedCheckboxHoverUsesPrimaryHovered(t *testing.T) {
+	theme := ui.DefaultTheme()
+	theme.Foreground = ui.RGB(1, 1, 1)
+	theme.PrimaryHovered = ui.RGB(2, 2, 2)
+	theme.SurfaceHovered = ui.RGB(3, 3, 3)
+	app := ui.NewApp(ui.Align{Alignment: ui.TopLeft, Child: ui.Checkbox{Checked: true, Label: "Enabled"}}, ui.WithTheme(theme))
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	app.Send(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseNoButton, EventType: vaxis.EventMotion})
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	p := ui.NewPainter(ui.Size{Width: 20, Height: 1})
+	app.Paint(p)
+	if got := p.Cell(1, 0).Background; got != theme.PrimaryHovered {
+		t.Fatalf("checked hovered checkbox background = %#v, want primary hovered %#v", got, theme.PrimaryHovered)
 	}
-	if got := app.Cell(4, 0).Attribute; got&ui.AttrDim == 0 {
-		t.Fatalf("disabled checkbox label attribute = %#v, want dim", got)
+	if got := p.Cell(1, 0).Foreground; got != theme.Foreground {
+		t.Fatalf("checked hovered checkbox foreground = %#v, want foreground %#v", got, theme.Foreground)
+	}
+}
+
+func TestDisabledCheckboxUsesDisabledForeground(t *testing.T) {
+	theme := ui.DefaultTheme()
+	app := ui.NewApp(ui.Checkbox{Disabled: true, Label: "Disabled"}, ui.WithTheme(theme))
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	p := ui.NewPainter(ui.Size{Width: 20, Height: 1})
+	app.Paint(p)
+	if got := p.Cell(1, 0).Foreground; got != theme.DisabledForeground {
+		t.Fatalf("disabled checkbox mark foreground = %#v, want %#v", got, theme.DisabledForeground)
+	}
+	if got := p.Cell(4, 0).Foreground; got != theme.DisabledForeground {
+		t.Fatalf("disabled checkbox label foreground = %#v, want %#v", got, theme.DisabledForeground)
 	}
 }
 

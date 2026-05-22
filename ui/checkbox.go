@@ -28,7 +28,7 @@ type checkboxState struct {
 
 func (s *checkboxState) Build(ctx BuildContext) Widget {
 	w := s.Widget().(Checkbox)
-	child := s.build(ctx, w.Disabled, checkboxSpans(w, s.styles(ctx, w.Disabled)))
+	child := s.build(ctx, w.Disabled, checkboxSpans(w, s.styles(ctx, w.Disabled, w.Checked)))
 	if w.Disabled {
 		return child
 	}

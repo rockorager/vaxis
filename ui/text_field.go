@@ -13,9 +13,9 @@ type TextField struct {
 	OnChanged TextChangedCallback
 	// OnSubmitted is called with the current value when Enter is pressed.
 	OnSubmitted TextChangedCallback
-	// Padding overrides Theme.TextField.Padding when non-zero.
+	// Padding overrides the default text field padding when non-zero.
 	Padding Insets
-	// MinWidth overrides Theme.TextField.MinWidth when greater than zero.
+	// MinWidth overrides the default text field minimum width when greater than zero.
 	MinWidth int
 	// ObscureText hides the displayed value, useful for password-style fields.
 	ObscureText bool
@@ -37,7 +37,7 @@ func (s *textFieldState) Build(ctx BuildContext) Widget {
 	s.editor.SetFocusChange(s.MarkNeedsBuild)
 	chars := vaxisCharacters(s.editor.Text())
 	cursor := s.editor.CursorOffset()
-	theme := MustDepend[Theme](ctx).TextField
+	theme := textFieldTheme(MustDepend[Theme](ctx))
 	padding := textFieldPadding(w, theme)
 	width := textFieldMinWidth(w, theme)
 	contentWidth := max(1, width-padding.Left-padding.Right)
@@ -95,7 +95,7 @@ func (s *textFieldState) submit(ctx EventContext, value string) {
 
 func (s *textFieldState) positionForMouse(mouse Mouse) (TextPosition, bool) {
 	w := s.Widget().(TextField)
-	theme := MustDepend[Theme](s.Context()).TextField
+	theme := textFieldTheme(MustDepend[Theme](s.Context()))
 	padding := textFieldPadding(w, theme)
 	col := mouse.Col - padding.Left
 	if s.scroll > 0 {
@@ -114,7 +114,7 @@ func textFieldPadding(w TextField, theme TextFieldTheme) Insets {
 		return w.Padding
 	}
 	if theme.Padding == (Insets{}) {
-		return DefaultTheme().TextField.Padding
+		return Symmetric(1, 0)
 	}
 	return theme.Padding
 }
@@ -124,7 +124,7 @@ func textFieldMinWidth(w TextField, theme TextFieldTheme) int {
 		return w.MinWidth
 	}
 	if theme.MinWidth <= 0 {
-		return DefaultTheme().TextField.MinWidth
+		return defaultTextFieldMinWidth
 	}
 	return theme.MinWidth
 }

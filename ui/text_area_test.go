@@ -100,7 +100,9 @@ func TestTextAreaTextIntentCanBeOverridden(t *testing.T) {
 
 func TestTextAreaPlaceholderUsesPlaceholderStyleWhenUnfocused(t *testing.T) {
 	theme := ui.DefaultTheme()
-	theme.TextField.Placeholder = ui.Style{Foreground: vaxis.ColorGray, Background: vaxis.ColorBlack}
+	theme.MutedForeground = vaxis.ColorGray
+	theme.Surface = vaxis.ColorBlack
+	placeholder := ui.Style{Foreground: theme.MutedForeground, Background: theme.Surface}
 	app := ui.NewApp(ui.Row(
 		ui.Button{Label: "x"},
 		ui.TextArea{Placeholder: "notes", MinWidth: 8, MinHeight: 2},
@@ -111,8 +113,8 @@ func TestTextAreaPlaceholderUsesPlaceholderStyleWhenUnfocused(t *testing.T) {
 	if got := p.Cell(6, 0).Grapheme; got != "n" {
 		t.Fatalf("placeholder = %q, want n", got)
 	}
-	if got := p.Cell(6, 0).Style; got != theme.TextField.Placeholder {
-		t.Fatalf("placeholder style = %#v, want %#v", got, theme.TextField.Placeholder)
+	if got := p.Cell(6, 0).Style; got != placeholder {
+		t.Fatalf("placeholder style = %#v, want %#v", got, placeholder)
 	}
 }
 
@@ -174,7 +176,7 @@ func TestTextAreaExtendsAndPaintsSelection(t *testing.T) {
 
 	p := ui.NewPainter(ui.Size{Width: 10, Height: 3})
 	app.Paint(p)
-	want := ui.DefaultTheme().TextField.Selection.Background
+	want := ui.DefaultTheme().Selection
 	if got := p.Cell(1, 0).Background; got != want {
 		t.Fatalf("selected first cell background = %#v, want %#v", got, want)
 	}
@@ -184,7 +186,7 @@ func TestTextAreaExtendsAndPaintsSelection(t *testing.T) {
 	if got := p.Cell(3, 0).Background; got == want {
 		t.Fatalf("unselected third cell background = %#v, should not be selection background", got)
 	}
-	if got := p.Cell(1, 0).Style; got == ui.DefaultTheme().TextField.Cursor {
+	if got := p.Cell(1, 0).Style; got == (ui.Style{Foreground: ui.DefaultTheme().Background, Background: ui.DefaultTheme().Foreground}) {
 		t.Fatalf("selected cell style = %#v, should not use cursor style", got)
 	}
 	if cursor, ok := p.Cursor(); !ok || cursor.Col != 3 || cursor.Row != 0 {
@@ -276,7 +278,7 @@ func TestTextAreaMouseDragSelectsText(t *testing.T) {
 
 	p := ui.NewPainter(ui.Size{Width: 10, Height: 3})
 	app.Paint(p)
-	want := ui.DefaultTheme().TextField.Selection.Background
+	want := ui.DefaultTheme().Selection
 	if got := p.Cell(1, 0).Background; got != want {
 		t.Fatalf("selected first cell background = %#v, want %#v", got, want)
 	}
@@ -363,7 +365,7 @@ func TestTextAreaPaintsSelectedEmptyLine(t *testing.T) {
 
 	p := ui.NewPainter(ui.Size{Width: 10, Height: 5})
 	app.Paint(p)
-	want := ui.DefaultTheme().TextField.Selection.Background
+	want := ui.DefaultTheme().Selection
 	if got := p.Cell(1, 1).Background; got != want {
 		t.Fatalf("selected empty line background = %#v, want %#v", got, want)
 	}
@@ -379,7 +381,7 @@ func TestTextAreaSelectAllDoesNotPaintExtraCellAfterNonEmptyLineBeforeBlankLine(
 
 	p := ui.NewPainter(ui.Size{Width: 12, Height: 5})
 	app.Paint(p)
-	want := ui.DefaultTheme().TextField.Selection.Background
+	want := ui.DefaultTheme().Selection
 	if got := p.Cell(1, 1).Background; got != want {
 		t.Fatalf("selected empty line background = %#v, want %#v", got, want)
 	}
@@ -440,7 +442,7 @@ func TestTextAreaControlledValueShrinkClampsSelection(t *testing.T) {
 
 	p := ui.NewPainter(ui.Size{Width: 10, Height: 3})
 	app.Paint(p)
-	want := ui.DefaultTheme().TextField.Selection.Background
+	want := ui.DefaultTheme().Selection
 	if got := p.Cell(1, 0).Background; got != want {
 		t.Fatalf("clamped selected cell background = %#v, want %#v", got, want)
 	}
@@ -457,7 +459,7 @@ func TestTextAreaSelectionPaintsVisibleRowsWhenStartIsOffscreen(t *testing.T) {
 
 	p := ui.NewPainter(ui.Size{Width: 10, Height: 2})
 	app.Paint(p)
-	want := ui.DefaultTheme().TextField.Selection.Background
+	want := ui.DefaultTheme().Selection
 	if got := p.Cell(1, 0).Grapheme; got != "b" {
 		t.Fatalf("top visible line = %q, want b", got)
 	}
@@ -507,7 +509,7 @@ func TestTextAreaSelectionClipsHorizontally(t *testing.T) {
 
 	p := ui.NewPainter(ui.Size{Width: 5, Height: 3})
 	app.Paint(p)
-	want := ui.DefaultTheme().TextField.Selection.Background
+	want := ui.DefaultTheme().Selection
 	if got := p.Cell(1, 0).Grapheme; got != "e" {
 		t.Fatalf("first visible selected cell = %q, want e", got)
 	}

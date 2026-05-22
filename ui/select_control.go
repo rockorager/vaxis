@@ -12,9 +12,10 @@ type selectControlStyles struct {
 	focused bool
 }
 
-func (s *selectControlState) styles(ctx BuildContext, disabled bool) selectControlStyles {
+func (s *selectControlState) styles(ctx BuildContext, disabled, active bool) selectControlStyles {
 	s.node.onChange = s.MarkNeedsBuild
-	theme := MustDepend[Theme](ctx).Button
+	appTheme := MustDepend[Theme](ctx)
+	theme := buttonTheme(appTheme)
 	styles := selectControlStyles{
 		box:     theme.Normal,
 		label:   theme.Normal,
@@ -25,10 +26,15 @@ func (s *selectControlState) styles(ctx BuildContext, disabled bool) selectContr
 	}
 	if !disabled && s.hovered {
 		styles.box = theme.Hovered
+		if active {
+			styles.box = Style{Foreground: appTheme.Foreground, Background: appTheme.PrimaryHovered}
+		} else if styles.focused {
+			styles.box = theme.FocusedHovered
+		}
 	}
 	if disabled {
-		styles.box.Attribute |= AttrDim
-		styles.label.Attribute |= AttrDim
+		styles.box.Foreground = appTheme.DisabledForeground
+		styles.label.Foreground = appTheme.DisabledForeground
 	}
 	return styles
 }
@@ -61,7 +67,7 @@ func (s *selectControlState) mouseShape(disabled bool) MouseShape {
 	if disabled {
 		return MouseShapeDefault
 	}
-	shape := MustDepend[Theme](s.Context()).Button.Mouse
+	shape := buttonTheme(MustDepend[Theme](s.Context())).Mouse
 	if shape == "" {
 		return MouseShapeClickable
 	}

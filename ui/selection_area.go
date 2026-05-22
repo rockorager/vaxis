@@ -237,7 +237,7 @@ func (s *selectionAreaState) setSelection(anchor, extent selectionEndpoint, visi
 	if area == nil {
 		return
 	}
-	s.selected = area.ApplySelection(anchor, extent, MustDepend[Theme](s.Context()).TextField.Selection, s.selected, visibleOnly)
+	s.selected = area.ApplySelection(anchor, extent, textFieldTheme(MustDepend[Theme](s.Context())).Selection, s.selected, visibleOnly)
 }
 
 func (s *selectionAreaState) startAutoScroll(ctx EventContext, mouse Mouse, target selectionAutoScroller, off Offset) {

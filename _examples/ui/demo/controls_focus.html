@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>native controls focus fixture</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c0e12;
+      --fg: #f5f6fa;
+      --body: #d6dae4;
+      --muted: #9197a5;
+      --surface: #12151b;
+      --hover: #1e2430;
+      --primary: #2c58a0;
+      --primary-hover: #4076c7;
+      --accent: #d8b4fe;
+      --border: #363d4c;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 15px;
+      line-height: 1.45;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--body);
+    }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      gap: 16px;
+      padding: 16px;
+    }
+
+    header,
+    footer,
+    h1,
+    legend,
+    label {
+      color: var(--fg);
+    }
+
+    h1,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      font-size: 15px;
+    }
+
+    nav {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    main {
+      max-width: 980px;
+      padding: 8px;
+    }
+
+    form {
+      display: grid;
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    fieldset {
+      border: 1px solid var(--border);
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .field {
+      display: grid;
+      gap: 4px;
+      max-width: 680px;
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    button,
+    input[type="button"],
+    input[type="submit"],
+    input[type="reset"] {
+      border: 0;
+      background: var(--surface);
+      color: var(--fg);
+      padding: 3px 10px;
+      min-height: 28px;
+      cursor: pointer;
+    }
+
+    button:hover,
+    input[type="button"]:hover,
+    input[type="submit"]:hover,
+    input[type="reset"]:hover {
+      background: var(--hover);
+    }
+
+    button[aria-current="page"] {
+      background: var(--primary);
+      color: var(--fg);
+    }
+
+    button[aria-current="page"]:hover {
+      background: var(--primary-hover);
+    }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="number"],
+    input[type="search"],
+    input[type="date"],
+    select,
+    textarea {
+      border: 0;
+      background: var(--surface);
+      color: var(--fg);
+      padding: 4px 8px;
+      min-height: 28px;
+      width: min(680px, 100%);
+    }
+
+    textarea {
+      min-height: 72px;
+      resize: vertical;
+    }
+
+    input:hover,
+    select:hover,
+    textarea:hover {
+      background-color: var(--hover);
+    }
+
+    input[type="checkbox"],
+    input[type="radio"],
+    input[type="range"],
+    input[type="color"] {
+      accent-color: var(--primary);
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    output {
+      color: var(--fg);
+      font-weight: 700;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .stack-base {
+      width: 28ch;
+      background: var(--surface);
+      color: var(--fg);
+      font-weight: 700;
+      padding-left: 1ch;
+    }
+
+    .badge {
+      color: var(--accent);
+      font-weight: 700;
+      margin-left: 6ch;
+    }
+
+    dialog {
+      border: 0;
+      background: var(--surface);
+      color: var(--body);
+      width: min(520px, calc(100vw - 32px));
+      padding: 16px;
+      box-shadow: 0 18px 60px rgb(0 0 0 / 0.55);
+    }
+
+    dialog::backdrop {
+      background: rgb(12 14 18 / 0.72);
+    }
+
+    .right {
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <strong>Vaxis UI demo</strong>
+      <span> - native HTML controls focus fixture</span>
+    </header>
+
+    <nav aria-label="Demo pages">
+      <button type="button">Home</button>
+      <button type="button">Text</button>
+      <button type="button" aria-current="page">Controls</button>
+      <button type="button">Lists</button>
+      <button type="button">Animation</button>
+      <button type="button">Theme</button>
+    </nav>
+
+    <main>
+      <h1>Controls</h1>
+      <p>Use Tab, Shift+Tab, Enter, Space, arrows, and Escape to compare browser-native focus behavior.</p>
+
+      <form id="controls-form">
+        <fieldset>
+          <legend>Text inputs</legend>
+          <label class="field">
+            Name
+            <input id="name" name="name" type="text" placeholder="type here" autocomplete="off">
+          </label>
+          <label class="field">
+            Email
+            <input id="email" name="email" type="email" placeholder="name@example.com">
+          </label>
+          <label class="field">
+            Search
+            <input id="search" name="search" type="search" placeholder="search controls">
+          </label>
+          <label class="field">
+            Notes
+            <textarea id="notes" name="notes" placeholder="write a note"></textarea>
+          </label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Buttons</legend>
+          <div class="row">
+            <button type="button" id="minus">-</button>
+            <span>count: <output id="count">0</output></span>
+            <button type="button" id="plus">+</button>
+            <button type="button" id="title">Title</button>
+            <button type="button" id="copy">Copy notes</button>
+            <button type="button" id="notify">Notify</button>
+            <button type="button" id="open-dialog">Dialog</button>
+            <button type="button" disabled>Disabled</button>
+          </div>
+          <div class="row">
+            <input type="button" value="input button">
+            <input type="submit" value="submit input">
+            <input type="reset" value="reset input">
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Checkboxes</legend>
+          <label><input id="done" name="done" type="checkbox"> Use checkmark style</label>
+          <label><input name="extra" type="checkbox"> Extra option</label>
+          <label><input type="checkbox" disabled> Disabled</label>
+          <span>checkbox: <output id="checkbox-status">unchecked</output></span>
+        </fieldset>
+
+        <fieldset>
+          <legend>Radios</legend>
+          <label><input name="mode" value="compact" type="radio" checked> Compact</label>
+          <label><input name="mode" value="cozy" type="radio"> Cozy</label>
+          <label><input name="mode" value="spacious" type="radio"> Spacious</label>
+          <label><input name="mode" value="disabled" type="radio" disabled> Disabled</label>
+          <span>radio: <output id="radio-status">compact</output></span>
+        </fieldset>
+
+        <fieldset>
+          <legend>Other native controls</legend>
+          <label class="field">
+            Select
+            <select id="density" name="density">
+              <option>compact</option>
+              <option>cozy</option>
+              <option>spacious</option>
+            </select>
+          </label>
+          <label class="field">
+            Number
+            <input id="amount" name="amount" type="number" min="-10" max="10" value="0">
+          </label>
+          <label class="field">
+            Date
+            <input id="date" name="date" type="date">
+          </label>
+          <label class="field">
+            Range: <output id="range-value">50</output>
+            <input id="range" name="range" type="range" min="0" max="100" value="50">
+          </label>
+          <label class="field">
+            Color
+            <input id="color" name="color" type="color" value="#2c58a0">
+          </label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Static layout reference</legend>
+          <div class="stack-base">Stack base <span class="badge">new</span></div>
+          <div class="right muted">aligned right inside the page</div>
+        </fieldset>
+      </form>
+    </main>
+
+    <footer>
+      <div id="focus-log">focus: none</div>
+    </footer>
+  </div>
+
+  <dialog id="dialog">
+    <form method="dialog">
+      <h2>Demo dialog</h2>
+      <p>Native dialog focus handling. Escape closes it in supporting browsers.</p>
+      <div class="row">
+        <button type="button" id="dialog-notify">Notify</button>
+        <button value="close">Close</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script>
+    const count = document.querySelector("#count");
+    const notes = document.querySelector("#notes");
+    const focusLog = document.querySelector("#focus-log");
+    const dialog = document.querySelector("#dialog");
+    let countValue = 0;
+
+    function describe(element) {
+      if (!element) return "none";
+      if (element.id) return `#${element.id}`;
+      if (element.name) return `${element.tagName.toLowerCase()}[name=${element.name}]`;
+      if (element.textContent.trim()) return element.textContent.trim().replace(/\s+/g, " ");
+      return element.tagName.toLowerCase();
+    }
+
+    function updateFocusLog() {
+      focusLog.textContent = `focus: ${describe(document.activeElement)}`;
+    }
+
+    document.addEventListener("focusin", updateFocusLog);
+    document.addEventListener("focusout", () => setTimeout(updateFocusLog, 0));
+
+    document.querySelector("#minus").addEventListener("click", () => {
+      count.textContent = String(--countValue);
+    });
+
+    document.querySelector("#plus").addEventListener("click", () => {
+      count.textContent = String(++countValue);
+    });
+
+    document.querySelector("#done").addEventListener("change", (event) => {
+      document.querySelector("#checkbox-status").textContent = event.target.checked ? "checked" : "unchecked";
+    });
+
+    document.querySelectorAll("input[name='mode']").forEach((radio) => {
+      radio.addEventListener("change", () => {
+        if (radio.checked) document.querySelector("#radio-status").textContent = radio.value;
+      });
+    });
+
+    document.querySelector("#range").addEventListener("input", (event) => {
+      document.querySelector("#range-value").textContent = event.target.value;
+    });
+
+    document.querySelector("#title").addEventListener("click", () => {
+      document.title = "Vaxis UI demo";
+    });
+
+    document.querySelector("#copy").addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(notes.value);
+        focusLog.textContent = "copied notes";
+      } catch {
+        notes.select();
+      }
+    });
+
+    document.querySelector("#notify").addEventListener("click", () => {
+      focusLog.textContent = "notify: Notification from the controls page";
+    });
+
+    document.querySelector("#open-dialog").addEventListener("click", () => {
+      dialog.showModal();
+    });
+
+    document.querySelector("#dialog-notify").addEventListener("click", () => {
+      focusLog.textContent = "notify: Action from dialog";
+    });
+
+    document.querySelector("#controls-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      focusLog.textContent = "submit prevented";
+    });
+
+    updateFocusLog();
+  </script>
+</body>
+</html>

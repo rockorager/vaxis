@@ -23,20 +23,33 @@ func runWithBackend(root Widget, backend Backend, opts ...Option) error {
 	for _, opt := range opts {
 		opt(&options)
 	}
+	terminalTheme := !options.hasTheme
 	if !options.hasTheme {
 		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 		options.theme = themeFromTerminal(ctx, backendColorQuerier{backend: backend})
 		cancel()
 	}
-	opts = append(append([]Option{}, opts...), WithTheme(options.theme))
-	app := NewApp(root, opts...)
+	appOpts := append([]Option{}, opts...)
+	if terminalTheme {
+		appOpts = append(appOpts, WithTheme(options.theme))
+	}
+	app := NewApp(root, appOpts...)
 	runner := NewRunner(app, backend, NewFrameScheduler(DefaultFrameInterval))
+	updateTerminalTheme := func(ev Event) {
+		if _, ok := ev.(ColorThemeUpdate); !ok || !terminalTheme {
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+		app.SetTheme(themeFromTerminal(ctx, backendColorQuerier{backend: backend}))
+		cancel()
+	}
 	submitDebugEvent := func(ev Event) {
 		if resize, ok := ev.(Resize); ok {
 			if backend, ok := backend.(interface{ Resize(Resize) }); ok {
 				backend.Resize(resize)
 			}
 		}
+		updateTerminalTheme(ev)
 		runner.HandleEvent(ev, time.Now())
 	}
 	stopDebug, err := startDebugServer(app, app.dispatch, submitDebugEvent, runner.debugRenderedSnapshot, func() (string, bool) {
@@ -72,6 +85,7 @@ func runWithBackend(root Widget, backend Backend, opts ...Option) error {
 					backend.Resize(resize)
 				}
 			}
+			updateTerminalTheme(ev)
 			runner.HandleEvent(ev, time.Now())
 			if runner.Done() {
 				return nil

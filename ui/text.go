@@ -35,7 +35,7 @@ const (
 type Text struct {
 	// Value is the string to display.
 	Value string
-	// Style overrides Theme.Text when non-zero fields are set.
+	// Style overrides Theme foreground when non-zero fields are set.
 	Style Style
 	// SoftWrap wraps text to the available width.
 	SoftWrap bool
@@ -51,7 +51,7 @@ type Text struct {
 
 func (w Text) CreateRenderObject(ctx BuildContext) RenderObject {
 	if w.Style == (Style{}) {
-		w.Style = MustDepend[Theme](ctx).Text
+		w.Style = textStyle(MustDepend[Theme](ctx))
 	}
 	w.Style = textInteractiveStyle(w.Style, w.OnPressed)
 	return &renderText{Text: w.Value, Style: w.Style, Options: w.options(), OnPressed: w.OnPressed, focusedIndex: elementFocusIndex}
@@ -59,7 +59,7 @@ func (w Text) CreateRenderObject(ctx BuildContext) RenderObject {
 
 func (w Text) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
 	if w.Style == (Style{}) {
-		w.Style = MustDepend[Theme](ctx).Text
+		w.Style = textStyle(MustDepend[Theme](ctx))
 	}
 	w.Style = textInteractiveStyle(w.Style, w.OnPressed)
 	r := ro.(*renderText)

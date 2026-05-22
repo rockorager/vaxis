@@ -187,8 +187,7 @@ func EncodeCells(cells []Cell) string {
 		}
 
 		if cursor.UnderlineStyle != next.UnderlineStyle {
-			ulStyle := next.UnderlineStyle
-			_, _ = bldr.WriteString(tparm(ulStyleSet, ulStyle))
+			_, _ = bldr.WriteString(encodeUnderlineStyle(next.UnderlineStyle))
 		}
 
 		if cursor.Hyperlink != next.Hyperlink {
@@ -207,6 +206,17 @@ func EncodeCells(cells []Cell) string {
 		bldr.WriteString(sgrReset)
 	}
 	return bldr.String()
+}
+
+func encodeUnderlineStyle(style UnderlineStyle) string {
+	switch style {
+	case UnderlineOff:
+		return underlineReset
+	case UnderlineSingle:
+		return underlineSet
+	default:
+		return tparm(ulStyleSet, style)
+	}
 }
 
 // parseSGR applies the SGR style to the passed in style

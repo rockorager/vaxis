@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 
 	"git.sr.ht/~rockorager/vaxis"
@@ -36,21 +37,38 @@ func TestDemoExampleNavigationAndControls(t *testing.T) {
 	if !app.Contains("Animation") || !app.Contains("status: running") {
 		t.Fatalf("animation page missing content: %q", app.Text())
 	}
+	app.Key("n")
+	app.Pump(90, 20)
+	if !app.Contains("Theme") || !app.Contains("Semantic colors") || !app.Contains("Theme.Background") {
+		t.Fatalf("theme page missing content: %q", app.Text())
+	}
 	app.Key("p")
 	app.Pump(90, 20)
 	app.Key("p")
 	app.Pump(90, 20)
-	app.Tab()
-	app.Tab()
-	app.Tab()
-	app.Tab()
-	app.Tab()
-	app.Tab()
-	app.Tab()
-	app.Enter()
+	app.Key("p")
+	app.Pump(90, 20)
+	app.Click(3, 17)
 	app.Pump(90, 20)
 	if !app.Contains("count: -1") {
 		t.Fatalf("decrement button did not update count: %q", app.Text())
+	}
+}
+
+func TestDemoExampleTabButtonsActivateFocusedPage(t *testing.T) {
+	app := ui.NewApp(Demo{})
+	app.Pump(ui.Size{Width: 90, Height: 20})
+
+	app.Send(vaxis.Key{Keycode: vaxis.KeyTab})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyEnter})
+	app.Pump(ui.Size{Width: 90, Height: 20})
+	p := ui.NewPainter(ui.Size{Width: 90, Height: 20})
+	app.Paint(p)
+	if !painterTextContains(p, "Text layout") {
+		t.Fatalf("focused Text tab did not activate text page: %q", painterText(p))
+	}
+	if got := focusedDebugLabel(app); !strings.Contains(got, "Text") {
+		t.Fatalf("focused tab after activation = %q, want Text tab", got)
 	}
 }
 
@@ -62,9 +80,7 @@ func TestDemoExampleCanNavigateAwayFromFocusedButton(t *testing.T) {
 	app.Key("n")
 	app.Pump(90, 20)
 
-	app.Tab()
-	app.Tab()
-	app.Tab()
+	app.Click(3, 14)
 	app.Pump(90, 20)
 	app.Key("p")
 	app.Pump(90, 20)
@@ -81,11 +97,7 @@ func TestDemoExampleLeavesArrowsForTextField(t *testing.T) {
 	app.Key("n")
 	app.Pump(90, 20)
 
-	app.Tab()
-	app.Tab()
-	app.Tab()
-	app.Tab()
-	app.Tab()
+	app.Click(2, 9)
 	app.Key("a")
 	app.Pump(90, 20)
 	app.Key("b")
@@ -109,12 +121,8 @@ func TestDemoExampleTextAreaAcceptsMultilineInput(t *testing.T) {
 	app.Key("n")
 	app.Pump(90, 20)
 
-	app.Tab()
-	app.Tab()
-	app.Tab()
-	app.Tab()
-	app.Tab()
-	app.Tab()
+	app.Click(2, 14)
+	app.Pump(90, 20)
 	app.Key("alpha")
 	app.Enter()
 	app.Key("beta")
@@ -142,6 +150,27 @@ func TestDemoExampleTextPageScrolls(t *testing.T) {
 
 func uitestKeyLeft() ui.Event {
 	return vaxis.Key{Keycode: vaxis.KeyLeft}
+}
+
+func focusedDebugLabel(app *ui.App) string {
+	for _, target := range app.DebugSnapshot().Focusables {
+		if target.Focused {
+			return target.Label
+		}
+	}
+	return ""
+}
+
+func painterTextContains(p *ui.Painter, text string) bool {
+	return strings.Contains(painterText(p), text)
+}
+
+func painterText(p *ui.Painter) string {
+	var b strings.Builder
+	for _, cell := range p.Cells() {
+		b.WriteString(cell.Grapheme)
+	}
+	return b.String()
 }
 
 func TestDemoExampleQuitShortcut(t *testing.T) {

@@ -378,8 +378,7 @@ func (ss *StyledString) Encode() string {
 		}
 
 		if cursor.UnderlineStyle != next.UnderlineStyle {
-			ulStyle := next.UnderlineStyle
-			_, _ = bldr.WriteString(tparm(ulStyleSet, ulStyle))
+			_, _ = bldr.WriteString(encodeUnderlineStyle(next.UnderlineStyle))
 		}
 
 		if cursor.Hyperlink != next.Hyperlink {

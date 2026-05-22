@@ -46,7 +46,7 @@ func (s *segmentedControlState[T]) Build(ctx BuildContext) Widget {
 		Value:    w.Value,
 		Segments: w.Segments,
 		Disabled: w.Disabled,
-		Theme:    MustDepend[Theme](ctx).SegmentedControl,
+		Theme:    segmentedControlTheme(MustDepend[Theme](ctx)),
 		Focused:  !w.Disabled && s.node.HasFocus(),
 		Active:   active,
 		Hovered:  s.hovered,
@@ -79,7 +79,7 @@ func (s *segmentedControlState[T]) MouseShape(ctx EventContext, mouse Mouse) Mou
 	if w.Disabled || len(w.Segments) == 0 || s.segmentAt(mouse.Col) < 0 {
 		return MouseShapeDefault
 	}
-	shape := MustDepend[Theme](s.Context()).SegmentedControl.Mouse
+	shape := segmentedControlTheme(MustDepend[Theme](s.Context())).Mouse
 	if shape == "" {
 		return MouseShapeClickable
 	}
@@ -317,11 +317,15 @@ func (r *renderSegmentedControl[T]) computeRanges() {
 
 func (r *renderSegmentedControl[T]) segmentStyle(index int, segment SegmentedItem[T]) Style {
 	style := r.Theme.Normal
-	if segment.Value == r.Value {
+	selected := segment.Value == r.Value
+	if selected {
 		style = mergeStyle(style, r.Theme.Selected)
 	}
 	if index == r.Hovered && !r.Disabled && !segment.Disabled {
 		style = mergeStyle(style, r.Theme.Hovered)
+		if selected {
+			style = mergeStyle(style, r.Theme.SelectedHovered)
+		}
 	}
 	if index == r.Active && r.Focused && !r.Disabled && !segment.Disabled {
 		style = mergeStyle(style, r.Theme.Focused)

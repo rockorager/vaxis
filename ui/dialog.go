@@ -25,6 +25,7 @@ type dialogState struct {
 func (s *dialogState) Build(ctx BuildContext) Widget {
 	w := s.Widget().(Dialog)
 	theme := MustDepend[Theme](ctx)
+	contentTheme := dialogContentTheme(theme)
 	body := []Widget{}
 	if w.Title != "" {
 		body = append(body, Text{Value: w.Title, Style: Style{Attribute: AttrBold}})
@@ -69,13 +70,22 @@ func (s *dialogState) Build(ctx BuildContext) Widget {
 			AutoFocus: true,
 			Child: DecoratedBox(
 				Decoration{
-					Style:  theme.Button.Normal,
-					Border: BorderAll(theme.Text),
+					Style: Style{Foreground: theme.Foreground, Background: theme.Surface},
 				},
-				Padding(All(1), child),
+				Padding(All(1), Provider[Theme]{Value: contentTheme, Child: child}),
 			),
 		},
 	}
+}
+
+func dialogContentTheme(theme Theme) Theme {
+	content := theme
+	content.Background = theme.Surface
+	content.Surface = theme.SurfaceHovered
+	content.SurfaceHovered = theme.SurfacePressed
+	content.SurfacePressed = theme.PrimaryPressed
+	content.Border = theme.Border
+	return content
 }
 
 func intersperseWidgets(children []Widget, separator Widget) []Widget {

@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	if err := ui.Run(Demo{}); err != nil {
+	if err := ui.Run(Demo{}, ui.WithThemeSet(ui.DefaultThemeSet())); err != nil {
 		panic(err)
 	}
 }
@@ -48,7 +48,7 @@ type DemoState struct {
 	dialog bool
 }
 
-var demoPages = []string{"home", "text", "controls", "lists", "animation"}
+var demoPages = []string{"home", "text", "controls", "lists", "animation", "theme"}
 
 func (s *DemoState) InitState() {
 	rt := s.Context().Runtime()
@@ -81,16 +81,18 @@ func (s *DemoState) Dispose() {
 }
 
 func (s *DemoState) Build(ctx ui.BuildContext) ui.Widget {
+	theme := ui.MustDepend[ui.Theme](ctx)
 	body := ui.Padding(
 		ui.All(1),
 		ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStretch, Children: []ui.Widget{
-			s.header(),
+			s.header(theme),
 			ui.SizedBox{Height: 1},
 			s.pageBody(ctx),
 			ui.SizedBox{Height: 1},
 			s.footer(),
 		}},
 	)
+	body = ui.DecoratedBox(ui.Decoration{Style: ui.Style{Foreground: theme.Foreground, Background: theme.Background}}, body)
 	if s.dialog {
 		body = ui.Stack{Alignment: ui.CenterAlign, Children: []ui.Widget{
 			body,
@@ -146,48 +148,59 @@ func (s *DemoState) Build(ctx ui.BuildContext) ui.Widget {
 	}
 }
 
-func (s *DemoState) header() ui.Widget {
+func (s *DemoState) header(theme ui.Theme) ui.Widget {
 	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStretch, Children: []ui.Widget{
 		ui.RichText{Spans: []ui.TextSpan{
 			{Text: "Vaxis UI demo", Style: ui.Style{Attribute: ui.AttrBold}},
 			{Text: "  —  n/p to switch pages, Tab to move focus, q to quit"},
 		}},
-		ui.Flex{Axis: ui.Horizontal, MainAxisAlignment: ui.MainAxisCenter, CrossAxisAlignment: ui.CrossAxisCenter, Children: []ui.Widget{
-			ui.SegmentedControl[int]{
-				Value: s.page,
-				Segments: []ui.SegmentedItem[int]{
-					{Value: 0, Label: "Home"},
-					{Value: 1, Label: "Text"},
-					{Value: 2, Label: "Controls"},
-					{Value: 3, Label: "Lists"},
-					{Value: 4, Label: "Animation"},
-				},
-				OnChanged: func(ctx ui.EventContext, page int) {
-					s.setPage(page)
-				},
-			},
-		}},
+		ui.Flex{
+			Axis:               ui.Horizontal,
+			MainAxisAlignment:  ui.MainAxisCenter,
+			CrossAxisAlignment: ui.CrossAxisCenter,
+			Children:           s.pageTabs(theme),
+		},
 	}}
+}
+
+func (s *DemoState) pageTabs(theme ui.Theme) []ui.Widget {
+	labels := []string{"Home", "Text", "Controls", "Lists", "Animation", "Theme"}
+	children := make([]ui.Widget, 0, len(labels)*2-1)
+	for page, label := range labels {
+		page := page
+		if page > 0 {
+			children = append(children, ui.SizedBox{Width: 1, Height: 1})
+		}
+		tabTheme := theme
+		tab := ui.Widget(ui.Button{Label: label, OnPressed: func(ctx ui.EventContext) {
+			s.setPage(page)
+		}})
+		if page == s.page {
+			tabTheme.Surface = theme.Primary
+			tabTheme.SurfaceHovered = theme.PrimaryHovered
+		}
+		children = append(children, ui.Provider[ui.Theme]{Value: tabTheme, Child: tab})
+	}
+	return children
 }
 
 func (s *DemoState) pageBody(ctx ui.BuildContext) ui.Widget {
 	theme := ui.MustDepend[ui.Theme](ctx)
-	return ui.DecoratedBox(
-		ui.Decoration{Border: ui.BorderAll(theme.Text)},
-		ui.Padding(ui.All(1), s.pageContent()),
-	)
+	return ui.Padding(ui.All(1), s.pageContent(theme))
 }
 
-func (s *DemoState) pageContent() ui.Widget {
+func (s *DemoState) pageContent(theme ui.Theme) ui.Widget {
 	switch s.page {
 	case 1:
-		return s.textPage()
+		return s.textPage(theme)
 	case 2:
-		return s.controlsPage()
+		return s.controlsPage(theme)
 	case 3:
-		return s.listsPage()
+		return s.listsPage(theme)
 	case 4:
-		return s.animationPage()
+		return s.animationPage(theme)
+	case 5:
+		return s.themePage(theme)
 	default:
 		return s.homePage()
 	}
@@ -208,7 +221,7 @@ func (s *DemoState) homePage() ui.Widget {
 	}}
 }
 
-func (s *DemoState) textPage() ui.Widget {
+func (s *DemoState) textPage(theme ui.Theme) ui.Widget {
 	return ui.SelectionArea{Child: ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, Children: []ui.Widget{
 		ui.RichText{Spans: []ui.TextSpan{
 			{Text: "Text layout", Style: ui.Style{Attribute: ui.AttrBold}},
@@ -252,7 +265,7 @@ func (s *DemoState) textPage() ui.Widget {
 		ui.RichText{Spans: []ui.TextSpan{
 			{Text: "Inline links can carry OSC 8 metadata and mouse callbacks: "},
 			{Text: "rockorager.dev", Style: ui.Style{
-				Foreground:      ui.RGB(120, 180, 255),
+				Foreground:      theme.PrimaryHovered,
 				UnderlineStyle:  ui.UnderlineSingle,
 				Hyperlink:       "https://rockorager.dev",
 				HyperlinkParams: "id=rockorager-demo-link",
@@ -262,7 +275,7 @@ func (s *DemoState) textPage() ui.Widget {
 		}, SoftWrap: true},
 		ui.Text{Value: "Second selectable line follows the first in copied text."},
 		ui.SelectionContainer{Disabled: true, Child: ui.RichText{Spans: []ui.TextSpan{
-			{Text: "This line opts out of SelectionArea.", Style: ui.Style{Attribute: ui.AttrDim}},
+			{Text: "This line opts out of SelectionArea.", Style: ui.Style{Foreground: theme.DisabledForeground}},
 		}}},
 		ui.ConstrainedBox{Constraints: ui.Constraints{MaxWidth: 48}, Child: ui.Text{
 			Value:    "Ellipsis keeps hidden source text out of mouse selection.",
@@ -273,7 +286,7 @@ func (s *DemoState) textPage() ui.Widget {
 	}}}
 }
 
-func (s *DemoState) controlsPage() ui.Widget {
+func (s *DemoState) controlsPage(theme ui.Theme) ui.Widget {
 	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStretch, Children: []ui.Widget{
 		ui.RichText{Spans: []ui.TextSpan{
 			{Text: "Controls", Style: ui.Style{Attribute: ui.AttrBold}},
@@ -286,8 +299,8 @@ func (s *DemoState) controlsPage() ui.Widget {
 		}},
 		ui.SizedBox{Height: 1},
 		ui.Stack{Alignment: ui.TopLeft, Children: []ui.Widget{
-			ui.SizedBox{Width: 28, Height: 1, Child: ui.DecoratedBox(ui.Decoration{Style: ui.Style{Background: ui.RGB(36, 36, 36)}}, ui.Text{Value: "Stack base", Style: ui.Style{Attribute: ui.AttrBold}})},
-			ui.Positioned{Left: 18, Top: 0, Child: ui.Text{Value: "new", Style: ui.Style{Attribute: ui.AttrBold, Foreground: ui.RGB(78, 201, 176)}}},
+			ui.SizedBox{Width: 28, Height: 1, Child: ui.DecoratedBox(ui.Decoration{Style: ui.Style{Background: theme.Surface}}, ui.Text{Value: "Stack base", Style: ui.Style{Attribute: ui.AttrBold}})},
+			ui.Positioned{Left: 18, Top: 0, Child: ui.Text{Value: "new", Style: ui.Style{Attribute: ui.AttrBold, Foreground: theme.AccentText}}},
 		}},
 		ui.SizedBox{Height: 1},
 		ui.Text{Value: "Notes"},
@@ -349,7 +362,7 @@ func (s *DemoState) controlsPage() ui.Widget {
 	}}
 }
 
-func (s *DemoState) listsPage() ui.Widget {
+func (s *DemoState) listsPage(theme ui.Theme) ui.Widget {
 	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStretch, Children: []ui.Widget{
 		ui.RichText{Spans: []ui.TextSpan{
 			{Text: "Lists", Style: ui.Style{Attribute: ui.AttrBold}},
@@ -368,7 +381,7 @@ func (s *DemoState) listsPage() ui.Widget {
 				},
 			},
 			ui.ListTile{
-				Leading:  ui.Text{Value: "✓", Style: ui.Style{Foreground: ui.RGB(78, 201, 176)}},
+				Leading:  ui.Text{Value: "✓", Style: ui.Style{Foreground: theme.SuccessText}},
 				Title:    ui.Text{Value: "Checks passing"},
 				Trailing: ui.Text{Value: "12/12"},
 				OnPressed: func(ctx ui.EventContext) {
@@ -383,36 +396,24 @@ func (s *DemoState) listsPage() ui.Widget {
 			},
 		}}},
 		ui.SizedBox{Height: 1},
-		ui.SizedBox{Width: 72, Height: 5, Child: ui.Scrollbar{Child: ui.CustomScrollView{Slivers: []ui.Widget{
+		ui.SizedBox{Width: 72, Height: 3, Child: ui.Scrollbar{Child: ui.CustomScrollView{Slivers: []ui.Widget{
 			ui.SliverToBox{Child: ui.Text{Value: "The intro sliver scrolls away before the pinned header takes over.", SoftWrap: true}},
 			ui.SliverPinnedHeader{Child: ui.Text{
 				Value: " #  target             status",
-				Style: ui.Style{Attribute: ui.AttrBold, Background: ui.RGB(48, 48, 48)},
+				Style: ui.Style{Attribute: ui.AttrBold, Foreground: theme.Foreground, Background: theme.Surface},
 			}},
 			ui.SliverListBuilder{
 				Count:      2000,
 				ItemExtent: 1,
 				Overscan:   12,
 				Builder: func(ctx ui.BuildContext, i int) ui.Widget {
-					return listDemoRow(i + 1)
+					return listDemoRow(theme, i+1)
 				},
 			},
 			ui.SliverToBox{Child: ui.RichText{Spans: []ui.TextSpan{
 				{Text: "Footer sliver", Style: ui.Style{Attribute: ui.AttrBold}},
 				{Text: "\nTrack clicks page the same viewport as Page Up and Page Down. Drag the thumb for proportional scrolling."},
 			}, SoftWrap: true}},
-		}}}},
-		ui.SizedBox{Height: 1},
-		ui.Text{Value: "Variable-height messages", Style: ui.Style{Attribute: ui.AttrBold}},
-		ui.SizedBox{Width: 72, Height: 3, Child: ui.Scrollbar{Child: ui.CustomScrollView{FollowOutput: true, Slivers: []ui.Widget{
-			ui.SliverListBuilder{
-				Count:               len(s.logs),
-				EstimatedItemExtent: 2,
-				Overscan:            8,
-				Builder: func(ctx ui.BuildContext, i int) ui.Widget {
-					return chatDemoMessage(i, s.logs[i])
-				},
-			},
 		}}}},
 		ui.SizedBox{Height: 1},
 		ui.TextField{
@@ -433,10 +434,22 @@ func (s *DemoState) listsPage() ui.Widget {
 				})
 			},
 		},
+		ui.SizedBox{Height: 1},
+		ui.Text{Value: "Variable-height messages", Style: ui.Style{Attribute: ui.AttrBold}},
+		ui.SizedBox{Width: 72, Height: 2, Child: ui.Scrollbar{Child: ui.CustomScrollView{FollowOutput: true, Slivers: []ui.Widget{
+			ui.SliverListBuilder{
+				Count:               len(s.logs),
+				EstimatedItemExtent: 2,
+				Overscan:            8,
+				Builder: func(ctx ui.BuildContext, i int) ui.Widget {
+					return chatDemoMessage(theme, i, s.logs[i])
+				},
+			},
+		}}}},
 	}}
 }
 
-func (s *DemoState) animationPage() ui.Widget {
+func (s *DemoState) animationPage(theme ui.Theme) ui.Widget {
 	value := s.anim.Value()
 	status := animationStatus(s.anim.Status())
 	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, Children: []ui.Widget{
@@ -457,7 +470,7 @@ func (s *DemoState) animationPage() ui.Widget {
 		},
 		ui.ConstrainedBox{
 			Constraints: ui.Constraints{MaxWidth: 120},
-			Child:       ui.ProgressBar{Value: value, GradientStart: ui.RGB(78, 201, 176), GradientEnd: ui.RGB(120, 180, 255)},
+			Child:       ui.ProgressBar{Value: value, GradientStart: theme.Accent, GradientEnd: theme.PrimaryHovered},
 		},
 		ui.SizedBox{Height: 1},
 		ui.Flex{Axis: ui.Horizontal, CrossAxisAlignment: ui.CrossAxisCenter, Children: []ui.Widget{
@@ -470,6 +483,81 @@ func (s *DemoState) animationPage() ui.Widget {
 	}}
 }
 
+func (s *DemoState) themePage(theme ui.Theme) ui.Widget {
+	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, Children: []ui.Widget{
+		ui.RichText{Spans: []ui.TextSpan{
+			{Text: "Theme", Style: ui.Style{Attribute: ui.AttrBold}},
+			{Text: "\nSemantic colors are generated from the palette, then widgets derive their styles from these roles."},
+		}, SoftWrap: true},
+		ui.SizedBox{Height: 1},
+		ui.RichText{Spans: []ui.TextSpan{
+			{Text: "Semantic colors", Style: ui.Style{Attribute: ui.AttrBold}},
+		}},
+		themeGroup("base", []ui.Widget{
+			themeSwatchRow(
+				themeSwatchSpan("Theme.Background", theme.Background, theme.Foreground),
+				themeTextSpan("Theme.Foreground", theme.Foreground),
+				themeSwatchSpan("Theme.Border", theme.Border, theme.Background),
+			),
+		}),
+		themeGroup("surface", []ui.Widget{
+			themeSwatchRow(
+				themeSwatchSpan("Theme.Surface", theme.Surface, theme.Foreground),
+				themeSwatchSpan("Theme.SurfaceHovered", theme.SurfaceHovered, theme.Foreground),
+				themeSwatchSpan("Theme.SurfacePressed", theme.SurfacePressed, theme.Foreground),
+			),
+		}),
+		themeGroup("primary and accent", []ui.Widget{
+			themeSwatchRow(
+				themeSwatchSpan("Theme.Primary", theme.Primary, theme.Foreground),
+				themeTextSpan("Theme.PrimaryText", theme.PrimaryText),
+			),
+			themeSwatchRow(
+				themeSwatchSpan("Theme.PrimaryHovered", theme.PrimaryHovered, theme.Foreground),
+				themeSwatchSpan("Theme.PrimaryPressed", theme.PrimaryPressed, theme.Foreground),
+			),
+			themeSwatchRow(
+				themeSwatchSpan("Theme.Accent", theme.Accent, theme.Foreground),
+				themeTextSpan("Theme.AccentText", theme.AccentText),
+			),
+		}),
+		themeGroup("state", []ui.Widget{
+			themeSwatchRow(
+				themeSwatchSpan("Theme.Success", theme.Success, theme.Foreground),
+				themeTextSpan("Theme.SuccessText", theme.SuccessText),
+			),
+			themeSwatchRow(
+				themeSwatchSpan("Theme.Warning", theme.Warning, theme.Foreground),
+				themeTextSpan("Theme.WarningText", theme.WarningText),
+			),
+			themeSwatchRow(
+				themeSwatchSpan("Theme.Danger", theme.Danger, theme.Foreground),
+				themeTextSpan("Theme.DangerText", theme.DangerText),
+			),
+		}),
+		themeGroup("text and selection", []ui.Widget{
+			themeSwatchRow(
+				themeTextSpan("Theme.MutedForeground", theme.MutedForeground),
+				themeTextSpan("Theme.DisabledForeground", theme.DisabledForeground),
+			),
+			themeSwatchRow(
+				themeSwatchSpan("Theme.Selection", theme.Selection, theme.Foreground),
+			),
+		}),
+		ui.SizedBox{Height: 1},
+		ui.RichText{Spans: []ui.TextSpan{
+			{Text: "Palette tones", Style: ui.Style{Attribute: ui.AttrBold}},
+		}},
+		paletteScale("neutral", theme.Palette.Neutral),
+		paletteScale("red", theme.Palette.Red),
+		paletteScale("green", theme.Palette.Green),
+		paletteScale("yellow", theme.Palette.Yellow),
+		paletteScale("blue", theme.Palette.Blue),
+		paletteScale("magenta", theme.Palette.Magenta),
+		paletteScale("cyan", theme.Palette.Cyan),
+	}}
+}
+
 func (s *DemoState) footer() ui.Widget {
 	return ui.Flex{Axis: ui.Horizontal, MainAxisAlignment: ui.MainAxisEnd, Children: []ui.Widget{
 		ui.RichText{Spans: []ui.TextSpan{
@@ -478,6 +566,61 @@ func (s *DemoState) footer() ui.Widget {
 			{Text: " / " + strconv.Itoa(len(demoPages)) + "  " + demoPages[s.page]},
 		}},
 	}}
+}
+
+func themeGroup(name string, children []ui.Widget) ui.Widget {
+	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, Children: append([]ui.Widget{
+		ui.RichText{Spans: []ui.TextSpan{
+			{Text: "  "},
+			{Text: name, Style: ui.Style{Attribute: ui.AttrBold}},
+		}},
+	}, children...)}
+}
+
+func themeSwatchRow(spans ...ui.TextSpan) ui.Widget {
+	row := []ui.TextSpan{{Text: "    "}}
+	for i, span := range spans {
+		if i > 0 {
+			row = append(row, ui.TextSpan{Text: "  "})
+		}
+		row = append(row, span)
+	}
+	return ui.RichText{Spans: row}
+}
+
+func themeSwatchSpan(name string, background, foreground ui.Color) ui.TextSpan {
+	return ui.TextSpan{
+		Text:  " " + padRight(name, 24) + " ",
+		Style: ui.Style{Foreground: foreground, Background: background},
+	}
+}
+
+func themeTextSpan(name string, foreground ui.Color) ui.TextSpan {
+	return ui.TextSpan{
+		Text:  " " + padRight(name, 24) + " ",
+		Style: ui.Style{Foreground: foreground},
+	}
+}
+
+func paletteScale(name string, scale ui.ColorScale) ui.Widget {
+	tones := []ui.Color{
+		scale.Tone50,
+		scale.Tone100,
+		scale.Tone200,
+		scale.Tone300,
+		scale.Tone400,
+		scale.Tone500,
+		scale.Tone600,
+		scale.Tone700,
+		scale.Tone800,
+		scale.Tone900,
+		scale.Tone950,
+	}
+	spans := []ui.TextSpan{{Text: padRight(name, 9)}}
+	for _, tone := range tones {
+		spans = append(spans, ui.TextSpan{Text: "  ", Style: ui.Style{Background: tone}})
+	}
+	return ui.RichText{Spans: spans}
 }
 
 func (s *DemoState) setPage(page int) {
@@ -566,19 +709,19 @@ func scrollPaneDemoText() string {
 	return strings.Join(rows, "\n")
 }
 
-func listDemoRow(i int) ui.Widget {
+func listDemoRow(theme ui.Theme, i int) ui.Widget {
 	status := "ready"
-	style := ui.Style{Attribute: ui.AttrDim}
+	style := ui.Style{Foreground: theme.MutedForeground}
 	switch {
 	case i%9 == 0:
 		status = "blocked"
-		style = ui.Style{Foreground: ui.RGB(255, 160, 120)}
+		style = ui.Style{Foreground: theme.DangerText}
 	case i%5 == 0:
 		status = "running"
-		style = ui.Style{Foreground: ui.RGB(78, 201, 176)}
+		style = ui.Style{Foreground: theme.SuccessText}
 	case i%4 == 0:
 		status = "queued"
-		style = ui.Style{Foreground: ui.RGB(120, 180, 255)}
+		style = ui.Style{Foreground: theme.WarningText}
 	}
 	return ui.RichText{Spans: []ui.TextSpan{
 		{Text: padLeft(strconv.Itoa(i), 4), Style: ui.Style{Attribute: ui.AttrBold}},
@@ -589,9 +732,9 @@ func listDemoRow(i int) ui.Widget {
 	}}
 }
 
-func chatDemoMessage(i int, body string) ui.Widget {
+func chatDemoMessage(theme ui.Theme, i int, body string) ui.Widget {
 	return ui.RichText{Spans: []ui.TextSpan{
-		{Text: padLeft(strconv.Itoa(i+1), 3), Style: ui.Style{Attribute: ui.AttrDim}},
+		{Text: padLeft(strconv.Itoa(i+1), 3), Style: ui.Style{Foreground: theme.MutedForeground}},
 		{Text: " "},
 		{Text: body},
 	}, SoftWrap: true}
@@ -602,4 +745,11 @@ func padLeft(s string, width int) string {
 		return s
 	}
 	return strings.Repeat(" ", width-len(s)) + s
+}
+
+func padRight(s string, width int) string {
+	if len(s) >= width {
+		return s
+	}
+	return s + strings.Repeat(" ", width-len(s))
 }

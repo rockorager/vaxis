@@ -5,6 +5,7 @@ import "time"
 // App owns a widget tree and dispatches events, layout, painting, and focus.
 type App struct {
 	build           *buildOwner
+	root            Widget
 	rootRO          RenderObject
 	size            Size
 	window          Resize
@@ -12,6 +13,8 @@ type App struct {
 	focused         focusTarget
 	quit            bool
 	theme           Theme
+	themeSet        ThemeSet
+	hasThemeSet     bool
 	frameRequested  bool
 	mouseShape      MouseShape
 	mouseShapeDirty bool
@@ -37,7 +40,15 @@ func NewApp(root Widget, opts ...Option) *App {
 	if options.shortcuts == nil {
 		options.shortcuts = DefaultShortcuts()
 	}
-	app := &App{build: owner, theme: options.theme, profileOverlay: options.profileOverlay, shortcuts: cloneShortcuts(options.shortcuts)}
+	app := &App{
+		build:          owner,
+		root:           root,
+		theme:          options.theme,
+		themeSet:       options.themeSet,
+		hasThemeSet:    options.hasThemeSet,
+		profileOverlay: options.profileOverlay,
+		shortcuts:      cloneShortcuts(options.shortcuts),
+	}
 	app.dispatch = func(fn func()) { fn() }
 	app.setTitle = func(string) {}
 	app.copyToClipboard = func(string) {}
@@ -49,6 +60,7 @@ func NewApp(root Widget, opts ...Option) *App {
 
 // UpdateRoot replaces the root widget while preserving compatible elements.
 func (a *App) UpdateRoot(root Widget) {
+	a.root = root
 	a.build.UpdateRoot(a.rootWidget(root))
 }
 
@@ -56,6 +68,11 @@ func (a *App) UpdateRoot(root Widget) {
 func (a *App) Send(ev Event) {
 	if resize, ok := ev.(Resize); ok {
 		a.setResize(resize)
+	}
+	if update, ok := ev.(ColorThemeUpdate); ok {
+		if mode, ok := themeModeFromColorThemeMode(update.Mode); ok {
+			a.SetThemeMode(mode)
+		}
 	}
 	a.dispatchEvent(ev)
 }
@@ -87,6 +104,27 @@ func (a *App) SetProfileOverlay(visible bool) {
 	}
 	a.profileOverlay = visible
 	a.RequestFrame()
+}
+
+// SetTheme replaces the app theme and rebuilds theme dependents.
+func (a *App) SetTheme(theme Theme) {
+	if a.theme == theme {
+		return
+	}
+	a.theme = theme
+	if a.root != nil {
+		a.build.UpdateRoot(a.rootWidget(a.root))
+	}
+	a.RequestFrame()
+}
+
+// SetThemeMode switches to the matching theme from a ThemeSet, if configured.
+func (a *App) SetThemeMode(mode ThemeMode) bool {
+	if !a.hasThemeSet {
+		return false
+	}
+	a.SetTheme(a.themeSet.Theme(mode))
+	return true
 }
 
 // ToggleProfileOverlay toggles the profiling overlay and returns its new state.
@@ -216,10 +254,14 @@ func (a *App) dispatchEvent(ev Event) EventResult {
 		}
 	}
 	target := a.focused.element
-	if target == nil {
-		target = a.build.Root()
+	var path []element
+	if target != nil && target.Base().owner != nil {
+		path = a.pathTo(target)
 	}
-	return a.dispatchPath(a.pathTo(target), ev)
+	if len(path) == 0 {
+		path = a.fallbackEventPath()
+	}
+	return a.dispatchPath(path, ev)
 }
 
 func (a *App) captureMouse(e element) {
@@ -394,6 +436,31 @@ func (a *App) pathTo(target element) []element {
 	return out
 }
 
+func (a *App) fallbackEventPath() []element {
+	for _, target := range a.focusables {
+		if target.element == nil || target.element.Base().owner == nil {
+			continue
+		}
+		if path := a.pathTo(target.element); len(path) > 0 {
+			return path
+		}
+	}
+	return firstElementPath(a.build.Root())
+}
+
+func firstElementPath(root element) []element {
+	if root == nil {
+		return nil
+	}
+	path := []element{root}
+	root.VisitChildren(func(child element) {
+		if len(path) == 1 {
+			path = append(path, firstElementPath(child)...)
+		}
+	})
+	return path
+}
+
 func (a *App) registerFocusable(e element) {
 	a.registerFocusTarget(focusTarget{element: e, index: elementFocusIndex})
 }
@@ -544,7 +611,11 @@ func (a *App) notifyFocusChanged(target focusTarget) {
 		f.Node.onChange()
 	}
 	if ro, ok := ownRenderObject(target.element).(renderFocusHandler); ok {
-		ro.SetFocusedIndex(target.index)
+		index := elementFocusIndex
+		if a.focused == target {
+			index = target.index
+		}
+		ro.SetFocusedIndex(index)
 	}
 }
 
@@ -671,6 +742,8 @@ type (
 	options struct {
 		theme          Theme
 		hasTheme       bool
+		themeSet       ThemeSet
+		hasThemeSet    bool
 		profileOverlay bool
 		shortcuts      ShortcutMap
 	}
@@ -678,7 +751,33 @@ type (
 
 // WithTheme sets the theme used by built-in widgets.
 func WithTheme(theme Theme) Option {
-	return func(o *options) { o.theme, o.hasTheme = theme, true }
+	return func(o *options) {
+		o.theme, o.hasTheme = theme, true
+		o.themeSet, o.hasThemeSet = ThemeSet{}, false
+	}
+}
+
+// WithThemeSet sets light and dark themes and switches between them on
+// ColorThemeUpdate events.
+func WithThemeSet(themeSet ThemeSet) Option {
+	return func(o *options) {
+		o.themeSet = themeSet
+		o.hasThemeSet = true
+		o.theme = themeSet.Theme(DarkTheme)
+		o.hasTheme = true
+	}
+}
+
+// WithPalette generates light and dark themes from palette and switches between
+// them on ColorThemeUpdate events.
+func WithPalette(palette Palette) Option {
+	return WithThemeSet(ThemeSetFromPalette(palette))
+}
+
+// WithBaseColors generates light and dark themes from base colors and switches
+// between them on ColorThemeUpdate events.
+func WithBaseColors(base BaseColors) Option {
+	return WithThemeSet(ThemeSetFromBaseColors(base))
 }
 
 // WithProfileOverlay draws recent UI profiling stats in the top-right corner.

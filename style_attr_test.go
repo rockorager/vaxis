@@ -107,6 +107,23 @@ func TestEncodeCellsOverline(t *testing.T) {
 	}
 }
 
+func TestEncodeCellsUsesPlainSGRForSingleUnderline(t *testing.T) {
+	got := EncodeCells([]Cell{
+		{
+			Character: Character{Grapheme: "x", Width: 1},
+			Style:     Style{UnderlineStyle: UnderlineDouble},
+		},
+		{
+			Character: Character{Grapheme: "y", Width: 1},
+			Style:     Style{UnderlineStyle: UnderlineSingle},
+		},
+	})
+	want := "\x1b[4:2mx\x1b[4my\x1b[m"
+	if got != want {
+		t.Fatalf("encoded cells = %q, want %q", got, want)
+	}
+}
+
 func TestStyledStringEncodeOverline(t *testing.T) {
 	ss := StyledString{Cells: []Cell{
 		{
@@ -118,6 +135,23 @@ func TestStyledStringEncodeOverline(t *testing.T) {
 		},
 	}}
 	want := "\x1b[53mx\x1b[55my"
+	if got := ss.Encode(); got != want {
+		t.Fatalf("encoded styled string = %q, want %q", got, want)
+	}
+}
+
+func TestStyledStringEncodeUsesPlainSGRForSingleUnderline(t *testing.T) {
+	ss := StyledString{Cells: []Cell{
+		{
+			Character: Character{Grapheme: "x", Width: 1},
+			Style:     Style{UnderlineStyle: UnderlineDouble},
+		},
+		{
+			Character: Character{Grapheme: "y", Width: 1},
+			Style:     Style{UnderlineStyle: UnderlineSingle},
+		},
+	}}
+	want := "\x1b[4:2mx\x1b[4my\x1b[m"
 	if got := ss.Encode(); got != want {
 		t.Fatalf("encoded styled string = %q, want %q", got, want)
 	}

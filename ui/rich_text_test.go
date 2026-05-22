@@ -31,7 +31,7 @@ func TestRichTextPaintsInlineHyperlink(t *testing.T) {
 
 func TestRichTextHyperlinkMergesWithTheme(t *testing.T) {
 	theme := ui.DefaultTheme()
-	theme.Text = ui.Style{Foreground: ui.RGB(12, 34, 56)}
+	theme.Foreground = ui.RGB(12, 34, 56)
 	app := ui.NewApp(ui.RichText{Spans: []ui.TextSpan{
 		{Text: "docs", Style: ui.Style{Hyperlink: "https://vaxis.dev"}},
 	}}, ui.WithTheme(theme))
@@ -42,8 +42,8 @@ func TestRichTextHyperlinkMergesWithTheme(t *testing.T) {
 	if got := cell.Hyperlink; got != "https://vaxis.dev" {
 		t.Fatalf("hyperlink = %q, want https://vaxis.dev", got)
 	}
-	if got := cell.Foreground; got != theme.Text.Foreground {
-		t.Fatalf("foreground = %#v, want theme foreground %#v", got, theme.Text.Foreground)
+	if got := cell.Foreground; got != theme.Foreground {
+		t.Fatalf("foreground = %#v, want theme foreground %#v", got, theme.Foreground)
 	}
 }
 
@@ -148,6 +148,28 @@ func TestRichTextFocusedSpanIsPainted(t *testing.T) {
 	}
 }
 
+func TestRichTextFocusedSpanClearsWhenFocusLeaves(t *testing.T) {
+	app := ui.NewApp(ui.Row(
+		ui.RichText{Spans: []ui.TextSpan{
+			{Text: "docs", OnPressed: func(ctx ui.EventContext) {}},
+		}},
+		ui.Button{Label: "next"},
+	))
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	p := ui.NewPainter(ui.Size{Width: 20, Height: 1})
+	app.Paint(p)
+	if got := p.Cell(0, 0).UnderlineStyle; got != ui.UnderlineDouble {
+		t.Fatalf("focused span underline = %#v, want double", got)
+	}
+	app.Send(vaxis.Key{Keycode: vaxis.KeyTab})
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	p = ui.NewPainter(ui.Size{Width: 20, Height: 1})
+	app.Paint(p)
+	if got := p.Cell(0, 0).UnderlineStyle; got != ui.UnderlineSingle {
+		t.Fatalf("unfocused span underline = %#v, want single", got)
+	}
+}
+
 func TestTextOnPressedActivatesWithMouseAndKeyboard(t *testing.T) {
 	pressed := 0
 	app := ui.NewApp(ui.Text{Value: "docs", OnPressed: func(ctx ui.EventContext) { pressed++ }})
@@ -179,6 +201,26 @@ func TestTextOnPressedIsPaintedWhenFocused(t *testing.T) {
 	app.Paint(p)
 	if got := p.Cell(0, 0).UnderlineStyle; got != ui.UnderlineDouble {
 		t.Fatalf("focused text underline = %#v, want double", got)
+	}
+}
+
+func TestTextOnPressedClearsFocusUnderlineWhenFocusLeaves(t *testing.T) {
+	app := ui.NewApp(ui.Row(
+		ui.Text{Value: "docs", OnPressed: func(ctx ui.EventContext) {}},
+		ui.Button{Label: "next"},
+	))
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	p := ui.NewPainter(ui.Size{Width: 20, Height: 1})
+	app.Paint(p)
+	if got := p.Cell(0, 0).UnderlineStyle; got != ui.UnderlineDouble {
+		t.Fatalf("focused text underline = %#v, want double", got)
+	}
+	app.Send(vaxis.Key{Keycode: vaxis.KeyTab})
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	p = ui.NewPainter(ui.Size{Width: 20, Height: 1})
+	app.Paint(p)
+	if got := p.Cell(0, 0).UnderlineStyle; got != ui.UnderlineSingle {
+		t.Fatalf("unfocused text underline = %#v, want single", got)
 	}
 }
 

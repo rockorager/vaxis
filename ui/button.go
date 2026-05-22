@@ -6,9 +6,9 @@ type Button struct {
 	Label string
 	// OnPressed is called when the button is activated.
 	OnPressed VoidCallback
-	// Padding overrides Theme.Button.Padding when non-zero.
+	// Padding overrides the default button padding when non-zero.
 	Padding Insets
-	// MinWidth overrides Theme.Button.MinWidth when greater than zero.
+	// MinWidth overrides the default button minimum width when greater than zero.
 	MinWidth int
 }
 
@@ -25,7 +25,7 @@ type buttonState struct {
 func (s *buttonState) Build(ctx BuildContext) Widget {
 	w := s.Widget().(Button)
 	s.node.onChange = s.MarkNeedsBuild
-	theme := MustDepend[Theme](ctx).Button
+	theme := buttonTheme(MustDepend[Theme](ctx))
 	padding := buttonPadding(w, theme)
 	style := theme.Normal
 	left, right := " ", " "
@@ -36,6 +36,9 @@ func (s *buttonState) Build(ctx BuildContext) Widget {
 	}
 	if s.hovered {
 		style = theme.Hovered
+		if s.node.HasFocus() {
+			style = theme.FocusedHovered
+		}
 	}
 	return DefaultActions{
 		Bindings: map[IntentType]ActionFunc{
@@ -57,7 +60,7 @@ func (s *buttonState) Build(ctx BuildContext) Widget {
 
 func buttonWidthFor(label string, padding Insets, minWidth int) int {
 	if minWidth <= 0 {
-		minWidth = DefaultTheme().Button.MinWidth
+		minWidth = defaultButtonMinWidth
 	}
 	return max(minWidth, textWidth(label)+2+padding.Left+padding.Right)
 }
@@ -71,7 +74,7 @@ func buttonPadding(w Button, theme ButtonTheme) Insets {
 		return w.Padding
 	}
 	if theme.Padding == (Insets{}) {
-		return DefaultTheme().Button.Padding
+		return Symmetric(1, 0)
 	}
 	return theme.Padding
 }
@@ -81,7 +84,7 @@ func buttonMinWidth(w Button, theme ButtonTheme) int {
 		return w.MinWidth
 	}
 	if theme.MinWidth <= 0 {
-		return DefaultTheme().Button.MinWidth
+		return defaultButtonMinWidth
 	}
 	return theme.MinWidth
 }
@@ -102,7 +105,7 @@ func textWidth(s string) int {
 }
 
 func (s *buttonState) MouseShape(ctx EventContext, mouse Mouse) MouseShape {
-	shape := MustDepend[Theme](s.Context()).Button.Mouse
+	shape := buttonTheme(MustDepend[Theme](s.Context())).Mouse
 	if shape == "" {
 		return MouseShapeClickable
 	}

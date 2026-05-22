@@ -105,7 +105,7 @@ func TestSelectionAreaSelectsTextWithMouse(t *testing.T) {
 
 	p := ui.NewPainter(ui.Size{Width: 10, Height: 1})
 	app.Paint(p)
-	want := ui.DefaultTheme().TextField.Selection.Background
+	want := ui.DefaultTheme().Selection
 	if got := p.Cell(1, 0).Background; got != want {
 		t.Fatalf("selected first cell background = %#v, want %#v", got, want)
 	}
@@ -246,7 +246,7 @@ func TestSelectionAreaSelectAllPaintsOverflowVisibleText(t *testing.T) {
 
 	p := ui.NewPainter(ui.Size{Width: 6, Height: 1})
 	app.Paint(p)
-	want := ui.DefaultTheme().TextField.Selection.Background
+	want := ui.DefaultTheme().Selection
 	if got := p.Cell(5, 0).Background; got != want {
 		t.Fatalf("overflow selected background = %#v, want %#v", got, want)
 	}
@@ -332,7 +332,7 @@ func TestSelectionAreaSelectsAcrossTextWidgets(t *testing.T) {
 
 	p := ui.NewPainter(ui.Size{Width: 10, Height: 2})
 	app.Paint(p)
-	want := ui.DefaultTheme().TextField.Selection.Background
+	want := ui.DefaultTheme().Selection
 	if got := p.Cell(1, 0).Background; got != want {
 		t.Fatalf("selected first line background = %#v, want %#v", got, want)
 	}

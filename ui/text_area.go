@@ -8,9 +8,9 @@ type TextArea struct {
 	Placeholder string
 	// OnChanged is called with the next value after an edit.
 	OnChanged TextChangedCallback
-	// Padding overrides Theme.TextField.Padding when non-zero.
+	// Padding overrides the default text field padding when non-zero.
 	Padding Insets
-	// MinWidth overrides Theme.TextField.MinWidth when greater than zero.
+	// MinWidth overrides the default text field minimum width when greater than zero.
 	MinWidth int
 	// MinHeight is the minimum content height, before padding.
 	MinHeight int
@@ -34,7 +34,7 @@ func (s *textAreaState) Build(ctx BuildContext) Widget {
 	w := s.Widget().(TextArea)
 	s.editor.SyncValue(w.Value)
 	s.editor.SetFocusChange(s.MarkNeedsBuild)
-	theme := MustDepend[Theme](ctx).TextField
+	theme := textFieldTheme(MustDepend[Theme](ctx))
 	padding := textAreaPadding(w, theme)
 	style := theme.Normal
 	if s.editor.HasFocus() {
@@ -84,7 +84,7 @@ func (s *textAreaState) MouseShape(EventContext, Mouse) MouseShape {
 
 func (s *textAreaState) positionForMouse(mouse Mouse) (TextPosition, bool) {
 	w := s.Widget().(TextArea)
-	theme := MustDepend[Theme](s.Context()).TextField
+	theme := textFieldTheme(MustDepend[Theme](s.Context()))
 	padding := textAreaPadding(w, theme)
 	if len(s.layout.Lines) == 0 {
 		return TextPosition{}, true
@@ -125,7 +125,7 @@ func textAreaPadding(w TextArea, theme TextFieldTheme) Insets {
 		return w.Padding
 	}
 	if theme.Padding == (Insets{}) {
-		return DefaultTheme().TextField.Padding
+		return Symmetric(1, 0)
 	}
 	return theme.Padding
 }
@@ -135,7 +135,7 @@ func textAreaMinWidth(w TextArea, theme TextFieldTheme) int {
 		return w.MinWidth
 	}
 	if theme.MinWidth <= 0 {
-		return DefaultTheme().TextField.MinWidth
+		return defaultTextFieldMinWidth
 	}
 	return theme.MinWidth
 }

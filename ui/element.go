@@ -44,8 +44,12 @@ func (e *elementBase) Context() BuildContext {
 
 // FindRenderObject returns the nearest descendant render object.
 func (e *elementBase) FindRenderObject() RenderObject {
+	self := e.self()
+	if self == nil {
+		return nil
+	}
 	var found RenderObject
-	e.self().VisitChildren(func(child element) {
+	self.VisitChildren(func(child element) {
 		if found == nil {
 			found = findRenderObject(child)
 		}
@@ -59,6 +63,9 @@ func (e *elementBase) UpdateChild(old element, next Widget, slot any) element {
 }
 
 func (e *elementBase) self() element {
+	if e == nil || e.owner == nil {
+		return nil
+	}
 	return e.owner.elements[e]
 }
 
@@ -81,6 +88,9 @@ func (c BuildContext) FindRenderObject() RenderObject {
 }
 
 func findRenderObject(e element) RenderObject {
+	if e == nil || e.Base().owner == nil {
+		return nil
+	}
 	if r, ok := e.(interface{ RenderObject() RenderObject }); ok {
 		return r.RenderObject()
 	}

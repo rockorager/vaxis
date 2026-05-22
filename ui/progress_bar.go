@@ -9,9 +9,9 @@ type ProgressBar struct {
 	Value float64
 	// Width is used when greater than zero or when layout is unbounded.
 	Width int
-	// FilledStyle overrides Theme.ProgressBar.Filled when non-zero.
+	// FilledStyle overrides the default progress filled style when non-zero.
 	FilledStyle Style
-	// EmptyStyle overrides Theme.ProgressBar.Empty when non-zero.
+	// EmptyStyle overrides the default progress empty style when non-zero.
 	EmptyStyle Style
 	// GradientStart is the filled color at the start of the bar when non-zero.
 	GradientStart Color
@@ -46,11 +46,12 @@ func (w ProgressBar) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
 }
 
 func progressBarStyles(theme Theme, filled, empty Style) (Style, Style) {
+	progress := progressBarTheme(theme)
 	if filled == (Style{}) {
-		filled = theme.ProgressBar.Filled
+		filled = progress.Filled
 	}
 	if empty == (Style{}) {
-		empty = theme.ProgressBar.Empty
+		empty = progress.Empty
 	}
 	return filled, empty
 }

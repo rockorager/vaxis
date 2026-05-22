@@ -21,7 +21,7 @@ type RichText struct {
 type TextSpan struct {
 	// Text is the span contents.
 	Text string
-	// Style is merged over Theme.Text for this span. Set Style.Hyperlink for OSC
+	// Style is merged over Theme foreground for this span. Set Style.Hyperlink for OSC
 	// 8 terminal links.
 	Style Style
 	// OnPressed is called when the span is clicked.
@@ -247,7 +247,7 @@ func (r *renderRichText) SetSelection(selection TextSelection, style Style) {
 }
 
 func themedSpans(ctx BuildContext, spans []TextSpan) []TextSpan {
-	base := MustDepend[Theme](ctx).Text
+	base := textStyle(MustDepend[Theme](ctx))
 	out := make([]TextSpan, len(spans))
 	for i, span := range spans {
 		style := mergeStyle(base, span.Style)

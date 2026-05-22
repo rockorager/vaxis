@@ -127,9 +127,7 @@ func TestSegmentedControlMouseSelectsSegment(t *testing.T) {
 
 func TestSegmentedControlStylesStates(t *testing.T) {
 	theme := DefaultTheme()
-	theme.SegmentedControl.Selected = Style{Background: RGB(1, 1, 1)}
-	theme.SegmentedControl.Focused = Style{UnderlineStyle: UnderlineSingle}
-	theme.SegmentedControl.Disabled = Style{Attribute: AttrDim}
+	theme.Primary = RGB(1, 1, 1)
 	app := NewApp(SegmentedControl[string]{
 		Value: "cozy",
 		Segments: []SegmentedItem[string]{
@@ -146,14 +144,38 @@ func TestSegmentedControlStylesStates(t *testing.T) {
 
 	p := NewPainter(Size{Width: 40, Height: 1})
 	app.Paint(p)
-	if got := p.Cell(11, 0).Background; got != theme.SegmentedControl.Selected.Background {
-		t.Fatalf("selected background = %#v, want %#v", got, theme.SegmentedControl.Selected.Background)
+	if got := p.Cell(11, 0).Background; got != theme.Primary {
+		t.Fatalf("selected background = %#v, want %#v", got, theme.Primary)
 	}
 	if got := p.Cell(11, 0).UnderlineStyle; got != UnderlineSingle {
 		t.Fatalf("focused underline = %#v, want single", got)
 	}
-	if got := p.Cell(18, 0).Attribute; got&AttrDim == 0 {
-		t.Fatalf("disabled attribute = %#v, want dim", got)
+	if got := p.Cell(18, 0).Foreground; got != theme.DisabledForeground {
+		t.Fatalf("disabled foreground = %#v, want %#v", got, theme.DisabledForeground)
+	}
+}
+
+func TestSegmentedControlSelectedHoverUsesPrimaryHovered(t *testing.T) {
+	theme := DefaultTheme()
+	theme.Primary = RGB(1, 1, 1)
+	theme.PrimaryHovered = RGB(2, 2, 2)
+	theme.SurfaceHovered = RGB(3, 3, 3)
+	app := NewApp(SegmentedControl[string]{
+		Value: "cozy",
+		Segments: []SegmentedItem[string]{
+			{Value: "compact", Label: "Compact"},
+			{Value: "cozy", Label: "Cozy"},
+		},
+		OnChanged: func(EventContext, string) {},
+	}, WithTheme(theme))
+	app.Pump(Size{Width: 40, Height: 1})
+	app.Send(Mouse{Col: 11, Row: 0, Button: MouseNoButton, EventType: EventMotion})
+	app.Pump(Size{Width: 40, Height: 1})
+
+	p := NewPainter(Size{Width: 40, Height: 1})
+	app.Paint(p)
+	if got := p.Cell(11, 0).Background; got != theme.PrimaryHovered {
+		t.Fatalf("selected hovered background = %#v, want primary hovered %#v", got, theme.PrimaryHovered)
 	}
 }
 

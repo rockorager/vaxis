@@ -51,13 +51,13 @@ type Scrollbar struct {
 	Axis ScrollAxis
 	// Child is expected to expose ScrollMetrics from its render object.
 	Child Widget
-	// ThumbStyle overrides Theme.Scrollbar.Thumb when non-zero.
+	// ThumbStyle overrides the default scrollbar thumb style when non-zero.
 	ThumbStyle Style
-	// TrackStyle overrides Theme.Scrollbar.Track when non-zero.
+	// TrackStyle overrides the default scrollbar track style when non-zero.
 	TrackStyle Style
-	// FocusedThumbStyle overrides Theme.Scrollbar.FocusedThumb when non-zero.
+	// FocusedThumbStyle overrides the default focused scrollbar thumb style when non-zero.
 	FocusedThumbStyle Style
-	// FocusedTrackStyle overrides Theme.Scrollbar.FocusedTrack when non-zero.
+	// FocusedTrackStyle overrides the default focused scrollbar track style when non-zero.
 	FocusedTrackStyle Style
 }
 
@@ -187,26 +187,27 @@ func (w scrollbarView) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
 }
 
 func scrollbarStyles(theme Theme, thumb, track, focusedThumb, focusedTrack Style) (Style, Style, Style, Style) {
+	scrollbar := scrollbarTheme(theme)
 	thumbOverride := thumb != (Style{})
 	trackOverride := track != (Style{})
 	if thumb == (Style{}) {
-		thumb = theme.Scrollbar.Thumb
+		thumb = scrollbar.Thumb
 	}
 	if track == (Style{}) {
-		track = theme.Scrollbar.Track
+		track = scrollbar.Track
 	}
 	if focusedThumb == (Style{}) {
 		if thumbOverride {
 			focusedThumb = thumb
 		} else {
-			focusedThumb = theme.Scrollbar.FocusedThumb
+			focusedThumb = scrollbar.FocusedThumb
 		}
 	}
 	if focusedTrack == (Style{}) {
 		if trackOverride {
 			focusedTrack = track
 		} else {
-			focusedTrack = theme.Scrollbar.FocusedTrack
+			focusedTrack = scrollbar.FocusedTrack
 		}
 	}
 	if focusedThumb == (Style{}) {

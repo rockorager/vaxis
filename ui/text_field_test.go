@@ -8,10 +8,13 @@ import (
 	"git.sr.ht/~rockorager/vaxis/ui"
 )
 
-type textFieldHarness struct{ value string }
+type textFieldHarness struct {
+	value    string
+	minWidth int
+}
 
 func (h *textFieldHarness) Build(ui.BuildContext) ui.Widget {
-	return ui.TextField{Value: h.value, Placeholder: "name", OnChanged: func(ctx ui.EventContext, value string) { h.value = value }}
+	return ui.TextField{Value: h.value, Placeholder: "name", MinWidth: h.minWidth, OnChanged: func(ctx ui.EventContext, value string) { h.value = value }}
 }
 
 func TestTextFieldEditsControlledValue(t *testing.T) {
@@ -152,7 +155,7 @@ func TestTextFieldExtendsAndPaintsSelection(t *testing.T) {
 
 	p := ui.NewPainter(ui.Size{Width: 10, Height: 1})
 	app.Paint(p)
-	want := ui.DefaultTheme().TextField.Selection.Background
+	want := ui.DefaultTheme().Selection
 	if got := p.Cell(1, 0).Background; got != want {
 		t.Fatalf("selected first cell background = %#v, want %#v", got, want)
 	}
@@ -197,7 +200,7 @@ func TestTextFieldMouseDragSelectsText(t *testing.T) {
 
 	p := ui.NewPainter(ui.Size{Width: 10, Height: 1})
 	app.Paint(p)
-	want := ui.DefaultTheme().TextField.Selection.Background
+	want := ui.DefaultTheme().Selection
 	if got := p.Cell(1, 0).Background; got != want {
 		t.Fatalf("selected first cell background = %#v, want %#v", got, want)
 	}
@@ -270,7 +273,10 @@ func TestTextFieldSelectionReplacementAndSingleLineInsert(t *testing.T) {
 
 func TestTextFieldPlaceholderAndHardwareCursor(t *testing.T) {
 	theme := ui.DefaultTheme()
-	theme.TextField.Placeholder = ui.Style{Foreground: vaxis.ColorGray, Background: vaxis.ColorBlack}
+	theme.MutedForeground = vaxis.ColorGray
+	theme.Surface = vaxis.ColorBlack
+	placeholder := ui.Style{Foreground: theme.MutedForeground, Background: theme.Surface}
+	focused := ui.Style{Foreground: theme.Foreground, Background: theme.SurfaceHovered}
 	app := ui.NewApp(ui.Row(ui.Button{Label: "x"}, ui.TextField{Placeholder: "name"}), ui.WithTheme(theme))
 	app.Pump(ui.Size{Width: 20, Height: 1})
 	p := ui.NewPainter(ui.Size{Width: 20, Height: 1})
@@ -278,15 +284,15 @@ func TestTextFieldPlaceholderAndHardwareCursor(t *testing.T) {
 	if got := p.Cell(6, 0).Grapheme; got != "n" {
 		t.Fatalf("placeholder = %q, want n", got)
 	}
-	if got := p.Cell(6, 0).Style; got != theme.TextField.Placeholder {
-		t.Fatalf("placeholder style = %#v, want %#v", got, theme.TextField.Placeholder)
+	if got := p.Cell(6, 0).Style; got != placeholder {
+		t.Fatalf("placeholder style = %#v, want %#v", got, placeholder)
 	}
 	app.Send(vaxis.Key{Keycode: vaxis.KeyTab})
 	app.Pump(ui.Size{Width: 20, Height: 1})
 	p = ui.NewPainter(ui.Size{Width: 20, Height: 1})
 	app.Paint(p)
-	if got := p.Cell(6, 0).Style; got != theme.TextField.Focused {
-		t.Fatalf("focused field style = %#v, want %#v", got, theme.TextField.Focused)
+	if got := p.Cell(6, 0).Style; got != focused {
+		t.Fatalf("focused field style = %#v, want %#v", got, focused)
 	}
 	if cursor, ok := p.Cursor(); !ok || cursor.Col != 6 || cursor.Row != 0 || cursor.Shape != ui.CursorBlock {
 		t.Fatalf("cursor = %#v, ok = %v; want block at 6,0", cursor, ok)
@@ -295,26 +301,28 @@ func TestTextFieldPlaceholderAndHardwareCursor(t *testing.T) {
 
 func TestTextFieldHardwareCursorDoesNotChangeCellStyle(t *testing.T) {
 	theme := ui.DefaultTheme()
-	theme.TextField.Focused = ui.Style{Foreground: vaxis.ColorWhite, Background: vaxis.ColorBlue}
+	theme.Foreground = vaxis.ColorWhite
+	theme.SurfaceHovered = vaxis.ColorBlue
+	focused := ui.Style{Foreground: theme.Foreground, Background: theme.SurfaceHovered}
 	app := ui.NewApp(ui.TextField{Value: "abc"}, ui.WithTheme(theme))
 	app.Pump(ui.Size{Width: 10, Height: 1})
 	p := ui.NewPainter(ui.Size{Width: 10, Height: 1})
 	app.Paint(p)
-	if got := p.Cell(1, 0).Style; got != theme.TextField.Focused {
-		t.Fatalf("cursor cell style = %#v, want focused %#v", got, theme.TextField.Focused)
+	if got := p.Cell(1, 0).Style; got != focused {
+		t.Fatalf("cursor cell style = %#v, want focused %#v", got, focused)
 	}
-	if got := p.Cell(4, 0).Background; got != theme.TextField.Focused.Background {
-		t.Fatalf("field fill background = %#v, want focused background %#v", got, theme.TextField.Focused.Background)
+	if got := p.Cell(4, 0).Background; got != focused.Background {
+		t.Fatalf("field fill background = %#v, want focused background %#v", got, focused.Background)
 	}
 	app.Send(vaxis.Key{Keycode: vaxis.KeyEnd})
 	app.Pump(ui.Size{Width: 10, Height: 1})
 	p = ui.NewPainter(ui.Size{Width: 10, Height: 1})
 	app.Paint(p)
-	if got := p.Cell(1, 0).Background; got != theme.TextField.Focused.Background {
-		t.Fatalf("typed text background = %#v, want focused background %#v", got, theme.TextField.Focused.Background)
+	if got := p.Cell(1, 0).Background; got != focused.Background {
+		t.Fatalf("typed text background = %#v, want focused background %#v", got, focused.Background)
 	}
-	if got := p.Cell(4, 0).Style; got != theme.TextField.Focused {
-		t.Fatalf("end cursor cell style = %#v, want focused %#v", got, theme.TextField.Focused)
+	if got := p.Cell(4, 0).Style; got != focused {
+		t.Fatalf("end cursor cell style = %#v, want focused %#v", got, focused)
 	}
 	if cursor, ok := p.Cursor(); !ok || cursor.Col != 4 || cursor.Row != 0 {
 		t.Fatalf("end cursor = %#v, ok = %v; want at 4,0", cursor, ok)
@@ -322,10 +330,8 @@ func TestTextFieldHardwareCursorDoesNotChangeCellStyle(t *testing.T) {
 }
 
 func TestTextFieldKeepsEndCursorVisiblePastMinimumWidth(t *testing.T) {
-	h := &textFieldHarness{value: "123456789"}
-	theme := ui.DefaultTheme()
-	theme.TextField.MinWidth = 3
-	app := ui.NewApp(h, ui.WithTheme(theme))
+	h := &textFieldHarness{value: "123456789", minWidth: 3}
+	app := ui.NewApp(h)
 	app.Pump(ui.Size{Width: 20, Height: 1})
 	app.Send(vaxis.Key{Keycode: vaxis.KeyEnd})
 	app.Pump(ui.Size{Width: 20, Height: 1})
@@ -337,9 +343,9 @@ func TestTextFieldKeepsEndCursorVisiblePastMinimumWidth(t *testing.T) {
 }
 
 func TestTextFieldScrollsHorizontallyToKeepCursorVisible(t *testing.T) {
-	h := &textFieldHarness{value: "abcdef"}
+	h := &textFieldHarness{value: "abcdef", minWidth: 5}
 	theme := ui.DefaultTheme()
-	theme.TextField.MinWidth = 5
+	focused := ui.Style{Foreground: theme.Foreground, Background: theme.SurfaceHovered}
 	app := ui.NewApp(h, ui.WithTheme(theme))
 	app.Pump(ui.Size{Width: 10, Height: 1})
 	app.Send(vaxis.Key{Keycode: vaxis.KeyEnd})
@@ -352,8 +358,8 @@ func TestTextFieldScrollsHorizontallyToKeepCursorVisible(t *testing.T) {
 	if got := p.Cell(2, 0).Grapheme; got != "f" {
 		t.Fatalf("scrolled visible text = %q, want f", got)
 	}
-	if got := p.Cell(3, 0).Style; got != theme.TextField.Focused {
-		t.Fatalf("scrolled cursor cell style = %#v, want focused %#v", got, theme.TextField.Focused)
+	if got := p.Cell(3, 0).Style; got != focused {
+		t.Fatalf("scrolled cursor cell style = %#v, want focused %#v", got, focused)
 	}
 	if cursor, ok := p.Cursor(); !ok || cursor.Col != 3 || cursor.Row != 0 {
 		t.Fatalf("scrolled cursor = %#v, ok = %v; want at 3,0", cursor, ok)
@@ -371,8 +377,8 @@ func TestTextFieldScrollsHorizontallyToKeepCursorVisible(t *testing.T) {
 	if got := p.Cell(2, 0).Grapheme; got != "c" {
 		t.Fatalf("left-scrolled cursor text = %q, want c", got)
 	}
-	if got := p.Cell(2, 0).Style; got != theme.TextField.Focused {
-		t.Fatalf("left-scrolled cursor cell style = %#v, want focused %#v", got, theme.TextField.Focused)
+	if got := p.Cell(2, 0).Style; got != focused {
+		t.Fatalf("left-scrolled cursor cell style = %#v, want focused %#v", got, focused)
 	}
 	if cursor, ok := p.Cursor(); !ok || cursor.Col != 2 || cursor.Row != 0 {
 		t.Fatalf("left-scrolled cursor = %#v, ok = %v; want at 2,0", cursor, ok)
@@ -383,10 +389,8 @@ func TestTextFieldScrollsHorizontallyToKeepCursorVisible(t *testing.T) {
 }
 
 func TestTextFieldTrailingEllipsisStaysPinnedWhileCursorMoves(t *testing.T) {
-	h := &textFieldHarness{value: "abcdef"}
-	theme := ui.DefaultTheme()
-	theme.TextField.MinWidth = 7
-	app := ui.NewApp(h, ui.WithTheme(theme))
+	h := &textFieldHarness{value: "abcdef", minWidth: 7}
+	app := ui.NewApp(h)
 	app.Pump(ui.Size{Width: 10, Height: 1})
 	app.Send(vaxis.Key{Keycode: vaxis.KeyEnd})
 	for i := 0; i < 5; i++ {
@@ -434,7 +438,7 @@ func TestTextFieldControlledValueShrinkClampsSelection(t *testing.T) {
 
 	p := ui.NewPainter(ui.Size{Width: 12, Height: 1})
 	app.Paint(p)
-	want := ui.DefaultTheme().TextField.Selection.Background
+	want := ui.DefaultTheme().Selection
 	if got := p.Cell(1, 0).Background; got != want {
 		t.Fatalf("clamped selected cell background = %#v, want %#v", got, want)
 	}
@@ -444,13 +448,11 @@ func TestTextFieldControlledValueShrinkClampsSelection(t *testing.T) {
 }
 
 func TestTextFieldExternalReplacementResetsStaleScroll(t *testing.T) {
-	theme := ui.DefaultTheme()
-	theme.TextField.MinWidth = 5
-	app := ui.NewApp(ui.TextField{Value: "abcdef"}, ui.WithTheme(theme))
+	app := ui.NewApp(ui.TextField{Value: "abcdef", MinWidth: 5})
 	app.Pump(ui.Size{Width: 10, Height: 1})
 	app.Send(vaxis.Key{Keycode: vaxis.KeyEnd})
 	app.Pump(ui.Size{Width: 10, Height: 1})
-	app.UpdateRoot(ui.TextField{Value: "x"})
+	app.UpdateRoot(ui.TextField{Value: "x", MinWidth: 5})
 	app.Pump(ui.Size{Width: 10, Height: 1})
 
 	p := ui.NewPainter(ui.Size{Width: 10, Height: 1})

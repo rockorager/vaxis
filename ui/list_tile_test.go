@@ -87,10 +87,11 @@ func TestListTileActivateCanBeOverridden(t *testing.T) {
 
 func TestListTileUsesStateStyles(t *testing.T) {
 	theme := DefaultTheme()
-	theme.ListTile.Normal = Style{Foreground: RGB(1, 1, 1)}
-	theme.ListTile.Focused = Style{Foreground: RGB(2, 2, 2), Background: RGB(20, 20, 20)}
-	theme.ListTile.Hovered = Style{Foreground: RGB(3, 3, 3), Background: RGB(30, 30, 30)}
-	theme.ListTile.Selected = Style{Foreground: RGB(4, 4, 4), Background: RGB(40, 40, 40)}
+	theme.Foreground = RGB(1, 1, 1)
+	theme.Surface = RGB(20, 20, 20)
+	theme.SurfaceHovered = RGB(30, 30, 30)
+	theme.Primary = RGB(40, 40, 40)
+	theme.PrimaryHovered = RGB(60, 60, 60)
 
 	app := NewApp(Column(
 		SizedBox{Width: 10, Height: 1, Child: ListTile{
@@ -107,25 +108,47 @@ func TestListTileUsesStateStyles(t *testing.T) {
 
 	p := NewPainter(Size{Width: 10, Height: 2})
 	app.Paint(p)
-	if got := p.Cell(0, 0).Background; got != theme.ListTile.Selected.Background {
-		t.Fatalf("selected background = %#v, want %#v", got, theme.ListTile.Selected.Background)
+	if got := p.Cell(0, 0).Background; got != theme.Primary {
+		t.Fatalf("selected background = %#v, want %#v", got, theme.Primary)
 	}
-	if got := p.Cell(1, 0).Foreground; got != theme.ListTile.Selected.Foreground {
-		t.Fatalf("selected text foreground = %#v, want %#v", got, theme.ListTile.Selected.Foreground)
+	if got := p.Cell(1, 0).Foreground; got != theme.Foreground {
+		t.Fatalf("selected text foreground = %#v, want %#v", got, theme.Foreground)
 	}
 
 	app.focusNext()
 	app.Pump(Size{Width: 10, Height: 2})
 	p = NewPainter(Size{Width: 10, Height: 2})
 	app.Paint(p)
-	if got := p.Cell(0, 1).Background; got != theme.ListTile.Focused.Background {
-		t.Fatalf("focused background = %#v, want %#v", got, theme.ListTile.Focused.Background)
+	if got := p.Cell(0, 1).Background; got != theme.SurfaceHovered {
+		t.Fatalf("focused background = %#v, want %#v", got, theme.SurfaceHovered)
+	}
+}
+
+func TestListTileSelectedHoverUsesPrimaryHovered(t *testing.T) {
+	theme := DefaultTheme()
+	theme.Primary = RGB(40, 40, 40)
+	theme.PrimaryHovered = RGB(60, 60, 60)
+
+	app := NewApp(SizedBox{Width: 10, Height: 1, Child: ListTile{
+		Title:    Text{Value: "Tile"},
+		Selected: true,
+		OnPressed: func(EventContext) {
+		},
+	}}, WithTheme(theme))
+	app.Pump(Size{Width: 10, Height: 1})
+	app.Send(Mouse{Col: 9, Row: 0, EventType: EventMotion})
+	app.Pump(Size{Width: 10, Height: 1})
+
+	p := NewPainter(Size{Width: 10, Height: 1})
+	app.Paint(p)
+	if got := p.Cell(0, 0).Background; got != theme.PrimaryHovered {
+		t.Fatalf("selected hovered background = %#v, want %#v", got, theme.PrimaryHovered)
 	}
 }
 
 func TestListTileHoverStyle(t *testing.T) {
 	theme := DefaultTheme()
-	theme.ListTile.Hovered = Style{Foreground: RGB(3, 3, 3), Background: RGB(30, 30, 30)}
+	theme.SurfaceHovered = RGB(30, 30, 30)
 
 	app := NewApp(SizedBox{Width: 10, Height: 1, Child: ListTile{
 		Title: Text{Value: "Tile"},
@@ -139,8 +162,8 @@ func TestListTileHoverStyle(t *testing.T) {
 
 	p := NewPainter(Size{Width: 10, Height: 1})
 	app.Paint(p)
-	if got := p.Cell(0, 0).Background; got != theme.ListTile.Hovered.Background {
-		t.Fatalf("hovered background = %#v, want %#v", got, theme.ListTile.Hovered.Background)
+	if got := p.Cell(0, 0).Background; got != theme.SurfaceHovered {
+		t.Fatalf("hovered background = %#v, want %#v", got, theme.SurfaceHovered)
 	}
 }
 

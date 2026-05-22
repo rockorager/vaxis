@@ -85,6 +85,76 @@ func TestDialogDismissCanBeOverridden(t *testing.T) {
 	}
 }
 
+func TestDialogUsesSurfaceThemeForContent(t *testing.T) {
+	theme := DefaultTheme()
+	theme.Surface = RGB(10, 20, 30)
+	theme.Foreground = RGB(220, 230, 240)
+	theme.SurfaceHovered = RGB(50, 60, 70)
+	theme.SurfacePressed = RGB(40, 50, 60)
+	theme.Primary = RGB(90, 100, 110)
+	theme.PrimaryHovered = RGB(100, 110, 120)
+
+	app := NewApp(Dialog{
+		Title: "Confirm",
+		Child: Text{Value: "Continue?"},
+		Actions: []Widget{
+			Button{Label: "OK"},
+		},
+	}, WithTheme(theme))
+	app.Pump(Size{Width: 30, Height: 7})
+	p := NewPainter(Size{Width: 30, Height: 7})
+	app.Paint(p)
+
+	if got := p.Cell(0, 0).Style; got.Foreground != theme.Foreground || got.Background != theme.Surface {
+		t.Fatalf("dialog corner style = %#v, want raised surface foreground/background", got)
+	}
+	if got := p.Cell(1, 1).Style; got.Foreground != theme.Foreground || got.Background != theme.Surface {
+		t.Fatalf("dialog title style = %#v, want surface foreground/background", got)
+	}
+	if got := p.Cell(1, 3).Style; got.Foreground != theme.Foreground || got.Background != theme.Surface {
+		t.Fatalf("dialog body style = %#v, want surface foreground/background", got)
+	}
+	foundFocusedButton := false
+	for _, cell := range p.Cells() {
+		if cell.Background == theme.SurfacePressed {
+			foundFocusedButton = true
+			break
+		}
+	}
+	if !foundFocusedButton {
+		t.Fatalf("focused dialog button background not found, want nested surface hovered %#v", theme.SurfacePressed)
+	}
+}
+
+func TestDialogFocusedButtonUsesSurfaceHovered(t *testing.T) {
+	theme := DefaultTheme()
+	theme.SurfacePressed = RGB(100, 110, 120)
+
+	app := NewApp(Dialog{
+		Title:   "Confirm",
+		Actions: []Widget{Button{Label: "OK"}},
+	}, WithTheme(theme))
+	app.Pump(Size{Width: 30, Height: 5})
+	foundHoveredButton := false
+	for y := 0; y < 5 && !foundHoveredButton; y++ {
+		for x := 0; x < 30 && !foundHoveredButton; x++ {
+			app.Send(Mouse{Col: x, Row: y, EventType: EventMotion})
+			app.Pump(Size{Width: 30, Height: 5})
+			p := NewPainter(Size{Width: 30, Height: 5})
+			app.Paint(p)
+			for _, cell := range p.Cells() {
+				if cell.Background == theme.SurfacePressed {
+					foundHoveredButton = true
+					break
+				}
+			}
+		}
+	}
+	if !foundHoveredButton {
+		t.Fatalf("hovered focused dialog button background not found, want nested surface hovered %#v", theme.SurfacePressed)
+	}
+}
+
 func focusedDebugLabel(app *App) string {
 	snapshot := app.DebugSnapshot()
 	for _, target := range snapshot.Focusables {

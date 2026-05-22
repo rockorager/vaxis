@@ -40,6 +40,10 @@ type (
 	Resize = vaxis.Resize
 	// Redraw aliases vaxis.Redraw.
 	Redraw = vaxis.Redraw
+	// ColorThemeMode aliases vaxis.ColorThemeMode.
+	ColorThemeMode = vaxis.ColorThemeMode
+	// ColorThemeUpdate aliases vaxis.ColorThemeUpdate.
+	ColorThemeUpdate = vaxis.ColorThemeUpdate
 	// SyncFunc aliases vaxis.SyncFunc.
 	SyncFunc = vaxis.SyncFunc
 	// MouseShape aliases vaxis.MouseShape.
@@ -69,6 +73,10 @@ const (
 	EventPress   = vaxis.EventPress
 	EventRelease = vaxis.EventRelease
 	EventMotion  = vaxis.EventMotion
+	// DarkMode aliases vaxis.DarkMode.
+	DarkMode = vaxis.DarkMode
+	// LightMode aliases vaxis.LightMode.
+	LightMode = vaxis.LightMode
 	// KeyBackspace aliases vaxis.KeyBackspace.
 	KeyBackspace = vaxis.KeyBackspace
 	KeyDelete    = vaxis.KeyDelete

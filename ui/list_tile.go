@@ -14,17 +14,17 @@ type ListTile struct {
 	Subtitle Widget
 	// Trailing is painted at the end of the row when non-nil.
 	Trailing Widget
-	// Selected paints the tile with Theme.ListTile.Selected.
+	// Selected paints the tile with Theme primary colors.
 	Selected bool
 	// Disabled prevents focus, hover, and activation when true.
 	Disabled bool
 	// OnPressed is called when the tile is activated.
 	OnPressed VoidCallback
-	// Padding overrides Theme.ListTile.Padding when non-zero.
+	// Padding overrides the default tile padding when non-zero.
 	Padding Insets
-	// Gap overrides Theme.ListTile.Gap when greater than zero.
+	// Gap overrides the default tile gap when greater than zero.
 	Gap int
-	// MinHeight overrides Theme.ListTile.MinHeight when greater than zero.
+	// MinHeight overrides the default tile minimum height when greater than zero.
 	MinHeight int
 }
 
@@ -41,14 +41,17 @@ type listTileState struct {
 func (s *listTileState) Build(ctx BuildContext) Widget {
 	w := s.Widget().(ListTile)
 	theme := MustDepend[Theme](ctx)
-	style := listTileStyle(w, s, theme.ListTile)
-	child := listTileContent(w, theme.ListTile)
+	tileTheme := listTileTheme(theme)
+	style := listTileStyle(w, s, tileTheme)
+	child := listTileContent(w, tileTheme)
 	childTheme := theme
-	childTheme.Text = mergeStyle(childTheme.Text, style)
+	if style.Foreground != 0 {
+		childTheme.Foreground = style.Foreground
+	}
 	child = Provider[Theme]{Value: childTheme, Child: child}
 	tile := listTileSurface{
 		Style:     style,
-		MinHeight: listTileMinHeight(w, theme.ListTile),
+		MinHeight: listTileMinHeight(w, tileTheme),
 		Child:     child,
 	}
 	if !w.Disabled && w.OnPressed != nil {
@@ -75,9 +78,15 @@ func listTileStyle(w ListTile, s *listTileState, theme ListTileTheme) Style {
 	}
 	if s.node.HasFocus() {
 		style = mergeStyle(style, theme.Focused)
+		if w.Selected {
+			style = mergeStyle(style, theme.SelectedFocused)
+		}
 	}
 	if s.hovered {
 		style = mergeStyle(style, theme.Hovered)
+		if w.Selected {
+			style = mergeStyle(style, theme.SelectedHovered)
+		}
 	}
 	if w.Disabled {
 		style = mergeStyle(style, theme.Disabled)
@@ -122,7 +131,7 @@ func listTilePadding(w ListTile, theme ListTileTheme) Insets {
 		return w.Padding
 	}
 	if theme.Padding == (Insets{}) {
-		return DefaultTheme().ListTile.Padding
+		return Symmetric(1, 0)
 	}
 	return theme.Padding
 }
@@ -132,7 +141,7 @@ func listTileGap(w ListTile, theme ListTileTheme) int {
 		return w.Gap
 	}
 	if theme.Gap < 0 {
-		return DefaultTheme().ListTile.Gap
+		return defaultListTileGap
 	}
 	return theme.Gap
 }
@@ -142,7 +151,7 @@ func listTileMinHeight(w ListTile, theme ListTileTheme) int {
 		return w.MinHeight
 	}
 	if theme.MinHeight <= 0 {
-		return DefaultTheme().ListTile.MinHeight
+		return defaultListTileMinHeight
 	}
 	return theme.MinHeight
 }
@@ -152,7 +161,7 @@ func (s *listTileState) MouseShape(ctx EventContext, mouse Mouse) MouseShape {
 	if w.Disabled || w.OnPressed == nil {
 		return MouseShapeDefault
 	}
-	shape := MustDepend[Theme](s.Context()).ListTile.Mouse
+	shape := listTileTheme(MustDepend[Theme](s.Context())).Mouse
 	if shape == "" {
 		return MouseShapeClickable
 	}

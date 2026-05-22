@@ -470,19 +470,16 @@ func TestButtonSetsMouseShapeOnHover(t *testing.T) {
 	}
 }
 
-func TestButtonUsesThemeMouseShape(t *testing.T) {
-	app := ui.NewApp(ui.Align{Alignment: ui.TopLeft, Child: ui.Button{Label: "click"}}, ui.WithTheme(ui.Theme{Button: ui.ButtonTheme{Mouse: ui.MouseShapeHelp}}))
-	app.Pump(ui.Size{Width: 20, Height: 1})
-	app.Send(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseNoButton, EventType: vaxis.EventMotion})
-	if got := app.MouseShape(); got != ui.MouseShapeHelp {
-		t.Fatalf("mouse shape = %q, want help", got)
-	}
-}
-
 func TestButtonUsesHoveredThemeStyle(t *testing.T) {
 	hovered := ui.Style{Foreground: vaxis.ColorWhite, Background: vaxis.ColorBlue}
 	normal := ui.Style{Foreground: vaxis.ColorWhite, Background: vaxis.ColorBlack}
-	app := ui.NewApp(ui.Align{Alignment: ui.TopLeft, Child: ui.Button{Label: "go"}}, ui.WithTheme(ui.Theme{Button: ui.ButtonTheme{Normal: normal, Focused: normal, Hovered: hovered}}))
+	theme := ui.DefaultTheme()
+	theme.Foreground = normal.Foreground
+	theme.Surface = normal.Background
+	theme.Primary = normal.Background
+	theme.PrimaryHovered = hovered.Background
+	theme.SurfaceHovered = hovered.Background
+	app := ui.NewApp(ui.Align{Alignment: ui.TopLeft, Child: ui.Button{Label: "go"}}, ui.WithTheme(theme))
 	app.Pump(ui.Size{Width: 10, Height: 1})
 	app.Send(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseNoButton, EventType: vaxis.EventMotion})
 	app.Pump(ui.Size{Width: 10, Height: 1})
@@ -495,8 +492,8 @@ func TestButtonUsesHoveredThemeStyle(t *testing.T) {
 	app.Pump(ui.Size{Width: 10, Height: 1})
 	p = ui.NewPainter(ui.Size{Width: 10, Height: 1})
 	app.Paint(p)
-	if got := p.Cell(2, 0).Style; got != normal {
-		t.Fatalf("unhovered button style = %#v, want %#v", got, normal)
+	if got := p.Cell(2, 0).Style; got != hovered {
+		t.Fatalf("focused button style = %#v, want %#v", got, hovered)
 	}
 }
 
@@ -519,11 +516,8 @@ func TestButtonPaddingAndMinWidth(t *testing.T) {
 	}
 }
 
-func TestButtonUsesThemePaddingAndMinWidth(t *testing.T) {
-	theme := ui.DefaultTheme()
-	theme.Button.Padding = ui.Symmetric(3, 0)
-	theme.Button.MinWidth = 12
-	app := ui.NewApp(ui.Align{Alignment: ui.TopLeft, Child: ui.Button{Label: "x"}}, ui.WithTheme(theme))
+func TestButtonUsesWidgetPaddingAndMinWidth(t *testing.T) {
+	app := ui.NewApp(ui.Align{Alignment: ui.TopLeft, Child: ui.Button{Label: "x", Padding: ui.Symmetric(3, 0), MinWidth: 12}})
 	app.Pump(ui.Size{Width: 12, Height: 1})
 	p := ui.NewPainter(ui.Size{Width: 12, Height: 1})
 	app.Paint(p)
@@ -540,7 +534,9 @@ func TestButtonUsesThemePaddingAndMinWidth(t *testing.T) {
 
 func TestTextUsesThemeStyle(t *testing.T) {
 	style := ui.Style{Foreground: vaxis.ColorRed}
-	app := ui.NewApp(ui.Text{Value: "x"}, ui.WithTheme(ui.Theme{Text: style}))
+	theme := ui.DefaultTheme()
+	theme.Foreground = style.Foreground
+	app := ui.NewApp(ui.Text{Value: "x"}, ui.WithTheme(theme))
 	app.Pump(ui.Size{Width: 1, Height: 1})
 	p := ui.NewPainter(ui.Size{Width: 1, Height: 1})
 	app.Paint(p)
@@ -608,14 +604,16 @@ func TestRichTextPaintsStyledSpans(t *testing.T) {
 }
 
 func TestRichTextMergesSpanStyleWithTheme(t *testing.T) {
-	themeStyle := ui.Style{Foreground: vaxis.ColorGreen, Background: vaxis.ColorBlue}
-	app := ui.NewApp(ui.RichText{Spans: []ui.TextSpan{{Text: "x", Style: ui.Style{Attribute: ui.AttrBold}}}}, ui.WithTheme(ui.Theme{Text: themeStyle}))
+	themeStyle := ui.Style{Foreground: vaxis.ColorGreen}
+	theme := ui.DefaultTheme()
+	theme.Foreground = themeStyle.Foreground
+	app := ui.NewApp(ui.RichText{Spans: []ui.TextSpan{{Text: "x", Style: ui.Style{Attribute: ui.AttrBold}}}}, ui.WithTheme(theme))
 	app.Pump(ui.Size{Width: 1, Height: 1})
 	p := ui.NewPainter(ui.Size{Width: 1, Height: 1})
 	app.Paint(p)
 	style := p.Cell(0, 0).Style
-	if style.Foreground != themeStyle.Foreground || style.Background != themeStyle.Background || style.Attribute != ui.AttrBold {
-		t.Fatalf("style = %#v, want theme colors with bold", style)
+	if style.Foreground != themeStyle.Foreground || style.Attribute != ui.AttrBold {
+		t.Fatalf("style = %#v, want theme foreground with bold", style)
 	}
 }
 
@@ -693,8 +691,11 @@ func TestRichTextWrapPreservesSpanStyle(t *testing.T) {
 }
 
 func TestButtonUsesFocusedThemeStyle(t *testing.T) {
-	focused := ui.Style{Foreground: vaxis.ColorGreen}
-	app := ui.NewApp(ui.Button{Label: "go"}, ui.WithTheme(ui.Theme{Button: ui.ButtonTheme{Focused: focused}}))
+	focused := ui.Style{Foreground: vaxis.ColorGreen, Background: vaxis.ColorYellow}
+	theme := ui.DefaultTheme()
+	theme.Foreground = focused.Foreground
+	theme.SurfaceHovered = focused.Background
+	app := ui.NewApp(ui.Button{Label: "go"}, ui.WithTheme(theme))
 	app.Pump(ui.Size{Width: 6, Height: 1})
 	p := ui.NewPainter(ui.Size{Width: 6, Height: 1})
 	app.Paint(p)
@@ -713,11 +714,14 @@ func TestButtonUsesFocusedThemeStyle(t *testing.T) {
 }
 
 func TestButtonStyleUpdatesOnFocusChange(t *testing.T) {
-	focused := ui.Style{Foreground: vaxis.ColorGreen}
+	focused := ui.Style{Foreground: vaxis.ColorGreen, Background: vaxis.ColorYellow}
+	theme := ui.DefaultTheme()
+	theme.Foreground = focused.Foreground
+	theme.SurfaceHovered = focused.Background
 	app := ui.NewApp(ui.Row(
 		ui.Button{Label: "a"},
 		ui.Button{Label: "b"},
-	), ui.WithTheme(ui.Theme{Button: ui.ButtonTheme{Focused: focused}}))
+	), ui.WithTheme(theme))
 	app.Pump(ui.Size{Width: 10, Height: 1})
 	app.Send(vaxis.Key{Keycode: vaxis.KeyTab})
 	app.Pump(ui.Size{Width: 10, Height: 1})
