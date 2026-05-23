@@ -252,10 +252,10 @@ func (r *renderTextArea) Paint(p *Painter, off Offset) {
 	})
 	if r.Focused && r.Value != "" {
 		if row, col, ok := r.layout.CursorCell(r.cursorPosition(), TextCursorCellOptions{SoftWrap: r.SoftWrap, WrapWidth: size.Width}); ok {
-			p.ShowCursor(off.X+col-r.scrollCol(), off.Y+row-r.scrollRow(), CursorBlock)
+			p.ShowCursor(off.X+col-r.scrollCol(), off.Y+row-r.scrollRow(), CursorBeam)
 		}
 	} else if r.Focused && r.Value == "" {
-		p.ShowCursor(off.X, off.Y, CursorBlock)
+		p.ShowCursor(off.X, off.Y, CursorBeam)
 	}
 }
 

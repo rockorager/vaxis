@@ -31,8 +31,8 @@ func TestTextAreaEditsControlledMultilineValue(t *testing.T) {
 	app.Pump(ui.Size{Width: 12, Height: 4})
 	p := ui.NewPainter(ui.Size{Width: 12, Height: 4})
 	app.Paint(p)
-	if cursor, ok := p.Cursor(); !ok || cursor.Col != 1 || cursor.Row != 1 {
-		t.Fatalf("cursor after enter = %#v ok=%v, want 1,1", cursor, ok)
+	if cursor, ok := p.Cursor(); !ok || cursor.Col != 1 || cursor.Row != 1 || cursor.Shape != ui.CursorBeam {
+		t.Fatalf("cursor after enter = %#v ok=%v, want beam at 1,1", cursor, ok)
 	}
 
 	app.Send(vaxis.Key{Text: "b", Keycode: 'b'})
@@ -50,8 +50,8 @@ func TestTextAreaEditsControlledMultilineValue(t *testing.T) {
 	if got := p.Cell(1, 1).Grapheme; got != "b" {
 		t.Fatalf("second line = %q, want b", got)
 	}
-	if cursor, ok := p.Cursor(); !ok || cursor.Col != 2 || cursor.Row != 1 {
-		t.Fatalf("cursor = %#v ok=%v, want 2,1", cursor, ok)
+	if cursor, ok := p.Cursor(); !ok || cursor.Col != 2 || cursor.Row != 1 || cursor.Shape != ui.CursorBeam {
+		t.Fatalf("cursor = %#v ok=%v, want beam at 2,1", cursor, ok)
 	}
 }
 
