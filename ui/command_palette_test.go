@@ -70,6 +70,31 @@ func TestFuzzySelectFiltersAndActivatesGenericItems(t *testing.T) {
 	}
 }
 
+func TestFuzzySelectOneLineRows(t *testing.T) {
+	app := NewApp(FuzzySelect[string]{
+		Items:          []string{"alpha", "beta", "gamma"},
+		RowStyle:       FuzzySelectOneLine,
+		MaxVisibleRows: 2,
+	})
+	app.Pump(Size{Width: 80, Height: 24})
+	p := NewPainter(Size{Width: 80, Height: 24})
+	app.Paint(p)
+	_, alphaY, ok := commandPaletteFindText(p, "alpha")
+	if !ok {
+		t.Fatalf("one-line fuzzy select did not render first row")
+	}
+	_, betaY, ok := commandPaletteFindText(p, "beta")
+	if !ok {
+		t.Fatalf("one-line fuzzy select did not render second row")
+	}
+	if betaY-alphaY != 1 {
+		t.Fatalf("one-line row spacing = %d, want 1", betaY-alphaY)
+	}
+	if _, _, ok := commandPaletteFindText(p, "gamma"); ok {
+		t.Fatalf("third row rendered despite MaxVisibleRows 2")
+	}
+}
+
 func TestCommandPalettePaintsPanelBackground(t *testing.T) {
 	theme := DefaultTheme()
 	theme.Background = RGB(1, 2, 3)

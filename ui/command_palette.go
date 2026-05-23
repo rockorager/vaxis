@@ -9,10 +9,19 @@ import (
 const (
 	defaultFuzzySelectWidth          = 54
 	defaultFuzzySelectMaxVisibleRows = 5
-	fuzzySelectRowHeight             = 2
 	fuzzySelectTopDivisor            = 4
 
 	fuzzySelectSelectionIntentType IntentType = "ui.fuzzy-select.selection"
+)
+
+// FuzzySelectRowStyle controls how result rows are laid out.
+type FuzzySelectRowStyle int
+
+const (
+	// FuzzySelectTwoLine shows title and description rows. This is the default.
+	FuzzySelectTwoLine FuzzySelectRowStyle = iota
+	// FuzzySelectOneLine shows only title text and uses one terminal row per item.
+	FuzzySelectOneLine
 )
 
 // FuzzySelectFilter filters and ranks fuzzy select items for query.
@@ -54,6 +63,8 @@ type FuzzySelect[T any] struct {
 	Width int
 	// MaxVisibleRows limits visible result rows before scrolling.
 	MaxVisibleRows int
+	// RowStyle controls whether items render as one-line or two-line rows.
+	RowStyle FuzzySelectRowStyle
 	// OnDismiss is called when Escape is pressed.
 	OnDismiss VoidCallback
 	// OnSelected is called when an item is activated.
@@ -158,6 +169,7 @@ func (s *fuzzySelectState[T]) Build(ctx BuildContext) Widget {
 func (s *fuzzySelectState[T]) view(ctx BuildContext, w FuzzySelect[T], items []T, selected int) Widget {
 	theme := MustDepend[Theme](ctx)
 	width := fuzzySelectWidth(w.Width)
+	rowHeight := fuzzySelectRowHeight(w.RowStyle)
 	placeholder := w.Placeholder
 	if placeholder == "" {
 		placeholder = "Search…"
@@ -187,19 +199,11 @@ func (s *fuzzySelectState[T]) view(ctx BuildContext, w FuzzySelect[T], items []T
 			item := item
 			row := fuzzySelectItem(w, item)
 			isSelected := index == selected
-			rows = append(rows, ListTile{
-				Leading:  row.Leading,
-				Trailing: row.Trailing,
-				Title:    Text{Value: row.Title, Style: fuzzySelectPrimaryTextStyle(theme, isSelected), MaxLines: 1, Overflow: TextOverflowEllipsis},
-				Subtitle: Text{Value: row.Description, Style: fuzzySelectSecondaryTextStyle(theme, isSelected), MaxLines: 1, Overflow: TextOverflowEllipsis},
-				Selected: isSelected,
-				Disabled: row.Disabled,
-				OnPressed: func(ctx EventContext) {
-					s.run(ctx, []T{item}, 0)
-				},
-			})
+			rows = append(rows, fuzzySelectRow(theme, row, isSelected, rowHeight, func(ctx EventContext) {
+				s.run(ctx, []T{item}, 0)
+			}))
 		}
-		listHeight := min(len(items)*fuzzySelectRowHeight, fuzzySelectMaxVisibleRows(w.MaxVisibleRows)*fuzzySelectRowHeight)
+		listHeight := min(len(items)*rowHeight, fuzzySelectMaxVisibleRows(w.MaxVisibleRows)*rowHeight)
 		children = append(children, fuzzySelectList(&s.listController, width, listHeight, rows))
 	}
 	panelStyle := Style{Foreground: theme.Foreground, Background: theme.SurfaceHovered}
@@ -234,6 +238,23 @@ func (s *fuzzySelectState[T]) view(ctx BuildContext, w FuzzySelect[T], items []T
 	}
 }
 
+func fuzzySelectRow(theme Theme, row FuzzySelectItem, selected bool, rowHeight int, onPressed VoidCallback) Widget {
+	title := Text{Value: row.Title, Style: fuzzySelectPrimaryTextStyle(theme, selected), MaxLines: 1, Overflow: TextOverflowEllipsis}
+	tile := ListTile{
+		Leading:   row.Leading,
+		Trailing:  row.Trailing,
+		Title:     title,
+		Selected:  selected,
+		Disabled:  row.Disabled,
+		OnPressed: onPressed,
+		MinHeight: rowHeight,
+	}
+	if rowHeight > 1 {
+		tile.Subtitle = Text{Value: row.Description, Style: fuzzySelectSecondaryTextStyle(theme, selected), MaxLines: 1, Overflow: TextOverflowEllipsis}
+	}
+	return tile
+}
+
 func (s *fuzzySelectState[T]) setQuery(_ EventContext, query string) {
 	s.SetState(func() {
 		s.query = query
@@ -257,8 +278,9 @@ func (s *fuzzySelectState[T]) revealSelection(index int) {
 	if metrics.ViewportHeight == 0 {
 		return
 	}
-	top := index * fuzzySelectRowHeight
-	bottom := top + fuzzySelectRowHeight
+	rowHeight := fuzzySelectRowHeight(s.Widget().(FuzzySelect[T]).RowStyle)
+	top := index * rowHeight
+	bottom := top + rowHeight
 	visibleTop := metrics.ScrollOffset
 	visibleBottom := metrics.ScrollOffset + metrics.ViewportHeight
 	switch {
@@ -478,6 +500,13 @@ func fuzzySelectMaxVisibleRows(rows int) int {
 		return rows
 	}
 	return defaultFuzzySelectMaxVisibleRows
+}
+
+func fuzzySelectRowHeight(style FuzzySelectRowStyle) int {
+	if style == FuzzySelectOneLine {
+		return 1
+	}
+	return 2
 }
 
 func fuzzySelectList(controller *ScrollPaneController, width, height int, children []Widget) Widget {
