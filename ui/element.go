@@ -82,6 +82,15 @@ func (c BuildContext) Runtime() Runtime {
 	return appRuntime{app: c.element.Base().owner.app}
 }
 
+// EventContext returns an event context rooted at this build context's element.
+//
+// This is useful for asynchronous widget callbacks that need to perform the
+// same side effects available during event handling, such as notifications,
+// title updates, or quitting the app.
+func (c BuildContext) EventContext() EventContext {
+	return EventContext{app: c.element.Base().owner.app, phase: TargetPhase, element: c.element, target: c.element}
+}
+
 // FindRenderObject returns the nearest render object for this context.
 func (c BuildContext) FindRenderObject() RenderObject {
 	return findRenderObject(c.element)

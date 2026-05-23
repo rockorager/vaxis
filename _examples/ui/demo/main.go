@@ -1,11 +1,14 @@
 package main
 
 import (
+	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
 
 	"git.sr.ht/~rockorager/vaxis/ui"
+	"git.sr.ht/~rockorager/vaxis/widgets/term"
 )
 
 func main() {
@@ -50,7 +53,7 @@ type DemoState struct {
 	palette bool
 }
 
-var demoPages = []string{"home", "text", "controls", "lists", "table", "animation", "theme"}
+var demoPages = []string{"home", "text", "controls", "lists", "table", "animation", "theme", "terminal"}
 
 func (s *DemoState) InitState() {
 	rt := s.Context().Runtime()
@@ -168,7 +171,7 @@ func (s *DemoState) shortcuts() map[string]ui.Intent {
 		"Super+k": demoCommandPalette,
 		"Meta+k":  demoCommandPalette,
 	}
-	if !s.palette {
+	if !s.palette && demoPages[s.page] != "terminal" {
 		bindings["q"] = demoQuitIntent
 		bindings["n"] = demoNextPageIntent
 		bindings["p"] = demoPreviousPageIntent
@@ -296,6 +299,8 @@ func (s *DemoState) pageContent(theme ui.Theme) ui.Widget {
 		return s.animationPage(theme)
 	case 6:
 		return s.themePage(theme)
+	case 7:
+		return s.terminalPage(theme)
 	default:
 		return s.homePage()
 	}
@@ -674,6 +679,45 @@ func (s *DemoState) themePage(theme ui.Theme) ui.Widget {
 		paletteScale("magenta", theme.Palette.Magenta),
 		paletteScale("cyan", theme.Palette.Cyan),
 	}}
+}
+
+func (s *DemoState) terminalPage(theme ui.Theme) ui.Widget {
+	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStretch, Children: []ui.Widget{
+		ui.RichText{Spans: []ui.TextSpan{
+			{Text: "Terminal", Style: ui.Style{Attribute: ui.AttrBold}},
+			{Text: "\nThe terminal model can now render through the ui framework as a focusable widget."},
+		}, SoftWrap: true},
+		ui.SizedBox{Height: 1},
+		ui.DecoratedBox(
+			ui.Decoration{Style: ui.Style{Background: theme.Surface}, Border: ui.BorderLine(theme.Border)},
+			ui.Padding(ui.All(1), ui.SizedBox{Width: 72, Height: 8, Child: term.Terminal{
+				Command:   demoTerminalCommand(),
+				Options:   []term.Option{term.WithKittyKeyboard(true)},
+				AutoFocus: true,
+				OnEvent: func(ctx ui.EventContext, ev ui.Event) ui.EventResult {
+					switch ev := ev.(type) {
+					case term.EventNotify:
+						ctx.Notify(ev.Title, ev.Body)
+						return ui.EventHandled
+					case term.EventTitle:
+						ctx.SetTitle(string(ev))
+						return ui.EventHandled
+					}
+					return ui.EventIgnored
+				},
+			}}),
+		),
+		ui.SizedBox{Height: 1},
+		ui.Text{Value: "This page starts your shell in a PTY-backed terminal widget. Cmd+K still opens the command palette; page shortcuts are disabled here so shell input wins.", SoftWrap: true},
+	}}
+}
+
+func demoTerminalCommand() *exec.Cmd {
+	shell := os.Getenv("SHELL")
+	if shell == "" {
+		shell = "/bin/sh"
+	}
+	return exec.Command(shell, "-i")
 }
 
 func (s *DemoState) footer() ui.Widget {

@@ -424,6 +424,26 @@ func (vt *Model) String() string {
 	return vt.activeScreen.String()
 }
 
+// WriteString applies printable text to the terminal model.
+//
+// This is useful for embedding an in-memory terminal model in tests or demos.
+// PTY-backed terminals should normally receive output through Start/StartWithSize.
+func (vt *Model) WriteString(s string) {
+	for len(s) > 0 {
+		r, size := utf8.DecodeRuneInString(s)
+		if r == utf8.RuneError && size == 0 {
+			return
+		}
+		s = s[size:]
+		if r < 0x20 {
+			vt.update(ansi.C0(r))
+			continue
+		}
+		grapheme := string(r)
+		vt.update(ansi.Print{Grapheme: grapheme, Width: uucode.StringWidth(grapheme)})
+	}
+}
+
 func (vt *Model) maxScrollOffset() int {
 	if vt.mode.smcup {
 		return 0
@@ -669,6 +689,23 @@ type drawSnapshot struct {
 	allGraphics   []*Image
 	graphics      []positionedImage
 	vx            *vaxis.Vaxis
+}
+
+// Snapshot is a UI-friendly immutable view of the terminal's visible cells and
+// cursor state.
+type Snapshot struct {
+	Cells         []PositionedCell
+	CursorCol     int
+	CursorRow     int
+	CursorStyle   vaxis.CursorStyle
+	CursorVisible bool
+}
+
+// PositionedCell is one visible terminal cell at a viewport position.
+type PositionedCell struct {
+	Col  int
+	Row  int
+	Cell vaxis.Cell
 }
 
 type positionedCell struct {
@@ -1409,6 +1446,28 @@ func (vt *Model) Draw(win vaxis.Window) {
 	}
 	vt.removeGraphicsPlacements(snapshot.vx, snapshot.allGraphics)
 	vt.drawGraphics(win, snapshot.vx, snapshot.graphics)
+}
+
+// Snapshot returns the terminal's current visible cells and cursor state.
+//
+// Snapshot does not include terminal graphics; callers that need graphics
+// should continue to use Draw with a vaxis.Window.
+func (vt *Model) Snapshot() Snapshot {
+	vt.mu.Lock()
+	vt.dirty = false
+	snapshot := vt.snapshotDraw(nil)
+	vt.mu.Unlock()
+	out := Snapshot{
+		Cells:         make([]PositionedCell, 0, len(snapshot.cells)),
+		CursorCol:     snapshot.cursorCol,
+		CursorRow:     snapshot.cursorRow,
+		CursorStyle:   snapshot.cursorStyle,
+		CursorVisible: snapshot.cursorVisible,
+	}
+	for _, cell := range snapshot.cells {
+		out.Cells = append(out.Cells, PositionedCell{Col: cell.col, Row: cell.row, Cell: cell.cell})
+	}
+	return out
 }
 
 func (vt *Model) snapshotDraw(vx *vaxis.Vaxis) drawSnapshot {
