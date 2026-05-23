@@ -88,6 +88,7 @@ func TestDialogDismissCanBeOverridden(t *testing.T) {
 func TestDialogUsesSurfaceThemeForContent(t *testing.T) {
 	theme := DefaultTheme()
 	theme.Surface = RGB(10, 20, 30)
+	theme.SurfaceRaised = RGB(30, 40, 50)
 	theme.Foreground = RGB(220, 230, 240)
 	theme.SurfaceHovered = RGB(50, 60, 70)
 	theme.SurfacePressed = RGB(40, 50, 60)
@@ -105,13 +106,13 @@ func TestDialogUsesSurfaceThemeForContent(t *testing.T) {
 	p := NewPainter(Size{Width: 30, Height: 7})
 	app.Paint(p)
 
-	if got := p.Cell(0, 0).Style; got.Foreground != theme.Foreground || got.Background != theme.Surface {
+	if got := p.Cell(0, 0).Style; got.Foreground != theme.Foreground || got.Background != theme.SurfaceRaised {
 		t.Fatalf("dialog corner style = %#v, want raised surface foreground/background", got)
 	}
-	if got := p.Cell(1, 1).Style; got.Foreground != theme.Foreground || got.Background != theme.Surface {
+	if got := p.Cell(1, 1).Style; got.Foreground != theme.Foreground || got.Background != theme.SurfaceRaised {
 		t.Fatalf("dialog title style = %#v, want surface foreground/background", got)
 	}
-	if got := p.Cell(1, 3).Style; got.Foreground != theme.Foreground || got.Background != theme.Surface {
+	if got := p.Cell(1, 3).Style; got.Foreground != theme.Foreground || got.Background != theme.SurfaceRaised {
 		t.Fatalf("dialog body style = %#v, want surface foreground/background", got)
 	}
 	foundFocusedButton := false

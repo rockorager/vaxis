@@ -70,7 +70,7 @@ func (s *dialogState) Build(ctx BuildContext) Widget {
 			AutoFocus: true,
 			Child: DecoratedBox(
 				Decoration{
-					Style: Style{Foreground: theme.Foreground, Background: theme.Surface},
+					Style: Style{Foreground: theme.Foreground, Background: theme.SurfaceRaised},
 				},
 				Padding(All(1), Provider[Theme]{Value: contentTheme, Child: child}),
 			),
@@ -80,8 +80,9 @@ func (s *dialogState) Build(ctx BuildContext) Widget {
 
 func dialogContentTheme(theme Theme) Theme {
 	content := theme
-	content.Background = theme.Surface
+	content.Background = theme.SurfaceRaised
 	content.Surface = theme.SurfaceHovered
+	content.SurfaceRaised = theme.SurfaceHovered
 	content.SurfaceHovered = theme.SurfacePressed
 	content.SurfacePressed = theme.PrimaryPressed
 	content.Border = theme.Border

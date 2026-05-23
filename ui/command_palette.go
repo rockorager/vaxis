@@ -206,7 +206,7 @@ func (s *fuzzySelectState[T]) view(ctx BuildContext, w FuzzySelect[T], items []T
 		listHeight := min(len(items)*rowHeight, fuzzySelectMaxVisibleRows(w.MaxVisibleRows)*rowHeight)
 		children = append(children, fuzzySelectList(&s.listController, width, listHeight, rows))
 	}
-	panelStyle := Style{Foreground: theme.Foreground, Background: theme.SurfaceHovered}
+	panelStyle := Style{Foreground: theme.Foreground, Background: theme.SurfaceRaised}
 	return Actions{
 		Bindings: map[IntentType]ActionFunc{
 			DismissIntentType: func(ctx EventContext, intent Intent) EventResult {

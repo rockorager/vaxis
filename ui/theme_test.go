@@ -98,20 +98,42 @@ func TestDefaultThemePrimaryUsesDesignedBlueFillTone(t *testing.T) {
 func TestThemeSurfaceStatesMoveInInteractionOrder(t *testing.T) {
 	dark := DefaultTheme()
 	if !(colorLuminance(dark.SurfacePressed) < colorLuminance(dark.Surface) &&
-		colorLuminance(dark.Surface) < colorLuminance(dark.SurfaceHovered)) {
-		t.Fatalf("dark surface luminance order = pressed %.3f surface %.3f hovered %.3f, want pressed < surface < hovered",
+		colorLuminance(dark.Surface) < colorLuminance(dark.SurfaceRaised) &&
+		colorLuminance(dark.SurfaceRaised) == colorLuminance(dark.SurfaceHovered)) {
+		t.Fatalf("dark surface luminance order = pressed %.3f surface %.3f raised %.3f hovered %.3f, want pressed < surface < raised == hovered",
 			colorLuminance(dark.SurfacePressed),
 			colorLuminance(dark.Surface),
+			colorLuminance(dark.SurfaceRaised),
 			colorLuminance(dark.SurfaceHovered))
+	}
+	if got, want := dark.Surface, dark.Palette.Neutral.Tone900; got != want {
+		t.Fatalf("dark surface = %#v, want neutral tone 900 %#v", got, want)
+	}
+	if got, want := dark.SurfaceRaised, dark.Palette.Neutral.Tone800; got != want {
+		t.Fatalf("dark surface raised = %#v, want neutral tone 800 %#v", got, want)
+	}
+	if got, want := dark.SurfaceHovered, dark.Palette.Neutral.Tone800; got != want {
+		t.Fatalf("dark surface hovered = %#v, want neutral tone 800 %#v", got, want)
 	}
 
 	light := ThemeFromPalette(DefaultPalette(), LightTheme)
-	if !(colorLuminance(light.SurfaceHovered) < colorLuminance(light.Surface) &&
+	if !(colorLuminance(light.SurfaceHovered) == colorLuminance(light.SurfaceRaised) &&
+		colorLuminance(light.SurfaceRaised) < colorLuminance(light.Surface) &&
 		colorLuminance(light.Surface) < colorLuminance(light.SurfacePressed)) {
-		t.Fatalf("light surface luminance order = hovered %.3f surface %.3f pressed %.3f, want hovered < surface < pressed",
+		t.Fatalf("light surface luminance order = hovered %.3f raised %.3f surface %.3f pressed %.3f, want hovered == raised < surface < pressed",
 			colorLuminance(light.SurfaceHovered),
+			colorLuminance(light.SurfaceRaised),
 			colorLuminance(light.Surface),
 			colorLuminance(light.SurfacePressed))
+	}
+	if got, want := light.Surface, light.Palette.Neutral.Tone100; got != want {
+		t.Fatalf("light surface = %#v, want neutral tone 100 %#v", got, want)
+	}
+	if got, want := light.SurfaceRaised, light.Palette.Neutral.Tone200; got != want {
+		t.Fatalf("light surface raised = %#v, want neutral tone 200 %#v", got, want)
+	}
+	if got, want := light.SurfaceHovered, light.Palette.Neutral.Tone200; got != want {
+		t.Fatalf("light surface hovered = %#v, want neutral tone 200 %#v", got, want)
 	}
 }
 

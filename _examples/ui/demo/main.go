@@ -626,6 +626,9 @@ func (s *DemoState) themePage(theme ui.Theme) ui.Widget {
 		themeGroup("surface", []ui.Widget{
 			themeSwatchRow(
 				themeSwatchSpan("Theme.Surface", theme.Surface, theme.Foreground),
+				themeSwatchSpan("Theme.SurfaceRaised", theme.SurfaceRaised, theme.Foreground),
+			),
+			themeSwatchRow(
 				themeSwatchSpan("Theme.SurfaceHovered", theme.SurfaceHovered, theme.Foreground),
 				themeSwatchSpan("Theme.SurfacePressed", theme.SurfacePressed, theme.Foreground),
 			),

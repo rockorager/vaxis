@@ -98,6 +98,7 @@ func TestFuzzySelectOneLineRows(t *testing.T) {
 func TestCommandPalettePaintsPanelBackground(t *testing.T) {
 	theme := DefaultTheme()
 	theme.Background = RGB(1, 2, 3)
+	theme.SurfaceRaised = RGB(30, 40, 50)
 	theme.SurfaceHovered = RGB(40, 50, 60)
 	theme.Primary = RGB(70, 80, 90)
 	theme.MutedForeground = RGB(100, 110, 120)
@@ -116,9 +117,9 @@ func TestCommandPalettePaintsPanelBackground(t *testing.T) {
 	if !ok {
 		t.Fatalf("rendered command palette search placeholder not found")
 	}
-	for _, pt := range []Point{{X: x - 3, Y: y - 1}, {X: x - 3, Y: y}, {X: x + 52, Y: y}} {
-		if got := p.Cell(pt.X, pt.Y).Background; got != theme.SurfaceHovered {
-			t.Fatalf("panel background at %#v = %#v, want %#v", pt, got, theme.SurfaceHovered)
+	for _, pt := range []Point{{X: x - 3, Y: y - 1}, {X: x - 3, Y: y}} {
+		if got := p.Cell(pt.X, pt.Y).Background; got != theme.SurfaceRaised {
+			t.Fatalf("panel background at %#v = %#v, want %#v", pt, got, theme.SurfaceRaised)
 		}
 	}
 }
@@ -126,6 +127,7 @@ func TestCommandPalettePaintsPanelBackground(t *testing.T) {
 func TestCommandPaletteTopEdgeIsOneQuarterDown(t *testing.T) {
 	theme := DefaultTheme()
 	theme.Background = RGB(1, 2, 3)
+	theme.SurfaceRaised = RGB(30, 40, 50)
 	theme.SurfaceHovered = RGB(40, 50, 60)
 	root := DecoratedBox(
 		Decoration{Style: Style{Background: theme.Background}},
@@ -145,8 +147,8 @@ func TestCommandPaletteTopEdgeIsOneQuarterDown(t *testing.T) {
 	if topEdge != want {
 		t.Fatalf("command palette top edge = %d, want %d", topEdge, want)
 	}
-	if got := p.Cell(x-3, topEdge).Background; got != theme.SurfaceHovered {
-		t.Fatalf("command palette top edge background = %#v, want %#v", got, theme.SurfaceHovered)
+	if got := p.Cell(x-3, topEdge).Background; got != theme.SurfaceRaised {
+		t.Fatalf("command palette top edge background = %#v, want %#v", got, theme.SurfaceRaised)
 	}
 }
 

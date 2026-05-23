@@ -65,6 +65,7 @@ type Theme struct {
 	Foreground Color
 
 	Surface        Color
+	SurfaceRaised  Color
 	SurfaceHovered Color
 	SurfacePressed Color
 
@@ -263,9 +264,7 @@ func themeFromPalette(p Palette, mode ThemeMode, background, foreground Color) T
 		}
 	}
 
-	surface := readableSurface(background, foreground, p, mode, 12)
-	surfaceHovered := readableSurface(background, foreground, p, mode, 18)
-	surfacePressed := readableSurface(background, foreground, p, mode, 8)
+	surface, surfaceRaised, surfaceHovered, surfacePressed := paletteSurfaces(p, mode)
 	primary := readablePrimary(background, foreground, p.Blue, mode)
 	primaryHovered := readablePrimaryHovered(background, foreground, p.Blue, mode)
 	primaryPressed := readablePrimaryPressed(background, foreground, p.Blue, mode)
@@ -284,6 +283,7 @@ func themeFromPalette(p Palette, mode ThemeMode, background, foreground Color) T
 		Foreground: foreground,
 
 		Surface:        surface,
+		SurfaceRaised:  surfaceRaised,
 		SurfaceHovered: surfaceHovered,
 		SurfacePressed: surfacePressed,
 
@@ -375,15 +375,11 @@ func colorScale(base, black, white Color) ColorScale {
 	}
 }
 
-func readableSurface(bg, fg Color, p Palette, mode ThemeMode, percentForeground int) Color {
-	c, ok := blendColor(bg, fg, percentForeground)
-	if ok {
-		return c
-	}
+func paletteSurfaces(p Palette, mode ThemeMode) (surface, raised, hovered, pressed Color) {
 	if mode == LightTheme {
-		return p.Neutral.Tone100
+		return p.Neutral.Tone100, p.Neutral.Tone200, p.Neutral.Tone200, p.Neutral.Tone50
 	}
-	return p.Neutral.Tone900
+	return p.Neutral.Tone900, p.Neutral.Tone800, p.Neutral.Tone800, p.Neutral.Tone950
 }
 
 func readableAccent(bg, fg Color, scale ColorScale, mode ThemeMode) Color {
