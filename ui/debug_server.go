@@ -27,6 +27,10 @@ func startDebugServer(app *App, dispatch func(func()), submitEvent func(Event), 
 	}
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
+		if isAddrInUse(err) {
+			fmt.Fprintf(os.Stderr, "vaxis ui debug server disabled: %s is already in use: %v\n", addr, err)
+			return func() {}, nil
+		}
 		return nil, err
 	}
 	server := &http.Server{Handler: newDebugServerHandler(app, token, dispatch, submitEvent, rendered, renderedText, profile), ReadHeaderTimeout: 2 * time.Second}
@@ -41,6 +45,10 @@ func startDebugServer(app *App, dispatch func(func()), submitEvent func(Event), 
 		defer cancel()
 		_ = server.Shutdown(ctx)
 	}, nil
+}
+
+func isAddrInUse(err error) bool {
+	return strings.Contains(strings.ToLower(err.Error()), "address already in use")
 }
 
 func newDebugServerHandler(app *App, token string, dispatch func(func()), submitEvent func(Event), rendered func() (DebugRenderedSnapshot, bool), renderedText func() (string, bool), profile func() (DebugProfileSnapshot, bool)) http.Handler {
