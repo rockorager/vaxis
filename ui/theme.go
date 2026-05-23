@@ -61,34 +61,71 @@ type Theme struct {
 	// Mode is the light/dark mapping used to generate the semantic colors.
 	Mode ThemeMode
 
+	// Background is the app's base fill color.
 	Background Color
+	// Foreground is the default readable text/icon color for Background,
+	// Surface*, Primary*, Accent, and status fills unless a component documents a
+	// stronger pairing.
 	Foreground Color
 
-	Surface        Color
-	SurfaceRaised  Color
+	// Surface is the default panel/control fill.
+	Surface Color
+	// SurfaceRaised is an elevated panel/popover fill, such as dialogs and
+	// command palettes.
+	SurfaceRaised Color
+	// SurfaceHovered is the interactive hover/focus fill for surface controls.
 	SurfaceHovered Color
+	// SurfacePressed is the active/pressed fill for surface controls.
 	SurfacePressed Color
 
-	Primary        Color
-	PrimaryText    Color
+	// Primary is the primary emphasis fill. Pair it with Foreground for text on
+	// the fill; do not pair it with PrimaryText.
+	Primary Color
+	// PrimaryText is a primary-colored text/icon foreground for use on normal
+	// backgrounds and surfaces. It is not intended as text on Primary fills.
+	PrimaryText Color
+	// PrimaryHovered is the hover/focus fill for primary controls. Pair it with
+	// Foreground for text on the fill.
 	PrimaryHovered Color
+	// PrimaryPressed is the active/pressed fill for primary controls. Pair it with
+	// Foreground for text on the fill.
 	PrimaryPressed Color
 
-	Accent     Color
+	// Accent is a secondary emphasis fill. Pair it with Foreground for text on the
+	// fill; do not pair it with AccentText.
+	Accent Color
+	// AccentText is an accent-colored text/icon foreground for use on normal
+	// backgrounds and surfaces. It is not intended as text on Accent fills.
 	AccentText Color
 
-	Success     Color
+	// Success is a success-state fill. Pair it with Foreground for text on the
+	// fill; do not pair it with SuccessText.
+	Success Color
+	// SuccessText is a success-colored text/icon foreground for use on normal
+	// backgrounds and surfaces. It is not intended as text on Success fills.
 	SuccessText Color
-	Warning     Color
+	// Warning is a warning-state fill. Pair it with Foreground for text on the
+	// fill; do not pair it with WarningText.
+	Warning Color
+	// WarningText is a warning-colored text/icon foreground for use on normal
+	// backgrounds and surfaces. It is not intended as text on Warning fills.
 	WarningText Color
-	Danger      Color
-	DangerText  Color
+	// Danger is a danger/error-state fill. Pair it with Foreground for text on the
+	// fill; do not pair it with DangerText.
+	Danger Color
+	// DangerText is a danger-colored text/icon foreground for use on normal
+	// backgrounds and surfaces. It is not intended as text on Danger fills.
+	DangerText Color
 
-	MutedForeground    Color
+	// MutedForeground is low-emphasis readable text for secondary information.
+	MutedForeground Color
+	// DisabledForeground is low-contrast text for unavailable controls.
 	DisabledForeground Color
 
+	// Selection is the fill used behind selected text. Pair it with Foreground.
 	Selection Color
 
+	// Border is a subtle divider/border color.
 	Border Color
 }
 
