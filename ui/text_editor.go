@@ -393,11 +393,16 @@ func (h textEditorEventHandler) selectAll(ctx EventContext, intent Intent) Event
 }
 
 func (h textEditorEventHandler) copySelection(ctx EventContext, intent Intent) EventResult {
-	if _, ok := intent.(CopySelectionTextIntent); !ok {
+	copyIntent, ok := intent.(CopySelectionTextIntent)
+	if !ok {
 		return EventIgnored
 	}
 	if h.buffer.HasSelection() {
-		ctx.Copy(h.buffer.SelectedText())
+		text := h.buffer.SelectedText()
+		ctx.Copy(text)
+		if text != "" && copyIntent.OnCopied != nil {
+			copyIntent.OnCopied(text)
+		}
 	}
 	return EventHandled
 }

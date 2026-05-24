@@ -196,6 +196,23 @@ func TestSelectionAreaCopyCanBeOverridden(t *testing.T) {
 	assertCopies(t, h.backend, "override")
 }
 
+func TestSelectionAreaCopyIntentReportsCopiedText(t *testing.T) {
+	var copied string
+	h := newSelectionAreaHarness(t, ui.Size{Width: 10, Height: 1}, ui.Shortcuts{
+		Bindings: ui.ShortcutMap{
+			"Ctrl+c": ui.CopySelectionTextIntent{OnCopied: func(text string) { copied = text }},
+		},
+		Child: selectionAreaRoot(ui.Text{Value: "abcd"}),
+	})
+
+	h.drag(ui.Point{}, ui.Point{X: 4})
+	h.copy()
+	assertCopies(t, h.backend, "abcd")
+	if copied != "abcd" {
+		t.Fatalf("copied callback = %q, want selected text", copied)
+	}
+}
+
 func TestSelectionAreaMouseSelectionCopiesClippedVisibleText(t *testing.T) {
 	h := newSelectionAreaHarness(t, ui.Size{Width: 3, Height: 1}, selectionAreaRoot(ui.Text{
 		Value:    "abcdef",

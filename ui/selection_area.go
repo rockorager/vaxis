@@ -54,7 +54,7 @@ func (s *selectionAreaState) Build(BuildContext) Widget {
 				return s.selectAllText()
 			},
 			CopySelectionTextIntentType: func(ctx EventContext, intent Intent) EventResult {
-				return s.copySelection(ctx)
+				return s.copySelection(ctx, intent)
 			},
 		},
 		Child: child,
@@ -82,10 +82,15 @@ func (s *selectionAreaState) HandleEvent(ctx EventContext, ev Event) EventResult
 	return EventIgnored
 }
 
-func (s *selectionAreaState) copySelection(ctx EventContext) EventResult {
+func (s *selectionAreaState) copySelection(ctx EventContext, intent Intent) EventResult {
+	copyIntent, _ := intent.(CopySelectionTextIntent)
 	if s.hasSelection {
 		if area := s.areaRender(); area != nil {
-			ctx.Copy(area.SelectedText(s.anchor, s.extent, s.visibleOnly))
+			text := area.SelectedText(s.anchor, s.extent, s.visibleOnly)
+			ctx.Copy(text)
+			if text != "" && copyIntent.OnCopied != nil {
+				copyIntent.OnCopied(text)
+			}
 		}
 	}
 	return EventHandled

@@ -98,7 +98,11 @@ func (SelectAllTextIntent) IntentType() IntentType {
 }
 
 // CopySelectionTextIntent copies the current text selection.
-type CopySelectionTextIntent struct{}
+type CopySelectionTextIntent struct {
+	// OnCopied is called with the copied text after a non-empty selection is
+	// placed on the clipboard.
+	OnCopied func(string)
+}
 
 func (CopySelectionTextIntent) IntentType() IntentType {
 	return CopySelectionTextIntentType
