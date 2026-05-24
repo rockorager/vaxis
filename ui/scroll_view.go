@@ -19,6 +19,9 @@ const (
 // include hidden rows, while selections that start inside it initially use the
 // visible rows and expand as selection autoscroll moves the viewport.
 type ScrollView struct {
+	// Controller can be used to inspect and change the view's offset after it is
+	// mounted.
+	Controller *ScrollController
 	// Axis controls which direction is scrollable. The zero value is vertical.
 	Axis ScrollAxis
 	// Child is laid out at the viewport cross-axis size with unbounded space
@@ -38,13 +41,39 @@ type scrollViewState struct {
 }
 
 func (s *scrollViewState) Build(BuildContext) Widget {
+	w := s.Widget().(ScrollView)
+	s.attachController(w.Controller)
 	s.node.onChange = s.markNeedsFocusPaint
 	child := Focus(&s.node, scrollViewViewport{
 		State: s,
-		Axis:  s.Widget().(ScrollView).Axis,
-		Child: s.Widget().(ScrollView).Child,
+		Axis:  w.Axis,
+		Child: w.Child,
 	})
 	return scrollDefaultActions(s, child)
+}
+
+func (s *scrollViewState) DidUpdateWidget(old Widget) {
+	next := s.Widget().(ScrollView).Controller
+	prev := old.(ScrollView).Controller
+	if next == prev {
+		return
+	}
+	if prev != nil {
+		prev.detach(s)
+	}
+	s.attachController(next)
+}
+
+func (s *scrollViewState) Dispose() {
+	if c := s.Widget().(ScrollView).Controller; c != nil {
+		c.detach(s)
+	}
+}
+
+func (s *scrollViewState) attachController(c *ScrollController) {
+	if c != nil {
+		c.attach(s)
+	}
 }
 
 func (s *scrollViewState) markNeedsFocusPaint() {
@@ -99,9 +128,30 @@ func (s *scrollViewState) ScrollByLinesAxis(axis ScrollAxis, lines int) bool {
 	return false
 }
 
+func (s *scrollViewState) ScrollByLines(lines int) bool {
+	if r := s.renderObject(); r != nil {
+		return r.ScrollByLines(lines)
+	}
+	return false
+}
+
 func (s *scrollViewState) ScrollByPagesAxis(axis ScrollAxis, pages int) bool {
 	if r := s.renderObject(); r != nil && r.Axis == axis {
 		return r.ScrollByPages(pages)
+	}
+	return false
+}
+
+func (s *scrollViewState) ScrollByPages(pages int) bool {
+	if r := s.renderObject(); r != nil {
+		return r.ScrollByPages(pages)
+	}
+	return false
+}
+
+func (s *scrollViewState) ScrollToOffset(offset int) bool {
+	if r := s.renderObject(); r != nil {
+		return r.ScrollToOffset(offset)
 	}
 	return false
 }
@@ -113,11 +163,32 @@ func (s *scrollViewState) ScrollToStartAxis(axis ScrollAxis) bool {
 	return false
 }
 
+func (s *scrollViewState) ScrollToStart() bool {
+	if r := s.renderObject(); r != nil {
+		return r.ScrollToStart()
+	}
+	return false
+}
+
 func (s *scrollViewState) ScrollToEndAxis(axis ScrollAxis) bool {
 	if r := s.renderObject(); r != nil && r.Axis == axis {
 		return r.ScrollToEnd()
 	}
 	return false
+}
+
+func (s *scrollViewState) ScrollToEnd() bool {
+	if r := s.renderObject(); r != nil {
+		return r.ScrollToEnd()
+	}
+	return false
+}
+
+func (s *scrollViewState) ScrollMetrics() ScrollMetrics {
+	if r := s.renderObject(); r != nil {
+		return r.ScrollMetrics()
+	}
+	return ScrollMetrics{}
 }
 
 func (s *scrollViewState) scrollBy(delta int) EventResult {
