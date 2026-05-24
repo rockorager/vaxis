@@ -96,11 +96,11 @@ func TestDemoExampleCanNavigateAwayFromFocusedButton(t *testing.T) {
 	}
 }
 
-func TestDemoExampleCommandPaletteOpensFromCmdK(t *testing.T) {
+func TestDemoExampleCommandPaletteOpensFromAltK(t *testing.T) {
 	app := uitest.New(Demo{})
 	app.Pump(90, 20)
 
-	app.Send(vaxis.Key{Text: "k", Keycode: 'k', Modifiers: vaxis.ModSuper})
+	app.Send(vaxis.Key{Text: "k", Keycode: 'k', Modifiers: vaxis.ModAlt})
 	app.Pump(90, 20)
 	if !app.Contains("Search commands") || !app.Contains("Go to Table") || !app.Contains("Open the table demo page") {
 		t.Fatalf("command palette did not open: %q", app.Text())

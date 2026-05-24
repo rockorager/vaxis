@@ -167,9 +167,8 @@ func (s *DemoState) Build(ctx ui.BuildContext) ui.Widget {
 
 func (s *DemoState) shortcuts() map[string]ui.Intent {
 	bindings := map[string]ui.Intent{
-		"Alt+p":   ui.ToggleProfileOverlayIntent{},
-		"Super+k": demoCommandPalette,
-		"Meta+k":  demoCommandPalette,
+		"Alt+p": ui.ToggleProfileOverlayIntent{},
+		"Alt+k": demoCommandPalette,
 	}
 	if !s.palette && demoPages[s.page] != "terminal" {
 		bindings["q"] = demoQuitIntent
@@ -183,7 +182,7 @@ func (s *DemoState) header(theme ui.Theme) ui.Widget {
 	return ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStretch, Children: []ui.Widget{
 		ui.RichText{Spans: []ui.TextSpan{
 			{Text: "Vaxis UI demo", Style: ui.Style{Attribute: ui.AttrBold}},
-			{Text: "  —  Cmd+K commands, n/p pages, Tab focus, q quit"},
+			{Text: "  —  Alt+K commands, n/p pages, Tab focus, q quit"},
 		}},
 		ui.Flex{
 			Axis:               ui.Horizontal,
@@ -711,7 +710,7 @@ func (s *DemoState) terminalPage(theme ui.Theme) ui.Widget {
 			}}),
 		),
 		ui.SizedBox{Height: 1},
-		ui.Text{Value: "This page starts your shell in a PTY-backed terminal widget. Cmd+K still opens the command palette; page shortcuts are disabled here so shell input wins.", SoftWrap: true},
+		ui.Text{Value: "This page starts your shell in a PTY-backed terminal widget. Alt+K still opens the command palette; page shortcuts are disabled here so shell input wins.", SoftWrap: true},
 	}}
 }
 
