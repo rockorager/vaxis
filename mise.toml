@@ -10,15 +10,16 @@ VAXIS_UI_DEBUG = "dev"
 [tasks.check]
 description = "Run formatting checks and tests"
 run = [
-  "scripts/check-multiline-functions.sh",
   "scripts/gofumpt.sh",
-  "golangci-lint run ./...",
+  "golangci-lint custom",
+  "./out/custom-golangci-lint run ./...",
   "go test ./...",
 ]
 
 [tasks.fix]
 description = "Apply automatic lint fixes and format Go files"
 run = [
-  "golangci-lint run --fix ./... || true",
+  "golangci-lint custom",
+  "./out/custom-golangci-lint run --fix ./... || true",
   "gofumpt -w $(find . -name '*.go' -not -path './.git/*')",
 ]
