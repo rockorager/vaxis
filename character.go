@@ -12,7 +12,7 @@ type Character struct {
 // CharacterIterator streams extended-grapheme-cluster Characters from a string.
 type CharacterIterator struct {
 	input    string
-	grapheme uucode.GraphemeIterator
+	grapheme uucode.GraphemeWidthIterator
 	tabs     int
 }
 
@@ -20,7 +20,7 @@ type CharacterIterator struct {
 func NewCharacterIterator(s string) CharacterIterator {
 	return CharacterIterator{
 		input:    s,
-		grapheme: uucode.NewGraphemeIterator(s),
+		grapheme: uucode.NewGraphemeWidthIterator(s),
 	}
 }
 
@@ -40,7 +40,7 @@ func (it *CharacterIterator) Next() (Character, bool) {
 		it.tabs = 7
 		return Character{" ", 1}, true
 	}
-	return Character{cluster, uucode.StringWidth(cluster)}, true
+	return Character{cluster, g.Width}, true
 }
 
 // Converts a string into a slice of Characters suitable to assign to terminal cells
