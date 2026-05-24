@@ -5,4 +5,4 @@ destination: ./out
 plugins:
   - module: go.rockorager.dev/go-no-singleline-funcs
     import: go.rockorager.dev/go-no-singleline-funcs
-    version: v1.0.0
+    version: v1.1.0
