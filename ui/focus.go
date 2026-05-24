@@ -29,14 +29,19 @@ func (w FocusScope) CreateElement() element {
 
 type focusScopeElement struct {
 	elementBase
-	child element
+	child       element
+	autoFocused bool
 }
 
 func (e *focusScopeElement) Rebuild() {
 	w := e.widget.(FocusScope)
 	e.child = e.UpdateChild(e.child, w.Child, nil)
-	if w.AutoFocus && !e.owner.app.focusedWithin(e) {
+	if !w.AutoFocus {
+		e.autoFocused = false
+	}
+	if w.AutoFocus && (!e.autoFocused || w.Trap) && !e.owner.app.focusedWithin(e) {
 		e.owner.app.focusFirstWithin(e)
+		e.autoFocused = true
 	}
 }
 

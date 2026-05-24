@@ -26,15 +26,26 @@ type TextSpan struct {
 	Style Style
 	// OnPressed is called when the span is clicked.
 	OnPressed VoidCallback
+	// OnHover is called when the mouse moves over the span.
+	OnHover VoidCallback
+	// OnHoverExit is called when the mouse leaves the span.
+	OnHoverExit VoidCallback
+	// OnFocus is called when keyboard focus enters the span.
+	OnFocus func()
+	// OnFocusExit is called when keyboard focus leaves the span.
+	OnFocusExit func()
 }
 
 func (w RichText) CreateRenderObject(ctx BuildContext) RenderObject {
-	return &renderRichText{Spans: themedSpans(ctx, w.Spans), RawSpans: w.Spans, Options: w.options(), focusedIndex: elementFocusIndex}
+	return &renderRichText{Spans: themedSpans(ctx, w.Spans), RawSpans: w.Spans, Options: w.options(), focusedIndex: elementFocusIndex, hoveredSpan: -1}
 }
 
 func (w RichText) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
 	r := ro.(*renderRichText)
 	r.Spans, r.RawSpans, r.Options = themedSpans(ctx, w.Spans), w.Spans, w.options()
+	if r.hoveredSpan >= len(r.RawSpans) {
+		r.hoveredSpan = -1
+	}
 	r.MarkNeedsLayout()
 }
 
@@ -52,6 +63,7 @@ type renderRichText struct {
 	selection      TextSelection
 	selectionStyle Style
 	focusedIndex   int
+	hoveredSpan    int
 }
 
 func (r *renderRichText) Layout(ctx LayoutContext, c Constraints) {
@@ -94,6 +106,10 @@ func (r *renderRichText) HandleEvent(ctx EventContext, ev Event) EventResult {
 	if ctx.Phase() != TargetPhase && ctx.Phase() != BubblePhase {
 		return EventIgnored
 	}
+	if _, ok := ev.(hoverExit); ok {
+		r.exitHoveredSpan(ctx)
+		return EventIgnored
+	}
 	mouse, ok := ev.(Mouse)
 	if !ok {
 		key, ok := ev.(Key)
@@ -108,6 +124,9 @@ func (r *renderRichText) HandleEvent(ctx EventContext, ev Event) EventResult {
 		return EventHandled
 	}
 	if mouse.EventType != EventPress || mouse.Button != MouseLeftButton {
+		if mouse.EventType == EventMotion {
+			r.hoverSpanAtPoint(ctx, Point{X: mouse.Col, Y: mouse.Row})
+		}
 		return EventIgnored
 	}
 	span, ok := r.spanAtPoint(Point{X: mouse.Col, Y: mouse.Row})
@@ -143,7 +162,14 @@ func (r *renderRichText) SetFocusedIndex(index int) {
 	if r.focusedIndex == index {
 		return
 	}
+	oldSpan, oldOK := r.focusedSpan()
 	r.focusedIndex = index
+	if oldOK && oldSpan.OnFocusExit != nil {
+		oldSpan.OnFocusExit()
+	}
+	if span, ok := r.focusedSpan(); ok && span.OnFocus != nil {
+		span.OnFocus()
+	}
 	r.MarkNeedsPaint()
 }
 
@@ -173,11 +199,47 @@ func (r *renderRichText) focusedSpanIndex() int {
 }
 
 func (r *renderRichText) spanAtPoint(pt Point) (TextSpan, bool) {
-	pos, ok := r.positionAtPaintedCell(pt)
-	if !ok || pos.Span < 0 || pos.Span >= len(r.RawSpans) {
+	idx, ok := r.spanIndexAtPoint(pt)
+	if !ok {
 		return TextSpan{}, false
 	}
-	return r.RawSpans[pos.Span], true
+	return r.RawSpans[idx], true
+}
+
+func (r *renderRichText) spanIndexAtPoint(pt Point) (int, bool) {
+	pos, ok := r.positionAtPaintedCell(pt)
+	if !ok || pos.Span < 0 || pos.Span >= len(r.RawSpans) {
+		return -1, false
+	}
+	return pos.Span, true
+}
+
+func (r *renderRichText) hoverSpanAtPoint(ctx EventContext, pt Point) {
+	idx, ok := r.spanIndexAtPoint(pt)
+	if !ok {
+		r.exitHoveredSpan(ctx)
+		return
+	}
+	if idx != r.hoveredSpan {
+		r.exitHoveredSpan(ctx)
+		r.hoveredSpan = idx
+	}
+	span := r.RawSpans[idx]
+	if span.OnHover != nil {
+		span.OnHover(ctx)
+	}
+}
+
+func (r *renderRichText) exitHoveredSpan(ctx EventContext) {
+	idx := r.hoveredSpan
+	if idx < 0 || idx >= len(r.RawSpans) {
+		r.hoveredSpan = -1
+		return
+	}
+	r.hoveredSpan = -1
+	if cb := r.RawSpans[idx].OnHoverExit; cb != nil {
+		cb(ctx)
+	}
 }
 
 func paintTextLayoutFocusedSpan(p *Painter, off Offset, layout TextLayout, spanIndex int) {
@@ -254,7 +316,7 @@ func themedSpans(ctx BuildContext, spans []TextSpan) []TextSpan {
 		if span.OnPressed != nil && style.UnderlineStyle == UnderlineOff {
 			style.UnderlineStyle = UnderlineSingle
 		}
-		out[i] = TextSpan{Text: span.Text, Style: style, OnPressed: span.OnPressed}
+		out[i] = TextSpan{Text: span.Text, Style: style, OnPressed: span.OnPressed, OnHover: span.OnHover, OnHoverExit: span.OnHoverExit, OnFocus: span.OnFocus, OnFocusExit: span.OnFocusExit}
 	}
 	return out
 }

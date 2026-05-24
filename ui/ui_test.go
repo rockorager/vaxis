@@ -881,6 +881,19 @@ func TestAlignHitTestingUsesRelayoutOffset(t *testing.T) {
 	}
 }
 
+func TestAlignDoesNotHitTestOutsideChild(t *testing.T) {
+	pressed := false
+	app := ui.NewApp(ui.Stack{Alignment: ui.TopLeft, Children: []ui.Widget{
+		ui.Button{Label: "bottom", OnPressed: func(ctx ui.EventContext) { pressed = true }},
+		ui.Align{Alignment: ui.BottomRight, Child: ui.Button{Label: "top", OnPressed: func(ctx ui.EventContext) {}}},
+	}})
+	app.Pump(ui.Size{Width: 20, Height: 4})
+	app.Send(vaxis.Mouse{Col: 1, Row: 0, Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress})
+	if !pressed {
+		t.Fatal("expected click outside aligned child to pass through to lower stack child")
+	}
+}
+
 type offsetBox struct {
 	offset ui.Offset
 	child  ui.Widget

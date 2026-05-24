@@ -220,7 +220,9 @@ func (r *renderTerminal) Paint(p *ui.Painter, off ui.Offset) {
 	}
 }
 
-func (r *renderTerminal) HitTest(*ui.HitTestResult, ui.Point) bool { return true }
+func (r *renderTerminal) HitTest(*ui.HitTestResult, ui.Point) bool {
+	return true
+}
 
 func (r *renderTerminal) HandleEvent(ctx ui.EventContext, ev ui.Event) ui.EventResult {
 	if r.model == nil {
@@ -243,7 +245,9 @@ func (r *renderTerminal) HandleEvent(ctx ui.EventContext, ev ui.Event) ui.EventR
 	return ui.EventIgnored
 }
 
-func (r *renderTerminal) FocusableCount() int { return 1 }
+func (r *renderTerminal) FocusableCount() int {
+	return 1
+}
 
 func (r *renderTerminal) SetFocusedIndex(index int) {
 	focused := index >= 0

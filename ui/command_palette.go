@@ -518,13 +518,16 @@ func fuzzySelectList(controller *ScrollPaneController, width, height int, childr
 
 type fuzzySelectPositioner struct{ Child Widget }
 
-func (w fuzzySelectPositioner) WidgetChild() Widget { return w.Child }
+func (w fuzzySelectPositioner) WidgetChild() Widget {
+	return w.Child
+}
 
 func (w fuzzySelectPositioner) CreateRenderObject(BuildContext) RenderObject {
 	return &renderFuzzySelectPositioner{}
 }
 
-func (w fuzzySelectPositioner) UpdateRenderObject(BuildContext, RenderObject) {}
+func (w fuzzySelectPositioner) UpdateRenderObject(BuildContext, RenderObject) {
+}
 
 type renderFuzzySelectPositioner struct {
 	SingleChildRenderObject
@@ -569,6 +572,10 @@ func (r *renderFuzzySelectPositioner) Paint(p *Painter, off Offset) {
 	}
 }
 
-func (r *renderFuzzySelectPositioner) ChildOffset(RenderObject) Offset { return r.offset }
+func (r *renderFuzzySelectPositioner) ChildOffset(RenderObject) Offset {
+	return r.offset
+}
 
-func (r *renderFuzzySelectPositioner) HitTest(*HitTestResult, Point) bool { return false }
+func (r *renderFuzzySelectPositioner) HitTest(*HitTestResult, Point) bool {
+	return false
+}

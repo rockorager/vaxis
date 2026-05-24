@@ -88,6 +88,10 @@ func (r *renderAlign) HitTest(*HitTestResult, Point) bool {
 	return false
 }
 
+func (r *renderAlign) HitTestSelf(Point) bool {
+	return false
+}
+
 func alignChildConstraints(c Constraints) Constraints {
 	return Constraints{MaxWidth: c.MaxWidth, MaxHeight: c.MaxHeight}
 }

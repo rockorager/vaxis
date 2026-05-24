@@ -8,9 +8,11 @@ import (
 	"github.com/rockorager/go-uucode"
 )
 
-var benchmarkUucodeResult []string
-var benchmarkUucodeWidthResult int
-var benchmarkCharactersResult []vaxis.Character
+var (
+	benchmarkUucodeResult      []string
+	benchmarkUucodeWidthResult int
+	benchmarkCharactersResult  []vaxis.Character
+)
 
 func BenchmarkUucode(b *testing.B) {
 	const testString = "😀🔮🌏📝test string"
@@ -73,7 +75,7 @@ func BenchmarkUucode(b *testing.B) {
 }
 
 func BenchmarkCharacters(b *testing.B) {
-	const testString = "ASCII A\u0300 👩🏽‍🚀 🇨🇭 क्‍ष 한글 😀 _ end\twith tab"
+	const testString = "ASCII A\u0300 👩🏽\u200d🚀 🇨🇭 क्\u200dष 한글 😀 _ end\twith tab"
 
 	b.ReportAllocs()
 	for i := 0; i < b.N; i += 1 {

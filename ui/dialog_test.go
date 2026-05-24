@@ -43,6 +43,188 @@ func TestDialogTrapsFocusTraversal(t *testing.T) {
 	}
 }
 
+func TestDialogShownInModalOverlayTakesFocus(t *testing.T) {
+	state := &modalDialogFocusState{}
+	app := NewApp(modalDialogFocusApp{state: state})
+	app.Pump(Size{Width: 40, Height: 8})
+	if got := focusedDebugLabel(app); !strings.Contains(got, "Outside") {
+		t.Fatalf("initial focused label = %q, want Outside", got)
+	}
+	state.SetState(func() { state.show = true })
+	app.Pump(Size{Width: 40, Height: 8})
+	if got := focusedDebugLabel(app); !strings.Contains(got, "Cancel") {
+		t.Fatalf("focused label after showing modal = %q, want Cancel", got)
+	}
+	app.Send(vaxis.Key{Keycode: vaxis.KeyTab})
+	app.Pump(Size{Width: 40, Height: 8})
+	if got := focusedDebugLabel(app); !strings.Contains(got, "OK") {
+		t.Fatalf("focused label after Tab = %q, want OK", got)
+	}
+	app.Send(vaxis.Key{Keycode: vaxis.KeyTab})
+	app.Pump(Size{Width: 40, Height: 8})
+	if got := focusedDebugLabel(app); !strings.Contains(got, "Cancel") {
+		t.Fatalf("focused label after wrapped Tab = %q, want Cancel", got)
+	}
+}
+
+func TestDialogShownWhileFocusedChildRebuildsTakesFocus(t *testing.T) {
+	state := &modalDialogFocusState{rebuildOutside: true}
+	app := NewApp(modalDialogFocusApp{state: state})
+	app.Pump(Size{Width: 40, Height: 8})
+	if got := focusedDebugLabel(app); !strings.Contains(got, "Outside") {
+		t.Fatalf("initial focused label = %q, want Outside", got)
+	}
+	state.SetState(func() { state.show = true })
+	app.Pump(Size{Width: 40, Height: 8})
+	if got := focusedDebugLabel(app); !strings.Contains(got, "Cancel") {
+		t.Fatalf("focused label after showing modal = %q, want Cancel", got)
+	}
+}
+
+func TestDialogShownOverOuterFocusScopeTakesFocus(t *testing.T) {
+	state := &modalDialogFocusState{outerFocusScope: true}
+	app := NewApp(modalDialogFocusApp{state: state})
+	app.Pump(Size{Width: 40, Height: 8})
+	if got := focusedDebugLabel(app); !strings.Contains(got, "Outside") {
+		t.Fatalf("initial focused label = %q, want Outside", got)
+	}
+	state.SetState(func() { state.show = true })
+	app.Pump(Size{Width: 40, Height: 8})
+	if got := focusedDebugLabel(app); !strings.Contains(got, "Cancel") {
+		t.Fatalf("focused label after showing modal = %q, want Cancel", got)
+	}
+}
+
+func TestDialogReclaimsFocusWhenFocusEscapesTrap(t *testing.T) {
+	state := &modalDialogFocusState{}
+	app := NewApp(modalDialogFocusApp{state: state})
+	app.Pump(Size{Width: 40, Height: 8})
+	state.SetState(func() { state.show = true })
+	app.Pump(Size{Width: 40, Height: 8})
+	outside, ok := focusTargetContainingLabel(app, "Outside")
+	if !ok {
+		t.Fatal("Outside focus target not found")
+	}
+	app.setFocused(outside)
+	if got := focusedDebugLabel(app); !strings.Contains(got, "Outside") {
+		t.Fatalf("forced focused label = %q, want Outside", got)
+	}
+	state.SetState(func() {})
+	app.Pump(Size{Width: 40, Height: 8})
+	if got := focusedDebugLabel(app); !strings.Contains(got, "Cancel") {
+		t.Fatalf("focused label after dialog rebuild = %q, want Cancel", got)
+	}
+}
+
+func TestDialogReplacingFocusedModalTakesFocus(t *testing.T) {
+	state := &modalDialogReplacementState{}
+	app := NewApp(modalDialogReplacementApp{state: state})
+	app.Pump(Size{Width: 40, Height: 8})
+	if got := focusedDebugLabel(app); !strings.Contains(got, "Palette") {
+		t.Fatalf("initial focused label = %q, want Palette", got)
+	}
+	state.SetState(func() { state.showDialog = true })
+	app.Pump(Size{Width: 40, Height: 8})
+	if got := focusedDebugLabel(app); !strings.Contains(got, "Cancel") {
+		t.Fatalf("focused label after replacing modal = %q, want Cancel", got)
+	}
+}
+
+type modalDialogFocusApp struct {
+	state *modalDialogFocusState
+}
+
+func (w modalDialogFocusApp) CreateState() State {
+	w.state.StateBase = StateBase{}
+	return w.state
+}
+
+type modalDialogFocusState struct {
+	StateBase
+	show            bool
+	rebuildOutside  bool
+	outerFocusScope bool
+}
+
+func (s *modalDialogFocusState) Build(BuildContext) Widget {
+	entries := []OverlayEntry{}
+	if s.show {
+		entries = append(entries, OverlayEntry{
+			Modal: true,
+			Child: Dialog{
+				Title: "Confirm",
+				Actions: []Widget{
+					Button{Label: "Cancel"},
+					Button{Label: "OK"},
+				},
+			},
+		})
+	}
+	child := Widget(Button{Label: "Outside", OnPressed: func(EventContext) {}})
+	if s.rebuildOutside {
+		key := KeyValue("closed")
+		if s.show {
+			key = "open"
+		}
+		child = dialogFocusKeyedChild{Key: key, Child: child}
+	}
+	if s.outerFocusScope {
+		child = FocusScope{AutoFocus: true, Child: Focus(nil, child)}
+	}
+	return Overlay{Child: child, Entries: entries}
+}
+
+type dialogFocusKeyedChild struct {
+	Key   KeyValue
+	Child Widget
+}
+
+func (w dialogFocusKeyedChild) WidgetKey() KeyValue {
+	return w.Key
+}
+
+func (w dialogFocusKeyedChild) Build(BuildContext) Widget {
+	return w.Child
+}
+
+type modalDialogReplacementApp struct {
+	state *modalDialogReplacementState
+}
+
+func (w modalDialogReplacementApp) CreateState() State {
+	w.state.StateBase = StateBase{}
+	return w.state
+}
+
+type modalDialogReplacementState struct {
+	StateBase
+	showDialog bool
+}
+
+func (s *modalDialogReplacementState) Build(BuildContext) Widget {
+	child := Widget(FocusScope{
+		Trap:      true,
+		AutoFocus: true,
+		Child:     Button{Label: "Palette"},
+	})
+	if s.showDialog {
+		child = Dialog{
+			Title: "Confirm",
+			Actions: []Widget{
+				Button{Label: "Cancel"},
+				Button{Label: "OK"},
+			},
+		}
+	}
+	return Overlay{
+		Child: Button{Label: "Outside", OnPressed: func(EventContext) {}},
+		Entries: []OverlayEntry{{
+			Modal: true,
+			Child: child,
+		}},
+	}
+}
+
 func TestDialogEscapeDismisses(t *testing.T) {
 	dismissed := false
 	app := NewApp(Dialog{
@@ -164,4 +346,13 @@ func focusedDebugLabel(app *App) string {
 		}
 	}
 	return ""
+}
+
+func focusTargetContainingLabel(app *App, label string) (focusTarget, bool) {
+	for _, target := range app.focusables {
+		if strings.Contains(app.debugFocusLabel(target.element, target.index), label) {
+			return target, true
+		}
+	}
+	return focusTarget{}, false
 }

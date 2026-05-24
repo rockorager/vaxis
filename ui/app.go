@@ -4,30 +4,33 @@ import "time"
 
 // App owns a widget tree and dispatches events, layout, painting, and focus.
 type App struct {
-	build           *buildOwner
-	root            Widget
-	rootRO          RenderObject
-	size            Size
-	window          Resize
-	focusables      []focusTarget
-	focused         focusTarget
-	quit            bool
-	theme           Theme
-	themeSet        ThemeSet
-	hasThemeSet     bool
-	frameRequested  bool
-	mouseShape      MouseShape
-	mouseShapeDirty bool
-	mouseCapture    element
-	dispatch        func(func())
-	setTitle        func(string)
-	copyToClipboard func(string)
-	notify          func(string, string)
-	pendingFocus    []focusTarget
-	hoverPath       []element
-	animations      map[*AnimationController]struct{}
-	profileOverlay  bool
-	shortcuts       ShortcutMap
+	build                     *buildOwner
+	root                      Widget
+	rootRO                    RenderObject
+	size                      Size
+	window                    Resize
+	focusables                []focusTarget
+	focused                   focusTarget
+	quit                      bool
+	theme                     Theme
+	themeSet                  ThemeSet
+	hasThemeSet               bool
+	frameRequested            bool
+	mouseShape                MouseShape
+	mouseShapeDirty           bool
+	mouseCapture              element
+	dispatch                  func(func())
+	setTitle                  func(string)
+	copyToClipboard           func(string)
+	notify                    func(string, string)
+	pendingFocus              []focusTarget
+	pendingFocusFallback      bool
+	pendingFocusFallbackIndex int
+	pendingFocusFallbackLabel string
+	hoverPath                 []element
+	animations                map[*AnimationController]struct{}
+	profileOverlay            bool
+	shortcuts                 ShortcutMap
 }
 
 // NewApp creates an app mounted with root.
@@ -217,6 +220,7 @@ func (a *App) pumpProfiled(size Size) (build, layout time.Duration) {
 	}
 	start := time.Now()
 	a.build.BuildScope()
+	a.resolvePendingFocusFallback()
 	a.flushFocusNotifications()
 	a.rootRO = findRenderObject(a.build.Root())
 	build = time.Since(start)
@@ -472,7 +476,7 @@ func (a *App) registerFocusTarget(target focusTarget) {
 		}
 	}
 	a.focusables = append(a.focusables, target)
-	if a.focused.element == nil {
+	if a.focused.element == nil && !a.pendingFocusFallback {
 		a.setFocused(target)
 	}
 }
@@ -482,20 +486,56 @@ func (a *App) unregisterFocusable(e element) {
 }
 
 func (a *App) unregisterFocusTarget(target focusTarget) {
+	removed := -1
 	for i, existing := range a.focusables {
 		if existing == target {
 			a.focusables = append(a.focusables[:i], a.focusables[i+1:]...)
+			removed = i
 			break
 		}
 	}
 	if a.focused == target {
+		label := a.debugFocusLabel(target.element, target.index)
 		old := a.focused
 		a.focused = focusTarget{}
 		a.notifyFocusChanged(old)
+		if a.build.building {
+			a.pendingFocusFallback = true
+			if removed < 0 {
+				removed = 0
+			}
+			a.pendingFocusFallbackIndex = removed
+			a.pendingFocusFallbackLabel = label
+			return
+		}
 		if len(a.focusables) > 0 {
 			a.setFocused(a.focusables[0])
 		}
 	}
+}
+
+func (a *App) resolvePendingFocusFallback() {
+	if !a.pendingFocusFallback {
+		return
+	}
+	idx := a.pendingFocusFallbackIndex
+	label := a.pendingFocusFallbackLabel
+	a.pendingFocusFallback = false
+	a.pendingFocusFallbackIndex = 0
+	a.pendingFocusFallbackLabel = ""
+	if a.focused.element != nil || len(a.focusables) == 0 {
+		return
+	}
+	if label != "" {
+		for _, target := range a.focusables {
+			if a.debugFocusLabel(target.element, target.index) == label {
+				a.setFocused(target)
+				return
+			}
+		}
+	}
+	idx = clamp(idx, 0, len(a.focusables)-1)
+	a.setFocused(a.focusables[idx])
 }
 
 func (a *App) focusNext() {
@@ -671,6 +711,9 @@ func hitElement(e element, pt Point) []element {
 		return append([]element{e}, best...)
 	}
 	if ro != nil {
+		if h, ok := ro.(interface{ HitTestSelf(Point) bool }); ok && !h.HitTestSelf(pt) {
+			return nil
+		}
 		return []element{e}
 	}
 	return nil
