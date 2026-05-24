@@ -170,6 +170,13 @@ func (r *renderText) SetFocusedIndex(index int) {
 	r.MarkNeedsPaint()
 }
 
+func (r *renderText) FocusRect(index int) (Rect, bool) {
+	if index < 0 || r.OnPressed == nil {
+		return Rect{}, false
+	}
+	return textLayoutSpanRect(r.layout, 0)
+}
+
 func (r *renderText) hasPaintedCellAt(pt Point) bool {
 	if pt.Y < 0 || pt.Y >= len(r.layout.Lines) {
 		return false

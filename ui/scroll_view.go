@@ -278,6 +278,29 @@ func (r *renderScrollView) ScrollToEnd() bool {
 	return r.ScrollToOffset(r.maxScroll())
 }
 
+func (r *renderScrollView) RevealRect(rect Rect) bool {
+	if r.Axis == ScrollHorizontal {
+		return r.revealRange(rect.X, rect.X+rect.Width, r.Size().Width)
+	}
+	return r.revealRange(rect.Y, rect.Y+rect.Height, r.Size().Height)
+}
+
+func (r *renderScrollView) revealRange(start, end, viewport int) bool {
+	if viewport <= 0 {
+		return false
+	}
+	offset := r.scrollMainOffset()
+	switch {
+	case start < 0:
+		offset += start
+	case end > viewport:
+		offset += end - viewport
+	default:
+		return false
+	}
+	return r.ScrollToOffset(offset)
+}
+
 func (r *renderScrollView) pageSize() int {
 	if r.Axis == ScrollHorizontal {
 		return max(1, r.Size().Width)

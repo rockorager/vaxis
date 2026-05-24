@@ -173,6 +173,14 @@ func (r *renderRichText) SetFocusedIndex(index int) {
 	r.MarkNeedsPaint()
 }
 
+func (r *renderRichText) FocusRect(index int) (Rect, bool) {
+	spanIndex := r.focusedSpanIndexForFocusIndex(index)
+	if spanIndex < 0 {
+		return Rect{}, false
+	}
+	return textLayoutSpanRect(r.layout, spanIndex)
+}
+
 func (r *renderRichText) focusedSpan() (TextSpan, bool) {
 	idx := r.focusedSpanIndex()
 	if idx < 0 || idx >= len(r.RawSpans) {
@@ -182,7 +190,11 @@ func (r *renderRichText) focusedSpan() (TextSpan, bool) {
 }
 
 func (r *renderRichText) focusedSpanIndex() int {
-	if r.focusedIndex < 0 {
+	return r.focusedSpanIndexForFocusIndex(r.focusedIndex)
+}
+
+func (r *renderRichText) focusedSpanIndexForFocusIndex(index int) int {
+	if index < 0 {
 		return -1
 	}
 	focusable := 0
@@ -190,7 +202,7 @@ func (r *renderRichText) focusedSpanIndex() int {
 		if span.OnPressed == nil {
 			continue
 		}
-		if focusable == r.focusedIndex {
+		if focusable == index {
 			return i
 		}
 		focusable++

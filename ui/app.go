@@ -657,6 +657,41 @@ func (a *App) notifyFocusChanged(target focusTarget) {
 		}
 		ro.SetFocusedIndex(index)
 	}
+	if a.focused == target {
+		a.revealFocusedTarget(target)
+	}
+}
+
+func (a *App) revealFocusedTarget(target focusTarget) {
+	ro := findRenderObject(target.element)
+	if ro == nil {
+		return
+	}
+	rect := focusedRenderRect(ro, target.index)
+	for child, parent := ro, ro.Base().parent; parent != nil; child, parent = parent, parent.Base().parent {
+		if op, ok := parent.(ChildOffsetProvider); ok {
+			off := op.ChildOffset(child)
+			rect.X += off.X
+			rect.Y += off.Y
+		}
+		if scroll, ok := parent.(*renderScrollView); ok {
+			scroll.RevealRect(rect)
+		}
+	}
+}
+
+type focusRectProvider interface {
+	FocusRect(index int) (Rect, bool)
+}
+
+func focusedRenderRect(ro RenderObject, index int) Rect {
+	if provider, ok := ro.(focusRectProvider); ok {
+		if rect, ok := provider.FocusRect(index); ok {
+			return rect
+		}
+	}
+	size := ro.Base().Size()
+	return Rect{Width: size.Width, Height: size.Height}
 }
 
 func (a *App) deferFocusNotification(target focusTarget) {

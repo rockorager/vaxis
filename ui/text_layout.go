@@ -87,6 +87,37 @@ type textLayoutPaintOptions struct {
 	SelectionStyle Style
 }
 
+func textLayoutSpanRect(layout TextLayout, spanIndex int) (Rect, bool) {
+	if spanIndex < 0 {
+		return Rect{}, false
+	}
+	minX, minY := 0, 0
+	maxX, maxY := 0, 0
+	found := false
+	for y, line := range layout.Lines {
+		x := line.Offset
+		for _, cell := range line.Cells {
+			if cell.Position.Span == spanIndex {
+				if !found {
+					minX, maxX = x, x+cell.Width
+					minY, maxY = y, y+1
+					found = true
+				} else {
+					minX = min(minX, x)
+					maxX = max(maxX, x+cell.Width)
+					minY = min(minY, y)
+					maxY = max(maxY, y+1)
+				}
+			}
+			x += cell.Width
+		}
+	}
+	if !found {
+		return Rect{}, false
+	}
+	return Rect{X: minX, Y: minY, Width: max(1, maxX-minX), Height: max(1, maxY-minY)}, true
+}
+
 // LayoutText lays out styled text spans into terminal display lines.
 func LayoutText(spans []TextSpan, c Constraints, opts TextLayoutOptions) TextLayout {
 	maxWidth := c.MaxWidth

@@ -116,6 +116,26 @@ func TestScrollViewKeyboardScrolls(t *testing.T) {
 	}
 }
 
+func TestScrollViewRevealsFocusedRichTextSpan(t *testing.T) {
+	app := NewApp(SizedBox{Width: 10, Height: 2, Child: ScrollView{Child: RichText{Spans: []TextSpan{
+		{Text: "top", OnPressed: func(EventContext) {}},
+		{Text: "\nmid\n"},
+		{Text: "bottom", OnPressed: func(EventContext) {}},
+	}}}})
+	app.Pump(Size{Width: 10, Height: 2})
+
+	app.Send(Key{Keycode: vaxis.KeyTab})
+	app.Pump(Size{Width: 10, Height: 2})
+	app.Send(Key{Keycode: vaxis.KeyTab})
+	app.Pump(Size{Width: 10, Height: 2})
+
+	p := NewPainter(Size{Width: 10, Height: 2})
+	app.Paint(p)
+	if got := p.Cell(0, 1).Grapheme; got != "b" {
+		t.Fatalf("focused bottom link row = %q, want b", got)
+	}
+}
+
 func TestScrollViewScrollIntentCanBeInvokedByShortcut(t *testing.T) {
 	app := NewApp(Shortcuts{
 		Bindings: map[string]Intent{
