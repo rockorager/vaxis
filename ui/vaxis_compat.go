@@ -1,6 +1,6 @@
 package ui
 
-import "git.sr.ht/~rockorager/vaxis"
+import "go.rockorager.dev/vaxis"
 
 func vaxisCharacters(s string) []Character {
 	return vaxis.Characters(s)

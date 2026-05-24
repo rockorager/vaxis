@@ -3,9 +3,9 @@ package image_test
 import (
 	"testing"
 
-	"git.sr.ht/~rockorager/vaxis"
-	"git.sr.ht/~rockorager/vaxis/vxfw"
-	vxfwimage "git.sr.ht/~rockorager/vaxis/vxfw/image"
+	"go.rockorager.dev/vaxis"
+	"go.rockorager.dev/vaxis/vxfw"
+	vxfwimage "go.rockorager.dev/vaxis/vxfw/image"
 )
 
 type fakeImage struct {

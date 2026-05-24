@@ -1,8 +1,8 @@
 package vaxis
 
 import (
-	"git.sr.ht/~rockorager/vaxis/ansi"
-	"git.sr.ht/~rockorager/vaxis/log"
+	"go.rockorager.dev/vaxis/ansi"
+	"go.rockorager.dev/vaxis/log"
 )
 
 // Mouse is a mouse event

@@ -1,4 +1,4 @@
-module git.sr.ht/~rockorager/vaxis
+module go.rockorager.dev/vaxis
 
 go 1.21
 

@@ -1,7 +1,7 @@
 package term
 
 import (
-	"git.sr.ht/~rockorager/vaxis"
+	"go.rockorager.dev/vaxis"
 )
 
 type cursor struct {

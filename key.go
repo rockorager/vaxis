@@ -7,7 +7,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"git.sr.ht/~rockorager/vaxis/ansi"
+	"go.rockorager.dev/vaxis/ansi"
 )
 
 // Key is a key event. Codepoint can be either the literal codepoint of the

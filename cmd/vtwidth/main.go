@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"git.sr.ht/~rockorager/vaxis"
+	"go.rockorager.dev/vaxis"
 )
 
 type failure struct {

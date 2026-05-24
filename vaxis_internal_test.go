@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"git.sr.ht/~rockorager/vaxis/ansi"
+	"go.rockorager.dev/vaxis/ansi"
 )
 
 type queryResponseWriter struct {

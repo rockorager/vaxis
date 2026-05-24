@@ -3,8 +3,8 @@ package term
 import (
 	"testing"
 
-	"git.sr.ht/~rockorager/vaxis/ansi"
-	"git.sr.ht/~rockorager/vaxis/ui"
+	"go.rockorager.dev/vaxis/ansi"
+	"go.rockorager.dev/vaxis/ui"
 )
 
 func TestSnapshotReturnsVisibleCells(t *testing.T) {

@@ -6,10 +6,10 @@ import (
 	"strconv"
 	"strings"
 
-	"git.sr.ht/~rockorager/vaxis"
-	"git.sr.ht/~rockorager/vaxis/ansi"
-	"git.sr.ht/~rockorager/vaxis/log"
-	"git.sr.ht/~rockorager/vaxis/sixel"
+	"go.rockorager.dev/vaxis"
+	"go.rockorager.dev/vaxis/ansi"
+	"go.rockorager.dev/vaxis/log"
+	"go.rockorager.dev/vaxis/sixel"
 )
 
 func applySequence(vt *Model, seq ansi.Sequence) {

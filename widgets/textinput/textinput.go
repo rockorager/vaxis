@@ -5,7 +5,7 @@ import (
 	"strings"
 	"unicode"
 
-	"git.sr.ht/~rockorager/vaxis"
+	"go.rockorager.dev/vaxis"
 )
 
 const scrolloff = 4

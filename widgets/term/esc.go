@@ -3,7 +3,7 @@ package term
 import (
 	"slices"
 
-	"git.sr.ht/~rockorager/vaxis"
+	"go.rockorager.dev/vaxis"
 )
 
 func (vt *Model) setProtectedMode(mode protectedMode) {

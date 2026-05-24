@@ -1,6 +1,6 @@
 package main
 
-import "git.sr.ht/~rockorager/vaxis"
+import "go.rockorager.dev/vaxis"
 
 func main() {
 	vx, err := vaxis.New(vaxis.Options{})

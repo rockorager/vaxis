@@ -3,8 +3,8 @@ package main
 import (
 	"time"
 
-	"git.sr.ht/~rockorager/vaxis"
-	"git.sr.ht/~rockorager/vaxis/widgets/spinner"
+	"go.rockorager.dev/vaxis"
+	"go.rockorager.dev/vaxis/widgets/spinner"
 )
 
 func main() {

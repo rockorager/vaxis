@@ -3,7 +3,7 @@ package ui
 import (
 	"context"
 
-	"git.sr.ht/~rockorager/vaxis"
+	"go.rockorager.dev/vaxis"
 )
 
 // Backend is the runtime boundary between ui and a terminal implementation.

@@ -4,8 +4,8 @@ import (
 	"image"
 	"os"
 
-	"git.sr.ht/~rockorager/vaxis"
-	"git.sr.ht/~rockorager/vaxis/widgets/align"
+	"go.rockorager.dev/vaxis"
+	"go.rockorager.dev/vaxis/widgets/align"
 )
 
 func main() {

@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	"git.sr.ht/~rockorager/vaxis/log"
+	"go.rockorager.dev/vaxis/log"
 )
 
 func (vx *Vaxis) applyQuirks() {

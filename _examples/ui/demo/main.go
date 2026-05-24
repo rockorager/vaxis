@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"git.sr.ht/~rockorager/vaxis/ui"
-	"git.sr.ht/~rockorager/vaxis/widgets/term"
+	"go.rockorager.dev/vaxis/ui"
+	"go.rockorager.dev/vaxis/widgets/term"
 )
 
 func main() {

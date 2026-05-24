@@ -3,7 +3,7 @@ package main
 import (
 	"strconv"
 
-	"git.sr.ht/~rockorager/vaxis/ui"
+	"go.rockorager.dev/vaxis/ui"
 )
 
 func main() {

@@ -3,7 +3,7 @@ package vaxis
 import (
 	"testing"
 
-	"git.sr.ht/~rockorager/vaxis/ansi"
+	"go.rockorager.dev/vaxis/ansi"
 )
 
 func TestParseMouseEventHorizontalWheelButtons(t *testing.T) {

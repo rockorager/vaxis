@@ -3,7 +3,7 @@ package term
 import (
 	"testing"
 
-	"git.sr.ht/~rockorager/vaxis"
+	"go.rockorager.dev/vaxis"
 )
 
 func TestInputWithoutPtyDoesNotPanic(t *testing.T) {

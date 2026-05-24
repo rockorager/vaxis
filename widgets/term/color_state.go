@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"git.sr.ht/~rockorager/vaxis"
+	"go.rockorager.dev/vaxis"
 )
 
 type dynamicColor struct {

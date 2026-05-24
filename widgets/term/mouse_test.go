@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"git.sr.ht/~rockorager/vaxis"
+	"go.rockorager.dev/vaxis"
 )
 
 func TestMouseSGRFormatAloneDoesNotReport(t *testing.T) {

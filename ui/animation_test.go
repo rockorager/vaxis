@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"git.sr.ht/~rockorager/vaxis/ui"
+	"go.rockorager.dev/vaxis/ui"
 )
 
 type autoAnimationWidget struct {

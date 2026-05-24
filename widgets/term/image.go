@@ -3,7 +3,7 @@ package term
 import (
 	"image"
 
-	"git.sr.ht/~rockorager/vaxis"
+	"go.rockorager.dev/vaxis"
 )
 
 type Image struct {

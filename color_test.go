@@ -1,6 +1,6 @@
 package vaxis_test
 
-import "git.sr.ht/~rockorager/vaxis"
+import "go.rockorager.dev/vaxis"
 
 func ExampleRGBColor() {
 	vx, _ := vaxis.New(vaxis.Options{})

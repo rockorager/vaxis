@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"git.sr.ht/~rockorager/vaxis"
-	"git.sr.ht/~rockorager/vaxis/ui"
+	"go.rockorager.dev/vaxis"
+	"go.rockorager.dev/vaxis/ui"
 )
 
 type textAreaHarness struct{ value string }

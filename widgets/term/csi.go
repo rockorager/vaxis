@@ -3,8 +3,8 @@ package term
 import (
 	"slices"
 
-	"git.sr.ht/~rockorager/vaxis"
-	"git.sr.ht/~rockorager/vaxis/ansi"
+	"go.rockorager.dev/vaxis"
+	"go.rockorager.dev/vaxis/ansi"
 )
 
 // Returns a single parameter from a slice of parameters, or 0 if the slice is

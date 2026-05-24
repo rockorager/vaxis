@@ -14,11 +14,11 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"git.sr.ht/~rockorager/vaxis"
-	"git.sr.ht/~rockorager/vaxis/ansi"
-	"git.sr.ht/~rockorager/vaxis/log"
-	"git.sr.ht/~rockorager/vaxis/widgets/term/pty"
 	"github.com/rockorager/go-uucode"
+	"go.rockorager.dev/vaxis"
+	"go.rockorager.dev/vaxis/ansi"
+	"go.rockorager.dev/vaxis/log"
+	"go.rockorager.dev/vaxis/widgets/term/pty"
 )
 
 type (

@@ -4,8 +4,8 @@ package uitest
 import (
 	"strings"
 
-	"git.sr.ht/~rockorager/vaxis"
-	"git.sr.ht/~rockorager/vaxis/ui"
+	"go.rockorager.dev/vaxis"
+	"go.rockorager.dev/vaxis/ui"
 )
 
 // App wraps a ui.App with a fixed-size painter for tests.

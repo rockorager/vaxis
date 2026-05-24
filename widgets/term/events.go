@@ -1,6 +1,6 @@
 package term
 
-import "git.sr.ht/~rockorager/vaxis"
+import "go.rockorager.dev/vaxis"
 
 // EventBell is emitted when BEL is received
 type EventBell struct{}

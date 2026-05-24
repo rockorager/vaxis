@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	"git.sr.ht/~rockorager/vaxis"
+	"go.rockorager.dev/vaxis"
 )
 
 func TestRemovedWidgetNoLongerReceivesMouseEvents(t *testing.T) {

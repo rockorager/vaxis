@@ -3,8 +3,8 @@ package vxfw_test
 import (
 	"testing"
 
-	"git.sr.ht/~rockorager/vaxis"
-	"git.sr.ht/~rockorager/vaxis/vxfw"
+	"go.rockorager.dev/vaxis"
+	"go.rockorager.dev/vaxis/vxfw"
 )
 
 func TestWriteCellBoundsCheck(t *testing.T) {

@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"git.sr.ht/~rockorager/vaxis"
-	"git.sr.ht/~rockorager/vaxis/ui"
-	"git.sr.ht/~rockorager/vaxis/ui/uitest"
+	"go.rockorager.dev/vaxis"
+	"go.rockorager.dev/vaxis/ui"
+	"go.rockorager.dev/vaxis/ui/uitest"
 )
 
 type callbackIntent string

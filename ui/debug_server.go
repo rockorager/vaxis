@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"git.sr.ht/~rockorager/vaxis"
+	"go.rockorager.dev/vaxis"
 )
 
 func startDebugServer(app *App, dispatch func(func()), submitEvent func(Event), rendered func() (DebugRenderedSnapshot, bool), renderedText func() (string, bool), profile func() (DebugProfileSnapshot, bool)) (func(), error) {

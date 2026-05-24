@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"git.sr.ht/~rockorager/vaxis/ui"
+	"go.rockorager.dev/vaxis/ui"
 )
 
 type runtimeCaptureWidget struct{ Runtime *ui.Runtime }

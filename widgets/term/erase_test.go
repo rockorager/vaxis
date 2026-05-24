@@ -3,7 +3,7 @@ package term
 import (
 	"testing"
 
-	"git.sr.ht/~rockorager/vaxis/ansi"
+	"go.rockorager.dev/vaxis/ansi"
 )
 
 func TestEraseDisplayIgnoresInvalidParameters(t *testing.T) {

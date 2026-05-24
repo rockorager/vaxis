@@ -1,7 +1,7 @@
 package main
 
 import (
-	"git.sr.ht/~rockorager/vaxis"
+	"go.rockorager.dev/vaxis"
 )
 
 func main() {

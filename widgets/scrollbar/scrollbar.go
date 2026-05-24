@@ -1,6 +1,6 @@
 package scrollbar
 
-import "git.sr.ht/~rockorager/vaxis"
+import "go.rockorager.dev/vaxis"
 
 type Model struct {
 	// The character to display for the bar, defaults to '▐'

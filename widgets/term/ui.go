@@ -3,8 +3,8 @@ package term
 import (
 	"os/exec"
 
-	"git.sr.ht/~rockorager/vaxis"
-	"git.sr.ht/~rockorager/vaxis/ui"
+	"go.rockorager.dev/vaxis"
+	"go.rockorager.dev/vaxis/ui"
 )
 
 // Terminal adapts Model to the ui widget framework.

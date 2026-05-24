@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"git.sr.ht/~rockorager/vaxis"
-	"git.sr.ht/~rockorager/vaxis/log"
+	"go.rockorager.dev/vaxis"
+	"go.rockorager.dev/vaxis/log"
 )
 
 type Widget interface {
