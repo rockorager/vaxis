@@ -4,8 +4,6 @@ package ui
 type TextArea struct {
 	// Value is the current text. The widget does not mutate this field directly.
 	Value string
-	// CursorOffset moves the cursor to this grapheme offset and clears selection when non-nil.
-	CursorOffset *int
 	// Placeholder is shown when Value is empty and the area is not focused.
 	Placeholder string
 	// OnChanged is called with the next value after an edit.
@@ -18,7 +16,7 @@ type TextArea struct {
 	MinHeight int
 	// SoftWrap wraps long logical lines to the available width.
 	SoftWrap bool
-	// CursorOffset moves the cursor to a grapheme offset when non-nil.
+	// CursorOffset moves the cursor to a grapheme offset and clears selection when non-nil.
 	CursorOffset *int
 }
 
