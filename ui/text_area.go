@@ -4,6 +4,8 @@ package ui
 type TextArea struct {
 	// Value is the current text. The widget does not mutate this field directly.
 	Value string
+	// CursorOffset moves the cursor to this grapheme offset and clears selection when non-nil.
+	CursorOffset *int
 	// Placeholder is shown when Value is empty and the area is not focused.
 	Placeholder string
 	// OnChanged is called with the next value after an edit.
