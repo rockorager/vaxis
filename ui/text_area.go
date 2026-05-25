@@ -16,6 +16,8 @@ type TextArea struct {
 	MinHeight int
 	// SoftWrap wraps long logical lines to the available width.
 	SoftWrap bool
+	// CursorOffset moves the cursor to a grapheme offset when non-nil.
+	CursorOffset *int
 }
 
 func (w TextArea) CreateState() State {
@@ -33,6 +35,9 @@ type textAreaState struct {
 func (s *textAreaState) Build(ctx BuildContext) Widget {
 	w := s.Widget().(TextArea)
 	s.editor.SyncValue(w.Value)
+	if w.CursorOffset != nil {
+		s.editor.SetCursorOffset(*w.CursorOffset)
+	}
 	s.editor.SetFocusChange(s.MarkNeedsBuild)
 	theme := textFieldTheme(MustDepend[Theme](ctx))
 	padding := textAreaPadding(w, theme)
