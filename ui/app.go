@@ -26,6 +26,7 @@ type App struct {
 	pendingFocus              []focusTarget
 	pendingFocusFallback      bool
 	pendingFocusFallbackIndex int
+	pendingFocusFallbackID    string
 	pendingFocusFallbackLabel string
 	hoverPath                 []element
 	animations                map[*AnimationController]struct{}
@@ -487,7 +488,11 @@ func (a *App) unregisterFocusable(e element) {
 
 func (a *App) unregisterFocusTarget(target focusTarget) {
 	removed := -1
+	focusedIndex := -1
 	for i, existing := range a.focusables {
+		if existing == a.focused {
+			focusedIndex = i
+		}
 		if existing == target {
 			a.focusables = append(a.focusables[:i], a.focusables[i+1:]...)
 			removed = i
@@ -495,6 +500,7 @@ func (a *App) unregisterFocusTarget(target focusTarget) {
 		}
 	}
 	if a.focused == target {
+		id := debugFocusTargetID(debugElementID(target.element), target.index)
 		label := a.debugFocusLabel(target.element, target.index)
 		old := a.focused
 		a.focused = focusTarget{}
@@ -502,9 +508,13 @@ func (a *App) unregisterFocusTarget(target focusTarget) {
 		if a.build.building {
 			a.pendingFocusFallback = true
 			if removed < 0 {
+				removed = focusedIndex
+			}
+			if removed < 0 {
 				removed = 0
 			}
 			a.pendingFocusFallbackIndex = removed
+			a.pendingFocusFallbackID = id
 			a.pendingFocusFallbackLabel = label
 			return
 		}
@@ -519,12 +529,22 @@ func (a *App) resolvePendingFocusFallback() {
 		return
 	}
 	idx := a.pendingFocusFallbackIndex
+	id := a.pendingFocusFallbackID
 	label := a.pendingFocusFallbackLabel
 	a.pendingFocusFallback = false
 	a.pendingFocusFallbackIndex = 0
+	a.pendingFocusFallbackID = ""
 	a.pendingFocusFallbackLabel = ""
 	if a.focused.element != nil || len(a.focusables) == 0 {
 		return
+	}
+	if id != "" {
+		for _, target := range a.focusables {
+			if debugFocusTargetID(debugElementID(target.element), target.index) == id {
+				a.setFocused(target)
+				return
+			}
+		}
 	}
 	if label != "" {
 		for _, target := range a.focusables {

@@ -12,6 +12,9 @@ type Dialog struct {
 	Width int
 	// OnDismiss is called when Escape is pressed while focus is inside the dialog.
 	OnDismiss VoidCallback
+	// DisableFocusReclaim prevents the dialog from moving focus back to its first
+	// focusable child on every rebuild after the initial autofocus.
+	DisableFocusReclaim bool
 }
 
 func (w Dialog) CreateState() State {
@@ -66,8 +69,9 @@ func (s *dialogState) Build(ctx BuildContext) Widget {
 			},
 		},
 		Child: FocusScope{
-			Trap:      true,
-			AutoFocus: true,
+			Trap:         true,
+			AutoFocus:    true,
+			ReclaimFocus: !w.DisableFocusReclaim,
 			Child: DecoratedBox(
 				Decoration{
 					Style: Style{Foreground: theme.Foreground, Background: theme.SurfaceRaised},

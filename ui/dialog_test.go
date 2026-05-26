@@ -116,6 +116,24 @@ func TestDialogReclaimsFocusWhenFocusEscapesTrap(t *testing.T) {
 	}
 }
 
+func TestDialogCanDisableFocusReclaim(t *testing.T) {
+	state := &modalDialogFocusState{disableFocusReclaim: true}
+	app := NewApp(modalDialogFocusApp{state: state})
+	app.Pump(Size{Width: 40, Height: 8})
+	state.SetState(func() { state.show = true })
+	app.Pump(Size{Width: 40, Height: 8})
+	outside, ok := focusTargetContainingLabel(app, "Outside")
+	if !ok {
+		t.Fatal("Outside focus target not found")
+	}
+	app.setFocused(outside)
+	state.SetState(func() {})
+	app.Pump(Size{Width: 40, Height: 8})
+	if got := focusedDebugLabel(app); !strings.Contains(got, "Outside") {
+		t.Fatalf("focused label after dialog rebuild = %q, want Outside", got)
+	}
+}
+
 func TestDialogReplacingFocusedModalTakesFocus(t *testing.T) {
 	state := &modalDialogReplacementState{}
 	app := NewApp(modalDialogReplacementApp{state: state})
@@ -141,9 +159,10 @@ func (w modalDialogFocusApp) CreateState() State {
 
 type modalDialogFocusState struct {
 	StateBase
-	show            bool
-	rebuildOutside  bool
-	outerFocusScope bool
+	show                bool
+	rebuildOutside      bool
+	outerFocusScope     bool
+	disableFocusReclaim bool
 }
 
 func (s *modalDialogFocusState) Build(BuildContext) Widget {
@@ -152,7 +171,8 @@ func (s *modalDialogFocusState) Build(BuildContext) Widget {
 		entries = append(entries, OverlayEntry{
 			Modal: true,
 			Child: Dialog{
-				Title: "Confirm",
+				Title:               "Confirm",
+				DisableFocusReclaim: s.disableFocusReclaim,
 				Actions: []Widget{
 					Button{Label: "Cancel"},
 					Button{Label: "OK"},

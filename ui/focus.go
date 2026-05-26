@@ -19,6 +19,9 @@ type FocusScope struct {
 	// AutoFocus moves focus to the first descendant focus target after build
 	// when focus is outside the scope.
 	AutoFocus bool
+	// ReclaimFocus moves focus back into the scope on rebuild when focus is
+	// outside the scope after the initial autofocus.
+	ReclaimFocus bool
 	// Child is the scoped subtree.
 	Child Widget
 }
@@ -39,7 +42,11 @@ func (e *focusScopeElement) Rebuild() {
 	if !w.AutoFocus {
 		e.autoFocused = false
 	}
-	if w.AutoFocus && (!e.autoFocused || w.Trap) && !e.owner.app.focusedWithin(e) {
+	if w.AutoFocus && e.owner.app.focusedWithin(e) {
+		e.autoFocused = true
+		return
+	}
+	if w.AutoFocus && (!e.autoFocused || w.ReclaimFocus) && !e.owner.app.focusedWithin(e) {
 		e.owner.app.focusFirstWithin(e)
 		e.autoFocused = true
 	}
