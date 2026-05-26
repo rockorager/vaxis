@@ -18,6 +18,8 @@ type TextArea struct {
 	SoftWrap bool
 	// CursorOffset moves the cursor to a grapheme offset and clears selection when non-nil.
 	CursorOffset *int
+	// CursorShape overrides the cursor shape while focused. Zero uses CursorBeam.
+	CursorShape CursorStyle
 }
 
 func (w TextArea) CreateState() State {
@@ -60,6 +62,7 @@ func (s *textAreaState) Build(ctx BuildContext) Widget {
 			MinWidth:         textAreaMinWidth(w, theme) - padding.Left - padding.Right,
 			MinHeight:        textAreaMinHeight(w) - padding.Top - padding.Bottom,
 			SoftWrap:         w.SoftWrap,
+			CursorShape:      textAreaCursorShape(w),
 		}),
 	))
 	return s.editor.DefaultActions(s.handleOptions(w), child)
@@ -152,6 +155,13 @@ func textAreaMinHeight(w TextArea) int {
 	return 3
 }
 
+func textAreaCursorShape(w TextArea) CursorStyle {
+	if w.CursorShape != 0 {
+		return w.CursorShape
+	}
+	return CursorBeam
+}
+
 type textAreaView struct {
 	State            *textAreaState
 	Value            string
@@ -165,6 +175,7 @@ type textAreaView struct {
 	MinWidth         int
 	MinHeight        int
 	SoftWrap         bool
+	CursorShape      CursorStyle
 }
 
 func (w textAreaView) CreateRenderObject(BuildContext) RenderObject {
@@ -181,6 +192,7 @@ func (w textAreaView) CreateRenderObject(BuildContext) RenderObject {
 		MinWidth:         max(1, w.MinWidth),
 		MinHeight:        max(1, w.MinHeight),
 		SoftWrap:         w.SoftWrap,
+		CursorShape:      w.CursorShape,
 	}
 }
 
@@ -189,7 +201,7 @@ func (w textAreaView) UpdateRenderObject(_ BuildContext, ro RenderObject) {
 	if r.State != w.State || r.Value != w.Value || r.Placeholder != w.Placeholder || r.CursorOffset != w.CursorOffset ||
 		r.Selection != w.Selection || r.Focused != w.Focused || r.Style != w.Style || r.PlaceholderStyle != w.PlaceholderStyle ||
 		r.SelectionStyle != w.SelectionStyle ||
-		r.MinWidth != max(1, w.MinWidth) || r.MinHeight != max(1, w.MinHeight) || r.SoftWrap != w.SoftWrap {
+		r.MinWidth != max(1, w.MinWidth) || r.MinHeight != max(1, w.MinHeight) || r.SoftWrap != w.SoftWrap || r.CursorShape != w.CursorShape {
 		r.State = w.State
 		r.Value = w.Value
 		r.Placeholder = w.Placeholder
@@ -202,6 +214,7 @@ func (w textAreaView) UpdateRenderObject(_ BuildContext, ro RenderObject) {
 		r.MinWidth = max(1, w.MinWidth)
 		r.MinHeight = max(1, w.MinHeight)
 		r.SoftWrap = w.SoftWrap
+		r.CursorShape = w.CursorShape
 		r.MarkNeedsLayout()
 	}
 }
@@ -220,6 +233,7 @@ type renderTextArea struct {
 	MinWidth         int
 	MinHeight        int
 	SoftWrap         bool
+	CursorShape      CursorStyle
 	layout           TextLayout
 }
 
@@ -257,10 +271,10 @@ func (r *renderTextArea) Paint(p *Painter, off Offset) {
 	})
 	if r.Focused && r.Value != "" {
 		if row, col, ok := r.layout.CursorCell(r.cursorPosition(), TextCursorCellOptions{SoftWrap: r.SoftWrap, WrapWidth: size.Width}); ok {
-			p.ShowCursor(off.X+col-r.scrollCol(), off.Y+row-r.scrollRow(), CursorBeam)
+			p.ShowCursor(off.X+col-r.scrollCol(), off.Y+row-r.scrollRow(), r.CursorShape)
 		}
 	} else if r.Focused && r.Value == "" {
-		p.ShowCursor(off.X, off.Y, CursorBeam)
+		p.ShowCursor(off.X, off.Y, r.CursorShape)
 	}
 }
 

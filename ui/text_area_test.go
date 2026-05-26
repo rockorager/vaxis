@@ -55,6 +55,16 @@ func TestTextAreaEditsControlledMultilineValue(t *testing.T) {
 	}
 }
 
+func TestTextAreaCursorShapeCanBeOverridden(t *testing.T) {
+	app := ui.NewApp(ui.TextArea{Value: "a", CursorShape: ui.CursorBlock})
+	app.Pump(ui.Size{Width: 12, Height: 3})
+	p := ui.NewPainter(ui.Size{Width: 12, Height: 3})
+	app.Paint(p)
+	if cursor, ok := p.Cursor(); !ok || cursor.Shape != ui.CursorBlock {
+		t.Fatalf("cursor = %#v ok=%v, want block cursor", cursor, ok)
+	}
+}
+
 func TestTextAreaTextIntentCanBeInvokedByShortcut(t *testing.T) {
 	value := ""
 	app := ui.NewApp(ui.Shortcuts{
