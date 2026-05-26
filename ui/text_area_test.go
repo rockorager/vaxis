@@ -65,6 +65,19 @@ func TestTextAreaCursorShapeCanBeOverridden(t *testing.T) {
 	}
 }
 
+func TestTextAreaCanAutoFocus(t *testing.T) {
+	app := ui.NewApp(ui.Column(
+		ui.TextField{Value: "first"},
+		ui.TextArea{Value: "body", AutoFocus: true},
+	))
+	app.Pump(ui.Size{Width: 20, Height: 6})
+	p := ui.NewPainter(ui.Size{Width: 20, Height: 6})
+	app.Paint(p)
+	if cursor, ok := p.Cursor(); !ok || cursor.Row != 1 || cursor.Col != 6 {
+		t.Fatalf("cursor = %#v ok=%v, want text area cursor at 6,1", cursor, ok)
+	}
+}
+
 func TestTextAreaTextIntentCanBeInvokedByShortcut(t *testing.T) {
 	value := ""
 	app := ui.NewApp(ui.Shortcuts{

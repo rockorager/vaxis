@@ -20,6 +20,8 @@ type TextArea struct {
 	CursorOffset *int
 	// CursorShape overrides the cursor shape while focused. Zero uses CursorBeam.
 	CursorShape CursorStyle
+	// AutoFocus requests focus when the text area is mounted.
+	AutoFocus bool
 }
 
 func (w TextArea) CreateState() State {
@@ -65,6 +67,9 @@ func (s *textAreaState) Build(ctx BuildContext) Widget {
 			CursorShape:      textAreaCursorShape(w),
 		}),
 	))
+	if w.AutoFocus {
+		child = autoFocus{Child: child}
+	}
 	return s.editor.DefaultActions(s.handleOptions(w), child)
 }
 
