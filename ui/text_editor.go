@@ -91,6 +91,10 @@ func (s *textEditorState) SetCursorOffset(offset int) {
 	s.buffer.SetCursorOffset(offset)
 }
 
+func (s *textEditorState) SetSelection(selection TextSelection) bool {
+	return s.buffer.SetSelection(selection)
+}
+
 func (s *textEditorState) Selection() TextSelection {
 	return s.buffer.Selection()
 }

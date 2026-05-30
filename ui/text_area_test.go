@@ -217,6 +217,55 @@ func TestTextAreaExtendsAndPaintsSelection(t *testing.T) {
 	}
 }
 
+func TestTextAreaControlledSelection(t *testing.T) {
+	selection := ui.NewTextSelection(
+		ui.TextPosition{},
+		ui.TextPosition{ByteOffset: 2, RuneOffset: 2, GraphemeOffset: 2},
+	)
+	app := ui.NewApp(ui.TextArea{Value: "abcd", SoftWrap: true, Selection: &selection})
+	app.Pump(ui.Size{Width: 10, Height: 3})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyTab})
+	app.Pump(ui.Size{Width: 10, Height: 3})
+
+	p := ui.NewPainter(ui.Size{Width: 10, Height: 3})
+	app.Paint(p)
+	want := ui.DefaultTheme().Selection
+	if got := p.Cell(1, 0).Background; got != want {
+		t.Fatalf("selected first controlled cell background = %#v, want %#v", got, want)
+	}
+	if got := p.Cell(2, 0).Background; got != want {
+		t.Fatalf("selected second controlled cell background = %#v, want %#v", got, want)
+	}
+	if got := p.Cell(3, 0).Background; got == want {
+		t.Fatalf("unselected controlled cell background = %#v, should not be selection background", got)
+	}
+	if cursor, ok := p.Cursor(); !ok || cursor.Col != 3 || cursor.Row != 0 {
+		t.Fatalf("cursor after controlled selection = %#v ok=%v, want 3,0", cursor, ok)
+	}
+}
+
+func TestTextAreaControlledSelectionCanKeepCursorInsideSelection(t *testing.T) {
+	selection := ui.NewTextSelection(
+		ui.TextPosition{},
+		ui.TextPosition{ByteOffset: 1, RuneOffset: 1, GraphemeOffset: 1},
+	)
+	cursor := 0
+	app := ui.NewApp(ui.TextArea{Value: "abcd", SoftWrap: true, Selection: &selection, CursorOffset: &cursor})
+	app.Pump(ui.Size{Width: 10, Height: 3})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyTab})
+	app.Pump(ui.Size{Width: 10, Height: 3})
+
+	p := ui.NewPainter(ui.Size{Width: 10, Height: 3})
+	app.Paint(p)
+	want := ui.DefaultTheme().Selection
+	if got := p.Cell(1, 0).Background; got != want {
+		t.Fatalf("selected controlled cursor cell background = %#v, want %#v", got, want)
+	}
+	if cursor, ok := p.Cursor(); !ok || cursor.Col != 1 || cursor.Row != 0 {
+		t.Fatalf("cursor with controlled selection = %#v ok=%v, want 1,0", cursor, ok)
+	}
+}
+
 func TestTextAreaCopiesSelection(t *testing.T) {
 	now := time.Unix(10, 0)
 	backend := newFakeBackend(ui.Size{Width: 10, Height: 3})

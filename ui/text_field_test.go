@@ -601,6 +601,17 @@ func TestTextFieldSubmitsCurrentValue(t *testing.T) {
 	}
 }
 
+func TestTextFieldAutoFocusShowsCursor(t *testing.T) {
+	cursorOffset := 2
+	app := ui.NewApp(ui.TextField{Value: "ex", CursorOffset: &cursorOffset, AutoFocus: true})
+	app.Pump(ui.Size{Width: 10, Height: 1})
+	p := ui.NewPainter(ui.Size{Width: 10, Height: 1})
+	app.Paint(p)
+	if cursor, ok := p.Cursor(); !ok || cursor.Col != 3 || cursor.Row != 0 {
+		t.Fatalf("cursor = %#v ok=%v, want focused text field cursor", cursor, ok)
+	}
+}
+
 func TestTextFieldIgnoresKeyRelease(t *testing.T) {
 	h := &textFieldHarness{}
 	submitted := false

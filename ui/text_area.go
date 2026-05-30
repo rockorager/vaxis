@@ -18,6 +18,8 @@ type TextArea struct {
 	SoftWrap bool
 	// CursorOffset moves the cursor to a grapheme offset and clears selection when non-nil.
 	CursorOffset *int
+	// Selection sets the active selection and cursor when non-nil.
+	Selection *TextSelection
 	// CursorShape overrides the cursor shape while focused. Zero uses CursorBeam.
 	CursorShape CursorStyle
 	// AutoFocus requests focus when the text area is mounted.
@@ -39,7 +41,9 @@ type textAreaState struct {
 func (s *textAreaState) Build(ctx BuildContext) Widget {
 	w := s.Widget().(TextArea)
 	s.editor.SyncValue(w.Value)
-	if w.CursorOffset != nil {
+	if w.Selection != nil {
+		s.editor.SetSelection(*w.Selection)
+	} else if w.CursorOffset != nil {
 		s.editor.SetCursorOffset(*w.CursorOffset)
 	}
 	s.editor.SetFocusChange(s.MarkNeedsBuild)
@@ -55,7 +59,7 @@ func (s *textAreaState) Build(ctx BuildContext) Widget {
 			State:            s,
 			Value:            s.editor.Text(),
 			Placeholder:      w.Placeholder,
-			CursorOffset:     s.editor.CursorOffset(),
+			CursorOffset:     textAreaCursorOffset(w, s.editor.CursorOffset()),
 			Selection:        s.editor.Selection(),
 			Focused:          s.editor.HasFocus(),
 			Style:            style,
@@ -158,6 +162,13 @@ func textAreaMinHeight(w TextArea) int {
 		return w.MinHeight
 	}
 	return 3
+}
+
+func textAreaCursorOffset(w TextArea, fallback int) int {
+	if w.CursorOffset != nil {
+		return *w.CursorOffset
+	}
+	return fallback
 }
 
 func textAreaCursorShape(w TextArea) CursorStyle {

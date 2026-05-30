@@ -19,6 +19,10 @@ type TextField struct {
 	MinWidth int
 	// ObscureText hides the displayed value, useful for password-style fields.
 	ObscureText bool
+	// CursorOffset moves the cursor to a grapheme offset and clears selection when non-nil.
+	CursorOffset *int
+	// AutoFocus requests focus when the text field is mounted.
+	AutoFocus bool
 }
 
 func (w TextField) CreateState() State {
@@ -34,6 +38,9 @@ type textFieldState struct {
 func (s *textFieldState) Build(ctx BuildContext) Widget {
 	w := s.Widget().(TextField)
 	s.editor.SyncValue(w.Value)
+	if w.CursorOffset != nil {
+		s.editor.SetCursorOffset(*w.CursorOffset)
+	}
 	s.editor.SetFocusChange(s.MarkNeedsBuild)
 	chars := vaxisCharacters(s.editor.Text())
 	cursor := s.editor.CursorOffset()
@@ -56,6 +63,9 @@ func (s *textFieldState) Build(ctx BuildContext) Widget {
 		Decoration{Style: style},
 		Padding(padding, content),
 	)})
+	if w.AutoFocus {
+		child = autoFocus{Child: child}
+	}
 	return s.editor.DefaultActions(s.handleOptions(w), child)
 }
 
