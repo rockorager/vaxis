@@ -123,6 +123,8 @@ func (s *customScrollViewState) HandleEvent(ctx EventContext, ev Event) EventRes
 			return EventIgnored
 		}
 		switch ev.Button {
+		default:
+			return EventIgnored
 		case MouseWheelUp:
 			return s.scrollBy(-1)
 		case MouseWheelDown:
@@ -1181,6 +1183,8 @@ func (r *renderSliverListBuilder) ScrollToIndex(index int, align ScrollAlign) bo
 	target := childOffset + offset
 	metrics := parent.ScrollMetrics()
 	switch align {
+	default:
+		// ScrollAlignStart uses the current target.
 	case ScrollAlignCenter:
 		target += extent/2 - metrics.ViewportHeight/2
 	case ScrollAlignEnd:
@@ -1412,6 +1416,8 @@ func pendingSliverRevealCorrection(pending pendingSliverReveal, model sliverExte
 	extent := model.ExtentForIndex(pending.Index)
 	viewport := max(0, min(c.ViewportHeight, c.RemainingPaintExtent))
 	switch pending.Align {
+	default:
+		// ScrollAlignStart uses the current target.
 	case ScrollAlignCenter:
 		target += extent/2 - viewport/2
 	case ScrollAlignEnd:

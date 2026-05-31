@@ -78,6 +78,8 @@ func (w *writer) writeExplicitWidth(width int, grapheme string) {
 
 func (w *writer) writeUnderlineStyle(style UnderlineStyle) {
 	switch style {
+	default:
+		// Encode below.
 	case UnderlineOff:
 		_, _ = w.WriteString(underlineReset)
 		return

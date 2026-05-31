@@ -736,6 +736,8 @@ func (r *renderSliverTableBuilder) ScrollToRow(row int, align ScrollAlign) bool 
 	target := parent.SelectionChildOffset(r).Y + offset
 	metrics := parent.ScrollMetrics()
 	switch align {
+	default:
+		// ScrollAlignStart uses the current target.
 	case ScrollAlignCenter:
 		target += extent/2 - metrics.ViewportHeight/2
 	case ScrollAlignEnd:

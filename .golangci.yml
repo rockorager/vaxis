@@ -2,8 +2,11 @@ version: "2"
 
 linters:
   enable:
+    - exhaustive
     - nosinglelinefunc
   settings:
+    exhaustive:
+      default-signifies-exhaustive: true
     custom:
       nosinglelinefunc:
         type: module

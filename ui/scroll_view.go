@@ -96,6 +96,8 @@ func (s *scrollViewState) HandleEvent(ctx EventContext, ev Event) EventResult {
 			return EventIgnored
 		}
 		switch ev.Button {
+		default:
+			return EventIgnored
 		case MouseWheelUp:
 			if r := s.renderObject(); r != nil && r.Axis == ScrollHorizontal {
 				return EventIgnored

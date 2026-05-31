@@ -79,6 +79,8 @@ func (s *scrollPaneState) HandleEvent(ctx EventContext, ev Event) EventResult {
 		}
 		if r := s.renderObject(); r != nil {
 			switch ev.Button {
+			default:
+				return EventIgnored
 			case MouseWheelUp:
 				r.ScrollByLinesAxis(ScrollVertical, -1)
 				return EventHandled

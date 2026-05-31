@@ -426,6 +426,8 @@ func (vt *Model) setSemanticPromptContent(kind semanticPromptKind) {
 	}
 	rowPrompt := semanticPromptPrimary
 	switch kind {
+	default:
+		// Use primary prompt.
 	case semanticPromptKindContinuation, semanticPromptKindSecondary:
 		rowPrompt = semanticPromptContinuation
 	}
@@ -451,6 +453,8 @@ func (vt *Model) markSemanticContinuation() {
 		return
 	}
 	switch vt.cursor.semanticContent {
+	default:
+		return
 	case semanticPromptContent, semanticInput:
 		vt.activeScreen.row(vt.cursor.row).semanticPrompt = semanticPromptContinuation
 	}
@@ -550,6 +554,8 @@ func parseConEmuProgress(val string) (EventProgress, bool) {
 	}
 
 	switch progress.State {
+	default:
+		// Parse explicit progress below.
 	case ProgressRemove, ProgressIndeterminate:
 		return progress, true
 	}

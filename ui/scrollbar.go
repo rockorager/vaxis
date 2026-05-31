@@ -89,6 +89,8 @@ func (s *scrollbarState) HandleEvent(ctx EventContext, ev Event) EventResult {
 		return EventIgnored
 	}
 	switch mouse.EventType {
+	default:
+		return EventIgnored
 	case EventPress:
 		if mouse.Button != MouseLeftButton || !r.scrollbarHit(mouse) {
 			return EventIgnored

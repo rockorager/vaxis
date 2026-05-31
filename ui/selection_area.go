@@ -109,6 +109,8 @@ func (s *selectionAreaState) selectAllText() EventResult {
 
 func (s *selectionAreaState) handleMouse(ctx EventContext, mouse Mouse) EventResult {
 	switch mouse.EventType {
+	default:
+		return EventIgnored
 	case EventPress:
 		if mouse.Button != MouseLeftButton {
 			return EventIgnored

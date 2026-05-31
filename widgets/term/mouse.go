@@ -14,6 +14,8 @@ func (vt *Model) handleMouse(msg vaxis.Mouse) string {
 			// Translate wheel motion into arrows up and down
 			// 3x rows
 			switch msg.Button {
+			default:
+				return ""
 			case vaxis.MouseWheelUp:
 				vt.clearSelectionLocked()
 				return "\x1bOA\x1bOA\x1bOA"
@@ -51,6 +53,10 @@ func (vt *Model) handleMouse(msg vaxis.Mouse) string {
 	legacyRelease := vt.mode.mouseFormat != mouseFormatSGR && vt.mode.mouseFormat != mouseFormatSGRPixels
 	button := vt.mouseButtonCode(msg, legacyRelease)
 	switch vt.mode.mouseFormat {
+	default:
+		// Use legacy encoding.
+	case mouseFormatX10, mouseFormatUTF8:
+		// Use legacy encoding.
 	case mouseFormatSGR:
 		switch msg.EventType {
 		case vaxis.EventMotion:

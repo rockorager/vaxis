@@ -97,6 +97,8 @@ func (d *Dynamic) HandleEvent(ev vaxis.Event, ph vxfw.EventPhase) (vxfw.Command,
 	switch ev := ev.(type) {
 	case vaxis.Mouse:
 		switch ev.Button {
+		default:
+			return nil, nil
 		case vaxis.MouseWheelDown:
 			d.scroll.pending += 3
 			return vxfw.ConsumeAndRedraw(), nil
