@@ -22,6 +22,44 @@ func TestSnapshotReturnsVisibleCells(t *testing.T) {
 	}
 }
 
+func TestWriteStringParsesTerminalOutput(t *testing.T) {
+	vt := New()
+	vt.resize(5, 2)
+	vt.WriteString("hi\x1b[2;3Hok")
+
+	snapshot := vt.Snapshot()
+	cellAt := func(col, row int) string {
+		for _, cell := range snapshot.Cells {
+			if cell.Col == col && cell.Row == row {
+				return cell.Cell.Grapheme
+			}
+		}
+		return ""
+	}
+	if got := cellAt(0, 0) + cellAt(1, 0); got != "hi" {
+		t.Fatalf("first text = %q, want hi", got)
+	}
+	if got := cellAt(2, 1) + cellAt(3, 1); got != "ok" {
+		t.Fatalf("cursor-positioned text = %q, want ok", got)
+	}
+}
+
+func TestWriteParsesTerminalOutput(t *testing.T) {
+	vt := New()
+	vt.resize(5, 1)
+	n, err := vt.Write([]byte("a\x1b[3Gb"))
+	if err != nil {
+		t.Fatalf("Write error = %v", err)
+	}
+	if n != len("a\x1b[3Gb") {
+		t.Fatalf("Write count = %d, want %d", n, len("a\x1b[3Gb"))
+	}
+
+	if got, want := vt.String(), "a b  "; got != want {
+		t.Fatalf("screen = %q, want %q", got, want)
+	}
+}
+
 func TestTerminalWidgetPaintsModelSnapshot(t *testing.T) {
 	vt := New()
 	vt.resize(5, 2)

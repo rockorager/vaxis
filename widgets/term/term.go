@@ -1,6 +1,7 @@
 package term
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -424,24 +425,27 @@ func (vt *Model) String() string {
 	return vt.activeScreen.String()
 }
 
-// WriteString applies printable text to the terminal model.
+// Write applies terminal output to the terminal model.
+//
+// This is useful for embedding an in-memory terminal model in tests or demos.
+// PTY-backed terminals should normally receive output through Start/StartWithSize.
+func (vt *Model) Write(p []byte) (int, error) {
+	parser := ansi.NewParser(bytes.NewReader(p), ansi.ParserModeOutput)
+	for {
+		seq := <-parser.Next()
+		if _, ok := seq.(ansi.EOF); ok {
+			return len(p), nil
+		}
+		vt.update(seq)
+	}
+}
+
+// WriteString applies terminal output to the terminal model.
 //
 // This is useful for embedding an in-memory terminal model in tests or demos.
 // PTY-backed terminals should normally receive output through Start/StartWithSize.
 func (vt *Model) WriteString(s string) {
-	for len(s) > 0 {
-		r, size := utf8.DecodeRuneInString(s)
-		if r == utf8.RuneError && size == 0 {
-			return
-		}
-		s = s[size:]
-		if r < 0x20 {
-			vt.update(ansi.C0(r))
-			continue
-		}
-		grapheme := string(r)
-		vt.update(ansi.Print{Grapheme: grapheme, Width: uucode.StringWidth(grapheme)})
-	}
+	_, _ = vt.Write([]byte(s))
 }
 
 func (vt *Model) maxScrollOffset() int {
