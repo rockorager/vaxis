@@ -60,6 +60,29 @@ func TestWriteParsesTerminalOutput(t *testing.T) {
 	}
 }
 
+func TestRowsReturnVisibleTextByRow(t *testing.T) {
+	vt := New()
+	vt.resize(5, 2)
+	vt.WriteString("one\r\ntwo")
+
+	if got, want := vt.RowString(0), "one  "; got != want {
+		t.Fatalf("row 0 = %q, want %q", got, want)
+	}
+	if got, want := vt.RowString(1), "two  "; got != want {
+		t.Fatalf("row 1 = %q, want %q", got, want)
+	}
+	if got := vt.RowString(2); got != "" {
+		t.Fatalf("out-of-range row = %q, want empty", got)
+	}
+	rows := vt.Rows()
+	if len(rows) != 2 {
+		t.Fatalf("Rows len = %d, want 2", len(rows))
+	}
+	if rows[0] != "one  " || rows[1] != "two  " {
+		t.Fatalf("Rows = %#v, want one/two", rows)
+	}
+}
+
 func TestTerminalWidgetPaintsModelSnapshot(t *testing.T) {
 	vt := New()
 	vt.resize(5, 2)

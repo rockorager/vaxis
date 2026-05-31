@@ -425,6 +425,34 @@ func (vt *Model) String() string {
 	return vt.activeScreen.String()
 }
 
+// RowString returns the visible text for one viewport row. Out-of-range rows
+// return an empty string. Empty cells are returned as spaces.
+func (vt *Model) RowString(row int) string {
+	vt.mu.Lock()
+	defer vt.mu.Unlock()
+	return cellLineString(vt.visibleLine(row))
+}
+
+// Rows returns the visible viewport text split into rows. Empty cells are
+// returned as spaces.
+func (vt *Model) Rows() []string {
+	vt.mu.Lock()
+	defer vt.mu.Unlock()
+	rows := make([]string, vt.height())
+	for row := range rows {
+		rows[row] = cellLineString(vt.visibleLine(row))
+	}
+	return rows
+}
+
+func cellLineString(line []cell) string {
+	str := strings.Builder{}
+	for col := range line {
+		_, _ = str.WriteString(line[col].rune())
+	}
+	return str.String()
+}
+
 // Write applies terminal output to the terminal model.
 //
 // This is useful for embedding an in-memory terminal model in tests or demos.

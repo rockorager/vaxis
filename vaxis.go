@@ -95,6 +95,18 @@ type Options struct {
 	// EnableSGRPixels provides pixel level precision of mouse movement. This has
 	// no effect if DisableMouse is true
 	EnableSGRPixels bool
+
+	// PrimaryScreen enables primary-screen rendering. When set, Vaxis does not
+	// enter the alternate screen. Window returns a live region surface, and
+	// Append queues output to be written immediately before that region on the
+	// next Render.
+	PrimaryScreen *PrimaryScreenOptions
+}
+
+// PrimaryScreenOptions configures primary-screen rendering.
+type PrimaryScreenOptions struct {
+	// RegionHeight is the height of the live region.
+	RegionHeight int
 }
 
 type CSIuBitMask int
@@ -116,6 +128,7 @@ type Vaxis struct {
 	tw               *writer
 	screenNext       *screen
 	screenLast       *screen
+	primaryScreen    *primaryScreen
 	graphicsNext     []*placement
 	graphicsLast     []*placement
 	mouseShapeNext   MouseShape
@@ -164,8 +177,17 @@ type Vaxis struct {
 	noSignals bool
 }
 
+type primaryScreen struct {
+	regionHeight int
+	append       []string
+	rendered     bool
+	resized      bool
+	visualRows   int
+}
+
 // New creates a new [Vaxis] instance. Calling New will query the underlying
-// terminal for supported features and enter the alternate screen
+// terminal for supported features and enter the alternate screen unless
+// primary-screen rendering is enabled.
 func New(opts Options) (*Vaxis, error) {
 	switch os.Getenv("VAXIS_LOG_LEVEL") {
 	case "trace":
@@ -194,6 +216,12 @@ func New(opts Options) (*Vaxis, error) {
 	var err error
 	vx := &Vaxis{
 		kittyFlags: kittyKeyboardFlags(opts),
+	}
+	if opts.PrimaryScreen != nil {
+		if opts.PrimaryScreen.RegionHeight <= 0 {
+			return nil, fmt.Errorf("primary screen region height must be positive")
+		}
+		vx.primaryScreen = &primaryScreen{regionHeight: opts.PrimaryScreen.RegionHeight}
 	}
 
 	if opts.EventQueueSize < 1 {
@@ -339,7 +367,9 @@ outer:
 		}
 	}
 
-	vx.enterAltScreen()
+	if vx.primaryScreen == nil {
+		vx.enterAltScreen()
+	}
 	vx.enableModes()
 	if !vx.noSignals {
 		vx.setupSignals()
@@ -374,8 +404,9 @@ outer:
 		vx.graphicsProtocol = halfBlock
 	}
 	vx.mu.Lock()
-	vx.screenNext.resize(ws.Cols, ws.Rows)
-	vx.screenLast.resize(ws.Cols, ws.Rows)
+	cols, rows := vx.surfaceSize(ws)
+	vx.screenNext.resize(cols, rows)
+	vx.screenLast.resize(cols, rows)
 	vx.winSize = ws
 	vx.ready = true
 	vx.mu.Unlock()
@@ -457,24 +488,78 @@ func (vx *Vaxis) Close() {
 	log.Info("Cached characters: %d", len(vx.charCache))
 }
 
+func (vx *Vaxis) surfaceSize(size Resize) (cols int, rows int) {
+	if vx.primaryScreen == nil {
+		return size.Cols, size.Rows
+	}
+	return size.Cols, min(vx.primaryScreen.regionHeight, size.Rows)
+}
+
 // Resize applies a resize event to Vaxis' internal screen buffers. Applications
 // should call this when handling a [Resize] event before drawing the next frame.
 func (vx *Vaxis) Resize(size Resize) {
 	vx.mu.Lock()
 	defer vx.mu.Unlock()
-	if size.Cols != vx.winSize.Cols || size.Rows != vx.winSize.Rows {
-		vx.screenNext.resize(size.Cols, size.Rows)
-		vx.screenLast.resize(size.Cols, size.Rows)
+	cols, rows := vx.surfaceSize(size)
+	oldCols, oldRows := vx.screenNext.size()
+	if cols != oldCols || rows != oldRows {
+		if vx.primaryScreen != nil && vx.primaryScreen.rendered {
+			vx.primaryScreen.visualRows = vx.primaryVisualRowsForWidth(cols)
+		}
+		vx.screenNext.resize(cols, rows)
+		vx.screenLast.resize(cols, rows)
+		if vx.primaryScreen != nil && vx.primaryScreen.rendered {
+			vx.primaryScreen.resized = true
+		}
 	}
 	vx.winSize = size
 	vx.refresh = true
+}
+
+// Append queues terminal output to be written before the primary-screen live
+// region during the next Render. Append panics unless Vaxis was created with
+// PrimaryScreen options.
+func (vx *Vaxis) Append(p []byte) {
+	vx.AppendString(string(p))
+}
+
+// AppendString queues terminal output to be written before the primary-screen
+// live region during the next Render. AppendString panics unless Vaxis was
+// created with PrimaryScreen options.
+func (vx *Vaxis) AppendString(s string) {
+	vx.mu.Lock()
+	defer vx.mu.Unlock()
+	if vx.primaryScreen == nil {
+		panic("vaxis: AppendString called outside primary screen mode")
+	}
+	vx.primaryScreen.append = append(vx.primaryScreen.append, s)
+}
+
+// AppendWriter returns an io.Writer that queues terminal output to be written
+// before the primary-screen live region during Render. Writes panic unless
+// Vaxis was created with PrimaryScreen options.
+func (vx *Vaxis) AppendWriter() io.Writer {
+	return appendWriter{vx: vx}
+}
+
+type appendWriter struct {
+	vx *Vaxis
+}
+
+func (w appendWriter) Write(p []byte) (int, error) {
+	w.vx.Append(p)
+	return len(p), nil
 }
 
 // Render renders the model's content to the terminal
 func (vx *Vaxis) Render() {
 	start := time.Now()
 	// defer renderBuf.Reset()
-	vx.render()
+	if vx.primaryScreen != nil {
+		vx.renderPrimary()
+	} else {
+		vx.render()
+	}
 	_, _ = vx.tw.Flush()
 	// updating cursor state has to be after Flush, we check state change in
 	// flush.
@@ -773,6 +858,138 @@ outerNew:
 	if cursor.Hyperlink != "" {
 		vx.tw.writeOSC8("", "")
 	}
+}
+
+func (vx *Vaxis) renderPrimary() {
+	vx.mu.Lock()
+	defer vx.mu.Unlock()
+	primary := vx.primaryScreen
+	if primary == nil {
+		return
+	}
+	regionRows := vx.screenNext.rows
+	if regionRows <= 0 || vx.winSize.Rows <= 0 || vx.winSize.Cols <= 0 {
+		primary.append = nil
+		return
+	}
+	regionChanged := vx.primaryRegionChanged()
+	if primary.rendered && len(primary.append) == 0 && !primary.resized && !vx.refresh && !regionChanged {
+		return
+	}
+	forceRegionPaint := false
+	if primary.rendered {
+		moveRows := regionRows
+		if primary.resized && primary.visualRows > moveRows {
+			moveRows = primary.visualRows
+		}
+		vx.moveToPrimaryRegionStart(moveRows)
+		_, _ = vx.tw.WriteString("\x1B[J")
+		primary.resized = false
+		forceRegionPaint = true
+	}
+	if len(primary.append) > 0 {
+		for _, s := range primary.append {
+			_, _ = vx.tw.WriteString(primaryAppendString(s))
+		}
+	}
+	primary.append = nil
+
+	paintedRegion := false
+	for row := 0; row < vx.screenNext.rows; row += 1 {
+		nextRow := vx.screenNext.row(row)
+		lastRow := vx.screenLast.row(row)
+		renderRow := make([]Cell, len(nextRow))
+		changed := vx.refresh || forceRegionPaint
+		for col, cell := range nextRow {
+			renderRow[col] = printablePrimaryCell(cell)
+			if renderRow[col] != printablePrimaryCell(lastRow[col]) {
+				changed = true
+			}
+		}
+		if !changed {
+			continue
+		}
+		copy(lastRow, renderRow)
+		_, _ = vx.tw.WriteString(EncodeCells(trimPrimaryRenderRow(renderRow)))
+		if row < vx.screenNext.rows-1 {
+			_, _ = vx.tw.WriteString("\r\n")
+		}
+		paintedRegion = true
+	}
+	if paintedRegion {
+		primary.rendered = true
+		primary.visualRows = vx.primaryVisualRowsForWidth(vx.screenNext.cols)
+	}
+	_, _ = vx.tw.WriteString(sgrReset)
+}
+
+func (vx *Vaxis) primaryRegionChanged() bool {
+	if vx.screenNext.rows != vx.screenLast.rows || vx.screenNext.cols != vx.screenLast.cols {
+		return true
+	}
+	for row := 0; row < vx.screenNext.rows; row += 1 {
+		nextRow := vx.screenNext.row(row)
+		lastRow := vx.screenLast.row(row)
+		for col, cell := range nextRow {
+			if printablePrimaryCell(cell) != printablePrimaryCell(lastRow[col]) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (vx *Vaxis) primaryVisualRowsForWidth(width int) int {
+	if width <= 0 {
+		return vx.screenLast.rows
+	}
+	rows := 0
+	for row := 0; row < vx.screenLast.rows; row++ {
+		cells := trimPrimaryRenderRow(vx.screenLast.row(row))
+		cols := 0
+		for _, cell := range cells {
+			w := cell.Width
+			if w <= 0 {
+				w = 1
+			}
+			cols += w
+		}
+		rows += max(1, (cols+width-1)/width)
+	}
+	return max(1, rows)
+}
+
+func printablePrimaryCell(cell Cell) Cell {
+	if cell.Grapheme == "" {
+		cell.Character = Character{Grapheme: " ", Width: 1}
+	}
+	return cell
+}
+
+func trimPrimaryRenderRow(row []Cell) []Cell {
+	end := len(row)
+	for end > 0 && isDefaultPrimaryBlank(row[end-1]) {
+		end--
+	}
+	return row[:end]
+}
+
+func isDefaultPrimaryBlank(cell Cell) bool {
+	return printablePrimaryCell(cell) == Cell{Character: Character{Grapheme: " ", Width: 1}}
+}
+
+func (vx *Vaxis) moveToPrimaryRegionStart(regionRows int) {
+	_, _ = vx.tw.WriteString("\r")
+	if regionRows <= 1 {
+		return
+	}
+	_, _ = vx.tw.WriteString(tparm("\x1B[%dA", regionRows-1))
+}
+
+func primaryAppendString(s string) string {
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	s = strings.ReplaceAll(s, "\n", "\r\n")
+	return s
 }
 
 func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
@@ -1544,6 +1761,14 @@ func (vx *Vaxis) exitAltScreen() {
 	_, _ = vx.tw.WriteControlString(decrst(alternateScreen))
 }
 
+func (vx *Vaxis) exitPrimaryScreen() {
+	vx.HideCursor()
+	if vx.primaryScreen != nil && vx.primaryScreen.rendered {
+		_, _ = vx.tw.WriteControlString("\r\n\r")
+	}
+	_, _ = vx.tw.WriteControlString(showCursorSeq)
+}
+
 // Suspend takes Vaxis out of fullscreen state, disables all terminal modes,
 // stops listening for signals, and returns the terminal to it's original state.
 // Suspend can be useful to, for example, drop out of the full screen TUI and
@@ -1564,7 +1789,11 @@ func (vx *Vaxis) Suspend() error {
 	vx.parser.WaitClose()
 
 	vx.disableModes()
-	vx.exitAltScreen()
+	if vx.primaryScreen == nil {
+		vx.exitAltScreen()
+	} else {
+		vx.exitPrimaryScreen()
+	}
 
 	// Reset to user value, or CursorDefault.
 	_, _ = vx.tw.WriteControlString(tparm(cursorStyleSet, int(vx.userCursorStyle)))
@@ -1640,7 +1869,9 @@ func (vx *Vaxis) Resume() error {
 		return err
 	}
 
-	vx.enterAltScreen()
+	if vx.primaryScreen == nil {
+		vx.enterAltScreen()
+	}
 	vx.enableModes()
 
 	if !vx.noSignals {

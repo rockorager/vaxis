@@ -21,8 +21,10 @@ type Window struct {
 	Height int // height of the surface, in rows
 }
 
-// Window returns a window the full size of the screen. Child windows can be
-// created from the returned Window
+// Window returns the root drawing window for the surface currently owned by
+// Vaxis. In alternate-screen mode this is the full terminal screen. In
+// primary-screen mode this is the live region surface. Child windows can be
+// created from the returned Window.
 func (vx *Vaxis) Window() Window {
 	vx.mu.Lock()
 	w, h := vx.screenNext.size()
