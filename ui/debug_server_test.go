@@ -14,7 +14,7 @@ func TestStartDebugServerIgnoresAddrInUse(t *testing.T) {
 	defer func() { _ = ln.Close() }()
 	t.Setenv("VAXIS_UI_DEBUG_ADDR", ln.Addr().String())
 
-	stop, err := startDebugServer(NewApp(Text{Value: "demo"}), func(fn func()) { fn() }, nil, nil, nil, nil)
+	stop, err := startDebugServer(NewApp(Text{Value: "demo"}), func(fn func()) { fn() }, nil, nil, nil, nil, true)
 	if err != nil {
 		t.Fatalf("startDebugServer returned error for occupied addr: %v", err)
 	}

@@ -10,6 +10,7 @@ type Runner struct {
 	done      bool
 	lastFrame *Painter
 	profile   *profileStore
+	options   options
 }
 
 // NewRunner creates a runner for app and backend.
@@ -18,6 +19,11 @@ func NewRunner(app *App, backend Backend, scheduler *FrameScheduler) *Runner {
 		scheduler = NewFrameScheduler(DefaultFrameInterval)
 	}
 	app.dispatch = backend.Dispatch
+	if b, ok := backend.(PrimaryScreenAppender); ok {
+		app.append = b.Append
+		app.appendString = b.AppendString
+		app.appendWriter = b.AppendWriter
+	}
 	if b, ok := backend.(interface{ SetTitle(string) }); ok {
 		app.setTitle = b.SetTitle
 	}
@@ -27,7 +33,7 @@ func NewRunner(app *App, backend Backend, scheduler *FrameScheduler) *Runner {
 	if b, ok := backend.(interface{ Notify(string, string) }); ok {
 		app.notify = b.Notify
 	}
-	return &Runner{app: app, backend: backend, scheduler: scheduler, profile: &profileStore{}}
+	return &Runner{app: app, backend: backend, scheduler: scheduler, profile: &profileStore{}, options: app.options}
 }
 
 // Start schedules the initial frame.
@@ -110,6 +116,17 @@ func (r *Runner) HandleFrame(now time.Time) error {
 		return nil
 	}
 	size := r.backend.Size()
+	if r.options.dynamicPrimary {
+		terminal := Resize{Cols: size.Width, Rows: size.Height}
+		if b, ok := r.backend.(terminalSizer); ok {
+			terminal = b.TerminalSize()
+		}
+		regionHeight := r.app.preferredHeight(terminal.Cols, terminal.Rows)
+		if b, ok := r.backend.(PrimaryScreenRegionSizer); ok {
+			b.SetPrimaryScreenRegionHeight(regionHeight)
+		}
+		size = Size{Width: terminal.Cols, Height: regionHeight}
+	}
 	build, layout := r.app.pumpProfiled(size)
 	painter := NewPainter(size)
 	start := time.Now()

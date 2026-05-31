@@ -16,7 +16,7 @@ import (
 	"go.rockorager.dev/vaxis"
 )
 
-func startDebugServer(app *App, dispatch func(func()), submitEvent func(Event), rendered func() (DebugRenderedSnapshot, bool), renderedText func() (string, bool), profile func() (DebugProfileSnapshot, bool)) (func(), error) {
+func startDebugServer(app *App, dispatch func(func()), submitEvent func(Event), rendered func() (DebugRenderedSnapshot, bool), renderedText func() (string, bool), profile func() (DebugProfileSnapshot, bool), announce bool) (func(), error) {
 	token, ok := debugServerToken()
 	if !ok {
 		return func() {}, nil
@@ -28,7 +28,9 @@ func startDebugServer(app *App, dispatch func(func()), submitEvent func(Event), 
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		if isAddrInUse(err) {
-			fmt.Fprintf(os.Stderr, "vaxis ui debug server disabled: %s is already in use: %v\n", addr, err)
+			if announce {
+				fmt.Fprintf(os.Stderr, "vaxis ui debug server disabled: %s is already in use: %v\n", addr, err)
+			}
 			return func() {}, nil
 		}
 		return nil, err
@@ -36,10 +38,14 @@ func startDebugServer(app *App, dispatch func(func()), submitEvent func(Event), 
 	server := &http.Server{Handler: newDebugServerHandler(app, token, dispatch, submitEvent, rendered, renderedText, profile), ReadHeaderTimeout: 2 * time.Second}
 	go func() {
 		if err := server.Serve(ln); err != nil && err != http.ErrServerClosed {
-			fmt.Fprintf(os.Stderr, "vaxis ui debug server error: %v\n", err)
+			if announce {
+				fmt.Fprintf(os.Stderr, "vaxis ui debug server error: %v\n", err)
+			}
 		}
 	}()
-	fmt.Fprintf(os.Stderr, "vaxis ui debug listening on http://%s/debug/ui\n", ln.Addr())
+	if announce {
+		fmt.Fprintf(os.Stderr, "vaxis ui debug listening on http://%s/debug/ui\n", ln.Addr())
+	}
 	return func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()

@@ -495,6 +495,38 @@ func (vx *Vaxis) surfaceSize(size Resize) (cols int, rows int) {
 	return size.Cols, min(vx.primaryScreen.regionHeight, size.Rows)
 }
 
+// Size returns the current terminal size known to Vaxis.
+func (vx *Vaxis) Size() Resize {
+	vx.mu.Lock()
+	defer vx.mu.Unlock()
+	return vx.winSize
+}
+
+// SetPrimaryScreenRegionHeight changes the primary-screen live region height.
+// It panics unless Vaxis was created with PrimaryScreen options.
+func (vx *Vaxis) SetPrimaryScreenRegionHeight(height int) {
+	if height <= 0 {
+		panic("vaxis: primary screen region height must be positive")
+	}
+	vx.mu.Lock()
+	defer vx.mu.Unlock()
+	if vx.primaryScreen == nil {
+		panic("vaxis: SetPrimaryScreenRegionHeight called outside primary screen mode")
+	}
+	if vx.primaryScreen.regionHeight == height {
+		return
+	}
+	if vx.primaryScreen.rendered {
+		vx.primaryScreen.visualRows = vx.primaryVisualRowsForWidth(vx.winSize.Cols)
+		vx.primaryScreen.resized = true
+	}
+	vx.primaryScreen.regionHeight = height
+	cols, rows := vx.surfaceSize(vx.winSize)
+	vx.screenNext.resize(cols, rows)
+	vx.screenLast.resize(cols, rows)
+	vx.refresh = true
+}
+
 // Resize applies a resize event to Vaxis' internal screen buffers. Applications
 // should call this when handling a [Resize] event before drawing the next frame.
 func (vx *Vaxis) Resize(size Resize) {

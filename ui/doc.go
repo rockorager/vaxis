@@ -26,4 +26,22 @@
 // Run uses the default Vaxis backend. Tests and integrations can use App,
 // Runner, and Backend directly to drive events and frames without owning the
 // terminal event loop.
+//
+// Use WithPrimaryScreen or WithDynamicPrimaryScreen when the application should
+// keep terminal scrollback instead of entering the alternate screen. In
+// primary-screen mode the root widget is rendered into a live region, and event
+// handlers can write normal terminal output before that region:
+//
+//	err := ui.Run(root, ui.WithDynamicPrimaryScreen())
+//
+//	button := ui.Button{Label: "log", OnPressed: func(ctx ui.EventContext) {
+//		ctx.AppendWidget(ui.Text{Value: "clicked"})
+//	}}
+//
+// Append, AppendString, AppendWriter, AppendText, AppendTextLn, and AppendWidget are
+// available through EventContext when the backend supports primary-screen
+// appends. AppendText writes styled inline spans without layout, so text can
+// reflow naturally in terminal scrollback. AppendWidget appends a rendered
+// snapshot, so soft-wrapped widget text becomes hard line breaks at the current
+// terminal width.
 package ui

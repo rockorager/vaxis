@@ -1,6 +1,11 @@
 package ui
 
-import "time"
+import (
+	"io"
+	"time"
+
+	"go.rockorager.dev/vaxis"
+)
 
 // App owns a widget tree and dispatches events, layout, painting, and focus.
 type App struct {
@@ -20,6 +25,9 @@ type App struct {
 	mouseShapeDirty           bool
 	mouseCapture              element
 	dispatch                  func(func())
+	append                    func([]byte)
+	appendString              func(string)
+	appendWriter              func() io.Writer
 	setTitle                  func(string)
 	copyToClipboard           func(string)
 	notify                    func(string, string)
@@ -32,6 +40,7 @@ type App struct {
 	animations                map[*AnimationController]struct{}
 	profileOverlay            bool
 	shortcuts                 ShortcutMap
+	options                   options
 }
 
 // NewApp creates an app mounted with root.
@@ -52,8 +61,12 @@ func NewApp(root Widget, opts ...Option) *App {
 		hasThemeSet:    options.hasThemeSet,
 		profileOverlay: options.profileOverlay,
 		shortcuts:      cloneShortcuts(options.shortcuts),
+		options:        options,
 	}
 	app.dispatch = func(fn func()) { fn() }
+	app.append = func([]byte) { panic("ui: Append called without primary screen support") }
+	app.appendString = func(string) { panic("ui: AppendString called without primary screen support") }
+	app.appendWriter = func() io.Writer { panic("ui: AppendWriter called without primary screen support") }
 	app.setTitle = func(string) {}
 	app.copyToClipboard = func(string) {}
 	app.notify = func(string, string) {}
@@ -232,6 +245,21 @@ func (a *App) pumpProfiled(size Size) (build, layout time.Duration) {
 		layout = time.Since(start)
 	}
 	return build, layout
+}
+
+func (a *App) preferredHeight(width, maxHeight int) int {
+	if width <= 0 || maxHeight <= 0 {
+		return 1
+	}
+	a.build.BuildScope()
+	a.resolvePendingFocusFallback()
+	a.flushFocusNotifications()
+	a.rootRO = findRenderObject(a.build.Root())
+	if a.rootRO == nil {
+		return 1
+	}
+	size := DryLayout(LayoutContext{}, a.rootRO, Constraints{MaxWidth: width, MaxHeight: Unbounded})
+	return clamp(size.Height, 1, maxHeight)
 }
 
 func (a *App) dispatchEvent(ev Event) EventResult {
@@ -844,6 +872,8 @@ type (
 		hasThemeSet    bool
 		profileOverlay bool
 		shortcuts      ShortcutMap
+		primaryScreen  *vaxis.PrimaryScreenOptions
+		dynamicPrimary bool
 	}
 )
 
@@ -889,4 +919,24 @@ func WithProfileOverlay() Option {
 // add or change only a few keys.
 func WithShortcuts(shortcuts ShortcutMap) Option {
 	return func(o *options) { o.shortcuts = cloneShortcuts(shortcuts) }
+}
+
+// WithPrimaryScreen runs the UI on the terminal primary screen instead of the
+// alternate screen. The root widget is rendered into a live region of
+// regionHeight rows; use EventContext append methods to write output before
+// that region.
+func WithPrimaryScreen(regionHeight int) Option {
+	return func(o *options) {
+		o.primaryScreen = &vaxis.PrimaryScreenOptions{RegionHeight: regionHeight}
+		o.dynamicPrimary = false
+	}
+}
+
+// WithDynamicPrimaryScreen runs the UI on the terminal primary screen and sizes
+// the live region to the root widget's preferred height each frame.
+func WithDynamicPrimaryScreen() Option {
+	return func(o *options) {
+		o.primaryScreen = &vaxis.PrimaryScreenOptions{RegionHeight: 1}
+		o.dynamicPrimary = true
+	}
 }

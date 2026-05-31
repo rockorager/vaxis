@@ -53,6 +53,50 @@ func main() {
 }
 ```
 
+### Primary-screen live region
+
+By default Vaxis enters the alternate screen. For applications that should leave
+output in the shell scrollback, create Vaxis with `PrimaryScreen`. In this mode
+`Window` is the live region, and `Append`, `AppendString`, or `AppendWriter`
+queue output to be written before that live region on the next `Render`.
+
+```go
+vx, err := vaxis.New(vaxis.Options{
+	PrimaryScreen: &vaxis.PrimaryScreenOptions{RegionHeight: 1},
+})
+if err != nil {
+	panic(err)
+}
+defer vx.Close()
+
+vx.AppendString("command output\n")
+win := vx.Window()
+win.Clear()
+win.Print(vaxis.Segment{Text: "status: running"})
+vx.Render()
+```
+
+The primary screen is owned by the terminal, so existing shell scrollback may
+reflow on resize. Vaxis repaints the live region after resize, but appended
+content remains normal terminal output.
+
+The `ui` package can use the same mode. `WithDynamicPrimaryScreen` measures the
+root widget and resizes the live region to the widget's preferred height each
+frame:
+
+```go
+err := ui.Run(root, ui.WithDynamicPrimaryScreen())
+```
+
+`EventContext.AppendText` and `AppendTextLn` append styled inline `TextSpan`
+values without doing widget layout, so the terminal can still wrap and reflow
+the text naturally.
+`EventContext.AppendWidget` can append a one-time rendered widget snapshot. It
+is useful for tables, status records, and other fixed layouts, but wrapped text
+is converted to hard line breaks at the current terminal width. Use
+`AppendString`, `AppendWriter`, `AppendText`, or `AppendTextLn` for prose or
+logs that should reflow naturally in terminal scrollback.
+
 ## Support
 
 Questions are welcome in #vaxis on libera.chat, or on the [mailing list](mailto:~rockorager/vaxis@lists.sr.ht).

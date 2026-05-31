@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"io"
 
 	"go.rockorager.dev/vaxis"
 )
@@ -16,6 +17,24 @@ type Backend interface {
 	Close() error
 }
 
+// PrimaryScreenAppender is implemented by backends that support appending
+// terminal output before a primary-screen live region.
+type PrimaryScreenAppender interface {
+	Append([]byte)
+	AppendString(string)
+	AppendWriter() io.Writer
+}
+
+// PrimaryScreenRegionSizer is implemented by backends that can resize a
+// primary-screen live region independently from the terminal size.
+type PrimaryScreenRegionSizer interface {
+	SetPrimaryScreenRegionHeight(int)
+}
+
+type terminalSizer interface {
+	TerminalSize() Resize
+}
+
 type vaxisBackend struct{ vx *vaxis.Vaxis }
 
 func (b vaxisBackend) Events() <-chan Event {
@@ -25,6 +44,10 @@ func (b vaxisBackend) Events() <-chan Event {
 func (b vaxisBackend) Size() Size {
 	win := b.vx.Window()
 	return Size{Width: win.Width, Height: win.Height}
+}
+
+func (b vaxisBackend) TerminalSize() Resize {
+	return b.vx.Size()
 }
 
 func (b vaxisBackend) Resize(size Resize) {
@@ -55,6 +78,22 @@ func (b vaxisBackend) Dispatch(fn func()) {
 
 func (b vaxisBackend) SetMouseShape(shape MouseShape) {
 	b.vx.SetMouseShape(shape)
+}
+
+func (b vaxisBackend) Append(p []byte) {
+	b.vx.Append(p)
+}
+
+func (b vaxisBackend) AppendString(s string) {
+	b.vx.AppendString(s)
+}
+
+func (b vaxisBackend) AppendWriter() io.Writer {
+	return b.vx.AppendWriter()
+}
+
+func (b vaxisBackend) SetPrimaryScreenRegionHeight(height int) {
+	b.vx.SetPrimaryScreenRegionHeight(height)
 }
 
 func (b vaxisBackend) SetTitle(title string) {

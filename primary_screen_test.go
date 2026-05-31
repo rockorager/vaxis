@@ -69,6 +69,20 @@ func TestPrimaryScreenWindowUsesRegionSize(t *testing.T) {
 	}
 }
 
+func TestPrimaryScreenSetRegionHeightResizesWindow(t *testing.T) {
+	vx, _ := newPrimaryTestVaxis(10, 4, 1)
+
+	vx.SetPrimaryScreenRegionHeight(3)
+
+	win := vx.Window()
+	if got, want := win.Width, 10; got != want {
+		t.Fatalf("window width = %d, want %d", got, want)
+	}
+	if got, want := win.Height, 3; got != want {
+		t.Fatalf("window height = %d, want %d", got, want)
+	}
+}
+
 func TestPrimaryScreenRenderAppendsThenRendersRegion(t *testing.T) {
 	vx, tty := newPrimaryTestVaxis(12, 4, 1)
 	vx.AppendString("log line\n")

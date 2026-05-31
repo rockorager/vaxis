@@ -1,5 +1,7 @@
 package ui
 
+import "io"
+
 // EventPhase identifies where an event is in capture, target, and bubble dispatch.
 type EventPhase int
 
@@ -76,6 +78,99 @@ func (c EventContext) FractionalMousePoint(mouse Mouse) FractionalMousePoint {
 // Runtime returns a dispatcher for scheduling work on the UI event loop.
 func (c EventContext) Runtime() Runtime {
 	return appRuntime{app: c.app}
+}
+
+// Append queues terminal output to be written before the primary-screen live
+// region during the next frame. Append panics unless Run was configured with
+// WithPrimaryScreen and the backend supports primary-screen appends.
+func (c EventContext) Append(p []byte) {
+	c.app.append(p)
+}
+
+// AppendString queues terminal output to be written before the primary-screen
+// live region during the next frame. AppendString panics unless Run was
+// configured with WithPrimaryScreen and the backend supports primary-screen
+// appends.
+func (c EventContext) AppendString(s string) {
+	c.app.appendString(s)
+}
+
+// AppendText queues styled inline text before the primary-screen live region.
+// Unlike AppendWidget, AppendText does not lay out or soft-wrap the spans; it
+// encodes their styles and text directly, so terminal scrollback can wrap and
+// reflow the text normally.
+func (c EventContext) AppendText(spans []TextSpan) {
+	c.AppendString(c.encodeAppendText(spans))
+}
+
+// AppendTextLn queues styled inline text followed by a newline before the
+// primary-screen live region.
+func (c EventContext) AppendTextLn(spans []TextSpan) {
+	c.AppendString(c.encodeAppendText(spans) + "\n")
+}
+
+func (c EventContext) encodeAppendText(spans []TextSpan) string {
+	ctx := BuildContext{element: c.element}
+	if ctx.element == nil {
+		ctx = c.app.build.Root().Base().Context()
+	}
+	spans = themedSpans(ctx, spans)
+	var cells []Cell
+	for _, span := range spans {
+		for _, char := range vaxisCharacters(span.Text) {
+			cells = append(cells, Cell{Character: char, Style: span.Style})
+		}
+	}
+	return vaxisEncodeCells(cells)
+}
+
+// AppendWriter returns an io.Writer that queues terminal output to be written
+// before the primary-screen live region during frames. AppendWriter panics
+// unless Run was configured with WithPrimaryScreen and the backend supports
+// primary-screen appends.
+func (c EventContext) AppendWriter() io.Writer {
+	return c.app.appendWriter()
+}
+
+// AppendWidget renders widget once offscreen and queues its visible text before
+// the primary-screen live region. The widget is measured at the current
+// terminal width, rendered with the current theme, converted to plain text, and
+// appended with a trailing newline when non-empty.
+//
+// AppendWidget appends a rendered snapshot: widget layout, including soft
+// wrapping, is converted to hard line breaks at the current terminal width. Use
+// AppendString, AppendWriter, or AppendText for prose or logs that should
+// remain normal terminal output and reflow naturally in scrollback.
+func (c EventContext) AppendWidget(widget Widget) {
+	c.AppendString(c.renderAppendWidget(widget))
+}
+
+func (c EventContext) renderAppendWidget(widget Widget) string {
+	width := c.app.window.Cols
+	maxHeight := c.app.window.Rows
+	if width <= 0 {
+		width = c.app.size.Width
+	}
+	if maxHeight <= 0 {
+		maxHeight = c.app.size.Height
+	}
+	if width <= 0 {
+		width = 80
+	}
+	if maxHeight <= 0 {
+		maxHeight = 24
+	}
+	app := NewApp(widget, WithTheme(c.app.theme))
+	height := app.preferredHeight(width, maxHeight)
+	size := Size{Width: width, Height: height}
+	app.Pump(size)
+	painter := NewPainter(size)
+	app.Paint(painter)
+	text := debugRenderedText(painter)
+	if text != "" {
+		text += "\n"
+	}
+	return text
 }
 
 // Invoke runs the nearest action for intent, resolving from the current event

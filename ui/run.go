@@ -9,7 +9,16 @@ import (
 
 // Run creates a vaxis-backed app for root and blocks until it exits.
 func Run(root Widget, opts ...Option) error {
-	vx, err := vaxis.New(vaxis.Options{EnableSGRPixels: true})
+	options := options{theme: DefaultTheme()}
+	for _, opt := range opts {
+		opt(&options)
+	}
+	vaxisOptions := vaxis.Options{EnableSGRPixels: true}
+	if options.primaryScreen != nil {
+		vxOpt := *options.primaryScreen
+		vaxisOptions.PrimaryScreen = &vxOpt
+	}
+	vx, err := vaxis.New(vaxisOptions)
 	if err != nil {
 		return err
 	}
@@ -57,7 +66,7 @@ func runWithBackend(root Widget, backend Backend, opts ...Option) error {
 			return "", false
 		}
 		return debugRenderedText(runner.lastFrame), true
-	}, runner.debugProfileSnapshot)
+	}, runner.debugProfileSnapshot, options.primaryScreen == nil)
 	if err != nil {
 		return err
 	}

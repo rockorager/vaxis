@@ -1,7 +1,10 @@
 package ui_test
 
 import (
+	"bytes"
 	"errors"
+	"io"
+	"strings"
 	"testing"
 	"time"
 
@@ -17,6 +20,8 @@ type fakeBackend struct {
 	titles      []string
 	copies      []string
 	notices     []notice
+	appends     bytes.Buffer
+	regionRows  int
 	renderErr   error
 }
 
@@ -41,6 +46,10 @@ func (b *fakeBackend) Events() <-chan ui.Event {
 
 func (b *fakeBackend) Size() ui.Size {
 	return b.size
+}
+
+func (b *fakeBackend) TerminalSize() ui.Resize {
+	return ui.Resize{Cols: b.size.Width, Rows: b.size.Height}
 }
 
 func (b *fakeBackend) Render(p *ui.Painter) error {
@@ -68,9 +77,33 @@ func (b *fakeBackend) Notify(title, body string) {
 	b.notices = append(b.notices, notice{title: title, body: body})
 }
 
+func (b *fakeBackend) Append(p []byte) {
+	_, _ = b.appends.Write(p)
+}
+
+func (b *fakeBackend) AppendString(s string) {
+	_, _ = b.appends.WriteString(s)
+}
+
+func (b *fakeBackend) AppendWriter() io.Writer {
+	return &b.appends
+}
+
+func (b *fakeBackend) SetPrimaryScreenRegionHeight(height int) {
+	b.regionRows = height
+}
+
 func (b *fakeBackend) Close() error {
 	close(b.events)
 	return nil
+}
+
+type appendContextCapture struct{ ctx *ui.EventContext }
+
+func (w appendContextCapture) Build(ctx ui.BuildContext) ui.Widget {
+	evCtx := ctx.EventContext()
+	*w.ctx = evCtx
+	return ui.Text{Value: "ready"}
 }
 
 func TestRunnerRendersInitialFrame(t *testing.T) {
@@ -89,6 +122,89 @@ func TestRunnerRendersInitialFrame(t *testing.T) {
 	}
 	if got := backend.frames[0].Cell(0, 0).Grapheme; got != "h" {
 		t.Fatalf("first cell = %q, want h", got)
+	}
+}
+
+func TestRunnerWiresPrimaryScreenAppend(t *testing.T) {
+	var ctx ui.EventContext
+	backend := newFakeBackend(ui.Size{Width: 5, Height: 1})
+	ui.NewRunner(ui.NewApp(appendContextCapture{ctx: &ctx}), backend, ui.NewFrameScheduler(time.Second/60))
+
+	ctx.AppendString("one")
+	ctx.Append([]byte("two"))
+	if _, err := ctx.AppendWriter().Write([]byte("three")); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := backend.appends.String(), "onetwothree"; got != want {
+		t.Fatalf("appends = %q, want %q", got, want)
+	}
+}
+
+func TestEventContextAppendWidgetRendersWidgetText(t *testing.T) {
+	var ctx ui.EventContext
+	backend := newFakeBackend(ui.Size{Width: 20, Height: 5})
+	runner := ui.NewRunner(ui.NewApp(appendContextCapture{ctx: &ctx}), backend, ui.NewFrameScheduler(time.Second/60))
+	runner.Start(time.Unix(10, 0))
+	if err := runner.HandleFrame(time.Unix(10, 0)); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx.AppendWidget(ui.Flex{Axis: ui.Vertical, CrossAxisAlignment: ui.CrossAxisStart, Children: []ui.Widget{
+		ui.Text{Value: "one"},
+		ui.Text{Value: "two"},
+	}})
+	if got, want := backend.appends.String(), "one\ntwo\n"; got != want {
+		t.Fatalf("appends = %q, want %q", got, want)
+	}
+}
+
+func TestEventContextAppendTextEncodesStyledSpansWithoutWrapping(t *testing.T) {
+	var ctx ui.EventContext
+	backend := newFakeBackend(ui.Size{Width: 20, Height: 5})
+	ui.NewRunner(ui.NewApp(appendContextCapture{ctx: &ctx}), backend, ui.NewFrameScheduler(time.Second/60))
+
+	ctx.AppendText([]ui.TextSpan{
+		{Text: "plain "},
+		{Text: "bold", Style: ui.Style{Attribute: ui.AttrBold}},
+		{Text: " long text that the terminal can wrap naturally"},
+	})
+	out := backend.appends.String()
+	if !strings.Contains(out, "plain ") || !strings.Contains(out, "bold") || !strings.Contains(out, "long text") {
+		t.Fatalf("append text output missing span text: %q", out)
+	}
+	if !strings.Contains(out, "\x1b[1m") {
+		t.Fatalf("append text output missing bold SGR: %q", out)
+	}
+	if strings.Contains(out, "\n") {
+		t.Fatalf("append text should not insert wrapping newlines: %q", out)
+	}
+
+	backend.appends.Reset()
+	ctx.AppendTextLn([]ui.TextSpan{{Text: "line"}})
+	if got := backend.appends.String(); !strings.Contains(got, "line") || !strings.HasSuffix(got, "\n") {
+		t.Fatalf("AppendTextLn output = %q, want line with trailing newline", got)
+	}
+}
+
+func TestRunnerDynamicPrimaryScreenSizesRegionToRoot(t *testing.T) {
+	now := time.Unix(10, 0)
+	backend := newFakeBackend(ui.Size{Width: 20, Height: 10})
+	runner := ui.NewRunner(ui.NewApp(ui.Column(
+		ui.Text{Value: "one"},
+		ui.Text{Value: "two"},
+	), ui.WithDynamicPrimaryScreen()), backend, ui.NewFrameScheduler(time.Second/60))
+	runner.Start(now)
+	if err := runner.HandleFrame(now); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := backend.regionRows, 2; got != want {
+		t.Fatalf("region height = %d, want %d", got, want)
+	}
+	if len(backend.frames) != 1 {
+		t.Fatalf("frames = %d, want 1", len(backend.frames))
+	}
+	if got, want := backend.frames[0].Size().Height, 2; got != want {
+		t.Fatalf("frame height = %d, want %d", got, want)
 	}
 }
 
