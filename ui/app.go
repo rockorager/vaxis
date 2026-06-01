@@ -603,22 +603,23 @@ func (a *App) focusPrevious() {
 }
 
 func (a *App) moveFocus(delta int) {
-	if len(a.focusables) == 0 {
+	focusables := a.orderedFocusables()
+	if len(focusables) == 0 {
 		return
 	}
 	idx := 0
-	for i, target := range a.focusables {
+	for i, target := range focusables {
 		if target == a.focused {
 			idx = i
 			break
 		}
 	}
-	idx = (idx + delta + len(a.focusables)) % len(a.focusables)
-	a.setFocused(a.focusables[idx])
+	idx = (idx + delta + len(focusables)) % len(focusables)
+	a.setFocused(focusables[idx])
 }
 
 func (a *App) moveFocusWithin(scope element, delta int) {
-	focusables := a.focusablesWithin(scope)
+	focusables := a.orderedFocusablesWithin(scope)
 	if len(focusables) == 0 {
 		return
 	}
@@ -634,10 +635,46 @@ func (a *App) moveFocusWithin(scope element, delta int) {
 }
 
 func (a *App) focusFirstWithin(scope element) {
-	focusables := a.focusablesWithin(scope)
+	focusables := a.orderedFocusablesWithin(scope)
 	if len(focusables) > 0 {
 		a.setFocused(focusables[0])
 	}
+}
+
+func (a *App) orderedFocusables() []focusTarget {
+	return a.focusablesInTreeOrder(a.build.Root())
+}
+
+func (a *App) orderedFocusablesWithin(scope element) []focusTarget {
+	return a.focusablesInTreeOrder(scope)
+}
+
+func (a *App) focusablesInTreeOrder(root element) []focusTarget {
+	if root == nil {
+		return nil
+	}
+	registered := make(map[focusTarget]struct{}, len(a.focusables))
+	for _, target := range a.focusables {
+		registered[target] = struct{}{}
+	}
+	var out []focusTarget
+	var walk func(element)
+	walk = func(e element) {
+		if _, ok := registered[focusTarget{element: e, index: elementFocusIndex}]; ok {
+			out = append(out, focusTarget{element: e, index: elementFocusIndex})
+		}
+		if focusable, ok := ownRenderObject(e).(interface{ FocusableCount() int }); ok {
+			for i := 0; i < focusable.FocusableCount(); i++ {
+				target := focusTarget{element: e, index: i}
+				if _, ok := registered[target]; ok {
+					out = append(out, target)
+				}
+			}
+		}
+		e.VisitChildren(walk)
+	}
+	walk(root)
+	return out
 }
 
 func (a *App) focusablesWithin(scope element) []focusTarget {

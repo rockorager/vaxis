@@ -365,6 +365,63 @@ func TestShiftTabMovesFocusPrevious(t *testing.T) {
 	}
 }
 
+func TestFocusTraversalUsesTreeOrderAfterMiddleTargetRemount(t *testing.T) {
+	state := &focusOrderAfterRemountState{}
+	app := ui.NewApp(focusOrderAfterRemount{state: state})
+	app.Pump(ui.Size{Width: 30, Height: 1})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyTab})
+	app.Pump(ui.Size{Width: 30, Height: 1})
+	if got := strings.Trim(focusedDebugLabel(app), "[]"); got != "middle" {
+		t.Fatalf("focus after first Tab = %q, want middle", got)
+	}
+	state.remountMiddle = true
+	state.MarkNeedsBuild()
+	app.Pump(ui.Size{Width: 30, Height: 1})
+	state.middle.RequestFocus()
+	app.Pump(ui.Size{Width: 30, Height: 1})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyTab})
+	app.Pump(ui.Size{Width: 30, Height: 1})
+	if got := strings.Trim(focusedDebugLabel(app), "[]"); got != "last" {
+		t.Fatalf("focus after remounted middle Tab = %q, want last", got)
+	}
+}
+
+type focusOrderAfterRemount struct {
+	state *focusOrderAfterRemountState
+}
+
+func (w focusOrderAfterRemount) CreateState() ui.State {
+	w.state.StateBase = ui.StateBase{}
+	return w.state
+}
+
+type focusOrderAfterRemountState struct {
+	ui.StateBase
+	remountMiddle bool
+	middle        ui.FocusNode
+}
+
+func (s *focusOrderAfterRemountState) Build(ui.BuildContext) ui.Widget {
+	middle := ui.Widget(ui.Focus(&s.middle, ui.Text{Value: "middle"}))
+	if s.remountMiddle {
+		middle = keyedTestWidget{key: "middle-remounted", child: middle}
+	}
+	return ui.Row(
+		ui.Button{Label: "first"},
+		middle,
+		ui.Button{Label: "last"},
+	)
+}
+
+type keyedTestWidget struct {
+	key   ui.KeyValue
+	child ui.Widget
+}
+
+func (w keyedTestWidget) WidgetKey() ui.KeyValue { return w.key }
+
+func (w keyedTestWidget) Build(ui.BuildContext) ui.Widget { return w.child }
+
 func TestNilButtonCallbackStillHandlesActivation(t *testing.T) {
 	app := ui.NewApp(ui.Button{Label: "noop"})
 	app.Pump(ui.Size{Width: 20, Height: 1})
