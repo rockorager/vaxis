@@ -677,16 +677,6 @@ func (a *App) focusablesInTreeOrder(root element) []focusTarget {
 	return out
 }
 
-func (a *App) focusablesWithin(scope element) []focusTarget {
-	var out []focusTarget
-	for _, target := range a.focusables {
-		if elementContains(scope, target.element) {
-			out = append(out, target)
-		}
-	}
-	return out
-}
-
 func (a *App) focusedWithin(scope element) bool {
 	return a.focused.element != nil && elementContains(scope, a.focused.element)
 }

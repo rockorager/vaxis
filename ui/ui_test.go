@@ -418,9 +418,13 @@ type keyedTestWidget struct {
 	child ui.Widget
 }
 
-func (w keyedTestWidget) WidgetKey() ui.KeyValue { return w.key }
+func (w keyedTestWidget) WidgetKey() ui.KeyValue {
+	return w.key
+}
 
-func (w keyedTestWidget) Build(ui.BuildContext) ui.Widget { return w.child }
+func (w keyedTestWidget) Build(ui.BuildContext) ui.Widget {
+	return w.child
+}
 
 func TestNilButtonCallbackStillHandlesActivation(t *testing.T) {
 	app := ui.NewApp(ui.Button{Label: "noop"})
