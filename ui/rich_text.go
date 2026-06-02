@@ -24,6 +24,8 @@ type TextSpan struct {
 	// Style is merged over Theme foreground for this span. Set Style.Hyperlink for OSC
 	// 8 terminal links.
 	Style Style
+	// ClickAffordance controls the visual affordance added for clickable spans.
+	ClickAffordance ClickAffordance
 	// OnPressed is called when the span is clicked.
 	OnPressed VoidCallback
 	// OnHover is called when the mouse moves over the span.
@@ -89,7 +91,7 @@ func (r *renderRichText) Paint(p *Painter, off Offset) {
 		return
 	}
 	if r.focusedIndex >= 0 {
-		paintTextLayoutFocusedSpan(p, off, r.layout, r.focusedSpanIndex())
+		paintTextLayoutFocusedSpan(p, off, r.layout, r.focusedSpanIndex(), r.Spans)
 		return
 	}
 	paintLaidOutText(p, off, r.layout, r.Options)
@@ -254,12 +256,13 @@ func (r *renderRichText) exitHoveredSpan(ctx EventContext) {
 	}
 }
 
-func paintTextLayoutFocusedSpan(p *Painter, off Offset, layout TextLayout, spanIndex int) {
+func paintTextLayoutFocusedSpan(p *Painter, off Offset, layout TextLayout, spanIndex int, spans []TextSpan) {
+	underline := spanIndex < 0 || spanIndex >= len(spans) || spans[spanIndex].ClickAffordance != ClickAffordanceNone
 	for y, line := range layout.Lines {
 		x := off.X + line.Offset
 		for _, cell := range line.Cells {
 			style := cell.Style
-			if cell.Position.Span == spanIndex {
+			if underline && cell.Position.Span == spanIndex {
 				style.UnderlineStyle = UnderlineDouble
 			}
 			p.DrawText(Offset{X: x, Y: off.Y + y}, cell.Text, style)
@@ -325,10 +328,10 @@ func themedSpans(ctx BuildContext, spans []TextSpan) []TextSpan {
 	out := make([]TextSpan, len(spans))
 	for i, span := range spans {
 		style := mergeStyle(base, span.Style)
-		if span.OnPressed != nil && style.UnderlineStyle == UnderlineOff {
+		if span.OnPressed != nil && clickAffordanceUnderlines(span.ClickAffordance, style) {
 			style.UnderlineStyle = UnderlineSingle
 		}
-		out[i] = TextSpan{Text: span.Text, Style: style, OnPressed: span.OnPressed, OnHover: span.OnHover, OnHoverExit: span.OnHoverExit, OnFocus: span.OnFocus, OnFocusExit: span.OnFocusExit}
+		out[i] = TextSpan{Text: span.Text, Style: style, ClickAffordance: span.ClickAffordance, OnPressed: span.OnPressed, OnHover: span.OnHover, OnHoverExit: span.OnHoverExit, OnFocus: span.OnFocus, OnFocusExit: span.OnFocusExit}
 	}
 	return out
 }

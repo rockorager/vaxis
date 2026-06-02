@@ -145,6 +145,33 @@ func TestRichTextSpanOnPressedPaintsSingleUnderlineWhenUnfocused(t *testing.T) {
 	}
 }
 
+func TestRichTextSpanClickAffordanceNoneDoesNotUnderline(t *testing.T) {
+	app := ui.NewApp(ui.RichText{Spans: []ui.TextSpan{
+		{Text: "docs", ClickAffordance: ui.ClickAffordanceNone, OnPressed: func(ctx ui.EventContext) {}},
+	}})
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	p := ui.NewPainter(ui.Size{Width: 20, Height: 1})
+	app.Paint(p)
+	if got := p.Cell(0, 0).UnderlineStyle; got != ui.UnderlineOff {
+		t.Fatalf("click affordance none underline = %#v, want off", got)
+	}
+}
+
+func TestRichTextSpanClickAffordanceUnderlineOverridesStyle(t *testing.T) {
+	app := ui.NewApp(ui.Row(
+		ui.Button{Label: "before"},
+		ui.RichText{Spans: []ui.TextSpan{
+			{Text: "docs", Style: ui.Style{UnderlineStyle: ui.UnderlineOff}, ClickAffordance: ui.ClickAffordanceUnderline, OnPressed: func(ctx ui.EventContext) {}},
+		}},
+	))
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	p := ui.NewPainter(ui.Size{Width: 20, Height: 1})
+	app.Paint(p)
+	if got := p.Cell(10, 0).UnderlineStyle; got != ui.UnderlineSingle {
+		t.Fatalf("click affordance underline = %#v, want single", got)
+	}
+}
+
 func TestRichTextSpanOnPressedActivatesWithKeyboardFocus(t *testing.T) {
 	var pressed []string
 	app := ui.NewApp(ui.RichText{Spans: []ui.TextSpan{
@@ -563,6 +590,16 @@ func TestTextOnPressedPaintsSingleUnderlineWhenUnfocused(t *testing.T) {
 	app.Paint(p)
 	if got := p.Cell(10, 0).UnderlineStyle; got != ui.UnderlineSingle {
 		t.Fatalf("unfocused interactive text underline = %#v, want single", got)
+	}
+}
+
+func TestTextClickAffordanceNoneDoesNotUnderline(t *testing.T) {
+	app := ui.NewApp(ui.Text{Value: "docs", ClickAffordance: ui.ClickAffordanceNone, OnPressed: func(ctx ui.EventContext) {}})
+	app.Pump(ui.Size{Width: 20, Height: 1})
+	p := ui.NewPainter(ui.Size{Width: 20, Height: 1})
+	app.Paint(p)
+	if got := p.Cell(0, 0).UnderlineStyle; got != ui.UnderlineOff {
+		t.Fatalf("click affordance none text underline = %#v, want off", got)
 	}
 }
 

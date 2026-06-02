@@ -37,6 +37,8 @@ type Text struct {
 	Value string
 	// Style overrides Theme foreground when non-zero fields are set.
 	Style Style
+	// ClickAffordance controls the visual affordance added when OnPressed is set.
+	ClickAffordance ClickAffordance
 	// SoftWrap wraps text to the available width.
 	SoftWrap bool
 	// Overflow controls painting when text exceeds its layout bounds.
@@ -53,17 +55,17 @@ func (w Text) CreateRenderObject(ctx BuildContext) RenderObject {
 	if w.Style == (Style{}) {
 		w.Style = textStyle(MustDepend[Theme](ctx))
 	}
-	w.Style = textInteractiveStyle(w.Style, w.OnPressed)
-	return &renderText{Text: w.Value, Style: w.Style, Options: w.options(), OnPressed: w.OnPressed, focusedIndex: elementFocusIndex}
+	w.Style = textInteractiveStyle(w.Style, w.OnPressed, w.ClickAffordance)
+	return &renderText{Text: w.Value, Style: w.Style, Options: w.options(), OnPressed: w.OnPressed, ClickAffordance: w.ClickAffordance, focusedIndex: elementFocusIndex}
 }
 
 func (w Text) UpdateRenderObject(ctx BuildContext, ro RenderObject) {
 	if w.Style == (Style{}) {
 		w.Style = textStyle(MustDepend[Theme](ctx))
 	}
-	w.Style = textInteractiveStyle(w.Style, w.OnPressed)
+	w.Style = textInteractiveStyle(w.Style, w.OnPressed, w.ClickAffordance)
 	r := ro.(*renderText)
-	r.Text, r.Style, r.Options, r.OnPressed = w.Value, w.Style, w.options(), w.OnPressed
+	r.Text, r.Style, r.Options, r.OnPressed, r.ClickAffordance = w.Value, w.Style, w.options(), w.OnPressed, w.ClickAffordance
 	r.MarkNeedsLayout()
 }
 
@@ -71,24 +73,50 @@ func (w Text) options() TextLayoutOptions {
 	return TextLayoutOptions{SoftWrap: w.SoftWrap, Overflow: w.Overflow, MaxLines: w.MaxLines, Align: w.Align}
 }
 
-func textInteractiveStyle(style Style, cb VoidCallback) Style {
-	if cb != nil && style.UnderlineStyle == UnderlineOff {
+func textInteractiveStyle(style Style, cb VoidCallback, affordance ClickAffordance) Style {
+	if cb != nil && clickAffordanceUnderlines(affordance, style) {
 		style.UnderlineStyle = UnderlineSingle
 	}
 	return style
 }
 
+// ClickAffordance controls the visual affordance automatically added to
+// clickable text.
+type ClickAffordance int
+
+const (
+	// ClickAffordanceDefault preserves the default behavior: clickable text is
+	// underlined when no underline style is specified.
+	ClickAffordanceDefault ClickAffordance = iota
+	// ClickAffordanceUnderline always underlines clickable text.
+	ClickAffordanceUnderline
+	// ClickAffordanceNone leaves the caller-provided style unchanged.
+	ClickAffordanceNone
+)
+
+func clickAffordanceUnderlines(affordance ClickAffordance, style Style) bool {
+	switch affordance {
+	case ClickAffordanceUnderline:
+		return true
+	case ClickAffordanceNone:
+		return false
+	default:
+		return style.UnderlineStyle == UnderlineOff
+	}
+}
+
 // renderText lays out and paints a Text widget.
 type renderText struct {
 	LeafRenderObject
-	Text           string
-	Style          Style
-	Options        TextLayoutOptions
-	OnPressed      VoidCallback
-	layout         TextLayout
-	selection      TextSelection
-	selectionStyle Style
-	focusedIndex   int
+	Text            string
+	Style           Style
+	Options         TextLayoutOptions
+	OnPressed       VoidCallback
+	ClickAffordance ClickAffordance
+	layout          TextLayout
+	selection       TextSelection
+	selectionStyle  Style
+	focusedIndex    int
 }
 
 func (r *renderText) Layout(ctx LayoutContext, c Constraints) {
@@ -115,7 +143,7 @@ func (r *renderText) Paint(p *Painter, off Offset) {
 		return
 	}
 	if r.focusedIndex >= 0 {
-		paintTextLayoutFocusedSpan(p, off, r.layout, 0)
+		paintTextLayoutFocusedSpan(p, off, r.layout, 0, []TextSpan{{ClickAffordance: r.ClickAffordance}})
 		return
 	}
 	paintLaidOutText(p, off, r.layout, r.Options)
