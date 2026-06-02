@@ -488,6 +488,58 @@ func TestTextAreaScrollsVerticallyToCursor(t *testing.T) {
 	}
 }
 
+func TestTextAreaGrowsUntilMaxHeight(t *testing.T) {
+	app := ui.NewApp(ui.Align{Alignment: ui.TopLeft, Child: ui.TextArea{Value: "a\nb", MinHeight: 1, MaxHeight: 3}})
+	app.Pump(ui.Size{Width: 10, Height: 5})
+
+	p := ui.NewPainter(ui.Size{Width: 10, Height: 5})
+	app.Paint(p)
+	if got := p.Cell(1, 0).Grapheme; got != "a" {
+		t.Fatalf("first line = %q, want a", got)
+	}
+	if got := p.Cell(1, 1).Grapheme; got != "b" {
+		t.Fatalf("second line = %q, want b", got)
+	}
+	if got := p.Cell(1, 2).Grapheme; got == "a" || got == "b" {
+		t.Fatalf("third row = %q, want no text after grown content", got)
+	}
+}
+
+func TestTextAreaMaxHeightCapsDryLayout(t *testing.T) {
+	app := ui.NewApp(ui.Align{Alignment: ui.TopLeft, Child: ui.TextArea{Value: "a\nb\nc", MinHeight: 1, MaxHeight: 2}})
+	app.Pump(ui.Size{Width: 10, Height: 5})
+
+	p := ui.NewPainter(ui.Size{Width: 10, Height: 5})
+	app.Paint(p)
+	if got := p.Cell(1, 0).Grapheme; got != "a" {
+		t.Fatalf("first visible line = %q, want a", got)
+	}
+	if got := p.Cell(1, 1).Grapheme; got != "b" {
+		t.Fatalf("second visible line = %q, want b", got)
+	}
+	if got := p.Cell(1, 2).Grapheme; got == "c" {
+		t.Fatalf("third row = %q, want content clipped by max height", got)
+	}
+}
+
+func TestTextAreaMaxHeightScrollsInternally(t *testing.T) {
+	app := ui.NewApp(ui.TextArea{Value: "a\nb\nc", MinHeight: 1, MaxHeight: 2})
+	app.Pump(ui.Size{Width: 10, Height: 2})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyDown})
+	app.Pump(ui.Size{Width: 10, Height: 2})
+	app.Send(vaxis.Key{Keycode: vaxis.KeyDown})
+	app.Pump(ui.Size{Width: 10, Height: 2})
+
+	p := ui.NewPainter(ui.Size{Width: 10, Height: 2})
+	app.Paint(p)
+	if got := p.Cell(1, 0).Grapheme; got != "b" {
+		t.Fatalf("top visible line = %q, want b", got)
+	}
+	if got := p.Cell(1, 1).Grapheme; got != "c" {
+		t.Fatalf("bottom visible line = %q, want c", got)
+	}
+}
+
 func TestTextAreaControlledValueShrinkClampsCursor(t *testing.T) {
 	app := ui.NewApp(ui.TextArea{Value: "a\nb\nc", MinHeight: 3})
 	app.Pump(ui.Size{Width: 10, Height: 3})

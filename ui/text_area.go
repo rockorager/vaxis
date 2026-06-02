@@ -14,6 +14,9 @@ type TextArea struct {
 	MinWidth int
 	// MinHeight is the minimum content height, before padding.
 	MinHeight int
+	// MaxHeight is the maximum content height, before padding. When greater than zero,
+	// the text area grows until MaxHeight and then scrolls internally.
+	MaxHeight int
 	// SoftWrap wraps long logical lines to the available width.
 	SoftWrap bool
 	// CursorOffset moves the cursor to a grapheme offset and clears selection when non-nil.
@@ -67,6 +70,7 @@ func (s *textAreaState) Build(ctx BuildContext) Widget {
 			SelectionStyle:   mergeStyle(style, theme.Selection),
 			MinWidth:         textAreaMinWidth(w, theme) - padding.Left - padding.Right,
 			MinHeight:        textAreaMinHeight(w) - padding.Top - padding.Bottom,
+			MaxHeight:        textAreaMaxHeight(w, padding),
 			SoftWrap:         w.SoftWrap,
 			CursorShape:      textAreaCursorShape(w),
 		}),
@@ -164,6 +168,13 @@ func textAreaMinHeight(w TextArea) int {
 	return 3
 }
 
+func textAreaMaxHeight(w TextArea, padding Insets) int {
+	if w.MaxHeight <= 0 {
+		return 0
+	}
+	return max(1, w.MaxHeight-padding.Top-padding.Bottom)
+}
+
 func textAreaCursorOffset(w TextArea, fallback int) int {
 	if w.CursorOffset != nil {
 		return *w.CursorOffset
@@ -190,6 +201,7 @@ type textAreaView struct {
 	SelectionStyle   Style
 	MinWidth         int
 	MinHeight        int
+	MaxHeight        int
 	SoftWrap         bool
 	CursorShape      CursorStyle
 }
@@ -207,6 +219,7 @@ func (w textAreaView) CreateRenderObject(BuildContext) RenderObject {
 		SelectionStyle:   w.SelectionStyle,
 		MinWidth:         max(1, w.MinWidth),
 		MinHeight:        max(1, w.MinHeight),
+		MaxHeight:        max(0, w.MaxHeight),
 		SoftWrap:         w.SoftWrap,
 		CursorShape:      w.CursorShape,
 	}
@@ -217,7 +230,7 @@ func (w textAreaView) UpdateRenderObject(_ BuildContext, ro RenderObject) {
 	if r.State != w.State || r.Value != w.Value || r.Placeholder != w.Placeholder || r.CursorOffset != w.CursorOffset ||
 		r.Selection != w.Selection || r.Focused != w.Focused || r.Style != w.Style || r.PlaceholderStyle != w.PlaceholderStyle ||
 		r.SelectionStyle != w.SelectionStyle ||
-		r.MinWidth != max(1, w.MinWidth) || r.MinHeight != max(1, w.MinHeight) || r.SoftWrap != w.SoftWrap || r.CursorShape != w.CursorShape {
+		r.MinWidth != max(1, w.MinWidth) || r.MinHeight != max(1, w.MinHeight) || r.MaxHeight != max(0, w.MaxHeight) || r.SoftWrap != w.SoftWrap || r.CursorShape != w.CursorShape {
 		r.State = w.State
 		r.Value = w.Value
 		r.Placeholder = w.Placeholder
@@ -229,6 +242,7 @@ func (w textAreaView) UpdateRenderObject(_ BuildContext, ro RenderObject) {
 		r.SelectionStyle = w.SelectionStyle
 		r.MinWidth = max(1, w.MinWidth)
 		r.MinHeight = max(1, w.MinHeight)
+		r.MaxHeight = max(0, w.MaxHeight)
 		r.SoftWrap = w.SoftWrap
 		r.CursorShape = w.CursorShape
 		r.MarkNeedsLayout()
@@ -248,6 +262,7 @@ type renderTextArea struct {
 	SelectionStyle   Style
 	MinWidth         int
 	MinHeight        int
+	MaxHeight        int
 	SoftWrap         bool
 	CursorShape      CursorStyle
 	layout           TextLayout
@@ -318,6 +333,9 @@ func (r *renderTextArea) sizeForLayout(c Constraints, layout TextLayout) Size {
 		width = max(r.MinWidth, c.MaxWidth)
 	}
 	height := max(r.MinHeight, layout.Size.Height)
+	if r.MaxHeight > 0 {
+		height = min(height, max(r.MinHeight, r.MaxHeight))
+	}
 	return c.Constrain(Size{Width: width, Height: height})
 }
 
