@@ -345,6 +345,9 @@ func (r *renderTextArea) keepCursorVisible(size Size) {
 	}
 	r.State.scrollRow = min(r.State.scrollRow, max(0, len(r.layout.Lines)-1))
 	r.State.scrollCol = min(r.State.scrollCol, max(0, r.layout.Size.Width))
+	if r.layout.Size.Height <= size.Height {
+		r.State.scrollRow = 0
+	}
 	if r.layout.Size.Width <= size.Width {
 		r.State.scrollCol = 0
 	}

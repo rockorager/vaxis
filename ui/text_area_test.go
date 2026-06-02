@@ -18,6 +18,17 @@ func (h *textAreaHarness) Build(ui.BuildContext) ui.Widget {
 	}
 }
 
+type growingTextAreaHarness struct{ value string }
+
+func (h *growingTextAreaHarness) Build(ui.BuildContext) ui.Widget {
+	return ui.Align{Alignment: ui.TopLeft, Child: ui.TextArea{
+		Value:     h.value,
+		MinHeight: 1,
+		SoftWrap:  true,
+		OnChanged: func(ctx ui.EventContext, value string) { h.value = value },
+	}}
+}
+
 func TestTextAreaEditsControlledMultilineValue(t *testing.T) {
 	h := &textAreaHarness{}
 	app := ui.NewApp(h)
@@ -158,6 +169,97 @@ func TestTextAreaMovesVisuallyThroughWrappedLines(t *testing.T) {
 	if cursor, ok := p.Cursor(); !ok || cursor.Col != 2 || cursor.Row != 1 {
 		t.Fatalf("cursor = %#v ok=%v, want 2,1", cursor, ok)
 	}
+}
+
+func TestTextAreaTypingSingleLineGrowsForSoftWrap(t *testing.T) {
+	tests := []struct {
+		name string
+		text string
+		rows int
+	}{
+		{name: "two rows", text: "abcdefg", rows: 2},
+		{name: "three rows", text: "abcdefghijklm", rows: 3},
+		{name: "four rows", text: "abcdefghijklmnopqrs", rows: 4},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := &growingTextAreaHarness{}
+			app := ui.NewApp(h)
+			size := ui.Size{Width: 8, Height: 6}
+			app.Pump(size)
+
+			app.Send(vaxis.Key{Text: tt.text, Keycode: []rune(tt.text)[0]})
+			app.UpdateRoot(h)
+			app.Pump(size)
+
+			p := ui.NewPainter(size)
+			app.Paint(p)
+			if got := p.Cell(1, 0).Grapheme; got != "a" {
+				t.Fatalf("first visible character = %q, want beginning of typed text", got)
+			}
+			if got := textAreaPaintedTextRows(p, size); got != tt.rows {
+				t.Fatalf("painted text rows = %d, want %d", got, tt.rows)
+			}
+			if got := textAreaPaintedLetterCount(p, size); got != len(tt.text) {
+				t.Fatalf("visible typed letters = %d, want %d", got, len(tt.text))
+			}
+		})
+	}
+}
+
+func TestTextAreaTypingSingleLineOneRuneAtATimeKeepsTopVisibleWhenGrowing(t *testing.T) {
+	h := &growingTextAreaHarness{}
+	app := ui.NewApp(h)
+	size := ui.Size{Width: 8, Height: 6}
+	app.Pump(size)
+
+	text := "lorem ipsum dolor sit amet"
+	for _, r := range text {
+		app.Send(vaxis.Key{Text: string(r), Keycode: r})
+		app.UpdateRoot(h)
+		app.Pump(size)
+	}
+
+	p := ui.NewPainter(size)
+	app.Paint(p)
+	if got := p.Cell(1, 0).Grapheme; got != "l" {
+		t.Fatalf("first visible character = %q, want beginning of typed text", got)
+	}
+	if got := textAreaPaintedTextRows(p, size); got != 5 {
+		t.Fatalf("painted text rows = %d, want 5", got)
+	}
+	if got := textAreaPaintedLetterCount(p, size); got != 22 {
+		t.Fatalf("visible typed letters = %d, want 22", got)
+	}
+}
+
+func textAreaPaintedTextRows(p *ui.Painter, size ui.Size) int {
+	rows := 0
+	for row := 0; row < size.Height; row++ {
+		for col := 0; col < size.Width; col++ {
+			if textAreaTestLetter(p.Cell(col, row).Grapheme) {
+				rows++
+				break
+			}
+		}
+	}
+	return rows
+}
+
+func textAreaPaintedLetterCount(p *ui.Painter, size ui.Size) int {
+	count := 0
+	for row := 0; row < size.Height; row++ {
+		for col := 0; col < size.Width; col++ {
+			if textAreaTestLetter(p.Cell(col, row).Grapheme) {
+				count++
+			}
+		}
+	}
+	return count
+}
+
+func textAreaTestLetter(grapheme string) bool {
+	return len(grapheme) == 1 && grapheme[0] >= 'a' && grapheme[0] <= 'z'
 }
 
 func TestTextAreaKeepsCursorVisibleAtSoftWrapBoundary(t *testing.T) {
