@@ -17,7 +17,7 @@ run = "golangci-lint custom"
 description = "Run formatting checks and tests"
 depends = ["custom-golangci-lint"]
 run = [
-  "scripts/gofumpt.sh",
+  "gofumpt -d .",
   "./out/custom-golangci-lint run ./...",
   "go test ./...",
 ]
