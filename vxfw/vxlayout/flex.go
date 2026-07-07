@@ -22,6 +22,10 @@ type FlexItem struct {
 	// Flex of 0 means the widget will be its inherent size.
 	// Remaining space is divided proportionally to all FlexItems with Flex > 0
 	Flex uint8
+
+	// Tight determines if the inherent size is ignored and is treated as purely
+	// proportional.
+	Tight bool
 }
 
 // unboundedContext takes a [vxfw.DrawContext] and returns a new one, with the main (flex) axis
@@ -129,6 +133,11 @@ func (w *FlexLayout) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 
 	// Iterate over each child, draw it, and measure the flex direction
 	for i, child := range w.Children {
+		total_flex += uint16(child.Flex)
+		if child.Flex > 0 && child.Tight {
+			continue
+		}
+
 		surface, err := child.Draw(unboundedContext)
 		if err != nil {
 			return vxfw.Surface{}, err
@@ -137,7 +146,6 @@ func (w *FlexLayout) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 		inherent_size := w.Direction.mainAxis(surface.Size)
 		first_pass_size += inherent_size
 		sizes[i] = inherent_size
-		total_flex += uint16(child.Flex)
 	}
 
 	children := make([]vxfw.SubSurface, len(w.Children))
@@ -161,6 +169,8 @@ func (w *FlexLayout) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 		} else if i == len(w.Children)-1 {
 			// last child gets the remaining space
 			child_size = max_flex_axis - second_pass_size
+		} else if child.Tight {
+			child_size = (remaining * uint16(child.Flex)) / total_flex
 		} else {
 			child_size = inherent_size + (remaining*uint16(child.Flex))/total_flex
 		}
