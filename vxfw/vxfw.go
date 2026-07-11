@@ -322,46 +322,52 @@ func (f *focusHandler) handleEvent(app *App, ev vaxis.Event) error {
 }
 
 func (f *focusHandler) updatePath(app *App, root Surface) {
-	// Clear the path
-	f.path = []Widget{}
+	path, ok := f.childHasFocus(root, f.path[:0])
+	if !ok {
+		// Resolve focus to the missing widget's parent
+		parent := f.root
+		if n := len(f.path); n >= 2 {
+			parent = f.path[n-2]
+		}
+		_ = f.focusWidget(app, parent)
 
-	ok := f.childHasFocus(root)
+		path, ok = f.childHasFocus(root, f.path[:0])
+	}
 	if !ok {
 		// Best effort refocus
 		_ = f.focusWidget(app, f.root)
 	}
 
-	if f.root != root.Widget || len(f.path) == 0 {
+	if f.root != root.Widget || len(path) == 0 {
 		// Make sure that we always add the original root widget as the
 		// last node. We will reverse the list, making this widget the
 		// first one with the opportunity to capture events
-		f.path = append(f.path, f.root)
+		path = append(path, f.root)
 	}
 
 	// Reverse the list since it is ordered target to root, and we want the
 	// opposite
-	for i := 0; i < len(f.path)/2; i++ {
-		f.path[i], f.path[len(f.path)-1-i] = f.path[len(f.path)-1-i], f.path[i]
+	for i := 0; i < len(path)/2; i++ {
+		path[i], path[len(path)-1-i] = path[len(path)-1-i], path[i]
 	}
+
+	f.path = path
 }
 
-func (f *focusHandler) childHasFocus(s Surface) bool {
-	// If s is our focused widget, we add to path and return true
+func (f *focusHandler) childHasFocus(s Surface, path []Widget) ([]Widget, bool) {
 	if s.Widget == f.focused {
-		f.path = append(f.path, s.Widget)
-		return true
+		return append(path, s.Widget), true
 	}
 
-	// Loop through children to find the focused widget
 	for _, c := range s.Children {
-		if !f.childHasFocus(c.Surface) {
+		p, ok := f.childHasFocus(c.Surface, path)
+		if !ok {
 			continue
 		}
-		f.path = append(f.path, s.Widget)
-		return true
+		return append(p, s.Widget), true
 	}
 
-	return false
+	return path, false
 }
 
 func (f *focusHandler) focusWidget(app *App, w Widget) error {
