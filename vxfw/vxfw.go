@@ -28,6 +28,14 @@ type EventHandler interface {
 	HandleEvent(vaxis.Event, EventPhase) (Command, error)
 }
 
+// Unwrapper is a indicator of a Widget that wraps around a single widget and
+// doesn't expect to handle or forward any events on its own. It's main
+// usecase is to help resolve the correct focus order of the widget, used in
+// widgets that just show a single widget with decoration.
+type Unwrapper interface {
+	Unwrap() Widget
+}
+
 type Event interface{}
 
 type (
@@ -364,6 +372,11 @@ func (f *focusHandler) childHasFocus(s Surface, path []Widget) ([]Widget, bool) 
 		if !ok {
 			continue
 		}
+		// A widget that reuses its child's own Widget will be
+		// unused in the focus path, as no events will be passed to it.
+		if len(p) > 0 && p[len(p)-1] == s.Widget {
+			return p, true
+		}
 		return append(p, s.Widget), true
 	}
 
@@ -371,6 +384,13 @@ func (f *focusHandler) childHasFocus(s Surface, path []Widget) ([]Widget, bool) 
 }
 
 func (f *focusHandler) focusWidget(app *App, w Widget) error {
+	for {
+		u, ok := w.(Unwrapper)
+		if !ok {
+			break
+		}
+		w = u.Unwrap()
+	}
 	if f.focused == w {
 		return nil
 	}
