@@ -16,14 +16,38 @@ type Widget interface {
 }
 
 // EventCapturer is a Widget which can capture events before they are delivered
-// to the target widget. To capture an event, the EventCapturer must be an
+// to the focused widget. To capture an event, the EventCapturer must be an
 // ancestor of the target widget
+//
+// This phase is commonly useful for receiving any events such as custom binds
+// that must be handled before being sent to any other widget (eg. [QuitCmd])
 type EventCapturer interface {
 	CaptureEvent(vaxis.Event) (Command, error)
 }
 
-// EventHandler is a Widget which can handle events. It's a separate interface to simplify creating
-// custom [Widget]s that do not require event handling.
+// EventPhase is the phase of the event during the event handling
+// process.
+type EventPhase uint8
+
+const (
+	// Walking the focus path, all widgets in the path to the focused
+	// widget will be called with [CaptureEvent], before the focused
+	// widget is called with this phase
+	TargetPhase EventPhase = iota
+
+	// If the target widget has not consumed the event with [ConsumeEventCmd],
+	// the event will be sent to widgets in the focus path with this phase,
+	// walking backwards from the focused widget that might consume it instead
+	//
+	// This phase should be used for implementing any event handling that does
+	// not require immediate propagation, such as implementing custom binds after
+	// a focused widget (eg. textfield) had not consumed it
+	BubblePhase
+)
+
+// EventHandler is a Widget which can handle events directly when focused.
+// It's a separate interface to simplify creating custom [Widget]s that do not
+// require capturing events
 type EventHandler interface {
 	HandleEvent(vaxis.Event, EventPhase) (Command, error)
 }
@@ -31,21 +55,22 @@ type EventHandler interface {
 // Unwrapper is a indicator of a Widget that wraps around a single widget and
 // doesn't expect to handle or forward any events on its own. It's main
 // usecase is to help resolve the correct focus order of the widget, used in
-// widgets that just show a single widget with decoration.
+// widgets that just show a single widget with decoration
 type Unwrapper interface {
 	Unwrap() Widget
 }
 
-type Event interface{}
-
 type (
-	// Sent as the first event to the root widget
-	Init       struct{}
+	// Sent as the first event to the root widget.
+	Init struct{}
+
 	MouseEnter struct{}
 	MouseLeave struct{}
 )
 
-type Command interface{}
+// Command represents any type returned from event propagation
+// or a PostEvent call. See [EventPhase], [EventCapturer] [EventHandler].
+type Command any
 
 type (
 	// RedrawCmd tells the UI to redraw
@@ -54,7 +79,9 @@ type (
 	RefreshCmd struct{}
 	// QuitCmd tells the application to exit
 	QuitCmd struct{}
-	// ConsumeEventCmd tells the application to stop the event propagation
+	// ConsumeEventCmd indicates that this [EventCapturer] has captured
+	// the event successfully, stopping event propagation
+	// If returning a batch of events, ensure this is placed last
 	ConsumeEventCmd struct{}
 	// BatchCmd is a batch of other commands
 	BatchCmd []Command
@@ -117,20 +144,6 @@ func (s Size) HasUnboundedWidth() bool {
 func (s Size) HasUnboundedHeight() bool {
 	return s.Height == math.MaxUint16
 }
-
-// EventPhase is the phase of the event during the event handling process.
-// Possible values are
-//
-//	CapturePhase
-//	TargetPhase
-//	BubblePhase
-type EventPhase uint8
-
-const (
-	CapturePhase EventPhase = iota
-	TargetPhase
-	BubblePhase
-)
 
 type Surface struct {
 	Size     Size
