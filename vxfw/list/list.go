@@ -217,7 +217,7 @@ func (d *Dynamic) Draw(ctx vxfw.DrawContext) (vxfw.Surface, error) {
 		idx := d.cursor - d.scroll.top
 
 		// If our cursor is within the list, we draw a cursor next to it
-		if int(idx) < len(s.Children) {
+		if d.cursor >= d.scroll.top && int(idx) < len(s.Children) {
 			ch := s.Children[idx]
 			// Create a surface for the cursor
 			cur := vxfw.NewSurface(ctx.Max.Width, ch.Surface.Size.Height, ch.Surface.Widget)
