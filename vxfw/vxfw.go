@@ -19,6 +19,8 @@ type Widget interface {
 // to the focused widget. To capture an event, the EventCapturer must be an
 // ancestor of the target widget
 //
+// The event may represent a [Command] sent from propagation or postage.
+//
 // This phase is commonly useful for receiving any events such as custom binds
 // that must be handled before being sent to any other widget (eg. [QuitCmd])
 type EventCapturer interface {
@@ -48,6 +50,8 @@ const (
 // EventHandler is a Widget which can handle events directly when focused.
 // It's a separate interface to simplify creating custom [Widget]s that do not
 // require capturing events
+//
+// The event may represent a [Command] sent from propagation or postage.
 type EventHandler interface {
 	HandleEvent(vaxis.Event, EventPhase) (Command, error)
 }
@@ -306,7 +310,9 @@ func (f *focusHandler) handleEvent(app *App, ev vaxis.Event) error {
 		if err != nil {
 			return err
 		}
-		app.handleCommand(cmd)
+		if err := app.handleCommand(cmd); err != nil {
+			return err
+		}
 		if app.consumeEvent {
 			app.consumeEvent = false
 			return nil
@@ -318,7 +324,9 @@ func (f *focusHandler) handleEvent(app *App, ev vaxis.Event) error {
 	if err != nil {
 		return err
 	}
-	app.handleCommand(cmd)
+	if err := app.handleCommand(cmd); err != nil {
+		return err
+	}
 	if app.consumeEvent {
 		app.consumeEvent = false
 		return nil
@@ -332,7 +340,9 @@ func (f *focusHandler) handleEvent(app *App, ev vaxis.Event) error {
 		if err != nil {
 			return err
 		}
-		app.handleCommand(cmd)
+		if err := app.handleCommand(cmd); err != nil {
+			return err
+		}
 		if app.consumeEvent {
 			app.consumeEvent = false
 			return nil
@@ -412,7 +422,9 @@ func (f *focusHandler) focusWidget(app *App, w Widget) error {
 	if err != nil {
 		return err
 	}
-	app.handleCommand(cmd)
+	if err := app.handleCommand(cmd); err != nil {
+		return err
+	}
 
 	// Change the focused widget before we send the focus in event. If the
 	// newly focused widget changes focus again, we need to set this before
@@ -422,9 +434,7 @@ func (f *focusHandler) focusWidget(app *App, w Widget) error {
 	if err != nil {
 		return err
 	}
-	app.handleCommand(cmd)
-
-	return nil
+	return app.handleCommand(cmd)
 }
 
 // tryHandleEvent calls HandleEvent on w, if w is an [EventHandler]
@@ -620,15 +630,21 @@ func (a *App) layout(root Widget) (Surface, error) {
 	})
 }
 
-func (a *App) handleCommand(cmd Command) {
+func (a *App) handleCommand(cmd Command) error {
 	switch cmd := cmd.(type) {
+	case nil:
+		return nil
 	case BatchCmd:
 		for _, c := range cmd {
-			a.handleCommand(c)
+			if err := a.handleCommand(c); err != nil {
+				return err
+			}
 		}
 	case []Command:
 		for _, c := range cmd {
-			a.handleCommand(c)
+			if err := a.handleCommand(c); err != nil {
+				return err
+			}
 		}
 	case RedrawCmd:
 		a.redraw = true
@@ -639,11 +655,7 @@ func (a *App) handleCommand(cmd Command) {
 	case ConsumeEventCmd:
 		a.consumeEvent = true
 	case FocusWidgetCmd:
-		err := a.fh.focusWidget(a, cmd)
-		if err != nil {
-			log.Error("focusWidget error: %s", err)
-			return
-		}
+		return a.fh.focusWidget(a, cmd)
 	case SetMouseShapeCmd:
 		a.vx.SetMouseShape(vaxis.MouseShape(cmd))
 	case SetTitleCmd:
@@ -656,6 +668,7 @@ func (a *App) handleCommand(cmd Command) {
 		a.debug = true
 		a.redraw = true
 	}
+	return a.fh.handleEvent(a, cmd)
 }
 
 func (a App) PostEvent(ev vaxis.Event) {
@@ -720,7 +733,9 @@ func (m *mouseHandler) handleEvent(app *App, ev vaxis.Mouse) error {
 		if err != nil {
 			return err
 		}
-		app.handleCommand(cmd)
+		if err := app.handleCommand(cmd); err != nil {
+			return err
+		}
 		if app.consumeEvent {
 			app.consumeEvent = false
 			return nil
@@ -734,7 +749,9 @@ func (m *mouseHandler) handleEvent(app *App, ev vaxis.Mouse) error {
 	if err != nil {
 		return err
 	}
-	app.handleCommand(cmd)
+	if err := app.handleCommand(cmd); err != nil {
+		return err
+	}
 	if app.consumeEvent {
 		app.consumeEvent = false
 		return nil
@@ -748,7 +765,9 @@ func (m *mouseHandler) handleEvent(app *App, ev vaxis.Mouse) error {
 		if err != nil {
 			return err
 		}
-		app.handleCommand(cmd)
+		if err := app.handleCommand(cmd); err != nil {
+			return err
+		}
 		if app.consumeEvent {
 			app.consumeEvent = false
 			return nil
@@ -789,7 +808,9 @@ outer_exit:
 		if err != nil {
 			return err
 		}
-		app.handleCommand(cmd)
+		if err := app.handleCommand(cmd); err != nil {
+			return err
+		}
 	}
 
 	// Handle mouse enter events. These are widgets in hits but not in
@@ -807,7 +828,9 @@ outer_enter:
 		if err != nil {
 			return err
 		}
-		app.handleCommand(cmd)
+		if err := app.handleCommand(cmd); err != nil {
+			return err
+		}
 	}
 
 	// Save this list as our current hit list
@@ -823,7 +846,9 @@ func (m *mouseHandler) mouseExit(app *App) error {
 		if err != nil {
 			return err
 		}
-		app.handleCommand(cmd)
+		if err := app.handleCommand(cmd); err != nil {
+			return err
+		}
 	}
 	// Clear the last hit list
 	m.lastHits = []hitResult{}
