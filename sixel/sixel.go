@@ -203,6 +203,13 @@ func writeColorSelect(w *sixelWriter, n int) {
 }
 
 func writeSixelRun(w *sixelWriter, row []byte) {
+	// Zero-valued sixel data advances the active position without drawing
+	// pixels. Preserve those gaps before and between drawn runs, but omit
+	// trailing empty data because it has no visible effect.
+	for len(row) > 0 && row[len(row)-1] == 0 {
+		row = row[:len(row)-1]
+	}
+
 	last := byte(0)
 	count := 0
 	for _, ch := range row {
@@ -217,7 +224,7 @@ func writeSixelRun(w *sixelWriter, row []byte) {
 }
 
 func writeRepeat(w *sixelWriter, count int, ch byte) {
-	if count == 0 || ch == 0 {
+	if count == 0 {
 		return
 	}
 	ch += '?'

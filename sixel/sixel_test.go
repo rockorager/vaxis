@@ -86,6 +86,39 @@ func TestEncodeDecodeTransparentPixel(t *testing.T) {
 	}
 }
 
+func TestEncodePreservesTransparentGaps(t *testing.T) {
+	img := image.NewPaletted(image.Rect(0, 0, 3, 1), color.Palette{
+		color.NRGBA{},
+		color.NRGBA{R: 255, A: 255},
+	})
+	img.SetColorIndex(0, 0, 1)
+	img.SetColorIndex(1, 0, 0)
+	img.SetColorIndex(2, 0, 1)
+
+	var buf bytes.Buffer
+	if err := NewEncoder(&buf).Encode(img); err != nil {
+		t.Fatal(err)
+	}
+
+	const want = "\x1bP0;0;8q\"1;1#1;2;0;0;0#2;2;100;0;0#2@?@\x1b\\"
+	if got := buf.String(); got != want {
+		t.Fatalf("encoded sixel = %q, want %q", got, want)
+	}
+
+	decoded := decodeBytes(t, buf.Bytes())
+	if got := decoded.Bounds(); got.Dx() != 3 || got.Dy() != 1 {
+		t.Fatalf("bounds = %v, want 3x1", got)
+	}
+	for _, x := range []int{0, 2} {
+		if got := color.NRGBAModel.Convert(decoded.At(x, 0)); got != (color.NRGBA{R: 255, A: 255}) {
+			t.Fatalf("pixel %d = %#v, want red", x, got)
+		}
+	}
+	if got := color.NRGBAModel.Convert(decoded.At(1, 0)); got != (color.NRGBA{}) {
+		t.Fatalf("gap pixel = %#v, want transparent", got)
+	}
+}
+
 func TestEncodeRejectsTooManyColors(t *testing.T) {
 	img := image.NewPaletted(image.Rect(0, 0, 1, 1), color.Palette{
 		color.NRGBA{R: 255, A: 255},
