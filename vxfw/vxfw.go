@@ -16,28 +16,65 @@ type Widget interface {
 }
 
 // EventCapturer is a Widget which can capture events before they are delivered
-// to the target widget. To capture an event, the EventCapturer must be an
+// to the focused widget. To capture an event, the EventCapturer must be an
 // ancestor of the target widget
+//
+// The event may represent a [Command] sent from propagation or postage.
+//
+// This phase is commonly useful for receiving any events such as custom binds
+// that must be handled before being sent to any other widget (eg. [QuitCmd])
 type EventCapturer interface {
 	CaptureEvent(vaxis.Event) (Command, error)
 }
 
-// EventHandler is a Widget which can handle events. It's a separate interface to simplify creating
-// custom [Widget]s that do not require event handling.
+// EventPhase is the phase of the event during the event handling
+// process.
+type EventPhase uint8
+
+const (
+	// Walking the focus path, all widgets in the path to the focused
+	// widget will be called with [CaptureEvent], before the focused
+	// widget is called with this phase
+	TargetPhase EventPhase = iota
+
+	// If the target widget has not consumed the event with [ConsumeEventCmd],
+	// the event will be sent to widgets in the focus path with this phase,
+	// walking backwards from the focused widget that might consume it instead
+	//
+	// This phase should be used for implementing any event handling that does
+	// not require immediate propagation, such as implementing custom binds after
+	// a focused widget (eg. textfield) had not consumed it
+	BubblePhase
+)
+
+// EventHandler is a Widget which can handle events directly when focused.
+// It's a separate interface to simplify creating custom [Widget]s that do not
+// require capturing events
+//
+// The event may represent a [Command] sent from propagation or postage.
 type EventHandler interface {
 	HandleEvent(vaxis.Event, EventPhase) (Command, error)
 }
 
-type Event interface{}
+// Unwrapper is a indicator of a Widget that wraps around a single widget and
+// doesn't expect to handle or forward any events on its own. It's main
+// usecase is to help resolve the correct focus order of the widget, used in
+// widgets that just show a single widget with decoration
+type Unwrapper interface {
+	Unwrap() Widget
+}
 
 type (
-	// Sent as the first event to the root widget
-	Init       struct{}
+	// Sent as the first event to the root widget.
+	Init struct{}
+
 	MouseEnter struct{}
 	MouseLeave struct{}
 )
 
-type Command interface{}
+// Command represents any type returned from event propagation
+// or a PostEvent call. See [EventPhase], [EventCapturer] [EventHandler].
+type Command any
 
 type (
 	// RedrawCmd tells the UI to redraw
@@ -46,7 +83,9 @@ type (
 	RefreshCmd struct{}
 	// QuitCmd tells the application to exit
 	QuitCmd struct{}
-	// ConsumeEventCmd tells the application to stop the event propagation
+	// ConsumeEventCmd indicates that this [EventCapturer] has captured
+	// the event successfully, stopping event propagation
+	// If returning a batch of events, ensure this is placed last
 	ConsumeEventCmd struct{}
 	// BatchCmd is a batch of other commands
 	BatchCmd []Command
@@ -109,20 +148,6 @@ func (s Size) HasUnboundedWidth() bool {
 func (s Size) HasUnboundedHeight() bool {
 	return s.Height == math.MaxUint16
 }
-
-// EventPhase is the phase of the event during the event handling process.
-// Possible values are
-//
-//	CapturePhase
-//	TargetPhase
-//	BubblePhase
-type EventPhase uint8
-
-const (
-	CapturePhase EventPhase = iota
-	TargetPhase
-	BubblePhase
-)
 
 type Surface struct {
 	Size     Size
@@ -285,7 +310,9 @@ func (f *focusHandler) handleEvent(app *App, ev vaxis.Event) error {
 		if err != nil {
 			return err
 		}
-		app.handleCommand(cmd)
+		if err := app.handleCommand(cmd); err != nil {
+			return err
+		}
 		if app.consumeEvent {
 			app.consumeEvent = false
 			return nil
@@ -297,7 +324,9 @@ func (f *focusHandler) handleEvent(app *App, ev vaxis.Event) error {
 	if err != nil {
 		return err
 	}
-	app.handleCommand(cmd)
+	if err := app.handleCommand(cmd); err != nil {
+		return err
+	}
 	if app.consumeEvent {
 		app.consumeEvent = false
 		return nil
@@ -311,7 +340,9 @@ func (f *focusHandler) handleEvent(app *App, ev vaxis.Event) error {
 		if err != nil {
 			return err
 		}
-		app.handleCommand(cmd)
+		if err := app.handleCommand(cmd); err != nil {
+			return err
+		}
 		if app.consumeEvent {
 			app.consumeEvent = false
 			return nil
@@ -322,49 +353,67 @@ func (f *focusHandler) handleEvent(app *App, ev vaxis.Event) error {
 }
 
 func (f *focusHandler) updatePath(app *App, root Surface) {
-	// Clear the path
-	f.path = []Widget{}
+	path, ok := f.childHasFocus(root, f.path[:0])
+	if !ok {
+		// Resolve focus to the missing widget's parent
+		parent := f.root
+		if n := len(f.path); n >= 2 {
+			parent = f.path[n-2]
+		}
+		_ = f.focusWidget(app, parent)
 
-	ok := f.childHasFocus(root)
+		path, ok = f.childHasFocus(root, f.path[:0])
+	}
 	if !ok {
 		// Best effort refocus
 		_ = f.focusWidget(app, f.root)
 	}
 
-	if f.root != root.Widget || len(f.path) == 0 {
+	if f.root != root.Widget || len(path) == 0 {
 		// Make sure that we always add the original root widget as the
 		// last node. We will reverse the list, making this widget the
 		// first one with the opportunity to capture events
-		f.path = append(f.path, f.root)
+		path = append(path, f.root)
 	}
 
 	// Reverse the list since it is ordered target to root, and we want the
 	// opposite
-	for i := 0; i < len(f.path)/2; i++ {
-		f.path[i], f.path[len(f.path)-1-i] = f.path[len(f.path)-1-i], f.path[i]
+	for i := 0; i < len(path)/2; i++ {
+		path[i], path[len(path)-1-i] = path[len(path)-1-i], path[i]
 	}
+
+	f.path = path
 }
 
-func (f *focusHandler) childHasFocus(s Surface) bool {
-	// If s is our focused widget, we add to path and return true
+func (f *focusHandler) childHasFocus(s Surface, path []Widget) ([]Widget, bool) {
 	if s.Widget == f.focused {
-		f.path = append(f.path, s.Widget)
-		return true
+		return append(path, s.Widget), true
 	}
 
-	// Loop through children to find the focused widget
 	for _, c := range s.Children {
-		if !f.childHasFocus(c.Surface) {
+		p, ok := f.childHasFocus(c.Surface, path)
+		if !ok {
 			continue
 		}
-		f.path = append(f.path, s.Widget)
-		return true
+		// A widget that reuses its child's own Widget will be
+		// unused in the focus path, as no events will be passed to it.
+		if len(p) > 0 && p[len(p)-1] == s.Widget {
+			return p, true
+		}
+		return append(p, s.Widget), true
 	}
 
-	return false
+	return path, false
 }
 
 func (f *focusHandler) focusWidget(app *App, w Widget) error {
+	for {
+		u, ok := w.(Unwrapper)
+		if !ok {
+			break
+		}
+		w = u.Unwrap()
+	}
 	if f.focused == w {
 		return nil
 	}
@@ -373,7 +422,9 @@ func (f *focusHandler) focusWidget(app *App, w Widget) error {
 	if err != nil {
 		return err
 	}
-	app.handleCommand(cmd)
+	if err := app.handleCommand(cmd); err != nil {
+		return err
+	}
 
 	// Change the focused widget before we send the focus in event. If the
 	// newly focused widget changes focus again, we need to set this before
@@ -383,9 +434,7 @@ func (f *focusHandler) focusWidget(app *App, w Widget) error {
 	if err != nil {
 		return err
 	}
-	app.handleCommand(cmd)
-
-	return nil
+	return app.handleCommand(cmd)
 }
 
 // tryHandleEvent calls HandleEvent on w, if w is an [EventHandler]
@@ -489,7 +538,10 @@ func (a *App) Run(w Widget) error {
 				if err != nil {
 					return err
 				}
-				a.handleCommand(cmd)
+				err = a.handleCommand(cmd)
+				if err != nil {
+					return err
+				}
 			case vaxis.FocusOut:
 				mh.mouse = nil
 				err := mh.mouseExit(a)
@@ -504,8 +556,8 @@ func (a *App) Run(w Widget) error {
 			case vaxis.Redraw:
 				a.redraw = true
 			default:
-				// Anything else we let the application handle
-				err := a.fh.handleEvent(a, ev)
+				// Anything else we let the application or widgets handle.
+				err = a.handleCommand(ev)
 				if err != nil {
 					return err
 				}
@@ -581,15 +633,20 @@ func (a *App) layout(root Widget) (Surface, error) {
 	})
 }
 
-func (a *App) handleCommand(cmd Command) {
+func (a *App) handleCommand(cmd Command) error {
 	switch cmd := cmd.(type) {
+	case nil:
 	case BatchCmd:
 		for _, c := range cmd {
-			a.handleCommand(c)
+			if err := a.handleCommand(c); err != nil {
+				return err
+			}
 		}
 	case []Command:
 		for _, c := range cmd {
-			a.handleCommand(c)
+			if err := a.handleCommand(c); err != nil {
+				return err
+			}
 		}
 	case RedrawCmd:
 		a.redraw = true
@@ -600,11 +657,7 @@ func (a *App) handleCommand(cmd Command) {
 	case ConsumeEventCmd:
 		a.consumeEvent = true
 	case FocusWidgetCmd:
-		err := a.fh.focusWidget(a, cmd)
-		if err != nil {
-			log.Error("focusWidget error: %s", err)
-			return
-		}
+		return a.fh.focusWidget(a, cmd)
 	case SetMouseShapeCmd:
 		a.vx.SetMouseShape(vaxis.MouseShape(cmd))
 	case SetTitleCmd:
@@ -616,7 +669,10 @@ func (a *App) handleCommand(cmd Command) {
 	case DebugCmd:
 		a.debug = true
 		a.redraw = true
+	default:
+		return a.fh.handleEvent(a, cmd)
 	}
+	return nil
 }
 
 func (a App) PostEvent(ev vaxis.Event) {
@@ -681,7 +737,9 @@ func (m *mouseHandler) handleEvent(app *App, ev vaxis.Mouse) error {
 		if err != nil {
 			return err
 		}
-		app.handleCommand(cmd)
+		if err := app.handleCommand(cmd); err != nil {
+			return err
+		}
 		if app.consumeEvent {
 			app.consumeEvent = false
 			return nil
@@ -695,7 +753,9 @@ func (m *mouseHandler) handleEvent(app *App, ev vaxis.Mouse) error {
 	if err != nil {
 		return err
 	}
-	app.handleCommand(cmd)
+	if err := app.handleCommand(cmd); err != nil {
+		return err
+	}
 	if app.consumeEvent {
 		app.consumeEvent = false
 		return nil
@@ -709,7 +769,9 @@ func (m *mouseHandler) handleEvent(app *App, ev vaxis.Mouse) error {
 		if err != nil {
 			return err
 		}
-		app.handleCommand(cmd)
+		if err := app.handleCommand(cmd); err != nil {
+			return err
+		}
 		if app.consumeEvent {
 			app.consumeEvent = false
 			return nil
@@ -750,7 +812,9 @@ outer_exit:
 		if err != nil {
 			return err
 		}
-		app.handleCommand(cmd)
+		if err := app.handleCommand(cmd); err != nil {
+			return err
+		}
 	}
 
 	// Handle mouse enter events. These are widgets in hits but not in
@@ -768,7 +832,9 @@ outer_enter:
 		if err != nil {
 			return err
 		}
-		app.handleCommand(cmd)
+		if err := app.handleCommand(cmd); err != nil {
+			return err
+		}
 	}
 
 	// Save this list as our current hit list
@@ -784,7 +850,9 @@ func (m *mouseHandler) mouseExit(app *App) error {
 		if err != nil {
 			return err
 		}
-		app.handleCommand(cmd)
+		if err := app.handleCommand(cmd); err != nil {
+			return err
+		}
 	}
 	// Clear the last hit list
 	m.lastHits = []hitResult{}
