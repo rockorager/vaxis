@@ -538,7 +538,10 @@ func (a *App) Run(w Widget) error {
 				if err != nil {
 					return err
 				}
-				a.handleCommand(cmd)
+				err = a.handleCommand(cmd)
+				if err != nil {
+					return err
+				}
 			case vaxis.FocusOut:
 				mh.mouse = nil
 				err := mh.mouseExit(a)
@@ -553,8 +556,8 @@ func (a *App) Run(w Widget) error {
 			case vaxis.Redraw:
 				a.redraw = true
 			default:
-				// Anything else we let the application handle
-				err := a.fh.handleEvent(a, ev)
+				// Anything else we let the application or widgets handle.
+				err = a.handleCommand(ev)
 				if err != nil {
 					return err
 				}
@@ -633,7 +636,6 @@ func (a *App) layout(root Widget) (Surface, error) {
 func (a *App) handleCommand(cmd Command) error {
 	switch cmd := cmd.(type) {
 	case nil:
-		return nil
 	case BatchCmd:
 		for _, c := range cmd {
 			if err := a.handleCommand(c); err != nil {
@@ -667,8 +669,10 @@ func (a *App) handleCommand(cmd Command) error {
 	case DebugCmd:
 		a.debug = true
 		a.redraw = true
+	default:
+		return a.fh.handleEvent(a, cmd)
 	}
-	return a.fh.handleEvent(a, cmd)
+	return nil
 }
 
 func (a App) PostEvent(ev vaxis.Event) {
