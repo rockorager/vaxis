@@ -3,6 +3,7 @@ package term
 import (
 	"testing"
 
+	"go.rockorager.dev/vaxis"
 	"go.rockorager.dev/vaxis/ansi"
 	"go.rockorager.dev/vaxis/ui"
 )
@@ -95,6 +96,19 @@ func TestTerminalWidgetPaintsModelSnapshot(t *testing.T) {
 
 	if got := p.Cell(0, 0).Grapheme + p.Cell(1, 0).Grapheme; got != "ok" {
 		t.Fatalf("painted text = %q, want ok", got)
+	}
+}
+
+func TestTerminalWidgetPaintPreservesAttachedVaxis(t *testing.T) {
+	vx := &vaxis.Vaxis{}
+	vt := New(WithVaxis(vx))
+	vt.resize(5, 2)
+	app := ui.NewApp(Terminal{Model: vt})
+	app.Pump(ui.Size{Width: 5, Height: 2})
+	app.Paint(ui.NewPainter(ui.Size{Width: 5, Height: 2}))
+
+	if vt.vx != vx {
+		t.Fatal("terminal widget paint detached host Vaxis")
 	}
 }
 

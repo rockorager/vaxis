@@ -1467,6 +1467,7 @@ func (vt *Model) Draw(win vaxis.Window) {
 	var snapshot drawSnapshot
 	vt.mu.Lock()
 	vt.dirty = false
+	vt.vx = win.Vx
 	snapshot = vt.snapshotDraw(win.Vx)
 	vt.mu.Unlock()
 
@@ -1509,7 +1510,6 @@ func (vt *Model) snapshotDraw(vx *vaxis.Vaxis) drawSnapshot {
 		graphics:    vt.visibleGraphics(),
 		vx:          vx,
 	}
-	vt.vx = vx
 	for r := 0; r < vt.height(); r += 1 {
 		line, sourceRow, ok := vt.visibleSourceLine(r)
 		if !ok {
