@@ -19,6 +19,30 @@ func (vx *Vaxis) applyQuirks() {
 
 	}
 
+	if !vx.caps.osc8 {
+		switch {
+		case strings.HasPrefix(id, "kitty"),
+			strings.HasPrefix(id, "foot("),
+			strings.HasPrefix(id, "WezTerm "),
+			strings.HasPrefix(id, "ghostty "),
+			strings.HasPrefix(id, "alacritty("),
+			strings.HasPrefix(id, "contour "),
+			strings.HasPrefix(id, "mintty "),
+			strings.HasPrefix(id, "rio "),
+			strings.HasPrefix(id, "tmux "),
+			strings.HasPrefix(id, "iTerm2 "),
+			strings.Contains(id, "VTE"):
+			vx.caps.osc8 = true
+		default:
+			switch os.Getenv("TERM") {
+			case "foot", "foot-extra", "xterm-kitty",
+				"alacritty", "contour", "wezterm",
+				"ghostty", "rio", "mintty":
+				vx.caps.osc8 = true
+			}
+		}
+	}
+
 	if os.Getenv("ASCIINEMA_REC") != "" {
 		// Asciinema doesn't support any advanced image protocols
 		vx.graphicsProtocol = halfBlock

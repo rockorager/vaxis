@@ -30,6 +30,7 @@ type capabilities struct {
 	reportSizeChars    bool
 	reportSizePixels   bool
 	osc4               bool
+	osc8               bool
 	osc10              bool
 	osc11              bool
 	osc176             bool
@@ -283,6 +284,11 @@ outer:
 				log.Info("[capability] OSC 4 supported")
 				vx.mu.Lock()
 				vx.caps.osc4 = true
+				vx.mu.Unlock()
+			case capabilityOsc8:
+				log.Info("[capability] OSC 8 supported")
+				vx.mu.Lock()
+				vx.caps.osc8 = true
 				vx.mu.Unlock()
 			case capabilityOsc10:
 				log.Info("[capability] OSC 10 supported")
@@ -681,7 +687,7 @@ outerNew:
 			}
 			lastRow[col] = next
 			if reposition {
-				if cursor.Hyperlink != "" {
+				if vx.caps.osc8 && cursor.Hyperlink != "" {
 					cursor.Hyperlink = ""
 					vx.tw.writeOSC8("", "")
 				}
@@ -853,7 +859,7 @@ outerNew:
 				}
 			}
 
-			if cursor.Hyperlink != next.Hyperlink {
+			if vx.caps.osc8 && cursor.Hyperlink != next.Hyperlink {
 				link := next.Hyperlink
 				linkPs := next.HyperlinkParams
 				if link == "" {
@@ -887,7 +893,7 @@ outerNew:
 			col += skip
 		}
 	}
-	if cursor.Hyperlink != "" {
+	if vx.caps.osc8 && cursor.Hyperlink != "" {
 		vx.tw.writeOSC8("", "")
 	}
 }
@@ -1298,6 +1304,8 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 					vx.PostEventBlocking(styledUnderlines{})
 				case hexEncode("RGB"):
 					vx.PostEventBlocking(truecolor{})
+				case hexEncode("Hls"):
+					vx.PostEventBlocking(capabilityOsc8{})
 				}
 			case '$':
 				// DECRQSS response (DECRPSS)
@@ -1689,6 +1697,10 @@ func (vx *Vaxis) sendQueries() {
 	// dashed, etc), but we'll assume the terminal also suppports underline
 	// colors (CSI 58 : ...)
 	_, _ = vx.tw.WriteControlString(xtgettcap("Smulx"))
+	// This Hls term cap has only be adopted officially by tmux but other
+	// terminals are following the trend. If we don't get a reply, we fall
+	// back on heuristics based on terminal ID and name.
+	_, _ = vx.tw.WriteControlString(xtgettcap("Hls"))
 	// Need to send tertiary for VTE based terminals. These don't respond to
 	// XTGETTCAP
 	_, _ = vx.tw.WriteControlString(tertiaryAttributes)
@@ -2113,6 +2125,12 @@ func (vx *Vaxis) CanReportColor() bool {
 	vx.mu.Lock()
 	defer vx.mu.Unlock()
 	return vx.caps.osc4
+}
+
+func (vx *Vaxis) CanHyperlink() bool {
+	vx.mu.Lock()
+	defer vx.mu.Unlock()
+	return vx.caps.osc8
 }
 
 func (vx *Vaxis) CanReportForegroundColor() bool {
