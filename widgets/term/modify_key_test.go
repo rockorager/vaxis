@@ -2,6 +2,7 @@ package term
 
 import (
 	"testing"
+	"unicode"
 
 	"go.rockorager.dev/vaxis"
 )
@@ -50,6 +51,31 @@ func TestModifyOtherKeysStateTwoEncodesPlainASCIIText(t *testing.T) {
 
 	if got, want := readReply(t, r, len("\x1B[27;1;120~")), "\x1B[27;1;120~"; got != want {
 		t.Fatalf("plain ASCII key with modifyOtherKeys = %q, want %q", got, want)
+	}
+}
+
+func TestModifyOtherKeysStateTwoDoesNotEncodePasteText(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.resize(80, 24)
+	vt.mode.paste = true
+
+	vt.update(testCSI('m', []uint32{4, 2}, '>'))
+	vt.Update(vaxis.PasteStartEvent{})
+	const pasted = "https://example.org/Linux-6"
+	for _, ch := range pasted {
+		key := vaxis.Key{Keycode: ch, Text: string(ch), EventType: vaxis.EventPaste}
+		if unicode.IsUpper(ch) {
+			key.Keycode = unicode.ToLower(ch)
+			key.ShiftedCode = ch
+			key.Modifiers = vaxis.ModShift
+		}
+		vt.Update(key)
+	}
+	vt.Update(vaxis.PasteEndEvent{})
+
+	want := "\x1B[200~" + pasted + "\x1B[201~"
+	if got := readReply(t, r, len(want)); got != want {
+		t.Fatalf("paste with modifyOtherKeys = %q, want %q", got, want)
 	}
 }
 

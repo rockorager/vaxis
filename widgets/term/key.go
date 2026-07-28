@@ -300,6 +300,9 @@ func csiuCodepoint(key vaxis.Key) (rune, bool) {
 }
 
 func (vt *Model) encodeKey(key vaxis.Key) string {
+	if key.EventType == vaxis.EventPaste {
+		return encodeXterm(key, vt.mode.deckpam, vt.mode.decckm, vt.mode.decbkm, vt.mode.ignoreKeypadWithNumLock, vt.mode.altEscPrefix)
+	}
 	flags := uint8(0)
 	if vt.EnableKittyKeyboard {
 		flags = vt.activeKittyKeyboard().current()
