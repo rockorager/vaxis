@@ -98,6 +98,9 @@ func (r *Runner) HandleEvent(ev Event, now time.Time) {
 	if _, ok := ev.(Redraw); ok {
 		r.app.RequestFrame()
 	}
+	if update, ok := ev.(VisibilityUpdate); ok && update.Visible {
+		r.app.RequestFrame()
+	}
 	if r.app.FrameRequested() && !r.scheduler.Scheduled() {
 		r.scheduler.Request(now)
 	}

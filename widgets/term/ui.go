@@ -238,7 +238,7 @@ func (r *renderTerminal) HandleEvent(ctx ui.EventContext, ev ui.Event) ui.EventR
 	case vaxis.Mouse:
 		r.model.Update(ev)
 		return ui.EventHandled
-	case vaxis.ColorThemeUpdate:
+	case vaxis.ColorThemeUpdate, vaxis.VisibilityUpdate:
 		r.model.Update(ev)
 		return ui.EventIgnored
 	}

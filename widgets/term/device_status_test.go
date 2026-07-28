@@ -81,6 +81,48 @@ func TestDeviceStatusReportColorSchemeUnknown(t *testing.T) {
 	assertNoReply(t, r)
 }
 
+func TestDeviceStatusReportVisibility(t *testing.T) {
+	tests := []struct {
+		name    string
+		visible bool
+		reply   string
+	}{
+		{name: "potentially visible", visible: true, reply: "\x1B[?999;1n"},
+		{name: "not visible", visible: false, reply: "\x1B[?999;2n"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vt, r := newReplyTestModel(t, WithVisibility(tt.visible))
+			vt.update(testCSI('n', []uint32{998}, '?'))
+
+			if got := readReply(t, r, len(tt.reply)); got != tt.reply {
+				t.Fatalf("visibility reply = %q, want %q", got, tt.reply)
+			}
+		})
+	}
+}
+
+func TestVisibilityReportsChangesWithoutDuplicates(t *testing.T) {
+	vt, r := newReplyTestModel(t)
+	vt.update(testCSI('h', []uint32{2033}, '?'))
+	if got, want := readReply(t, r, len("\x1B[?999;1n")), "\x1B[?999;1n"; got != want {
+		t.Fatalf("initial visibility report = %q, want %q", got, want)
+	}
+
+	vt.SetVisibility(false)
+	if got, want := readReply(t, r, len("\x1B[?999;2n")), "\x1B[?999;2n"; got != want {
+		t.Fatalf("hidden visibility report = %q, want %q", got, want)
+	}
+
+	vt.Update(vaxis.VisibilityUpdate{Visible: true})
+	if got, want := readReply(t, r, len("\x1B[?999;1n")), "\x1B[?999;1n"; got != want {
+		t.Fatalf("visible visibility report = %q, want %q", got, want)
+	}
+	vt.Update(vaxis.VisibilityUpdate{Visible: true})
+	assertNoReply(t, r)
+}
+
 func TestColorSchemeReportModeReportsThemeUpdates(t *testing.T) {
 	tests := []struct {
 		name  string

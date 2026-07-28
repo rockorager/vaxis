@@ -428,7 +428,12 @@ func deviceStatusParam(seq ansi.CSI, private bool) (int, bool) {
 	}
 	ps := seq.Param(0)
 	if private {
-		return ps, ps == 996
+		switch ps {
+		case 996, 998:
+			return ps, true
+		default:
+			return 0, false
+		}
 	}
 	switch ps {
 	case 5, 6:
@@ -466,6 +471,8 @@ func (vt *Model) deviceStatusReport(n int, private bool) {
 			if reply := colorSchemeReport(vt.theme); reply != "" {
 				vt.enqueueReplyString(reply)
 			}
+		case 998:
+			vt.enqueueReplyString(vt.visibilityReport())
 		}
 		return
 	}

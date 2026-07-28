@@ -27,6 +27,7 @@ type capabilities struct {
 	styledUnderlines   bool
 	sixels             bool
 	colorThemeUpdates  bool
+	visibilityReports  bool
 	reportSizeChars    bool
 	reportSizePixels   bool
 	osc4               bool
@@ -80,6 +81,9 @@ type Options struct {
 	EventQueueSize int
 	// Disable mouse events
 	DisableMouse bool
+	// DisableVisibilityReports prevents Vaxis from enabling terminal visibility
+	// reports, even when the terminal advertises support.
+	DisableVisibilityReports bool
 	// WithTTY passes an absolute path to use for the TTY Vaxis will draw
 	// on. If the file is not a TTY, an error will be returned when calling
 	// New
@@ -155,6 +159,7 @@ type Vaxis struct {
 	refresh          bool
 	kittyFlags       int
 	disableMouse     bool
+	visibility       visibilityState
 	chFg             chan string
 	chFgMu           sync.Mutex
 	chBg             chan string
@@ -176,6 +181,12 @@ type Vaxis struct {
 	mu sync.Mutex
 
 	noSignals bool
+}
+
+type visibilityState struct {
+	disabled           bool
+	known              bool
+	potentiallyVisible bool
 }
 
 type primaryScreen struct {
@@ -217,6 +228,7 @@ func New(opts Options) (*Vaxis, error) {
 	var err error
 	vx := &Vaxis{
 		kittyFlags: kittyKeyboardFlags(opts),
+		visibility: visibilityState{disabled: opts.DisableVisibilityReports},
 	}
 	if opts.PrimaryScreen != nil {
 		if opts.PrimaryScreen.RegionHeight <= 0 {
@@ -314,6 +326,14 @@ outer:
 				log.Info("[capability] Color theme notifications")
 				vx.mu.Lock()
 				vx.caps.colorThemeUpdates = true
+				vx.mu.Unlock()
+			case capabilityVisibility:
+				if opts.DisableVisibilityReports {
+					continue
+				}
+				log.Info("[capability] Visibility reports")
+				vx.mu.Lock()
+				vx.caps.visibilityReports = true
 				vx.mu.Unlock()
 			case kittyKeyboard:
 				log.Info("[capability] Kitty keyboard")
@@ -589,8 +609,13 @@ func (w appendWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// Render renders the model's content to the terminal
+// Render renders the model's content to the terminal. When the terminal reports
+// that it is not visible, Render preserves the pending frame without writing
+// it; the latest frame is rendered when visibility returns.
 func (vx *Vaxis) Render() {
+	if vx.renderSuppressed() {
+		return
+	}
 	start := time.Now()
 	// defer renderBuf.Reset()
 	if vx.primaryScreen != nil {
@@ -605,6 +630,12 @@ func (vx *Vaxis) Render() {
 	vx.elapsed += time.Since(start)
 	vx.renders += 1
 	vx.refresh = false
+}
+
+func (vx *Vaxis) renderSuppressed() bool {
+	vx.mu.Lock()
+	defer vx.mu.Unlock()
+	return vx.visibility.known && !vx.visibility.potentiallyVisible
 }
 
 // Refresh forces a full render of the entire screen. Traditionally, this should
@@ -1123,6 +1154,12 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 					vx.PostEventBlocking(ColorThemeUpdate{
 						Mode: m,
 					})
+				case visibilityResp: // 999
+					// Unknown values must be treated conservatively as
+					// potentially visible.
+					visible := seq.Param(1) != 2
+					vx.setVisibility(visible)
+					vx.PostEventBlocking(VisibilityUpdate{Visible: visible})
 				}
 				return
 			}
@@ -1168,6 +1205,15 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 				switch seq.Param(1) {
 				case 1, 2:
 					vx.PostEventBlocking(notifyColorChange{})
+				}
+			case visibilityReports:
+				if seq.NumParameters < 2 {
+					log.Error("not enough DECRPM params")
+					return
+				}
+				switch seq.Param(1) {
+				case 1, 2:
+					vx.PostEventBlocking(capabilityVisibility{})
 				}
 			}
 			return
@@ -1401,6 +1447,16 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 			vx.PostEvent(appID(vals[1]))
 		}
 	}
+}
+
+func (vx *Vaxis) setVisibility(visible bool) {
+	vx.mu.Lock()
+	defer vx.mu.Unlock()
+	if vx.visibility.disabled {
+		return
+	}
+	vx.visibility.known = true
+	vx.visibility.potentiallyVisible = visible
 }
 
 // QueryColor queries the host terminal for an indexed color and returns
@@ -1660,6 +1716,7 @@ func (vx *Vaxis) sendQueries() {
 	_, _ = vx.tw.WriteControlString(decrqm(synchronizedUpdate))
 	_, _ = vx.tw.WriteControlString(decrqm(unicodeCore))
 	_, _ = vx.tw.WriteControlString(decrqm(colorThemeUpdates))
+	_, _ = vx.tw.WriteControlString(decrqm(visibilityReports))
 	_, _ = vx.tw.WriteControlString(decrqm(mouseSGRPixels))
 	// We blindly enable in band resize. We get a response immediately if it
 	// is supported
@@ -1731,6 +1788,10 @@ func (vx *Vaxis) enableModes() {
 		// Let's query the current mode also
 		_, _ = vx.tw.WriteControlString(tparm(dsr, colorThemeReq))
 	}
+	if vx.caps.visibilityReports {
+		// Enabling mode 2033 immediately reports the current state.
+		_, _ = vx.tw.WriteControlString(decset(visibilityReports))
+	}
 	if vx.caps.inBandResize {
 		_, _ = vx.tw.WriteControlString(decset(inBandResize))
 	}
@@ -1781,6 +1842,9 @@ func (vx *Vaxis) disableModes() {
 	}
 	if vx.caps.colorThemeUpdates {
 		_, _ = vx.tw.WriteControlString(decrst(colorThemeUpdates))
+	}
+	if vx.caps.visibilityReports {
+		_, _ = vx.tw.WriteControlString(decrst(visibilityReports))
 	}
 	if vx.caps.osc176 {
 		_, _ = vx.tw.WriteControlString(tparm(setAppID, vx.appIDLast))
@@ -1986,6 +2050,13 @@ func (vx *Vaxis) cursorStyle() string {
 	return tparm(cursorStyleSet, int(vx.cursorNext.style))
 }
 
+// RequestVisibility requests the terminal's current visibility without
+// enabling change reports. A supporting terminal responds asynchronously with
+// a [VisibilityUpdate] event.
+func (vx *Vaxis) RequestVisibility() {
+	vx.writeControlString(tparm(dsr, visibilityReq))
+}
+
 // ClipboardPush copies the provided string to the system clipboard
 func (vx *Vaxis) ClipboardPush(s string) {
 	b64 := base64.StdEncoding.EncodeToString([]byte(s))
@@ -2173,6 +2244,14 @@ func (vx *Vaxis) CanInBandResize() bool {
 	vx.mu.Lock()
 	defer vx.mu.Unlock()
 	return vx.caps.inBandResize
+}
+
+// CanVisibilityReports reports whether the terminal supports visibility
+// reports and Vaxis has enabled their use.
+func (vx *Vaxis) CanVisibilityReports() bool {
+	vx.mu.Lock()
+	defer vx.mu.Unlock()
+	return vx.caps.visibilityReports
 }
 
 func (vx *Vaxis) nextGraphicID() uint64 {

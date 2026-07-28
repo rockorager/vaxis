@@ -105,6 +105,8 @@ type mode struct {
 	focusEvents bool
 	// Unsolicited color scheme change notifications
 	colorScheme bool
+	// Terminal visibility reports.
+	visibilityReports bool
 	// In-band size reports.
 	inBandSizeReports bool
 	// xterm modifyOtherKeys state 2 numeric encoding.
@@ -306,6 +308,11 @@ func (vt *Model) setDECMode(param int, enabled bool) {
 		vt.mode.graphemeCluster = enabled
 	case 2031:
 		vt.mode.colorScheme = enabled
+	case 2033:
+		vt.mode.visibilityReports = enabled
+		if enabled {
+			vt.enqueueReplyString(vt.visibilityReport())
+		}
 	case 2048:
 		vt.mode.inBandSizeReports = enabled
 		if enabled {
@@ -452,6 +459,8 @@ func (vt *Model) decModeValue(param int) bool {
 		return vt.mode.graphemeCluster
 	case 2031:
 		return vt.mode.colorScheme
+	case 2033:
+		return vt.mode.visibilityReports
 	case 2048:
 		return vt.mode.inBandSizeReports
 	case 8452:
@@ -541,6 +550,8 @@ func savedModeValue(m mode, param int) bool {
 		return m.graphemeCluster
 	case 2031:
 		return m.colorScheme
+	case 2033:
+		return m.visibilityReports
 	case 2048:
 		return m.inBandSizeReports
 	case 8452:
@@ -623,6 +634,8 @@ func setModeValue(m *mode, param int, enabled bool) {
 		m.graphemeCluster = enabled
 	case 2031:
 		m.colorScheme = enabled
+	case 2033:
+		m.visibilityReports = enabled
 	case 2048:
 		m.inBandSizeReports = enabled
 	case 8452:
@@ -761,6 +774,8 @@ func (vt *Model) decrqm(pd int, ansiMode bool) {
 		ps = modeReportState(vt.mode.graphemeCluster)
 	case 2031:
 		ps = modeReportState(vt.mode.colorScheme)
+	case 2033:
+		ps = modeReportState(vt.mode.visibilityReports)
 	case 2048:
 		ps = modeReportState(vt.mode.inBandSizeReports)
 	case 8452:

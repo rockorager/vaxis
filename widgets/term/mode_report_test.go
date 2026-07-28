@@ -98,6 +98,7 @@ func TestModeReportRecognizedDECModeDefaults(t *testing.T) {
 		{2026, 2},
 		{2027, 2},
 		{2031, 2},
+		{2033, 2},
 		{2048, 2},
 		{8452, 2},
 	}
@@ -277,6 +278,27 @@ func TestModeReportRecognizedNoOpModes(t *testing.T) {
 		if got := readReply(t, r, len(want)); got != want {
 			t.Fatalf("recognized no-op mode %d report = %q, want %q", mode, got, want)
 		}
+	}
+}
+
+func TestVisibilityModeEnableImmediatelyReportsCurrentState(t *testing.T) {
+	vt, r := newReplyTestModel(t, WithVisibility(false))
+
+	vt.update(testCSI('h', []uint32{2033}, '?'))
+	if got, want := readReply(t, r, len("\x1B[?999;2n")), "\x1B[?999;2n"; got != want {
+		t.Fatalf("visibility report on enable = %q, want %q", got, want)
+	}
+
+	// Enabling an already enabled mode must report again.
+	vt.update(testCSI('h', []uint32{2033}, '?'))
+	if got, want := readReply(t, r, len("\x1B[?999;2n")), "\x1B[?999;2n"; got != want {
+		t.Fatalf("visibility report on repeated enable = %q, want %q", got, want)
+	}
+
+	vt.update(testCSI('l', []uint32{2033}, '?'))
+	vt.update(testCSI('p', []uint32{2033}, '?', '$'))
+	if got, want := readReply(t, r, len("\x1B[?2033;2$y")), "\x1B[?2033;2$y"; got != want {
+		t.Fatalf("disabled visibility mode report = %q, want %q", got, want)
 	}
 }
 

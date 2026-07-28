@@ -19,6 +19,7 @@ type (
 	styledUnderlines       struct{}
 	truecolor              struct{}
 	notifyColorChange      struct{}
+	capabilityVisibility   struct{}
 	textAreaPix            struct{}
 	textAreaChar           struct{}
 	capabilitySgrPixels    struct{}
@@ -48,6 +49,13 @@ type FocusIn struct{}
 
 // FocusOut is sent when the terminal has lost focus
 type FocusOut struct{}
+
+// VisibilityUpdate is sent when the terminal's visibility changes. Visible is
+// true when the terminal is potentially visible and false only when the
+// terminal knows that its view is not visible.
+type VisibilityUpdate struct {
+	Visible bool
+}
 
 // Redraw is a generic event which can be sent to the host application to tell
 // it some update has occurred it may not know about otherwise and it must

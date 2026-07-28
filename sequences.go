@@ -96,12 +96,15 @@ const (
 	synchronizedUpdate = 2026
 	unicodeCore        = 2027
 	colorThemeUpdates  = 2031
+	visibilityReports  = 2033
 	inBandResize       = 2048
 	sixelScrolling     = 8452
 
 	// dsr requests/responses
 	colorThemeReq  = 996
 	colorThemeResp = 997
+	visibilityReq  = 998
+	visibilityResp = 999
 
 	// screen size, always requested pixels first and characters second
 	textAreaSize = "\x1b[14t\x1b[18t"

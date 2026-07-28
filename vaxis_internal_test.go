@@ -270,6 +270,80 @@ func TestInBandResizePostsResizeWithoutApplying(t *testing.T) {
 	}
 }
 
+func TestVisibilityReportPostsUpdate(t *testing.T) {
+	tests := []struct {
+		name    string
+		state   uint32
+		visible bool
+	}{
+		{name: "potentially visible", state: 1, visible: true},
+		{name: "not visible", state: 2, visible: false},
+		{name: "unknown is potentially visible", state: 42, visible: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vx := &Vaxis{queue: make(chan Event, 1)}
+			vx.handleSequence(ansi.CSI{
+				Intermediate:    [ansi.MaxIntermediate]rune{'?'},
+				NumIntermediate: 1,
+				Parameters:      [ansi.InlineCSIParams]uint32{visibilityResp, tt.state},
+				NumParameters:   2,
+				Final:           'n',
+			})
+
+			select {
+			case ev := <-vx.queue:
+				update, ok := ev.(VisibilityUpdate)
+				if !ok {
+					t.Fatalf("event = %T, want VisibilityUpdate", ev)
+				}
+				if update.Visible != tt.visible {
+					t.Fatalf("visible = %t, want %t", update.Visible, tt.visible)
+				}
+			default:
+				t.Fatal("visibility report did not post an event")
+			}
+		})
+	}
+}
+
+func TestRequestVisibilityUsesPrivateStatusReport(t *testing.T) {
+	out := bytes.NewBuffer(nil)
+	vx := &Vaxis{}
+	vx.tw = &writer{
+		buf:      bytes.NewBuffer(nil),
+		terminal: &terminalWriter{w: out},
+		vx:       vx,
+	}
+
+	vx.RequestVisibility()
+
+	if got, want := out.String(), "\x1B[?998n"; got != want {
+		t.Fatalf("visibility request = %q, want %q", got, want)
+	}
+}
+
+func TestVisibilityModeReportPostsCapability(t *testing.T) {
+	vx := &Vaxis{queue: make(chan Event, 1)}
+	vx.handleSequence(ansi.CSI{
+		Intermediate:    [ansi.MaxIntermediate]rune{'?', '$'},
+		NumIntermediate: 2,
+		Parameters:      [ansi.InlineCSIParams]uint32{visibilityReports, 2},
+		NumParameters:   2,
+		Final:           'y',
+	})
+
+	select {
+	case ev := <-vx.queue:
+		if _, ok := ev.(capabilityVisibility); !ok {
+			t.Fatalf("event = %T, want capabilityVisibility", ev)
+		}
+	default:
+		t.Fatal("visibility mode report did not post a capability")
+	}
+}
+
 func TestResizeAppliesResizeEvent(t *testing.T) {
 	vx := &Vaxis{
 		screenNext: newScreen(),

@@ -313,6 +313,25 @@ func TestRunnerRedrawSchedulesFrame(t *testing.T) {
 	}
 }
 
+func TestRunnerVisibleUpdateSchedulesFrame(t *testing.T) {
+	now := time.Unix(10, 0)
+	backend := newFakeBackend(ui.Size{Width: 1, Height: 1})
+	runner := ui.NewRunner(ui.NewApp(ui.Text{Value: "x"}), backend, ui.NewFrameScheduler(time.Second/60))
+	runner.Start(now)
+	if err := runner.HandleFrame(now); err != nil {
+		t.Fatal(err)
+	}
+
+	runner.HandleEvent(vaxis.VisibilityUpdate{Visible: false}, now.Add(time.Millisecond))
+	if _, ok := runner.NextFrame(); ok {
+		t.Fatal("hidden visibility update should not schedule frame")
+	}
+	runner.HandleEvent(vaxis.VisibilityUpdate{Visible: true}, now.Add(2*time.Millisecond))
+	if _, ok := runner.NextFrame(); !ok {
+		t.Fatal("visible visibility update should schedule frame")
+	}
+}
+
 func TestRunnerResizeRelayoutsAtBackendSize(t *testing.T) {
 	now := time.Unix(10, 0)
 	backend := newFakeBackend(ui.Size{Width: 5, Height: 1})

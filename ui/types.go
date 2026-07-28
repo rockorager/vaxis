@@ -36,6 +36,8 @@ type (
 	FocusIn = vaxis.FocusIn
 	// FocusOut aliases vaxis.FocusOut.
 	FocusOut = vaxis.FocusOut
+	// VisibilityUpdate aliases vaxis.VisibilityUpdate.
+	VisibilityUpdate = vaxis.VisibilityUpdate
 	// Resize aliases vaxis.Resize.
 	Resize = vaxis.Resize
 	// Redraw aliases vaxis.Redraw.

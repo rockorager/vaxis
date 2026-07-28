@@ -50,6 +50,83 @@ func TestRenderFrameAlwaysHidesCursorBeforeDrawing(t *testing.T) {
 	}
 }
 
+func TestRenderIsDeferredWhileNotVisible(t *testing.T) {
+	var out bytes.Buffer
+	vx := newWriterTestVaxis(&out)
+	vx.visibility.known = true
+	vx.visibility.potentiallyVisible = false
+	vx.refresh = true
+	vx.cursorNext = cursorState{row: 0, col: 1, style: CursorBlock, visible: true}
+	vx.screenNext.setCell(0, 0, Cell{
+		Character: Character{Grapheme: "a", Width: 1},
+	})
+
+	vx.Render()
+
+	if out.Len() != 0 || vx.tw.Len() != 0 {
+		t.Fatalf("hidden render produced output: terminal=%q frame=%q", out.String(), vx.tw.buf.String())
+	}
+	if got := vx.screenLast.cell(0, 0).Grapheme; got != "" {
+		t.Fatalf("hidden render committed screen cell %q", got)
+	}
+	if vx.cursorLast != (cursorState{}) {
+		t.Fatalf("hidden render committed cursor state %#v", vx.cursorLast)
+	}
+	if !vx.refresh {
+		t.Fatal("hidden render cleared pending refresh")
+	}
+	if vx.renders != 0 {
+		t.Fatalf("hidden render count = %d, want 0", vx.renders)
+	}
+
+	vx.setVisibility(true)
+	vx.Render()
+
+	if !strings.Contains(out.String(), "a") {
+		t.Fatalf("visible render output = %q, want pending cell", out.String())
+	}
+	if got := vx.screenLast.cell(0, 0).Grapheme; got != "a" {
+		t.Fatalf("visible render committed screen cell %q, want a", got)
+	}
+	if vx.cursorLast != vx.cursorNext {
+		t.Fatalf("visible render cursor = %#v, want %#v", vx.cursorLast, vx.cursorNext)
+	}
+	if vx.refresh {
+		t.Fatal("visible render did not clear refresh")
+	}
+	if vx.renders != 1 {
+		t.Fatalf("visible render count = %d, want 1", vx.renders)
+	}
+}
+
+func TestDisableVisibilityReportsDoesNotSuppressRender(t *testing.T) {
+	var out bytes.Buffer
+	vx := newWriterTestVaxis(&out)
+	vx.visibility.disabled = true
+	vx.setVisibility(false)
+	vx.screenNext.setCell(0, 0, Cell{
+		Character: Character{Grapheme: "a", Width: 1},
+	})
+
+	vx.Render()
+
+	if !strings.Contains(out.String(), "a") {
+		t.Fatalf("render output = %q, want pending cell", out.String())
+	}
+}
+
+func TestReturningToVisibleDoesNotForceRefresh(t *testing.T) {
+	vx := &Vaxis{
+		visibility: visibilityState{known: true},
+	}
+
+	vx.setVisibility(true)
+
+	if vx.refresh {
+		t.Fatal("visible transition forced a full refresh")
+	}
+}
+
 func TestRenderUsesPlainSGRForSingleUnderlineAfterDouble(t *testing.T) {
 	var out bytes.Buffer
 	vx := newWriterTestVaxis(&out)

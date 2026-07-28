@@ -66,6 +66,7 @@ type Model struct {
 	workingDirectoryURL string
 	mouseShape          vaxis.MouseShape
 	theme               vaxis.ColorThemeMode
+	visible             bool
 	colors              terminalColors
 	shellRedrawsPrompt  semanticPromptRedraw
 	semanticPromptClick semanticPromptClick
@@ -150,6 +151,14 @@ func WithEnquiryResponse(response string) Option {
 	}
 }
 
+// WithVisibility overrides the terminal's initial visibility. The default is
+// potentially visible, as required when visibility is unknown.
+func WithVisibility(visible bool) Option {
+	return func(m *Model) {
+		m.visible = visible
+	}
+}
+
 type margin struct {
 	top    row
 	bottom row
@@ -160,6 +169,7 @@ type margin struct {
 func New(opts ...Option) *Model {
 	m := &Model{
 		OSC8:         true,
+		visible:      true,
 		charsets:     defaultCharsets(),
 		mode:         defaultMode(),
 		primaryState: defaultCursorState(),
@@ -337,6 +347,10 @@ func (vt *Model) Update(msg vaxis.Event) {
 		if vt.mode.colorScheme {
 			pendingWrites = append(pendingWrites, vt.pendingPtyWrite(colorSchemeReport(msg.Mode)))
 			return
+		}
+	case vaxis.VisibilityUpdate:
+		if vt.setVisibilityLocked(msg.Visible) && vt.mode.visibilityReports {
+			pendingWrites = append(pendingWrites, vt.pendingPtyWrite(vt.visibilityReport()))
 		}
 	case vaxis.FocusIn:
 		atomicStore(&vt.focused, true)
@@ -1686,6 +1700,35 @@ func (vt *Model) Blur() {
 	}
 	vt.mu.Unlock()
 	pendingWrite.apply()
+}
+
+// SetVisibility overrides the visibility reported to child applications.
+// visible should be true whenever the view may be observable and false only
+// when the caller knows that it is not visible.
+func (vt *Model) SetVisibility(visible bool) {
+	var pendingWrite ptyWrite
+	vt.mu.Lock()
+	if vt.setVisibilityLocked(visible) && vt.mode.visibilityReports {
+		pendingWrite = vt.pendingPtyWrite(vt.visibilityReport())
+	}
+	vt.mu.Unlock()
+	pendingWrite.apply()
+}
+
+func (vt *Model) setVisibilityLocked(visible bool) bool {
+	if vt.visible == visible {
+		return false
+	}
+	vt.visible = visible
+	return true
+}
+
+func (vt *Model) visibilityReport() string {
+	state := 1
+	if !vt.visible {
+		state = 2
+	}
+	return fmt.Sprintf("\x1B[?999;%dn", state)
 }
 
 func (vt *Model) focusReport() string {

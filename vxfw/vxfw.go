@@ -503,6 +503,14 @@ func (a *App) Run(w Widget) error {
 				}
 			case vaxis.Redraw:
 				a.redraw = true
+			case vaxis.VisibilityUpdate:
+				err := a.fh.handleEvent(a, ev)
+				if err != nil {
+					return err
+				}
+				if ev.Visible {
+					a.redraw = true
+				}
 			default:
 				// Anything else we let the application handle
 				err := a.fh.handleEvent(a, ev)
