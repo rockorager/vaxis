@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"math"
 	"reflect"
 	"strings"
 	"testing"
@@ -458,7 +459,11 @@ func TestCSIParameterSaturatesWhenTooLong(t *testing.T) {
 	if !ok {
 		t.Fatalf("sequence = %#v, want CSI", seq)
 	}
-	if got, want := csi.Param(0), int(^uint32(0)); got != want {
+	want := uint64(^uint32(0))
+	if want > uint64(math.MaxInt) {
+		want = uint64(math.MaxInt)
+	}
+	if got := csi.Param(0); uint64(got) != want {
 		t.Fatalf("CSI param = %d, want saturated %d", got, want)
 	}
 }
