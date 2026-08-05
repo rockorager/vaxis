@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"math"
 	"strings"
 	"sync"
 	"time"
@@ -1161,7 +1162,11 @@ func (seq CSI) Param(i int) int {
 	if i < 0 || i >= seq.NumParameters {
 		return 0
 	}
-	return int(seq.Params()[i])
+	var ret uint32 = seq.Params()[i]
+	if uint64(ret) > uint64(math.MaxInt) {
+		return math.MaxInt
+	}
+	return int(ret)
 }
 
 func (seq CSI) ColonAfter(i int) bool {
