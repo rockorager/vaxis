@@ -185,45 +185,7 @@ func (s *Surface) Fill(cell vaxis.Cell) {
 }
 
 func (s Surface) render(win vaxis.Window, focused Widget) {
-	// Render ourself first
-	for i, cell := range s.Buffer {
-		row := i / int(s.Size.Width)
-		col := i % int(s.Size.Width)
-		win.SetCell(col, row, cell)
-	}
-
-	if s.Render != nil {
-		s.Render(win)
-	}
-
-	// If we have a cursor state and we are the focused widget, draw the
-	// cursor
-	if s.Cursor != nil && s.Widget == focused {
-		win.ShowCursor(
-			int(s.Cursor.Col),
-			int(s.Cursor.Row),
-			s.Cursor.Shape,
-		)
-	}
-
-	// Sort the Children by z-index
-	sort.Slice(s.Children, func(i int, j int) bool {
-		return s.Children[i].ZIndex < s.Children[j].ZIndex
-	})
-
-	for _, child := range s.Children {
-		// clip the child window to the minimum of the parent surface or the child surface this
-		// effectively forces clipping at the layout level
-		w := math.Min(float64(child.Surface.Size.Width), float64(int(s.Size.Width)-child.Origin.Col))
-		h := math.Min(float64(child.Surface.Size.Height), float64(int(s.Size.Height)-child.Origin.Row))
-		childWin := win.New(
-			int(child.Origin.Col),
-			int(child.Origin.Row),
-			int(w),
-			int(h),
-		)
-		child.Surface.render(childWin, focused)
-	}
+	SubSurface{Surface: s}.render(win, RelativePoint{}, s.Size, focused)
 }
 
 type CursorState struct {
@@ -254,6 +216,56 @@ func (ss *SubSurface) containsPoint(col int, row int) bool {
 		col < (ss.Origin.Col+int(ss.Surface.Size.Width)) &&
 		row >= ss.Origin.Row &&
 		row < (ss.Origin.Row+int(ss.Surface.Size.Height))
+}
+
+func (ss SubSurface) render(win vaxis.Window, origin RelativePoint, clip Size, focused Widget) {
+	// clip ss to the minimum of the parent's remaining clip or ss's own
+	// surface size, this effectively forces clipping at the layout level
+	clip = Size{
+		Width:  uint16(min(int(ss.Surface.Size.Width), max(int(clip.Width)-ss.Origin.Col, 0))),
+		Height: uint16(min(int(ss.Surface.Size.Height), max(int(clip.Height)-ss.Origin.Row, 0))),
+	}
+	origin.Col += ss.Origin.Col
+	origin.Row += ss.Origin.Row
+
+	s := ss.Surface
+
+	// Render ourself first
+	for i, cell := range s.Buffer {
+		row := i / int(s.Size.Width)
+		col := i % int(s.Size.Width)
+		if uint16(col) >= clip.Width || uint16(row) >= clip.Height {
+			continue
+		}
+		win.SetCell(origin.Col+col, origin.Row+row, cell)
+	}
+
+	if s.Render != nil {
+		// Reuse the window built for Render as the parent window
+		// for children to draw correctly
+		win = win.New(origin.Col, origin.Row, int(clip.Width), int(clip.Height))
+		s.Render(win)
+		origin = RelativePoint{} // relative to the vaxis.Window
+	}
+
+	// If we have a cursor state and we are the focused widget, draw the
+	// cursor
+	if s.Cursor != nil && s.Widget == focused {
+		win.ShowCursor(
+			origin.Col+int(s.Cursor.Col),
+			origin.Row+int(s.Cursor.Row),
+			s.Cursor.Shape,
+		)
+	}
+
+	// Sort the Children by z-index
+	sort.Slice(s.Children, func(i int, j int) bool {
+		return s.Children[i].ZIndex < s.Children[j].ZIndex
+	})
+
+	for _, child := range s.Children {
+		child.render(win, origin, clip, focused)
+	}
 }
 
 type RelativePoint struct {
