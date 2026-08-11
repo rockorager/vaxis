@@ -185,7 +185,8 @@ func (s *Surface) Fill(cell vaxis.Cell) {
 }
 
 func (s Surface) render(win vaxis.Window, focused Widget) {
-	SubSurface{Surface: s}.render(win, RelativePoint{}, s.Size, focused)
+	clip := image.Rect(0, 0, int(s.Size.Width), int(s.Size.Height))
+	SubSurface{Surface: s}.render(win, RelativePoint{}, clip, focused)
 }
 
 type CursorState struct {
@@ -218,34 +219,49 @@ func (ss *SubSurface) containsPoint(col int, row int) bool {
 		row < (ss.Origin.Row+int(ss.Surface.Size.Height))
 }
 
-func (ss SubSurface) render(win vaxis.Window, origin RelativePoint, clip Size, focused Widget) {
-	// clip ss to the minimum of the parent's remaining clip or ss's own
-	// surface size, this effectively forces clipping at the layout level
-	clip = Size{
-		Width:  uint16(min(int(ss.Surface.Size.Width), max(int(clip.Width)-ss.Origin.Col, 0))),
-		Height: uint16(min(int(ss.Surface.Size.Height), max(int(clip.Height)-ss.Origin.Row, 0))),
-	}
+func (ss SubSurface) render(win vaxis.Window, origin RelativePoint, clip image.Rectangle, focused Widget) {
 	origin.Col += ss.Origin.Col
 	origin.Row += ss.Origin.Row
 
 	s := ss.Surface
+	bounds := image.Rect(
+		origin.Col,
+		origin.Row,
+		origin.Col+int(s.Size.Width),
+		origin.Row+int(s.Size.Height),
+	)
+	clip = clip.Intersect(bounds)
+	if clip.Empty() {
+		return
+	}
 
 	// Render ourself first
 	for i, cell := range s.Buffer {
 		row := i / int(s.Size.Width)
 		col := i % int(s.Size.Width)
-		if uint16(col) >= clip.Width || uint16(row) >= clip.Height {
+		if origin.Col+col < clip.Min.X || origin.Col+col >= clip.Max.X ||
+			origin.Row+row < clip.Min.Y || origin.Row+row >= clip.Max.Y {
 			continue
 		}
 		win.SetCell(origin.Col+col, origin.Row+row, cell)
 	}
 
 	if s.Render != nil {
-		// Reuse the window built for Render as the parent window
-		// for children to draw correctly
-		win = win.New(origin.Col, origin.Row, int(clip.Width), int(clip.Height))
+		if clip.Min.X == origin.Col && clip.Min.Y == origin.Row {
+			win = win.New(origin.Col, origin.Row, clip.Dx(), clip.Dy())
+		} else {
+			// Keep the callback's coordinates relative to the full surface
+			// while an intermediate window clips its left and top edges.
+			win = win.New(clip.Min.X, clip.Min.Y, clip.Dx(), clip.Dy()).New(
+				origin.Col-clip.Min.X,
+				origin.Row-clip.Min.Y,
+				int(s.Size.Width),
+				int(s.Size.Height),
+			)
+		}
 		s.Render(win)
-		origin = RelativePoint{} // relative to the vaxis.Window
+		origin = RelativePoint{}
+		clip = image.Rect(0, 0, int(s.Size.Width), int(s.Size.Height))
 	}
 
 	// If we have a cursor state and we are the focused widget, draw the
