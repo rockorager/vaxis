@@ -1162,7 +1162,7 @@ func (seq CSI) Param(i int) int {
 	if i < 0 || i >= seq.NumParameters {
 		return 0
 	}
-	var ret uint32 = seq.Params()[i]
+	ret := seq.Params()[i]
 	if uint64(ret) > uint64(math.MaxInt) {
 		return math.MaxInt
 	}
