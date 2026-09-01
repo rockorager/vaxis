@@ -41,6 +41,13 @@ func TestRenderedWidth(t *testing.T) {
 			wcwidthWidth: 4,
 			noZWJWidth:   2,
 		},
+		{
+			name:         "emoji tag sequence",
+			input:        "🏴\U000E0067\U000E0062\U000E0065\U000E006E\U000E0067\U000E007F",
+			unicodeWidth: 2,
+			wcwidthWidth: 2,
+			noZWJWidth:   2,
+		},
 	}
 
 	for _, test := range tests {
