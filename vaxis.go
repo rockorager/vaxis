@@ -670,8 +670,17 @@ outerLast:
 	if vx.refresh {
 		vx.graphicsLast = []*placement{}
 	}
-outerNew:
+	if vx.refresh {
+		// Reset recoverable graphics before any placement is written so an
+		// image with multiple placements is uploaded only once.
+		for _, p := range vx.graphicsNext {
+			if p.refreshFn != nil {
+				p.refreshFn()
+			}
+		}
+	}
 	// draw new placements
+outerNew:
 	for _, p1 := range vx.graphicsNext {
 		for _, p2 := range vx.graphicsLast {
 			if samePlacement(p1, p2) {
@@ -2178,6 +2187,15 @@ func (vx *Vaxis) CanKittyGraphics() bool {
 	vx.mu.Lock()
 	defer vx.mu.Unlock()
 	return vx.caps.kittyGraphics
+}
+
+// SupportsKittyGraphics reports whether Kitty is the selected graphics
+// protocol and the terminal has supplied usable cell pixel geometry.
+func (vx *Vaxis) SupportsKittyGraphics() bool {
+	vx.mu.Lock()
+	defer vx.mu.Unlock()
+	return vx.graphicsProtocol == kitty && vx.winSize.Cols > 0 && vx.winSize.Rows > 0 &&
+		vx.winSize.XPixel/vx.winSize.Cols > 0 && vx.winSize.YPixel/vx.winSize.Rows > 0
 }
 
 func (vx *Vaxis) CanKittyKeyboard() bool {
