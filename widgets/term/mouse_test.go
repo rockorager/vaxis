@@ -316,6 +316,85 @@ func TestMouseSGRPixelsReleaseKeepsButtonIdentity(t *testing.T) {
 	}
 }
 
+// A host terminal that is not in SGR-pixel mode reports cells and leaves
+// XPixel and YPixel at zero. A child that asked for pixels must still be told
+// where in the widget the event landed, and the cell geometry of the last
+// resize is enough to answer that.
+func TestMouseSGRPixelsFromCellGeometry(t *testing.T) {
+	tests := []struct {
+		name   string
+		format uint32
+		size   vaxis.Resize
+		mouse  vaxis.Mouse
+		want   string
+	}{
+		{
+			name:   "press reports the center of the cell",
+			format: 1016,
+			size:   vaxis.Resize{Cols: 80, Rows: 24, XPixel: 800, YPixel: 480},
+			mouse:  vaxis.Mouse{Button: vaxis.MouseLeftButton, Col: 3, Row: 2, EventType: vaxis.EventPress},
+			want:   "\x1B[<0;36;51M",
+		},
+		{
+			name:   "wheel reports the center of the cell",
+			format: 1016,
+			size:   vaxis.Resize{Cols: 40, Rows: 10, XPixel: 320, YPixel: 200},
+			mouse:  vaxis.Mouse{Button: vaxis.MouseWheelDown, Col: 5, Row: 4, EventType: vaxis.EventPress},
+			want:   "\x1B[<65;45;91M",
+		},
+		{
+			name:   "release reports the center of the cell",
+			format: 1016,
+			size:   vaxis.Resize{Cols: 80, Rows: 24, XPixel: 800, YPixel: 480},
+			mouse:  vaxis.Mouse{Button: vaxis.MouseRightButton, Col: 3, Row: 2, EventType: vaxis.EventRelease},
+			want:   "\x1B[<2;36;51m",
+		},
+		{
+			name:   "event outside the widget reports the first cell",
+			format: 1016,
+			size:   vaxis.Resize{Cols: 80, Rows: 24, XPixel: 800, YPixel: 480},
+			mouse:  vaxis.Mouse{Button: vaxis.MouseLeftButton, Col: -1, Row: -1, EventType: vaxis.EventPress},
+			want:   "\x1B[<0;6;11M",
+		},
+		{
+			name:   "pixels reported by the host are kept",
+			format: 1016,
+			size:   vaxis.Resize{Cols: 80, Rows: 24, XPixel: 800, YPixel: 480},
+			mouse:  vaxis.Mouse{Button: vaxis.MouseLeftButton, Col: 3, Row: 2, XPixel: 50, YPixel: 75, EventType: vaxis.EventPress},
+			want:   "\x1B[<0;50;75M",
+		},
+		{
+			name:   "no cell geometry keeps the reported pixels",
+			format: 1016,
+			size:   vaxis.Resize{Cols: 80, Rows: 24},
+			mouse:  vaxis.Mouse{Button: vaxis.MouseLeftButton, Col: 3, Row: 2, EventType: vaxis.EventPress},
+			want:   "\x1B[<0;0;0M",
+		},
+		{
+			name:   "cell format ignores the cell geometry",
+			format: 1006,
+			size:   vaxis.Resize{Cols: 80, Rows: 24, XPixel: 800, YPixel: 480},
+			mouse:  vaxis.Mouse{Button: vaxis.MouseLeftButton, Col: 3, Row: 2, EventType: vaxis.EventPress},
+			want:   "\x1B[<0;4;3M",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			vt := New()
+			vt.Update(test.size)
+			vt.update(testCSI('h', []uint32{1003}, '?'))
+			vt.update(testCSI('h', []uint32{test.format}, '?'))
+
+			got := vt.handleMouse(test.mouse)
+
+			if got != test.want {
+				t.Fatalf("mouse report = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
 func TestMouseFormatResetClearsActiveFormat(t *testing.T) {
 	vt := New()
 	vt.update(testCSI('h', []uint32{1000}, '?'))
