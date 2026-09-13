@@ -72,7 +72,7 @@ func (vt *Model) handleMouse(msg vaxis.Mouse) string {
 	case mouseFormatURXVT:
 		return fmt.Sprintf("\x1b[%d;%d;%dM", button+32, msg.Col+1, msg.Row+1)
 	case mouseFormatSGRPixels:
-		x, y := msg.XPixel, msg.YPixel
+		x, y := vt.mousePixels(msg)
 		return fmt.Sprintf("\x1b[<%d;%d;%d%c", button, x, y, mouseFinal(msg))
 	}
 
@@ -88,6 +88,45 @@ func (vt *Model) handleMouse(msg vaxis.Mouse) string {
 	}
 
 	return "\x1b[M" + string(rune(button+32)) + encodedCol + encodedRow
+}
+
+// mousePixels is the position to report for msg in SGR-pixel mouse mode
+// (DECSET 1016).
+//
+// A child that turns 1016 on is answered in pixels. The vaxis.Mouse the
+// embedding application delivers, though, was decoded from a host terminal
+// that is not itself in 1016 mode, so it carries cell coordinates and leaves
+// XPixel and YPixel at zero. Reporting those verbatim puts every event at
+// pixel 0,0: a click always lands in the same spot, and a child that scrolls
+// by the pixel distance between two events never scrolls at all, which reads
+// as a hung pane rather than as a mouse bug.
+//
+// Aim at the middle of the cell the event landed in instead, using the pixel
+// geometry the embedder reported on the last resize, and fall back to the raw
+// values when no cell size is known. The result is one-based, like the cell
+// coordinates the other report formats use, and decodes back to the cell the
+// event came from.
+func (vt *Model) mousePixels(msg vaxis.Mouse) (int, int) {
+	if msg.XPixel != 0 || msg.YPixel != 0 {
+		return msg.XPixel, msg.YPixel
+	}
+	cellWidth, cellHeight := vt.mouseCellPixels()
+	if cellWidth <= 0 || cellHeight <= 0 {
+		return msg.XPixel, msg.YPixel
+	}
+	col, row := max(msg.Col, 0), max(msg.Row, 0)
+	return col*cellWidth + cellWidth/2 + 1, row*cellHeight + cellHeight/2 + 1
+}
+
+// mouseCellPixels is the pixel size of one cell, or 0,0 when the embedder has
+// not told this terminal how big a pixel is. Unlike sixelCellPixels it does not
+// substitute a one pixel cell for an unknown one, because a mouse report has
+// the raw coordinates to fall back on.
+func (vt *Model) mouseCellPixels() (int, int) {
+	if vt.size.Cols <= 0 || vt.size.Rows <= 0 {
+		return 0, 0
+	}
+	return vt.size.XPixel / vt.size.Cols, vt.size.YPixel / vt.size.Rows
 }
 
 func supportedMouseButton(button vaxis.MouseButton) bool {
