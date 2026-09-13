@@ -1,6 +1,7 @@
 package ansi
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -603,7 +604,17 @@ func TestAnywhere(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			r := bytes.NewBuffer(nil)
-			parse := NewParser(r)
+			// Built by hand rather than by NewParser, which starts run().
+			// On an empty reader run() reaches anywhere(eof) at once and
+			// reads/clears exit and closes sequences, racing this
+			// goroutine's own write to exit and its call into anywhere.
+			// anywhere reads only the fields set here, so it needs no
+			// parser goroutine to exercise.
+			parse := &Parser{
+				r:         bufio.NewReader(r),
+				sequences: make(chan Sequence, 2),
+				state:     ground,
+			}
 			called := false
 			parse.exit = func() {
 				called = true
