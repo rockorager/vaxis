@@ -2,6 +2,7 @@ package vaxis
 
 import (
 	"fmt"
+	"strings"
 )
 
 const (
@@ -183,6 +184,18 @@ func decrqm(mode int) string {
 
 func tparm(s string, args ...any) string {
 	return fmt.Sprintf(s, args...)
+}
+
+// stripControls removes control characters from s. Strings interpolated into an
+// OSC sequence may otherwise end it early, and have the rest of the string
+// interpreted as terminal input.
+func stripControls(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f || (r >= 0x80 && r <= 0x9f) {
+			return -1
+		}
+		return r
+	}, s)
 }
 
 // xtgettcap prepares a query of a given terminfo capability

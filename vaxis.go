@@ -2082,25 +2082,25 @@ func (vx *Vaxis) ClipboardPop(ctx context.Context) (string, error) {
 // string, OSC9 will be used - otherwise osc777 is used
 func (vx *Vaxis) Notify(title string, body string) {
 	if title == "" {
-		vx.writeControlString(tparm(osc9notify, body))
+		vx.writeControlString(tparm(osc9notify, stripControls(body)))
 		return
 	}
-	vx.writeControlString(tparm(osc777notify, title, body))
+	vx.writeControlString(tparm(osc777notify, stripControls(title), stripControls(body)))
 }
 
 // SetTitle sets the terminal's title via OSC 2
 func (vx *Vaxis) SetTitle(s string) {
-	vx.writeControlString(tparm(setTitle, s))
+	vx.writeControlString(tparm(setTitle, stripControls(s)))
 }
 
 // SetPath sets the terminal's working directory via OSC 7
 func (vx *Vaxis) NotifyWorkingDirectory(s string) {
-	vx.writeControlString(tparm(setCWD, s))
+	vx.writeControlString(tparm(setCWD, stripControls(s)))
 }
 
 // SetAppID sets the terminal's application ID via OSC 176
 func (vx *Vaxis) SetAppID(s string) {
-	vx.writeControlString(tparm(setAppID, s))
+	vx.writeControlString(tparm(setAppID, stripControls(s)))
 }
 
 // Bell sends a BEL control signal to the terminal

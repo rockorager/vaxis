@@ -196,7 +196,7 @@ func EncodeCells(cells []Cell) string {
 			if link == "" {
 				linkPs = ""
 			}
-			_, _ = bldr.WriteString(tparm(osc8, linkPs, link))
+			_, _ = bldr.WriteString(tparm(osc8, stripControls(linkPs), stripControls(link)))
 		}
 		cursor = next.Style
 		bldr.WriteString(next.Grapheme)

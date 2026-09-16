@@ -60,9 +60,9 @@ func (w *writer) writeCUP(row int, col int) {
 
 func (w *writer) writeOSC8(params string, link string) {
 	_, _ = w.WriteString("\x1b]8;")
-	_, _ = w.WriteString(params)
+	_, _ = w.WriteString(stripControls(params))
 	_, _ = w.WriteString(";")
-	_, _ = w.WriteString(link)
+	_, _ = w.WriteString(stripControls(link))
 	_, _ = w.WriteString("\x1b\\")
 }
 
