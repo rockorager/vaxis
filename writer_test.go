@@ -238,3 +238,35 @@ func TestFlushDoesNotShowCursorForHiddenCursorPositionChange(t *testing.T) {
 		t.Fatalf("hidden cursor position change wrote %q, want no output", got)
 	}
 }
+
+func TestRenderMouseShapeStripsControls(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		shape MouseShape
+		want  string
+	}{
+		{
+			name:  "standard shape",
+			shape: MouseShapeClickable,
+			want:  "\x1b[?25l\x1b]22;pointer\x1b\\\x1b[m",
+		},
+		{
+			name:  "control injection",
+			shape: MouseShape("text\x07\x1b[2J\u009c\x9c"),
+			want:  "\x1b[?25l\x1b]22;text[2J\ufffd\x1b\\\x1b[m",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var out bytes.Buffer
+			vx := newWriterTestVaxis(&out)
+			vx.SetMouseShape(test.shape)
+			vx.render()
+			if _, err := vx.tw.Flush(); err != nil {
+				t.Fatal(err)
+			}
+			if got := out.String(); got != test.want {
+				t.Fatalf("mouse shape output = %q, want %q", got, test.want)
+			}
+		})
+	}
+}

@@ -686,7 +686,7 @@ outerNew:
 	vx.graphicsLast = vx.graphicsNext
 
 	if vx.mouseShapeLast != vx.mouseShapeNext {
-		_, _ = vx.tw.WriteString(tparm(mouseShape, vx.mouseShapeNext))
+		_, _ = vx.tw.WriteString(tparm(mouseShape, stripControls(string(vx.mouseShapeNext))))
 		vx.mouseShapeLast = vx.mouseShapeNext
 	}
 	for row := 0; row < vx.screenNext.rows; row += 1 {
