@@ -11,6 +11,8 @@ import (
 
 // PixelPlacement describes an exact Kitty image placement. Source coordinates
 // and dimensions are pixels; destination coordinates and dimensions are cells.
+// ID must be nonzero and is scoped to its PixelImage. Drawing the same ID again
+// replaces its queued placement. Z must be positive.
 type PixelPlacement struct {
 	ID                                             uint32
 	Column, Row, Columns, Rows                     int
@@ -18,15 +20,20 @@ type PixelPlacement struct {
 }
 
 // PixelImage is an immutable, full-resolution straight-alpha RGBA8 image.
+// It uses Kitty graphics only; check [Vaxis.SupportsKittyGraphics] before use.
+// Only the pixels are immutable: create images and call their methods on the
+// same goroutine that draws and renders Vaxis. These operations are not safe
+// to call concurrently.
 type PixelImage struct {
-	vx         *Vaxis
-	id         uint64
-	width      int
-	height     int
-	png        []byte
-	uploaded   bool
-	destroyed  bool
-	generation uint64
+	vx          *Vaxis
+	id          uint64
+	width       int
+	height      int
+	png         []byte
+	uploaded    bool
+	uploadEpoch uint64
+	destroyed   bool
+	generation  uint64
 }
 
 // NewPixelImage synchronously PNG-encodes a static straight-alpha RGBA8 image.
@@ -59,9 +66,10 @@ func (p *PixelImage) Draw(at PixelPlacement) {
 	variant := fmt.Sprintf("%d/%d/%d/%d/%d/%d/%d/%d", at.ID, at.SourceX, at.SourceY,
 		at.SourceWidth, at.SourceHeight, at.Columns, at.Rows, at.Z)
 	write := func(w io.Writer) {
-		if !p.uploaded {
+		if !p.uploaded || p.uploadEpoch != p.vx.graphicsEpoch {
 			p.writeUpload(w)
 			p.uploaded = true
+			p.uploadEpoch = p.vx.graphicsEpoch
 		}
 		_, _ = fmt.Fprintf(w, "\x1b_Ga=p,i=%d,p=%d,x=%d,y=%d,w=%d,h=%d,c=%d,r=%d,z=%d,C=1,q=2\x1b\\",
 			p.id, at.ID, at.SourceX, at.SourceY, at.SourceWidth, at.SourceHeight, at.Columns, at.Rows, at.Z)
@@ -69,11 +77,18 @@ func (p *PixelImage) Draw(at PixelPlacement) {
 	deletePlacement := func(w io.Writer) {
 		_, _ = fmt.Fprintf(w, "\x1b_Ga=d,d=i,i=%d,p=%d,q=2\x1b\\", p.id, at.ID)
 	}
-	p.vx.graphicsNext = append(p.vx.graphicsNext, &placement{
-		writeTo: write, deleteFn: deletePlacement, refreshFn: func() { p.uploaded = false },
+	next := &placement{
+		writeTo: write, deleteFn: deletePlacement, pixelImage: p, placementID: at.ID,
 		col: at.Column, row: at.Row, id: p.id, w: at.Columns, h: at.Rows,
 		variant: variant, generation: p.generation,
-	})
+	}
+	for i, previous := range p.vx.graphicsNext {
+		if previous.id == p.id && previous.placementID == at.ID {
+			p.vx.graphicsNext[i] = next
+			return
+		}
+	}
+	p.vx.graphicsNext = append(p.vx.graphicsNext, next)
 }
 
 func (p *PixelImage) writeUpload(w io.Writer) {
@@ -95,7 +110,9 @@ func (p *PixelImage) writeUpload(w io.Writer) {
 	}
 }
 
-// Invalidate retains the PNG but forces upload and placement on next Draw.
+// Invalidate retains the PNG but forces a new upload before the next rendered
+// placement. All queued placements of this image will be recreated, including
+// those drawn before Invalidate was called.
 func (p *PixelImage) Invalidate() {
 	if p == nil || p.destroyed {
 		return
