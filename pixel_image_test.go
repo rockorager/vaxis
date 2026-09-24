@@ -3,6 +3,7 @@ package vaxis
 import (
 	"bytes"
 	"encoding/base64"
+	"fmt"
 	"image/png"
 	"math/rand"
 	"strings"
@@ -195,4 +196,172 @@ func TestPixelImageRejectsInvalidInputsAndUnsupportedCapability(t *testing.T) {
 		}
 	}()
 	img.Draw(PixelPlacement{})
+}
+
+func TestPixelImageReturnsAfterOffscreenRefresh(t *testing.T) {
+	vx, out := pixelTestVaxis(t)
+	img, err := vx.NewPixelImage(2, 1, make([]byte, 8))
+	if err != nil {
+		t.Fatal(err)
+	}
+	img.Draw(placementForTest())
+	vx.Render()
+	vx.Window().Clear()
+	vx.Render()
+	// Resume enters the alternate screen, discarding terminal image data.
+	vx.enterAltScreen()
+	vx.Render()
+	out.Reset()
+	img.Draw(placementForTest())
+	vx.Render()
+	if got := out.String(); strings.Count(got, "a=t") != 1 || strings.Count(got, "a=p") != 1 {
+		t.Fatalf("returning image was not uploaded and placed: %q", got)
+	}
+	out.Reset()
+	vx.Render()
+	if got := out.String(); strings.Contains(got, "\x1b_G") {
+		t.Fatalf("unchanged image emitted graphics after recovery: %q", got)
+	}
+}
+
+func TestPixelImageInvalidateRetainedPlacements(t *testing.T) {
+	for _, addPlacement := range []bool{false, true} {
+		t.Run(fmt.Sprint(addPlacement), func(t *testing.T) {
+			vx, out := pixelTestVaxis(t)
+			img, err := vx.NewPixelImage(2, 1, make([]byte, 8))
+			if err != nil {
+				t.Fatal(err)
+			}
+			a := placementForTest()
+			img.Draw(a)
+			vx.Render()
+			img.Invalidate()
+			placements := 1
+			if addPlacement {
+				b := a
+				b.ID++
+				b.Column = 1
+				img.Draw(b)
+				placements++
+			}
+			out.Reset()
+			vx.Render()
+			got := out.String()
+			if strings.Count(got, "a=t") != 1 || strings.Count(got, "a=p") != placements {
+				t.Fatalf("invalidate did not recreate all placements: %q", got)
+			}
+			if strings.Index(got, "a=t") > strings.Index(got, "a=p") {
+				t.Fatalf("placement precedes upload: %q", got)
+			}
+			out.Reset()
+			vx.Render()
+			if got := out.String(); strings.Contains(got, "\x1b_G") {
+				t.Fatalf("unchanged placements emitted graphics after invalidation: %q", got)
+			}
+		})
+	}
+}
+
+func TestPixelPlacementIDReplacesQueuedGeometry(t *testing.T) {
+	for _, renderFirst := range []bool{false, true} {
+		t.Run(fmt.Sprint(renderFirst), func(t *testing.T) {
+			vx, out := pixelTestVaxis(t)
+			img, err := vx.NewPixelImage(2, 1, make([]byte, 8))
+			if err != nil {
+				t.Fatal(err)
+			}
+			a := placementForTest()
+			img.Draw(a)
+			if renderFirst {
+				vx.Render()
+			}
+			out.Reset()
+			b := a
+			b.Column = 1
+			b.SourceX = 1
+			b.SourceWidth = 1
+			img.Draw(b)
+			vx.Render()
+			got := out.String()
+			if strings.Count(got, "a=p") != 1 || !strings.Contains(got, "\x1b[1;2H") ||
+				!strings.Contains(got, "p=3,x=1,y=0,w=1,h=1") {
+				t.Fatalf("replacement geometry was not placed exactly once: %q", got)
+			}
+			if renderFirst && strings.Contains(got, "a=t") {
+				t.Fatalf("replacement retransmitted image data: %q", got)
+			}
+			vx.Window().Clear()
+			img.Draw(b)
+			out.Reset()
+			vx.Render()
+			if got := out.String(); strings.Contains(got, "\x1b_G") {
+				t.Fatalf("retained replacement emitted graphics: %q", got)
+			}
+		})
+	}
+}
+
+func TestPixelImageRefreshUploadsOnceForMultiplePlacements(t *testing.T) {
+	vx, out := pixelTestVaxis(t)
+	img, err := vx.NewPixelImage(2, 1, make([]byte, 8))
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := placementForTest()
+	b := a
+	b.ID++
+	b.Column = 1
+	img.Draw(a)
+	img.Draw(b)
+	vx.Render()
+	out.Reset()
+	vx.Refresh()
+	got := out.String()
+	if strings.Count(got, "a=t") != 1 || strings.Count(got, "a=p") != 2 ||
+		strings.Index(got, "a=t") > strings.Index(got, "a=p") {
+		t.Fatalf("refresh did not upload once before both placements: %q", got)
+	}
+}
+
+func TestPixelImageUnsupportedOnPrimaryScreen(t *testing.T) {
+	vx, _ := newPrimaryTestVaxis(10, 4, 2)
+	vx.graphicsProtocol = kitty
+	vx.winSize.XPixel = 100
+	vx.winSize.YPixel = 80
+	if vx.SupportsKittyGraphics() {
+		t.Fatal("primary-screen renderer advertised unsupported graphics")
+	}
+}
+
+func TestPixelPlacementIDsAreScopedToImage(t *testing.T) {
+	vx, out := pixelTestVaxis(t)
+	first, err := vx.NewPixelImage(2, 1, make([]byte, 8))
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := vx.NewPixelImage(2, 1, make([]byte, 8))
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := placementForTest()
+	first.Draw(a)
+	second.Draw(a)
+	vx.Render()
+	got := out.String()
+	if !strings.Contains(got, "a=p,i=1,p=3,") || !strings.Contains(got, "a=p,i=2,p=3,") {
+		t.Fatalf("same placement ID did not render both images: %q", got)
+	}
+	out.Reset()
+	first.Invalidate()
+	first.Destroy()
+	first.Destroy()
+	vx.Render()
+	got = out.String()
+	if strings.Count(got, "a=d,d=I,i=1,") != 1 || strings.Contains(got, "a=t") ||
+		strings.Contains(got, "a=p") || strings.Contains(got, "a=d,d=i,i=2,") {
+		t.Fatalf("destroy redrew an image or removed its sibling: %q", got)
+	}
+	if first.png != nil || len(vx.graphicsNext) != 1 {
+		t.Fatal("destroy did not release pixels and remove only its own placement")
+	}
 }

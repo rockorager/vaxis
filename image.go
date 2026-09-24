@@ -391,16 +391,17 @@ func (vx *Vaxis) NewSixel(img image.Image) *Sixel {
 // placement is an image placement. If two placements are identical, the
 // image will not be redrawn
 type placement struct {
-	writeTo    func(w io.Writer)
-	deleteFn   func(w io.Writer)
-	refreshFn  func()
-	col        int
-	row        int
-	id         uint64
-	w          int
-	h          int
-	variant    string
-	generation uint64
+	writeTo     func(w io.Writer)
+	deleteFn    func(w io.Writer)
+	pixelImage  *PixelImage
+	placementID uint32
+	col         int
+	row         int
+	id          uint64
+	w           int
+	h           int
+	variant     string
+	generation  uint64
 }
 
 // samePlacement compares two placements for equality. Two placements are
