@@ -72,7 +72,10 @@ func (vt *Model) handleMouse(msg vaxis.Mouse) string {
 	case mouseFormatURXVT:
 		return fmt.Sprintf("\x1b[%d;%d;%dM", button+32, msg.Col+1, msg.Row+1)
 	case mouseFormatSGRPixels:
-		x, y := vt.mousePixels(msg)
+		x, y, ok := vt.mousePixels(msg)
+		if !ok {
+			return ""
+		}
 		return fmt.Sprintf("\x1b[<%d;%d;%d%c", button, x, y, mouseFinal(msg))
 	}
 
@@ -105,17 +108,19 @@ func (vt *Model) handleMouse(msg vaxis.Mouse) string {
 // geometry the embedder reported on the last resize, and fall back to the raw
 // values when no cell size is known. The result is one-based, like the cell
 // coordinates the other report formats use, and decodes back to the cell the
-// event came from.
-func (vt *Model) mousePixels(msg vaxis.Mouse) (int, int) {
+// event came from. Cell positions outside the widget are not reported.
+func (vt *Model) mousePixels(msg vaxis.Mouse) (int, int, bool) {
 	if msg.XPixel != 0 || msg.YPixel != 0 {
-		return msg.XPixel, msg.YPixel
+		return msg.XPixel, msg.YPixel, true
 	}
 	cellWidth, cellHeight := vt.mouseCellPixels()
 	if cellWidth <= 0 || cellHeight <= 0 {
-		return msg.XPixel, msg.YPixel
+		return msg.XPixel, msg.YPixel, true
 	}
-	col, row := max(msg.Col, 0), max(msg.Row, 0)
-	return col*cellWidth + cellWidth/2 + 1, row*cellHeight + cellHeight/2 + 1
+	if msg.Col < 0 || msg.Col >= vt.size.Cols || msg.Row < 0 || msg.Row >= vt.size.Rows {
+		return 0, 0, false
+	}
+	return msg.Col*cellWidth + cellWidth/2 + 1, msg.Row*cellHeight + cellHeight/2 + 1, true
 }
 
 // mouseCellPixels is the pixel size of one cell, or 0,0 when the embedder has
