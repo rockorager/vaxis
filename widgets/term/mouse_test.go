@@ -350,11 +350,18 @@ func TestMouseSGRPixelsFromCellGeometry(t *testing.T) {
 			want:   "\x1B[<2;36;51m",
 		},
 		{
-			name:   "event outside the widget reports the first cell",
+			name:   "first cell has a one-based center",
 			format: 1016,
 			size:   vaxis.Resize{Cols: 80, Rows: 24, XPixel: 800, YPixel: 480},
-			mouse:  vaxis.Mouse{Button: vaxis.MouseLeftButton, Col: -1, Row: -1, EventType: vaxis.EventPress},
+			mouse:  vaxis.Mouse{Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress},
 			want:   "\x1B[<0;6;11M",
+		},
+		{
+			name:   "last cell with odd dimensions stays inside the widget",
+			format: 1016,
+			size:   vaxis.Resize{Cols: 13, Rows: 7, XPixel: 117, YPixel: 119},
+			mouse:  vaxis.Mouse{Button: vaxis.MouseLeftButton, Col: 12, Row: 6, EventType: vaxis.EventMotion},
+			want:   "\x1B[<32;113;111M",
 		},
 		{
 			name:   "pixels reported by the host are kept",
@@ -390,6 +397,38 @@ func TestMouseSGRPixelsFromCellGeometry(t *testing.T) {
 
 			if got != test.want {
 				t.Fatalf("mouse report = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestMouseSGRPixelsRejectsCellsOutsideWidget(t *testing.T) {
+	vt := New()
+	vt.Update(vaxis.Resize{Cols: 80, Rows: 24, XPixel: 800, YPixel: 480})
+	vt.update(testCSI('h', []uint32{1003, 1016}, '?'))
+	maxInt := int(^uint(0) >> 1)
+	for _, position := range []struct {
+		name     string
+		col, row int
+	}{
+		{name: "left", col: -1, row: 2},
+		{name: "top", col: 3, row: -1},
+		{name: "right", col: 80, row: 2},
+		{name: "bottom", col: 3, row: 24},
+		{name: "column overflow", col: maxInt, row: 2},
+		{name: "row overflow", col: 3, row: maxInt},
+	} {
+		t.Run(position.name, func(t *testing.T) {
+			for _, mouse := range []vaxis.Mouse{
+				{Button: vaxis.MouseLeftButton, EventType: vaxis.EventPress},
+				{Button: vaxis.MouseRightButton, EventType: vaxis.EventRelease},
+				{Button: vaxis.MouseLeftButton, EventType: vaxis.EventMotion},
+				{Button: vaxis.MouseWheelDown, EventType: vaxis.EventPress},
+			} {
+				mouse.Col, mouse.Row = position.col, position.row
+				if got := vt.handleMouse(mouse); got != "" {
+					t.Errorf("mouse %+v reported %q, want no report", mouse, got)
+				}
 			}
 		})
 	}
