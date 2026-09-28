@@ -1,6 +1,7 @@
 package vaxis
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
@@ -13,10 +14,15 @@ func (vx *Vaxis) applyQuirks() {
 	case strings.HasPrefix(id, "kitty"):
 		log.Debug("kitty identified. applying quirks")
 		vx.caps.noZWJ = true
-	case id == "tmux 3.4":
-		// tmux 3.4 has unicode support, but doesn't advertise via 2027
-		vx.caps.unicodeCore = true
-
+	case strings.HasPrefix(id, "tmux "):
+		// Compare numeric versions, ignoring patch letters and RC suffixes.
+		version := strings.TrimPrefix(strings.TrimPrefix(id, "tmux "), "next-")
+		var major, minor int
+		_, err := fmt.Sscanf(version, "%d.%d", &major, &minor)
+		if err == nil && (major > 3 || (major == 3 && minor >= 4)) {
+			// tmux 3.4+ has unicode support, but doesn't advertise via 2027.
+			vx.caps.unicodeCore = true
+		}
 	}
 
 	if !vx.caps.osc8 {
