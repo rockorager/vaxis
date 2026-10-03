@@ -1790,6 +1790,8 @@ func (vx *Vaxis) enableModes() {
 	// kitty keyboard
 	if vx.caps.kittyKeyboard {
 		_, _ = vx.tw.WriteControlString(tparm(kittyKBEnable, vx.kittyFlags))
+	} else {
+		_, _ = vx.tw.WriteControlString(modifyOtherKeysEnable)
 	}
 	// sixel scrolling
 	if vx.caps.sixels {
@@ -1841,6 +1843,8 @@ func (vx *Vaxis) disableModes() {
 	_, _ = vx.tw.WriteControlString(decrst(mouseFocusEvents))
 	if vx.caps.kittyKeyboard {
 		_, _ = vx.tw.WriteControlString(kittyKBPop) // kitty keyboard
+	} else {
+		_, _ = vx.tw.WriteControlString(modifyOtherKeysDisable)
 	}
 	_, _ = vx.tw.WriteControlString(decrst(cursorKeys))
 	_, _ = vx.tw.WriteControlString(numericMode)
