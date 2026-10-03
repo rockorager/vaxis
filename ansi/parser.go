@@ -901,6 +901,10 @@ func dcsPassthrough(r rune, p *Parser) stateFn {
 // that.
 func escape(r rune, p *Parser) stateFn {
 	switch {
+	case p.mode == ParserModeInput && (r == 0x0D || r == 0x09):
+		p.escapeDispatch(r)
+		p.ignoreST = false
+		return ground
 	case in(r, 0x00, 0x17), r == 0x19, in(r, 0x1C, 0x1F):
 		p.execute(r)
 		p.ignoreST = false
