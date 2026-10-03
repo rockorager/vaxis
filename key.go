@@ -329,6 +329,8 @@ func decodeKey(seq ansi.Sequence) Key {
 			key.Keycode = KeyEnd
 		case 'H':
 			key.Keycode = KeyHome
+		case 'M':
+			key.Keycode = KeyKeyPadEnter
 		case 'P':
 			key.Keycode = KeyF01
 		case 'Q':
