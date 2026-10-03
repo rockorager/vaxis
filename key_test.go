@@ -341,6 +341,11 @@ func TestKeyDecode(t *testing.T) {
 			expected: Key{Keycode: KeyUp},
 		},
 		{
+			name:     "legacy: keypad Enter",
+			sequence: ansi.SS3('M'),
+			expected: Key{Keycode: KeyKeyPadEnter},
+		},
+		{
 			name:     "legacy: Up, normal keys",
 			sequence: ansi.CSI{Final: 'A'},
 			expected: Key{Keycode: KeyUp},
