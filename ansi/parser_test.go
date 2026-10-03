@@ -1014,6 +1014,17 @@ func TestEscape(t *testing.T) {
 			},
 		},
 		{
+			name:  "ESC Enter and Tab",
+			input: "a\x1b\rb\x1b\tc",
+			expected: []Sequence{
+				Print{"a", 1},
+				escSeq('\r', ""),
+				Print{"b", 1},
+				escSeq('\t', ""),
+				Print{"c", 1},
+			},
+		},
+		{
 			name:  "ESC Backspace",
 			input: "a\x1b\x7f",
 			expected: []Sequence{
