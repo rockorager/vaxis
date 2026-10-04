@@ -1,6 +1,7 @@
 package ansi
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -86,6 +87,70 @@ func TestParserOutputModeDoesNotEmitBareEscapeAfterTimeout(t *testing.T) {
 	case <-time.After(200 * time.Millisecond):
 		t.Fatal("timed out waiting for output parser EOF")
 	}
+}
+
+func TestParserPendingFollowsBufferedInput(t *testing.T) {
+	r, w := io.Pipe()
+	parse := NewParser(r)
+	defer func() { _ = r.Close() }()
+	defer func() { _ = w.Close() }()
+
+	// Next holds two sequences, so a single write of five printable runes
+	// leaves the parser blocked on the third emit with the rest of the write
+	// still in its reader: input it has taken but not yet handed over.
+	if _, err := w.Write([]byte("abcde")); err != nil {
+		t.Fatal(err)
+	}
+	waitPending(t, parse, true)
+
+	for i, want := range []string{"a", "b", "c", "d", "e"} {
+		select {
+		case seq := <-parse.Next():
+			got, ok := seq.(Print)
+			if !ok {
+				t.Fatalf("sequence %d = %#v, want Print", i, seq)
+			}
+			if got.Grapheme != want {
+				t.Fatalf("grapheme %d = %q, want %q", i, got.Grapheme, want)
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("timed out waiting for sequence %d", i)
+		}
+	}
+
+	// Everything written has been emitted, so the parser is back in ReadRune
+	// with an empty buffer and a consumer has nothing left to wait for.
+	waitPending(t, parse, false)
+
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case seq := <-parse.Next():
+		if _, ok := seq.(EOF); !ok {
+			t.Fatalf("sequence after close = %#v, want EOF", seq)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for EOF")
+	}
+	if got, want := parse.Pending(), false; got != want {
+		t.Fatalf("Pending after EOF = %v, want %v", got, want)
+	}
+}
+
+// waitPending blocks until Pending reports want, and fails the test if it has
+// not done so before the deadline. The parser publishes the flag from its own
+// goroutine, so the transition has to be polled rather than awaited.
+func waitPending(t *testing.T, p *Parser, want bool) {
+	t.Helper()
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		if p.Pending() == want {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatalf("Pending = %v, want %v", p.Pending(), want)
 }
 
 func csiSeq(final rune, intermediates string, params []int, colonAfter ...int) CSI {
@@ -603,7 +668,17 @@ func TestAnywhere(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			r := bytes.NewBuffer(nil)
-			parse := NewParser(r)
+			// Built by hand rather than by NewParser, which starts run().
+			// On an empty reader run() reaches anywhere(eof) at once and
+			// reads/clears exit and closes sequences, racing this
+			// goroutine's own write to exit and its call into anywhere.
+			// anywhere reads only the fields set here, so it needs no
+			// parser goroutine to exercise.
+			parse := &Parser{
+				r:         bufio.NewReader(r),
+				sequences: make(chan Sequence, 2),
+				state:     ground,
+			}
 			called := false
 			parse.exit = func() {
 				called = true

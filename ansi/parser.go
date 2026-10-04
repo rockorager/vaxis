@@ -8,6 +8,7 @@ import (
 	"math"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode"
 
@@ -74,6 +75,12 @@ type Parser struct {
 
 	dcs             DCS
 	lastRuneInvalid bool
+
+	// pending is the parser's "still working" signal, read by Pending from
+	// other goroutines. run is its only writer, because run is also the only
+	// goroutine allowed to touch r: a bufio.Reader is not safe for concurrent
+	// use, so the drain state has to be published rather than sampled.
+	pending atomic.Bool
 }
 
 // ParserMode controls how ambiguous parser input is interpreted.
@@ -121,6 +128,22 @@ func (p *Parser) Next() <-chan Sequence {
 	return p.sequences
 }
 
+// Pending reports whether the parser still has input to work through: bytes
+// buffered from an earlier read, or a rune it has read but not yet dispatched.
+// False means the parser is blocked waiting for its reader to produce more, so
+// everything the reader has produced has already been emitted on Next.
+//
+// Together with an empty Next, false is the drained condition: a consumer that
+// has just handled a sequence knows no further one is on its way, and can act
+// on the frame it has instead of waiting to coalesce it with a successor that
+// does not exist.
+//
+// Pending is safe to call from any goroutine. It only loads an atomic the
+// parser's own goroutine publishes, and never touches the parser's reader.
+func (p *Parser) Pending() bool {
+	return p.pending.Load()
+}
+
 func (p *Parser) run() {
 outer:
 	for {
@@ -156,7 +179,17 @@ func (p *Parser) WaitClose() {
 
 func (p *Parser) readRune() rune {
 	p.lastRuneInvalid = false
+	if p.r.Buffered() == 0 {
+		// The read below will block. Publish the drain BEFORE blocking, not
+		// after waking: a consumer that has just taken the last sequence off
+		// Next is deciding right now whether to wait for a successor, and it
+		// can only see a value that was stored before the send that woke it.
+		p.pending.Store(false)
+	}
 	r, _, err := p.r.ReadRune()
+	// Back from the read with a rune nothing has dispatched yet, or with a
+	// failure that leaves nothing to dispatch at all.
+	p.pending.Store(err == nil)
 	if p.escTimeout != nil {
 		p.escTimeout.Stop()
 	}
@@ -165,10 +198,12 @@ func (p *Parser) readRune() rune {
 		// it as is
 		err = p.r.UnreadRune()
 		if err != nil {
+			p.pending.Store(false)
 			return eof
 		}
 		b, err := p.r.ReadByte()
 		if err != nil {
+			p.pending.Store(false)
 			return eof
 		}
 		r = rune(b)
