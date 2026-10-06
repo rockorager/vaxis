@@ -6,25 +6,26 @@ package vaxis
 type Event interface{}
 
 type (
-	primaryDeviceAttribute struct{}
-	capabilitySixel        struct{}
-	capabilityOsc4         struct{}
-	capabilityOsc8         struct{}
-	capabilityOsc10        struct{}
-	capabilityOsc11        struct{}
-	synchronizedUpdates    struct{}
-	unicodeCoreCap         struct{}
-	kittyKeyboard          struct{}
-	kittyGraphics          struct{}
-	styledUnderlines       struct{}
-	truecolor              struct{}
-	notifyColorChange      struct{}
-	capabilityVisibility   struct{}
-	textAreaPix            struct{}
-	textAreaChar           struct{}
-	capabilitySgrPixels    struct{}
-	appID                  string
-	terminalID             string
+	primaryDeviceAttribute  struct{}
+	capabilitySixel         struct{}
+	capabilityOsc4          struct{}
+	capabilityOsc8          struct{}
+	capabilityOsc10         struct{}
+	capabilityOsc11         struct{}
+	synchronizedUpdates     struct{}
+	unicodeCoreCap          struct{}
+	kittyKeyboard           struct{}
+	kittyGraphics           struct{}
+	styledUnderlines        struct{}
+	truecolor               struct{}
+	notifyColorChange       struct{}
+	capabilityVisibility    struct{}
+	textAreaPix             struct{}
+	textAreaChar            struct{}
+	capabilitySgrPixels     struct{}
+	capabilityProgramStatus struct{}
+	appID                   string
+	terminalID              string
 )
 
 // Resize is delivered whenever a window size change is detected (likely via

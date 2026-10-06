@@ -47,6 +47,7 @@ const (
 	setAppID      = "\x1b]176;%s\x1b\\"
 	mouseShape    = "\x1b]22;%s\x1b\\"
 	explicitWidth = "\x1b]66;w=%d;%s\x1b\\"
+	programStatus = "\x1b]7501;%s\x1b\\"
 
 	// SGR
 	sgrReset           = "\x1b[m"

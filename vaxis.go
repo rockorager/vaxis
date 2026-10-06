@@ -38,6 +38,7 @@ type capabilities struct {
 	inBandResize       bool
 	explicitWidth      bool
 	sgrPixels          bool
+	programStatus      bool
 }
 
 type cursorState struct {
@@ -389,6 +390,11 @@ outer:
 				}
 				vx.mu.Lock()
 				vx.caps.sgrPixels = true
+				vx.mu.Unlock()
+			case capabilityProgramStatus:
+				log.Info("[capability] Program status (OSC 7501) supported")
+				vx.mu.Lock()
+				vx.caps.programStatus = true
 				vx.mu.Unlock()
 			}
 		}
@@ -1465,6 +1471,9 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 			}
 			vx.PostEvent(appID(vals[1]))
 		}
+		if strings.HasPrefix(string(seq.Payload), programStatusQuery) {
+			vx.PostEvent(capabilityProgramStatus{})
+		}
 	}
 }
 
@@ -1768,6 +1777,8 @@ func (vx *Vaxis) sendQueries() {
 	_, _ = vx.tw.WriteControlString(osc11)
 	// Back up the current app ID
 	_, _ = vx.tw.WriteControlString(getAppID)
+	// Program status protocol feature detection
+	_, _ = vx.tw.WriteControlString(tparm(programStatus, "?"))
 	// We request Smulx to check for styled underlines. Technically, Smulx
 	// only means the terminal supports different underline types (curly,
 	// dashed, etc), but we'll assume the terminal also suppports underline
