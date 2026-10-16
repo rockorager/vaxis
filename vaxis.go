@@ -2127,6 +2127,13 @@ func (vx *Vaxis) SetTitle(s string) {
 	vx.writeControlString(tparm(setTitle, stripControls(s)))
 }
 
+// SetTitleAndIconName sets both the terminal's title and its icon name via
+// OSC 0. Terminals that keep them separate, such as iTerm2, label tabs with
+// the icon name; terminals with a single title treat OSC 0 as OSC 2.
+func (vx *Vaxis) SetTitleAndIconName(s string) {
+	vx.writeControlString(tparm(setTitleIcon, stripControls(s)))
+}
+
 // SetPath sets the terminal's working directory via OSC 7
 func (vx *Vaxis) NotifyWorkingDirectory(s string) {
 	vx.writeControlString(tparm(setCWD, stripControls(s)))
