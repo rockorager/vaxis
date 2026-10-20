@@ -154,6 +154,7 @@ type Vaxis struct {
 	graphicsIDNext   uint64
 	graphicsEpoch    uint64
 	reqCursorPos     bool
+	cursorQueryMu    sync.Mutex
 	charCache        map[string]int
 	cursorNext       cursorState
 	cursorLast       cursorState
@@ -262,7 +263,7 @@ func New(opts Options) (*Vaxis, error) {
 	vx.chClipboard = make(chan string)
 	vx.chSigWinSz = make(chan os.Signal, 1)
 	vx.chSigKill = make(chan os.Signal, 1)
-	vx.chCursorPos = make(chan [2]int)
+	vx.chCursorPos = make(chan [2]int, 1)
 	vx.chQuit = make(chan bool)
 	vx.chSizeReport = make(chan sizeReport, 8)
 	vx.charCache = make(map[string]int, 256)
@@ -1143,15 +1144,18 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 			vx.mu.Lock()
 			reqCursorPos := vx.reqCursorPos
 			vx.reqCursorPos = false
+			if reqCursorPos && seq.NumParameters == 2 {
+				// CursorPosition may already have timed out. Never
+				// block the input loop on a reply nobody is waiting for.
+				select {
+				case vx.chCursorPos <- [2]int{seq.Param(0), seq.Param(1)}:
+				default:
+				}
+			}
 			vx.mu.Unlock()
 			if reqCursorPos {
 				if seq.NumParameters != 2 {
 					log.Error("not enough DSRCPR params")
-					return
-				}
-				vx.chCursorPos <- [2]int{
-					seq.Param(0),
-					seq.Param(1),
 				}
 				return
 			}
@@ -2050,11 +2054,19 @@ func (vx *Vaxis) showCursor() string {
 // -1,-1 if the query times out or fails
 func (vx *Vaxis) CursorPosition() (row int, col int) {
 	// DSRCPR - reports cursor position
+	vx.cursorQueryMu.Lock()
+	defer vx.cursorQueryMu.Unlock()
 	vx.mu.Lock()
+	// Discard a reply that arrived after a previous query timed out.
+	select {
+	case <-vx.chCursorPos:
+	default:
+	}
 	vx.reqCursorPos = true
 	vx.mu.Unlock()
 	vx.writeControlString(dsrcpr)
 	timeout := time.NewTimer(50 * time.Millisecond)
+	defer timeout.Stop()
 	select {
 	case <-timeout.C:
 		log.Warn("CursorPosition timed out")

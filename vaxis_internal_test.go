@@ -393,3 +393,63 @@ func TestResizeSameSizeIsIdempotent(t *testing.T) {
 		t.Fatalf("screenLast size = %dx%d, want 80x24", got, want)
 	}
 }
+
+func TestLateCursorPositionReportDoesNotBlockInput(t *testing.T) {
+	vx := &Vaxis{chCursorPos: make(chan [2]int, 1)}
+	// Simulate a reply racing a CursorPosition timeout: the request flag is
+	// still set, but nobody is receiving anymore.
+	vx.reqCursorPos = true
+
+	done := make(chan struct{})
+	go func() {
+		vx.handleSequence(ansi.CSI{
+			Parameters:    [ansi.InlineCSIParams]uint32{5, 5},
+			NumParameters: 2,
+			Final:         'R',
+		})
+		vx.reqCursorPos = true
+		vx.handleSequence(ansi.CSI{
+			Parameters:    [ansi.InlineCSIParams]uint32{6, 6},
+			NumParameters: 2,
+			Final:         'R',
+		})
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("late cursor position report blocked input handling")
+	}
+}
+
+type cursorReplyWriter struct {
+	vx *Vaxis
+}
+
+func (w cursorReplyWriter) Write(p []byte) (int, error) {
+	if string(p) == dsrcpr {
+		go w.vx.handleSequence(ansi.CSI{
+			Parameters:    [ansi.InlineCSIParams]uint32{3, 7},
+			NumParameters: 2,
+			Final:         'R',
+		})
+	}
+	return len(p), nil
+}
+
+func TestCursorPositionIgnoresStaleReport(t *testing.T) {
+	vx := &Vaxis{chCursorPos: make(chan [2]int, 1)}
+	vx.tw = &writer{
+		buf:      bytes.NewBuffer(nil),
+		terminal: &terminalWriter{w: cursorReplyWriter{vx: vx}},
+		vx:       vx,
+	}
+	// A reply left over from a query that timed out.
+	vx.chCursorPos <- [2]int{10, 10}
+
+	row, col := vx.CursorPosition()
+	if row != 2 || col != 6 {
+		t.Fatalf("CursorPosition() = %d,%d, want 2,6", row, col)
+	}
+}
