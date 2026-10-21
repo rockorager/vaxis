@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Prepares an Amp orb to run `mise run check`.
+set -euo pipefail
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+step() {
+	echo "==> $*"
+}
+
+if ! command -v mise >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/mise" ]; then
+	step "installing mise"
+	curl -fsSL https://mise.run | sh
+fi
+export PATH="$HOME/.local/bin:$PATH"
+
+# Put the mise shims on PATH for later login shells so plain `go`,
+# `gofumpt`, and `golangci-lint` resolve to the versions in mise.toml.
+profile_marker="# vaxis: mise shims"
+if ! grep -Fqx "$profile_marker" "$HOME/.bash_profile" 2>/dev/null; then
+	cat >>"$HOME/.bash_profile" <<'EOF'
+
+# vaxis: mise shims
+export PATH="$HOME/.local/share/mise/shims:$PATH"
+EOF
+fi
+
+step "trusting mise.toml"
+mise trust --quiet mise.toml
+
+step "installing tools"
+time mise install
+
+step "downloading Go modules"
+time mise exec -- go mod download
+
+step "building custom golangci-lint"
+time mise run custom-golangci-lint
