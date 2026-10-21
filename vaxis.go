@@ -159,6 +159,7 @@ type Vaxis struct {
 	cursorNext       cursorState
 	cursorLast       cursorState
 	closed           bool
+	suspended        bool
 	refresh          bool
 	kittyFlags       int
 	disableMouse     bool
@@ -621,6 +622,11 @@ func (w appendWriter) Write(p []byte) (int, error) {
 // that it is not visible, Render preserves the pending frame without writing
 // it; the latest frame is rendered when visibility returns.
 func (vx *Vaxis) Render() {
+	// While suspended another program owns the terminal; the next Render
+	// after Resume draws the pending frame.
+	if vx.suspended || vx.closed {
+		return
+	}
 	if vx.renderSuppressed() {
 		return
 	}
@@ -1892,6 +1898,7 @@ func (vx *Vaxis) disableModes() {
 	}
 	// Most terminals default to "text" mouse shape
 	_, _ = vx.tw.WriteControlString(tparm(mouseShape, MouseShapeTextInput))
+	vx.mouseShapeLast = MouseShapeTextInput
 }
 
 func (vx *Vaxis) enterAltScreen() {
@@ -1919,8 +1926,12 @@ func (vx *Vaxis) exitPrimaryScreen() {
 // stops listening for signals, and returns the terminal to it's original state.
 // Suspend can be useful to, for example, drop out of the full screen TUI and
 // run another TUI. The state of vaxis will be retained, so you can reenter the
-// original state by calling Resume
+// original state by calling Resume. Calling Suspend while already suspended
+// does nothing. Render does nothing while suspended.
 func (vx *Vaxis) Suspend() error {
+	if vx.suspended {
+		return nil
+	}
 	// HACK: The parser could be hanging for input. Because we have a handle
 	// on a real terminal, we can't "actually" close the FD, so the poll
 	// doesn't necessarily wake on the close call. However, we are the only
@@ -1951,6 +1962,7 @@ func (vx *Vaxis) Suspend() error {
 	signal.Stop(vx.chSigKill)
 	signal.Stop(vx.chSigWinSz)
 	_ = vx.tty.Reset()
+	vx.suspended = true
 	return nil
 }
 
@@ -1978,6 +1990,9 @@ func (vx *Vaxis) openTty() error {
 	}
 	vx.tw = newWriter(vx)
 	vx.parser = ansi.NewParser(vx.tty, ansi.ParserModeInput)
+	// Resume replaces vx.parser. Each input goroutine must keep reading the
+	// parser it was started with so it observes that parser's EOF and exits.
+	parser := vx.parser
 
 	go func() {
 		defer func() {
@@ -1988,7 +2003,7 @@ func (vx *Vaxis) openTty() error {
 		}()
 		for {
 			select {
-			case seq := <-vx.parser.Next():
+			case seq := <-parser.Next():
 				switch seq := seq.(type) {
 				case ansi.EOF:
 					return
@@ -2008,8 +2023,12 @@ func (vx *Vaxis) openTty() error {
 
 // Resume returns the application to it's fullscreen state, re-enters raw mode,
 // and reenables input parsing. Upon resuming, a Resize event will be delivered.
-// It is entirely possible the terminal was resized while suspended.
+// It is entirely possible the terminal was resized while suspended. Calling
+// Resume when not suspended does nothing.
 func (vx *Vaxis) Resume() error {
+	if !vx.suspended {
+		return nil
+	}
 	err := vx.openTty()
 	if err != nil {
 		return err
@@ -2023,6 +2042,7 @@ func (vx *Vaxis) Resume() error {
 	if !vx.noSignals {
 		vx.setupSignals()
 	}
+	vx.suspended = false
 	go vx.detectResize(false)
 	return nil
 }
