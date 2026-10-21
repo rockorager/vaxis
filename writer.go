@@ -48,6 +48,9 @@ func newWriter(vx *Vaxis) *writer {
 }
 
 func (w *writer) writeCUP(row int, col int) {
+	if primary := w.vx.primaryScreen; primary != nil && primary.positioned {
+		row += primary.origin
+	}
 	buf := [32]byte{}
 	b := buf[:0]
 	b = append(b, '\x1b', '[')

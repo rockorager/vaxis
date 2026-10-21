@@ -289,8 +289,19 @@ func (s *Sixel) Draw(win Window) {
 	col, row := win.Origin()
 	pw, ph := s.w, s.h
 	deleteFunc := func(w io.Writer) {
+		origin := 0
+		if p := s.vx.primaryScreen; p != nil {
+			if p.checked && !p.positioned {
+				// Resize invalidated the coordinates. Do not erase unrelated
+				// shell output using a stale absolute placement.
+				return
+			}
+			if p.positioned {
+				origin = p.origin
+			}
+		}
 		for y := 0; y < ph; y += 1 {
-			_, _ = fmt.Fprintf(w, "\x1b[%d;%dH%*s", row+y+1, col+1, pw, "")
+			_, _ = fmt.Fprintf(w, "\x1b[%d;%dH%*s", origin+row+y+1, col+1, pw, "")
 		}
 	}
 	log.Trace("placing sixel image at cell %d,%d", col, row)

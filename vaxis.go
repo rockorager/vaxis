@@ -113,6 +113,10 @@ type Options struct {
 type PrimaryScreenOptions struct {
 	// RegionHeight is the height of the live region.
 	RegionHeight int
+	// Mode selects inline, full-height main-screen, or split-footer rendering.
+	Mode PrimaryScreenMode
+	// ClearOnExit clears the live surface on suspend/close instead of keeping it.
+	ClearOnExit bool
 }
 
 type CSIuBitMask int
@@ -199,6 +203,12 @@ type primaryScreen struct {
 	rendered     bool
 	resized      bool
 	visualRows   int
+	mode         PrimaryScreenMode
+	clearOnExit  bool
+	checked      bool
+	positioned   bool
+	origin       int
+	generation   uint64
 }
 
 // New creates a new [Vaxis] instance. Calling New will query the underlying
@@ -235,10 +245,17 @@ func New(opts Options) (*Vaxis, error) {
 		visibility: visibilityState{disabled: opts.DisableVisibilityReports},
 	}
 	if opts.PrimaryScreen != nil {
-		if opts.PrimaryScreen.RegionHeight <= 0 {
+		if opts.PrimaryScreen.Mode > PrimarySplit {
+			return nil, fmt.Errorf("invalid primary screen mode")
+		}
+		if opts.PrimaryScreen.RegionHeight <= 0 && opts.PrimaryScreen.Mode != PrimaryMain {
 			return nil, fmt.Errorf("primary screen region height must be positive")
 		}
-		vx.primaryScreen = &primaryScreen{regionHeight: opts.PrimaryScreen.RegionHeight}
+		vx.primaryScreen = &primaryScreen{
+			regionHeight: opts.PrimaryScreen.RegionHeight,
+			mode:         opts.PrimaryScreen.Mode,
+			clearOnExit:  opts.PrimaryScreen.ClearOnExit,
+		}
 	}
 
 	if opts.EventQueueSize < 1 {
@@ -524,7 +541,7 @@ func (vx *Vaxis) Close() {
 }
 
 func (vx *Vaxis) surfaceSize(size Resize) (cols int, rows int) {
-	if vx.primaryScreen == nil {
+	if vx.primaryScreen == nil || vx.primaryScreen.mode == PrimaryMain {
 		return size.Cols, size.Rows
 	}
 	return size.Cols, min(vx.primaryScreen.regionHeight, size.Rows)
@@ -554,6 +571,7 @@ func (vx *Vaxis) SetPrimaryScreenRegionHeight(height int) {
 	if vx.primaryScreen.rendered {
 		vx.primaryScreen.visualRows = vx.primaryVisualRowsForWidth(vx.winSize.Cols)
 		vx.primaryScreen.resized = true
+		vx.primaryScreen.positioned = false
 	}
 	vx.primaryScreen.regionHeight = height
 	cols, rows := vx.surfaceSize(vx.winSize)
@@ -569,15 +587,14 @@ func (vx *Vaxis) Resize(size Resize) {
 	defer vx.mu.Unlock()
 	cols, rows := vx.surfaceSize(size)
 	oldCols, oldRows := vx.screenNext.size()
+	if vx.primaryScreen != nil && vx.primaryScreen.rendered && (size.Cols != vx.winSize.Cols || size.Rows != vx.winSize.Rows) {
+		vx.primaryScreen.visualRows = vx.primaryVisualRowsForWidth(cols)
+		vx.primaryScreen.resized = true
+		vx.primaryScreen.positioned = false
+	}
 	if cols != oldCols || rows != oldRows {
-		if vx.primaryScreen != nil && vx.primaryScreen.rendered {
-			vx.primaryScreen.visualRows = vx.primaryVisualRowsForWidth(cols)
-		}
 		vx.screenNext.resize(cols, rows)
 		vx.screenLast.resize(cols, rows)
-		if vx.primaryScreen != nil && vx.primaryScreen.rendered {
-			vx.primaryScreen.resized = true
-		}
 	}
 	vx.winSize = size
 	vx.refresh = true
@@ -625,6 +642,12 @@ func (vx *Vaxis) Render() {
 	// While suspended another program owns the terminal; the next Render
 	// after Resume draws the pending frame.
 	if vx.suspended || vx.closed {
+		return
+	}
+	if vx.primaryScreen != nil && (vx.primaryScreen.checked || vx.primaryScreen.mode != PrimaryInline) {
+		if err := vx.RenderFrame(); err != nil {
+			log.Error("render: %v", err)
+		}
 		return
 	}
 	if vx.renderSuppressed() {
@@ -970,20 +993,18 @@ func (vx *Vaxis) renderPrimary() {
 	}
 	regionRows := vx.screenNext.rows
 	if regionRows <= 0 || vx.winSize.Rows <= 0 || vx.winSize.Cols <= 0 {
-		primary.append = nil
 		return
 	}
 	regionChanged := vx.primaryRegionChanged()
 	if primary.rendered && len(primary.append) == 0 && !primary.resized && !vx.refresh && !regionChanged {
 		return
 	}
-	forceRegionPaint := false
+	forceRegionPaint := regionChanged || vx.refresh || vx.cursorNext.visible
 	if primary.rendered {
-		moveRows := regionRows
-		if primary.resized && primary.visualRows > moveRows {
-			moveRows = primary.visualRows
-		}
-		vx.moveToPrimaryRegionStart(moveRows)
+		// The visible cursor may be anywhere inside the region. Restore the
+		// saved end of the previous frame before walking over its occupied rows.
+		_, _ = vx.tw.WriteString("\x1b8")
+		vx.moveToPrimaryRegionStart(primary.visualRows)
 		_, _ = vx.tw.WriteString("\x1B[J")
 		primary.resized = false
 		forceRegionPaint = true
@@ -1020,6 +1041,7 @@ func (vx *Vaxis) renderPrimary() {
 	if paintedRegion {
 		primary.rendered = true
 		primary.visualRows = vx.primaryVisualRowsForWidth(vx.screenNext.cols)
+		_, _ = vx.tw.WriteString(sgrReset + "\x1b7")
 	}
 	_, _ = vx.tw.WriteString(sgrReset)
 }
@@ -1150,7 +1172,7 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 			vx.mu.Lock()
 			reqCursorPos := vx.reqCursorPos
 			vx.reqCursorPos = false
-			if reqCursorPos && seq.NumParameters == 2 {
+			if reqCursorPos && seq.NumParameters == 2 && seq.Param(0) > 0 && seq.Param(1) > 0 {
 				// CursorPosition may already have timed out. Never
 				// block the input loop on a reply nobody is waiting for.
 				select {
@@ -1278,9 +1300,14 @@ func (vx *Vaxis) handleSequence(seq ansi.Sequence) {
 			vx.mu.Lock()
 			ws := vx.winSize
 			sgrPixels := vx.caps.sgrPixels
+			var generation uint64
+			if p := vx.primaryScreen; p != nil && p.positioned && p.rendered {
+				generation = p.generation
+			}
 			vx.mu.Unlock()
 			mouse, ok := parseMouseEvent(seq, ws, sgrPixels)
 			if ok {
+				mouse.SurfaceGeneration = generation
 				vx.PostEventBlocking(mouse)
 			}
 			return
@@ -1916,8 +1943,39 @@ func (vx *Vaxis) exitAltScreen() {
 
 func (vx *Vaxis) exitPrimaryScreen() {
 	vx.HideCursor()
+	for _, placement := range vx.graphicsLast {
+		placement.deleteFn(vx.tw)
+	}
+	if len(vx.graphicsLast) > 0 {
+		_, _ = vx.tw.Flush()
+		vx.graphicsLast = nil
+	}
 	if vx.primaryScreen != nil && vx.primaryScreen.rendered {
-		_, _ = vx.tw.WriteControlString("\r\n\r")
+		if vx.primaryScreen.clearOnExit {
+			out := "\x1b8\r"
+			if !vx.primaryScreen.checked && vx.primaryScreen.visualRows > 1 {
+				out += tparm("\x1b[%dA", vx.primaryScreen.visualRows-1)
+			}
+			out += "\x1b7"
+			for y := 0; y < vx.primaryScreen.visualRows; y++ {
+				if y > 0 {
+					out += "\x1b[B"
+				}
+				out += "\x1b[2K"
+			}
+			_, _ = vx.tw.WriteControlString(out + "\x1b8\r")
+		} else {
+			out := "\x1b8\r"
+			if vx.primaryScreen.checked && vx.primaryScreen.visualRows > 1 {
+				out += tparm("\x1b[%dB", vx.primaryScreen.visualRows-1)
+			}
+			_, _ = vx.tw.WriteControlString(out + "\r\n\r")
+		}
+		vx.primaryScreen.rendered = false
+		vx.primaryScreen.positioned = false
+		vx.primaryScreen.resized = false
+		vx.primaryScreen.visualRows = 0
+		vx.refresh = true
 	}
 	_, _ = vx.tw.WriteControlString(showCursorSeq)
 }
@@ -2053,8 +2111,9 @@ func (vx *Vaxis) HideCursor() {
 }
 
 // ShowCursor shows the cursor at the given colxrow, with the given style. The
-// passed column and row are 0-indexed and global. To show the cursor relative
-// to a window, use [Window.ShowCursor]
+// passed column and row are 0-indexed within the root Window. In primary-screen
+// mode they are relative to the live region, not the physical terminal. To show
+// the cursor relative to a child window, use [Window.ShowCursor].
 func (vx *Vaxis) ShowCursor(col int, row int, style CursorStyle) {
 	vx.cursorNext.style = style
 	vx.cursorNext.col = col
@@ -2064,8 +2123,28 @@ func (vx *Vaxis) ShowCursor(col int, row int, style CursorStyle) {
 
 func (vx *Vaxis) showCursor() string {
 	buf := bytes.NewBuffer(nil)
+	if primary := vx.primaryScreen; primary != nil {
+		if !primary.rendered {
+			return hideCursorSeq
+		}
+		if primary.positioned {
+			return vx.cursorStyle() + tparm(cup, primary.origin+vx.cursorNext.row+1, vx.cursorNext.col+1) + showCursorSeq
+		}
+		// Restore the independently saved frame end before positioning a
+		// region-local cursor. This also handles cursor-only frames.
+		buf.WriteString("\x1b8\r")
+		up := vx.screenNext.rows - 1 - min(max(vx.cursorNext.row, 0), vx.screenNext.rows-1)
+		if up > 0 {
+			buf.WriteString(tparm("\x1b[%dA", up))
+		}
+		col := min(max(vx.cursorNext.col, 0), vx.screenNext.cols-1)
+		if col > 0 {
+			buf.WriteString(tparm("\x1b[%dC", col))
+		}
+	} else {
+		buf.WriteString(tparm(cup, vx.cursorNext.row+1, vx.cursorNext.col+1))
+	}
 	buf.WriteString(vx.cursorStyle())
-	buf.WriteString(tparm(cup, vx.cursorNext.row+1, vx.cursorNext.col+1))
 	buf.WriteString(showCursorSeq)
 	return buf.String()
 }
@@ -2255,11 +2334,12 @@ func (vx *Vaxis) CanKittyGraphics() bool {
 
 // SupportsKittyGraphics reports whether Kitty is the selected graphics
 // protocol and the terminal has supplied usable cell pixel geometry.
-// Primary-screen rendering does not support Kitty placements.
+// Primary-screen callers must use RenderFrame to position and render placements;
+// the legacy inline Render path does not support graphics.
 func (vx *Vaxis) SupportsKittyGraphics() bool {
 	vx.mu.Lock()
 	defer vx.mu.Unlock()
-	return vx.primaryScreen == nil && vx.graphicsProtocol == kitty && vx.winSize.Cols > 0 && vx.winSize.Rows > 0 &&
+	return vx.graphicsProtocol == kitty && vx.winSize.Cols > 0 && vx.winSize.Rows > 0 &&
 		vx.winSize.XPixel/vx.winSize.Cols > 0 && vx.winSize.YPixel/vx.winSize.Rows > 0
 }
 

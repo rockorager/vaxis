@@ -14,6 +14,10 @@ type Mouse struct {
 	Modifiers ModifierMask
 	XPixel    int
 	YPixel    int
+	// SurfaceGeneration identifies the checked primary-screen placement when
+	// this event was parsed. Zero means no valid checked placement. Coordinates
+	// remain terminal-relative, including events outside the live region.
+	SurfaceGeneration uint64
 }
 
 // MouseButton represents a mouse button
