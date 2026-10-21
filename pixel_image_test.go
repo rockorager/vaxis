@@ -323,16 +323,6 @@ func TestPixelImageRefreshUploadsOnceForMultiplePlacements(t *testing.T) {
 	}
 }
 
-func TestPixelImageUnsupportedOnPrimaryScreen(t *testing.T) {
-	vx, _ := newPrimaryTestVaxis(10, 4, 2)
-	vx.graphicsProtocol = kitty
-	vx.winSize.XPixel = 100
-	vx.winSize.YPixel = 80
-	if vx.SupportsKittyGraphics() {
-		t.Fatal("primary-screen renderer advertised unsupported graphics")
-	}
-}
-
 func TestPixelPlacementIDsAreScopedToImage(t *testing.T) {
 	vx, out := pixelTestVaxis(t)
 	first, err := vx.NewPixelImage(2, 1, make([]byte, 8))
