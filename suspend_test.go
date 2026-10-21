@@ -25,7 +25,9 @@ func newSuspendTestConsole() *suspendTestConsole {
 	return &suspendTestConsole{r: r, w: w}
 }
 
-func (c *suspendTestConsole) Read(p []byte) (int, error) { return c.r.Read(p) }
+func (c *suspendTestConsole) Read(p []byte) (int, error) {
+	return c.r.Read(p)
+}
 
 func (c *suspendTestConsole) Write(p []byte) (int, error) {
 	c.mu.Lock()
@@ -37,7 +39,9 @@ func (c *suspendTestConsole) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func (c *suspendTestConsole) Fd() uintptr { return 0 }
+func (c *suspendTestConsole) Fd() uintptr {
+	return 0
+}
 
 func (c *suspendTestConsole) SetRaw() error {
 	c.mu.Lock()
@@ -46,7 +50,9 @@ func (c *suspendTestConsole) SetRaw() error {
 	return nil
 }
 
-func (c *suspendTestConsole) Reset() error { return nil }
+func (c *suspendTestConsole) Reset() error {
+	return nil
+}
 
 func (c *suspendTestConsole) Size() (int, int, int, int, error) {
 	return 20, 5, 0, 0, nil
