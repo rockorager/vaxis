@@ -171,6 +171,8 @@ var (
 
 	hideCursorSeq      = "\x1B[?25l"
 	showCursorSeq      = "\x1B[?25h"
+	saveCursorSeq      = "\x1B7"
+	restoreCursorSeq   = "\x1B8"
 	syncUpdateStartSeq = "\x1B[?2026h"
 	syncUpdateEndSeq   = "\x1B[?2026l"
 )

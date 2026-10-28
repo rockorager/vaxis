@@ -979,11 +979,11 @@ func (vx *Vaxis) renderPrimary() {
 	}
 	forceRegionPaint := false
 	if primary.rendered {
-		moveRows := regionRows
-		if primary.resized && primary.visualRows > moveRows {
-			moveRows = primary.visualRows
-		}
-		vx.moveToPrimaryRegionStart(moveRows)
+		// A visible cursor may have moved anywhere inside the region, so
+		// start from the saved end of the previous frame. visualRows is the
+		// height that frame occupies, which may differ from the new region.
+		_, _ = vx.tw.WriteString(restoreCursorSeq)
+		vx.moveToPrimaryRegionStart(primary.visualRows)
 		_, _ = vx.tw.WriteString("\x1B[J")
 		primary.resized = false
 		forceRegionPaint = true
@@ -1017,11 +1017,12 @@ func (vx *Vaxis) renderPrimary() {
 		}
 		paintedRegion = true
 	}
+	_, _ = vx.tw.WriteString(sgrReset)
 	if paintedRegion {
 		primary.rendered = true
 		primary.visualRows = vx.primaryVisualRowsForWidth(vx.screenNext.cols)
+		_, _ = vx.tw.WriteString(saveCursorSeq)
 	}
-	_, _ = vx.tw.WriteString(sgrReset)
 }
 
 func (vx *Vaxis) primaryRegionChanged() bool {
@@ -1916,8 +1917,14 @@ func (vx *Vaxis) exitAltScreen() {
 
 func (vx *Vaxis) exitPrimaryScreen() {
 	vx.HideCursor()
-	if vx.primaryScreen != nil && vx.primaryScreen.rendered {
-		_, _ = vx.tw.WriteControlString("\r\n\r")
+	if primary := vx.primaryScreen; primary != nil && primary.rendered {
+		_, _ = vx.tw.WriteControlString(restoreCursorSeq + "\r\n\r")
+		// Output written while suspended belongs above the region, so Resume
+		// starts a new region at the cursor instead of repainting this one.
+		primary.rendered = false
+		primary.resized = false
+		primary.visualRows = 0
+		vx.refresh = true
 	}
 	_, _ = vx.tw.WriteControlString(showCursorSeq)
 }
@@ -2053,8 +2060,9 @@ func (vx *Vaxis) HideCursor() {
 }
 
 // ShowCursor shows the cursor at the given colxrow, with the given style. The
-// passed column and row are 0-indexed and global. To show the cursor relative
-// to a window, use [Window.ShowCursor]
+// passed column and row are 0-indexed and global. In primary-screen mode they
+// are relative to the live region. To show the cursor relative to a window, use
+// [Window.ShowCursor]
 func (vx *Vaxis) ShowCursor(col int, row int, style CursorStyle) {
 	vx.cursorNext.style = style
 	vx.cursorNext.col = col
@@ -2065,7 +2073,23 @@ func (vx *Vaxis) ShowCursor(col int, row int, style CursorStyle) {
 func (vx *Vaxis) showCursor() string {
 	buf := bytes.NewBuffer(nil)
 	buf.WriteString(vx.cursorStyle())
-	buf.WriteString(tparm(cup, vx.cursorNext.row+1, vx.cursorNext.col+1))
+	if primary := vx.primaryScreen; primary != nil {
+		if !primary.rendered {
+			return hideCursorSeq
+		}
+		// The region has no fixed screen row. Move relative to the saved end
+		// of the frame, which is on the region's last row.
+		buf.WriteString(restoreCursorSeq + "\r")
+		row := min(max(vx.cursorNext.row, 0), vx.screenNext.rows-1)
+		if up := vx.screenNext.rows - 1 - row; up > 0 {
+			buf.WriteString(tparm("\x1B[%dA", up))
+		}
+		if col := min(max(vx.cursorNext.col, 0), vx.screenNext.cols-1); col > 0 {
+			buf.WriteString(tparm("\x1B[%dC", col))
+		}
+	} else {
+		buf.WriteString(tparm(cup, vx.cursorNext.row+1, vx.cursorNext.col+1))
+	}
 	buf.WriteString(showCursorSeq)
 	return buf.String()
 }

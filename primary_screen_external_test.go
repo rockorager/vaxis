@@ -428,3 +428,88 @@ func TestPrimaryScreenResizeAfterAppendKeepsRegionAfterWrappedAppend(t *testing.
 		t.Fatalf("row 4 = %q, want %q; rows=%#v", got, want, rows)
 	}
 }
+
+// newPrimaryModel starts a primary-screen Vaxis below two lines of shell
+// output. frame draws text into the region, renders it, and feeds the output
+// to the terminal model.
+func newPrimaryModel(t *testing.T, opts vaxis.PrimaryScreenOptions) (*vaxis.Vaxis, *primaryConsole, *term.Model, func(string)) {
+	t.Helper()
+	console := newPrimaryConsole(40, 10)
+	vx, err := vaxis.New(vaxis.Options{
+		DisableMouse:  true,
+		NoSignals:     true,
+		WithConsole:   console,
+		PrimaryScreen: &opts,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(vx.Close)
+	console.ResetOutput()
+	vt := term.New()
+	vt.Resize(40, 10)
+	vt.Focus()
+	vt.WriteString("shell 1\r\nshell 2\r\n")
+	frame := func(text string) {
+		win := vx.Window()
+		win.Clear()
+		win.Print(vaxis.Segment{Text: text})
+		vx.Render()
+		vt.WriteString(console.Output())
+		console.ResetOutput()
+	}
+	return vx, console, vt, frame
+}
+
+func wantPrimaryRows(t *testing.T, vt *term.Model, want ...string) {
+	t.Helper()
+	for i, w := range want {
+		if got := strings.TrimRight(vt.RowString(i), " "); got != w {
+			t.Fatalf("row %d = %q, want %q; rows=%#v", i, got, w, vt.Rows())
+		}
+	}
+}
+
+func TestPrimaryScreenVisibleCursorStaysInRegion(t *testing.T) {
+	vx, console, vt, frame := newPrimaryModel(t, vaxis.PrimaryScreenOptions{RegionHeight: 2})
+
+	vx.ShowCursor(3, 0, vaxis.CursorDefault)
+	frame("aaa\nbbb")
+	if s := vt.Snapshot(); s.CursorRow != 2 || s.CursorCol != 3 {
+		t.Fatalf("cursor = %d,%d, want 2,3", s.CursorRow, s.CursorCol)
+	}
+	frame("ccc\nddd")
+	wantPrimaryRows(t, vt, "shell 1", "shell 2", "ccc", "ddd")
+
+	vx.Close()
+	vt.WriteString(console.Output())
+	vt.WriteString("prompt")
+	wantPrimaryRows(t, vt, "shell 1", "shell 2", "ccc", "ddd", "prompt")
+}
+
+func TestPrimaryScreenGrowingRegionKeepsShellOutput(t *testing.T) {
+	vx, _, vt, frame := newPrimaryModel(t, vaxis.PrimaryScreenOptions{RegionHeight: 2})
+
+	frame("aaa\nbbb")
+	vx.SetPrimaryScreenRegionHeight(3)
+	frame("aaa\nbbb\nccc")
+	wantPrimaryRows(t, vt, "shell 1", "shell 2", "aaa", "bbb", "ccc")
+}
+
+func TestPrimaryScreenResumeStartsRegionAfterChildOutput(t *testing.T) {
+	vx, console, vt, frame := newPrimaryModel(t, vaxis.PrimaryScreenOptions{RegionHeight: 2})
+
+	frame("aaa\nbbb")
+	if err := vx.Suspend(); err != nil {
+		t.Fatal(err)
+	}
+	vt.WriteString(console.Output())
+	console.ResetOutput()
+	vt.WriteString("child output\r\n")
+	if err := vx.Resume(); err != nil {
+		t.Fatal(err)
+	}
+	vx.Resize(vx.Size())
+	frame("ccc\nddd")
+	wantPrimaryRows(t, vt, "shell 1", "shell 2", "aaa", "bbb", "child output", "ccc", "ddd")
+}
