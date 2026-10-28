@@ -673,20 +673,7 @@ func (vx *Vaxis) render() {
 		reposition bool
 		cursor     Style
 	)
-	if vx.refresh {
-		// Invalidate even uploads with no placements in this frame. They will
-		// be retransmitted lazily when they next become visible.
-		vx.graphicsEpoch++
-	}
-	for i, p := range vx.graphicsNext {
-		if p.pixelImage != nil && p.generation != p.pixelImage.generation {
-			// Preserve the last frame's snapshot when an already-queued image
-			// is invalidated. Reuploading it removes all terminal placements.
-			next := *p
-			next.generation = p.pixelImage.generation
-			vx.graphicsNext[i] = &next
-		}
-	}
+	vx.prepareGraphics()
 outerLast:
 	// Delete any placements we don't have this round
 	for _, p1 := range vx.graphicsLast {
@@ -968,6 +955,24 @@ outerNew:
 	}
 }
 
+// prepareGraphics updates queued placements for this frame. Callers hold vx.mu.
+func (vx *Vaxis) prepareGraphics() {
+	if vx.refresh {
+		// Invalidate even uploads with no placements in this frame. They will
+		// be retransmitted lazily when they next become visible.
+		vx.graphicsEpoch++
+	}
+	for i, p := range vx.graphicsNext {
+		if p.pixelImage != nil && p.generation != p.pixelImage.generation {
+			// Preserve the last frame's snapshot when an already-queued image
+			// is invalidated. Reuploading it removes all terminal placements.
+			next := *p
+			next.generation = p.pixelImage.generation
+			vx.graphicsNext[i] = &next
+		}
+	}
+}
+
 func (vx *Vaxis) renderPrimary() {
 	vx.mu.Lock()
 	defer vx.mu.Unlock()
@@ -980,17 +985,27 @@ func (vx *Vaxis) renderPrimary() {
 		primary.append = nil
 		return
 	}
+	vx.prepareGraphics()
+	graphics := vx.primaryPlacements()
+	graphicsChanged := !samePlacements(vx.graphicsLast, graphics)
 	regionChanged := vx.primaryRegionChanged()
-	if primary.rendered && len(primary.append) == 0 && !primary.resized && !vx.refresh && !regionChanged {
+	if primary.rendered && len(primary.append) == 0 && !primary.resized && !vx.refresh && !regionChanged && !graphicsChanged {
 		return
 	}
-	forceRegionPaint := false
+	forceRegionPaint := graphicsChanged
 	if primary.rendered {
 		// A visible cursor may have moved anywhere inside the region, so
 		// start from the saved end of the previous frame. visualRows is the
 		// height that frame occupies, which may differ from the new region.
 		_, _ = vx.tw.WriteString(restoreCursorSeq)
 		vx.moveToPrimaryRegionStart(primary.visualRows)
+		// Erasing text leaves images in place, and appended output scrolls
+		// them with the text. Delete every placement and place them again
+		// after the region is painted.
+		for _, p := range vx.graphicsLast {
+			p.deleteFn(vx.tw)
+		}
+		vx.graphicsLast = nil
 		_, _ = vx.tw.WriteString("\x1B[J")
 		primary.resized = false
 		forceRegionPaint = true
@@ -1025,11 +1040,53 @@ func (vx *Vaxis) renderPrimary() {
 		paintedRegion = true
 	}
 	_, _ = vx.tw.WriteString(sgrReset)
-	if paintedRegion {
-		primary.rendered = true
-		primary.visualRows = vx.primaryVisualRowsForWidth(vx.screenNext.cols)
-		_, _ = vx.tw.WriteString(saveCursorSeq)
+	if !paintedRegion {
+		return
 	}
+	primary.rendered = true
+	primary.visualRows = vx.primaryVisualRowsForWidth(vx.screenNext.cols)
+	_, _ = vx.tw.WriteString(saveCursorSeq)
+	// Place images relative to the saved frame end, which is on the
+	// region's last row.
+	for _, p := range graphics {
+		_, _ = vx.tw.WriteString(restoreCursorSeq + "\r")
+		if up := vx.screenNext.rows - 1 - p.row; up > 0 {
+			_, _ = vx.tw.WriteString(tparm("\x1B[%dA", up))
+		}
+		if p.col > 0 {
+			_, _ = vx.tw.WriteString(tparm("\x1B[%dC", p.col))
+		}
+		p.writeTo(vx.tw)
+	}
+	if len(graphics) > 0 {
+		_, _ = vx.tw.WriteString(restoreCursorSeq)
+	}
+	vx.graphicsLast = graphics
+}
+
+// primaryPlacements returns the queued placements the primary-screen renderer
+// can draw: PixelImage placements that start inside the region. Other image
+// types position or erase themselves with absolute coordinates.
+func (vx *Vaxis) primaryPlacements() []*placement {
+	var placements []*placement
+	for _, p := range vx.graphicsNext {
+		if p.pixelImage != nil && p.row < vx.screenNext.rows && p.col < vx.screenNext.cols {
+			placements = append(placements, p)
+		}
+	}
+	return placements
+}
+
+func samePlacements(a, b []*placement) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if !samePlacement(a[i], b[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 func (vx *Vaxis) primaryRegionChanged() bool {
@@ -1925,6 +1982,14 @@ func (vx *Vaxis) exitAltScreen() {
 func (vx *Vaxis) exitPrimaryScreen() {
 	vx.HideCursor()
 	if primary := vx.primaryScreen; primary != nil && primary.rendered {
+		// Placement IDs are reused after Resume and by later programs, so
+		// images do not outlive the region.
+		var del bytes.Buffer
+		for _, p := range vx.graphicsLast {
+			p.deleteFn(&del)
+		}
+		vx.graphicsLast = nil
+		_, _ = vx.tw.WriteControl(del.Bytes())
 		if primary.clearOnExit {
 			out := restoreCursorSeq + "\r"
 			if primary.visualRows > 1 {
@@ -2294,11 +2359,10 @@ func (vx *Vaxis) CanKittyGraphics() bool {
 
 // SupportsKittyGraphics reports whether Kitty is the selected graphics
 // protocol and the terminal has supplied usable cell pixel geometry.
-// Primary-screen rendering does not support Kitty placements.
 func (vx *Vaxis) SupportsKittyGraphics() bool {
 	vx.mu.Lock()
 	defer vx.mu.Unlock()
-	return vx.primaryScreen == nil && vx.graphicsProtocol == kitty && vx.winSize.Cols > 0 && vx.winSize.Rows > 0 &&
+	return vx.graphicsProtocol == kitty && vx.winSize.Cols > 0 && vx.winSize.Rows > 0 &&
 		vx.winSize.XPixel/vx.winSize.Cols > 0 && vx.winSize.YPixel/vx.winSize.Rows > 0
 }
 

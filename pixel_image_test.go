@@ -323,13 +323,54 @@ func TestPixelImageRefreshUploadsOnceForMultiplePlacements(t *testing.T) {
 	}
 }
 
-func TestPixelImageUnsupportedOnPrimaryScreen(t *testing.T) {
-	vx, _ := newPrimaryTestVaxis(10, 4, 2)
+func TestPixelImageFollowsPrimaryScreenRegion(t *testing.T) {
+	vx, tty := newPrimaryTestVaxis(10, 4, 2)
 	vx.graphicsProtocol = kitty
 	vx.winSize.XPixel = 100
 	vx.winSize.YPixel = 80
-	if vx.SupportsKittyGraphics() {
-		t.Fatal("primary-screen renderer advertised unsupported graphics")
+	if !vx.SupportsKittyGraphics() {
+		t.Fatal("primary-screen renderer did not advertise kitty graphics")
+	}
+	img, err := vx.NewPixelImage(2, 1, make([]byte, 8))
+	if err != nil {
+		t.Fatal(err)
+	}
+	place := "\x1b_Ga=p,i=1,p=3,"
+	del := "\x1b_Ga=d,d=i,i=1,p=3,q=2\x1b\\"
+	frame := func() string {
+		tty.Buffer.Reset()
+		vx.Window().Clear()
+		vx.Window().Print(Segment{Text: "a\nb"})
+		at := placementForTest()
+		at.Column = 3
+		img.Draw(at)
+		vx.Render()
+		return tty.String()
+	}
+
+	// The region has no fixed screen row: place relative to the saved frame
+	// end on the region's last row.
+	out := frame()
+	if !strings.Contains(out, saveCursorSeq+restoreCursorSeq+"\r\x1b[1A\x1b[3C"+"\x1b_Ga=t,") || !strings.Contains(out, place) {
+		t.Fatalf("first frame did not place image relative to region: %q", out)
+	}
+
+	// Erasing text leaves images behind and appends scroll them, so a
+	// repaint deletes the placement before erasing and places it again.
+	vx.AppendString("log\n")
+	out = frame()
+	erase := strings.Index(out, "\x1B[J")
+	if d := strings.Index(out, del); d < 0 || erase < 0 || d > erase {
+		t.Fatalf("repaint did not delete placement before erasing: %q", out)
+	}
+	if p := strings.Index(out, place); p < strings.Index(out, saveCursorSeq) {
+		t.Fatalf("repaint did not place image after painting region: %q", out)
+	}
+
+	tty.Buffer.Reset()
+	vx.exitPrimaryScreen()
+	if !strings.Contains(tty.String(), del) {
+		t.Fatalf("exit left image placement behind: %q", tty.String())
 	}
 }
 

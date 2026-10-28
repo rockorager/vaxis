@@ -82,6 +82,9 @@ content remains normal terminal output.
 Vaxis leaves the final frame in place on `Close`; set `ClearOnExit` to erase the
 live region instead.
 
+Kitty images drawn with `PixelImage` move with the live region. Vaxis removes
+them on `Suspend` and `Close`, even when the final frame's text stays.
+
 The `ui` package can use the same mode. `WithDynamicPrimaryScreen` measures the
 root widget and resizes the live region to the widget's preferred height each
 frame:
