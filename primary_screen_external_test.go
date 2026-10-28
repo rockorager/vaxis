@@ -513,3 +513,17 @@ func TestPrimaryScreenResumeStartsRegionAfterChildOutput(t *testing.T) {
 	frame("ccc\nddd")
 	wantPrimaryRows(t, vt, "shell 1", "shell 2", "aaa", "bbb", "child output", "ccc", "ddd")
 }
+
+func TestPrimaryScreenClearOnExitErasesRegion(t *testing.T) {
+	vx, console, vt, frame := newPrimaryModel(t, vaxis.PrimaryScreenOptions{RegionHeight: 3, ClearOnExit: true})
+
+	vx.ShowCursor(1, 0, vaxis.CursorDefault)
+	frame("aaa\nbbb\nccc")
+	vx.AppendString("log\n")
+	frame("aaa\nbbb\nccc")
+
+	vx.Close()
+	vt.WriteString(console.Output())
+	vt.WriteString("prompt")
+	wantPrimaryRows(t, vt, "shell 1", "shell 2", "log", "prompt", "", "", "")
+}

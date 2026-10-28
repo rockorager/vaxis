@@ -113,6 +113,9 @@ type Options struct {
 type PrimaryScreenOptions struct {
 	// RegionHeight is the height of the live region.
 	RegionHeight int
+	// ClearOnExit erases the live region on Suspend and Close instead of
+	// leaving the final frame in the terminal.
+	ClearOnExit bool
 }
 
 type CSIuBitMask int
@@ -199,6 +202,7 @@ type primaryScreen struct {
 	rendered     bool
 	resized      bool
 	visualRows   int
+	clearOnExit  bool
 }
 
 // New creates a new [Vaxis] instance. Calling New will query the underlying
@@ -238,7 +242,10 @@ func New(opts Options) (*Vaxis, error) {
 		if opts.PrimaryScreen.RegionHeight <= 0 {
 			return nil, fmt.Errorf("primary screen region height must be positive")
 		}
-		vx.primaryScreen = &primaryScreen{regionHeight: opts.PrimaryScreen.RegionHeight}
+		vx.primaryScreen = &primaryScreen{
+			regionHeight: opts.PrimaryScreen.RegionHeight,
+			clearOnExit:  opts.PrimaryScreen.ClearOnExit,
+		}
 	}
 
 	if opts.EventQueueSize < 1 {
@@ -1918,7 +1925,15 @@ func (vx *Vaxis) exitAltScreen() {
 func (vx *Vaxis) exitPrimaryScreen() {
 	vx.HideCursor()
 	if primary := vx.primaryScreen; primary != nil && primary.rendered {
-		_, _ = vx.tw.WriteControlString(restoreCursorSeq + "\r\n\r")
+		if primary.clearOnExit {
+			out := restoreCursorSeq + "\r"
+			if primary.visualRows > 1 {
+				out += tparm("\x1B[%dA", primary.visualRows-1)
+			}
+			_, _ = vx.tw.WriteControlString(out + "\x1B[J")
+		} else {
+			_, _ = vx.tw.WriteControlString(restoreCursorSeq + "\r\n\r")
+		}
 		// Output written while suspended belongs above the region, so Resume
 		// starts a new region at the cursor instead of repainting this one.
 		primary.rendered = false

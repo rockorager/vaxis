@@ -79,6 +79,8 @@ vx.Render()
 The primary screen is owned by the terminal, so existing shell scrollback may
 reflow on resize. Vaxis repaints the live region after resize, but appended
 content remains normal terminal output.
+Vaxis leaves the final frame in place on `Close`; set `ClearOnExit` to erase the
+live region instead.
 
 The `ui` package can use the same mode. `WithDynamicPrimaryScreen` measures the
 root widget and resizes the live region to the widget's preferred height each
