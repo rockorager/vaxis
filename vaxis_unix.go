@@ -1,4 +1,4 @@
-//go:build darwin || freebsd || linux || netbsd || openbsd || zos
+//go:build darwin || freebsd || linux || netbsd || openbsd || zos || illumos
 
 package vaxis
 
